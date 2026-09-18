@@ -20,13 +20,15 @@ Item {
   property bool capsLock: false
   property bool numLock: false
 
-  signal toggleRequested(string name, string screenName)
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.3.0"
+
+  signal toggleRequested(string name, string screenName, string arg)
 
   function focusedScreen() {
     const m = Hyprland.focusedMonitor
     return m ? m.name : (Quickshell.screens.length ? Quickshell.screens[0].name : "")
   }
-  function toggle(name) { toggleRequested(name, focusedScreen()) }
+  function toggle(name, arg) { toggleRequested(name, focusedScreen(), arg || "") }
 
   // Bundled fonts (Caelestia's Google Sans Flex and Rubik).
   FontLoader { source: Qt.resolvedUrl("assets/fonts/GoogleSansFlex.ttf") }
@@ -42,7 +44,27 @@ Item {
     function launcher(): void { root.toggle("launcher") }
     function dashboard(): void { root.toggle("dashboard") }
     function session(): void { root.toggle("session") }
+    function settings(): void { root.toggle("settings") }
+    function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
+  }
+
+  // Transparency: blur the Omacale layer behind translucent surfaces. This is
+  // a runtime Hyprland rule (hyprctl eval) — nothing is written to
+  // ~/.config/hypr, and it disappears on the next Hyprland reload.
+  readonly property bool blur: Config.o.appearance.transparency.enabled
+  readonly property real ignoreAlpha: Math.max(0, Config.o.appearance.transparency.layers - 0.05)
+  function applyBlur() {
+    Quickshell.execDetached(["hyprctl", "eval",
+      'hl.layer_rule({ match = { namespace = "omacale" }, blur = ' + (blur ? "true" : "false") +
+      ', ignore_alpha = ' + ignoreAlpha.toFixed(2) + ' })'])
+  }
+  onBlurChanged: applyBlur()
+  onIgnoreAlphaChanged: if (blur) applyBlur()
+  Component.onCompleted: if (blur) applyBlur()
+  Connections {
+    target: Hyprland
+    function onRawEvent(e) { if (e.name === "configreloaded" && root.blur) root.applyBlur() }
   }
 
   // omarchy-toggle-bar pings this target after flipping its flag.

@@ -11,15 +11,25 @@ Item {
   property var host
   property bool active: false
   property int tab: 0
-  readonly property var tabs: [
-    { icon: "dashboard", text: "Dashboard" },
-    { icon: "queue_music", text: "Media" },
-    { icon: "speed", text: "Performance" },
-    { icon: "cloud", text: "Weather" }
+  readonly property var cfg: Config.o.dashboard
+  readonly property var allTabs: [
+    { id: "dashboard", icon: "dashboard", text: "Dashboard", page: dash },
+    { id: "media", icon: "queue_music", text: "Media", page: media },
+    { id: "performance", icon: "speed", text: "Performance", page: perf },
+    { id: "weather", icon: "cloud", text: "Weather", page: weather }
   ]
+  readonly property var tabs: {
+    const t = allTabs.filter(x => cfg.tabs[x.id])
+    return t.length ? t : [allTabs[0]]
+  }
+  onTabsChanged: tab = Math.min(tab, tabs.length - 1)
+  function selectTab(id) {
+    const i = tabs.findIndex(t => t.id === id)
+    if (i >= 0) tab = i
+  }
 
-  readonly property var pages: [dash, media, perf, weather]
-  readonly property Item page: pages[tab]
+  readonly property Item page: tabs[Math.min(tab, tabs.length - 1)].page
+  readonly property bool h12: !Config.o.general.clock24
   readonly property real margins: Tk.padding.large
 
   implicitWidth: page.implicitWidth + margins * 2
@@ -123,10 +133,10 @@ Item {
       x: -root.page.x
       spacing: 0
       Behavior on x { Anim {} }
-      Dash { id: dash }
-      MediaPage { id: media }
-      PerfPage { id: perf }
-      WeatherPage { id: weather }
+      Dash { id: dash; visible: root.cfg.tabs.dashboard || root.tabs[0].id === "dashboard" }
+      MediaPage { id: media; visible: root.cfg.tabs.media }
+      PerfPage { id: perf; visible: root.cfg.tabs.performance }
+      WeatherPage { id: weather; visible: root.cfg.tabs.weather }
     }
   }
 
@@ -183,9 +193,12 @@ Item {
       ColumnLayout {
         anchors.centerIn: parent
         spacing: 0
-        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "HH"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
+        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, root.h12 ? "hh" : "HH"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
         MText { Layout.alignment: Qt.AlignHCenter; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }
         MText { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "mm"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
+        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }
+        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "ss"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
+        MText { visible: root.h12; Layout.alignment: Qt.AlignHCenter; text: Qt.formatTime(clock.date, "AP"); color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 18; weight: Font.DemiBold }
       }
     }
 
@@ -476,6 +489,7 @@ Item {
       }
     }
     AnimatedImage {
+      visible: root.cfg.mediaGif
       anchors.bottom: parent.bottom
       anchors.left: parent.left; anchors.right: parent.right
       anchors.margins: Tk.padding.extraLargeIncreased

@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
 import Quickshell.Bluetooth
+import Quickshell.Services.Pipewire
 
 // The Caelestia bar: logo, workspaces, active window, tray, clock, status
 // icons, power — in Caelestia's default order and metrics.
@@ -16,11 +17,12 @@ Item {
   required property var scope
 
   readonly property int vPadding: Tk.padding.large
+  readonly property var cfg: Config.o.bar
 
   // Popout lookup for a y coordinate on the bar (Caelestia Bar.checkPopout).
   function popoutAt(y) {
     const p = mapToItem(statusCol, 0, y)
-    if (p.y >= -statusPill.anchorsPad && p.y <= statusCol.height + statusPill.anchorsPad) {
+    if (cfg.popouts.statusIcons && p.y >= -statusPill.anchorsPad && p.y <= statusCol.height + statusPill.anchorsPad) {
       for (let i = 0; i < statusCol.children.length; i++) {
         const c = statusCol.children[i]
         if (!c.visible || !c.popout) continue
@@ -29,7 +31,7 @@ Item {
       }
     }
     const t = mapToItem(trayCol, 0, y)
-    if (trayCol.visible && t.y >= 0 && t.y <= trayCol.height) {
+    if (cfg.popouts.tray && trayCol.visible && t.y >= 0 && t.y <= trayCol.height) {
       for (let i = 0; i < trayRep.count; i++) {
         const it = trayRep.itemAt(i)
         if (t.y >= it.y - 4 && t.y <= it.y + it.height + 4)
@@ -37,20 +39,21 @@ Item {
       }
     }
     const w = mapToItem(activeWin, 0, y)
-    if (activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Hyprland.activeToplevel)
+    if (cfg.popouts.activeWindow && activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Hyprland.activeToplevel)
       return { name: "activewindow", center: activeWin.mapToItem(root, 0, activeWin.height / 2).y }
     return null
   }
 
   function handleWheel(y, dy) {
     const ws = mapToItem(workspaces, 0, y)
-    if (ws.y >= 0 && ws.y <= workspaces.height) { Sys.workspace(dy > 0 ? "r-1" : "r+1"); return }
-    if (y < height / 2) Sys.run(dy > 0 ? "swayosd-client --output-volume raise || wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"
-                                       : "swayosd-client --output-volume lower || wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-")
-    else Sys.run(dy > 0 ? "swayosd-client --brightness raise || brightnessctl set 5%+" : "swayosd-client --brightness lower || brightnessctl set 5%-")
+    if (ws.y >= 0 && ws.y <= workspaces.height) { if (cfg.scroll.workspaces) Sys.workspace(dy > 0 ? "r-1" : "r+1"); return }
+    if (y < height / 2) { if (cfg.scroll.volume) Sys.run(dy > 0 ? "swayosd-client --output-volume raise || wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"
+                                       : "swayosd-client --output-volume lower || wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-") }
+    else if (cfg.scroll.brightness) Sys.run(dy > 0 ? "swayosd-client --brightness raise || brightnessctl set 5%+" : "swayosd-client --brightness lower || brightnessctl set 5%-")
   }
 
-  SystemClock { id: clock; precision: SystemClock.Minutes }
+  SystemClock { id: clock; precision: root.cfg.clock.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }
+  PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
   ColumnLayout {
     id: col
@@ -61,6 +64,7 @@ Item {
 
     // ---------------------------------------------------------- logo
     Item {
+      visible: root.cfg.logo
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Math.round(Tk.body.large * 1.2)
       implicitHeight: implicitWidth
@@ -74,7 +78,8 @@ Item {
         anchors.fill: parent
         anchors.margins: -4
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.host.toggle("launcher")
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: e => root.host.toggle(e.button === Qt.RightButton ? "settings" : "launcher")
       }
     }
 
@@ -93,8 +98,14 @@ Item {
 
       Item {
         id: activeWin
+        visible: root.cfg.activeWindow.enabled
         readonly property var tl: Hyprland.activeToplevel
-        readonly property string title: tl && tl.title ? tl.title : "Desktop"
+        readonly property string title: {
+          const t = tl && tl.title ? tl.title : "Desktop"
+          if (!root.cfg.activeWindow.compact) return t
+          const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
+          return parts.length > 1 ? parts[parts.length - 1].trim() : t
+        }
         readonly property real maxLen: parent.height - winIcon.height - Tk.spacing.small
 
         anchors.horizontalCenter: parent.horizontalCenter
@@ -136,13 +147,19 @@ Item {
     }
 
     // ---------------------------------------------------------- tray
+    Rectangle {
+      Layout.alignment: Qt.AlignHCenter
+      visible: root.cfg.tray.enabled && trayRep.count > 0
+      implicitWidth: Tk.barInner
+      implicitHeight: trayCol.implicitHeight
+      radius: width / 2
+      color: root.cfg.tray.background ? Colours.m3surfaceContainer : "transparent"
     Column {
       id: trayCol
-      Layout.alignment: Qt.AlignHCenter
-      visible: trayRep.count > 0
-      topPadding: Tk.padding.extraSmall
-      bottomPadding: Tk.padding.extraSmall
-      spacing: Tk.spacing.small
+      anchors.horizontalCenter: parent.horizontalCenter
+      topPadding: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
+      bottomPadding: topPadding
+      spacing: root.cfg.tray.background ? Tk.spacing.medium : Tk.spacing.small
       Repeater {
         id: trayRep
         model: SystemTray.items.values.filter(i => i.status !== Status.Passive)
@@ -153,8 +170,16 @@ Item {
           acceptedButtons: Qt.LeftButton | Qt.RightButton
           cursorShape: Qt.PointingHandCursor
           onClicked: function(e) { if (e.button === Qt.LeftButton) modelData.activate(); else modelData.secondaryActivate() }
-          Image {
+          ColouredIcon {
             anchors.fill: parent
+            visible: root.cfg.tray.recolour
+            colour: Colours.m3secondary
+            source: trayImg.source
+          }
+          Image {
+            id: trayImg
+            anchors.fill: parent
+            visible: !root.cfg.tray.recolour
             source: {
               let icon = parent.modelData.icon
               if (icon.indexOf("?path=") >= 0) {
@@ -174,31 +199,64 @@ Item {
         }
       }
     }
+    }
 
     // --------------------------------------------------------- clock
-    Column {
+    Rectangle {
       Layout.alignment: Qt.AlignHCenter
-      topPadding: Tk.padding.extraSmall
-      bottomPadding: Tk.padding.extraSmall
-      spacing: 0
-      MIcon {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: "calendar_month"
-        color: Colours.m3tertiary
-        bottomPadding: Tk.spacing.extraSmall
-      }
-      MText {
-        anchors.horizontalCenter: parent.horizontalCenter
-        text: Qt.formatTime(clock.date, "HH")
-        font.pointSize: Tk.body.small * 1.1
-        color: Colours.m3tertiary
-      }
-      MText {
-        anchors.horizontalCenter: parent.horizontalCenter
-        topPadding: -4
-        text: Qt.formatTime(clock.date, "mm")
-        font.pointSize: Tk.body.small * 1.1
-        color: Colours.m3tertiary
+      implicitWidth: Tk.barInner
+      implicitHeight: clockCol.implicitHeight + (root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2
+      radius: width / 2
+      color: root.cfg.clock.background ? Colours.m3surfaceContainer : "transparent"
+      readonly property bool h12: !Config.o.general.clock24
+      Column {
+        id: clockCol
+        anchors.centerIn: parent
+        spacing: 0
+        MIcon {
+          visible: root.cfg.clock.showIcon
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "calendar_month"
+          color: Colours.m3tertiary
+          bottomPadding: Tk.spacing.extraSmall
+        }
+        Column {
+          visible: root.cfg.clock.showDate
+          anchors.horizontalCenter: parent.horizontalCenter
+          bottomPadding: Tk.spacing.extraSmall
+          MText { anchors.horizontalCenter: parent.horizontalCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small * 0.9; color: Colours.m3tertiary }
+          MText { anchors.horizontalCenter: parent.horizontalCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: Tk.body.small * 1.2; color: Colours.m3tertiary }
+          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 22; height: 1; color: Colours.m3outlineVariant }
+        }
+        MText {
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: Qt.formatTime(clock.date, parent.parent.h12 ? "hh" : "HH")
+          font.pointSize: Tk.body.small * 1.1
+          color: Colours.m3tertiary
+        }
+        MText {
+          anchors.horizontalCenter: parent.horizontalCenter
+          topPadding: -4
+          text: Qt.formatTime(clock.date, "mm")
+          font.pointSize: Tk.body.small * 1.1
+          color: Colours.m3tertiary
+        }
+        MText {
+          visible: root.cfg.clock.showSeconds
+          anchors.horizontalCenter: parent.horizontalCenter
+          topPadding: -4
+          text: Qt.formatTime(clock.date, "ss")
+          font.pointSize: Tk.body.small * 1.1
+          color: Colours.m3tertiary
+        }
+        MText {
+          visible: parent.parent.h12
+          anchors.horizontalCenter: parent.horizontalCenter
+          topPadding: -4
+          text: Qt.formatTime(clock.date, "AP").toLowerCase()
+          font.pointSize: Tk.body.small * 0.9
+          color: Colours.m3tertiary
+        }
       }
     }
 
@@ -206,6 +264,7 @@ Item {
     Rectangle {
       id: statusPill
       readonly property int anchorsPad: Tk.padding.medium
+      visible: statusCol.visibleChildren.length > 0
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Tk.barInner
       implicitHeight: statusCol.implicitHeight + Tk.padding.medium * 2
@@ -225,12 +284,36 @@ Item {
         MIcon {
           readonly property string popout: "lockstatus"
           anchors.horizontalCenter: parent.horizontalCenter
-          visible: root.host.capsLock || root.host.numLock
+          visible: root.cfg.status.lockStatus && (root.host.capsLock || root.host.numLock)
           text: root.host.capsLock ? "keyboard_capslock_badge" : "looks_one"
           color: Colours.m3secondary
         }
         MIcon {
+          readonly property string popout: "audio"
+          readonly property var sink: Pipewire.defaultAudioSink
+          readonly property real vol: sink && sink.audio ? sink.audio.volume : 0
+          readonly property bool muted: !sink || !sink.audio || sink.audio.muted
+          visible: root.cfg.status.audio
+          anchors.horizontalCenter: parent.horizontalCenter
+          animate: true
+          text: muted ? "no_sound" : vol >= 0.5 ? "volume_up" : vol > 0 ? "volume_down" : "volume_mute"
+          color: Colours.m3secondary
+          fill: 1
+        }
+        MIcon {
+          readonly property string popout: "audio"
+          readonly property var src: Pipewire.defaultAudioSource
+          readonly property bool muted: !src || !src.audio || src.audio.muted
+          visible: root.cfg.status.microphone
+          anchors.horizontalCenter: parent.horizontalCenter
+          animate: true
+          text: muted ? "mic_off" : "mic"
+          color: Colours.m3secondary
+          fill: 1
+        }
+        MIcon {
           readonly property string popout: "network"
+          visible: root.cfg.status.network
           anchors.horizontalCenter: parent.horizontalCenter
           animate: true
           text: Sys.ethernet ? "cable" : Sys.wifi ? Sys.networkIcon(Sys.strength) : "wifi_off"
@@ -238,6 +321,7 @@ Item {
         }
         Column {
           readonly property string popout: "bluetooth"
+          visible: root.cfg.status.bluetooth
           anchors.horizontalCenter: parent.horizontalCenter
           spacing: Tk.spacing.medium / 2
           MIcon {
@@ -268,6 +352,7 @@ Item {
         }
         MIcon {
           readonly property string popout: "battery"
+          visible: root.cfg.status.battery
           readonly property var dev: UPower.displayDevice
           readonly property bool laptop: dev && dev.isLaptopBattery
           readonly property bool charging: dev && [UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].indexOf(dev.state) >= 0
@@ -284,6 +369,7 @@ Item {
 
     // --------------------------------------------------------- power
     Item {
+      visible: root.cfg.power
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: powerIcon.implicitHeight + Tk.padding.small
       implicitHeight: powerIcon.implicitHeight

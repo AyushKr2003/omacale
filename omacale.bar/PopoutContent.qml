@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Services.UPower
 import Quickshell.Bluetooth
+import Quickshell.Services.Pipewire
 
 // Contents of the bar popouts (network, bluetooth, battery, lock status,
 // tray menus, active-window preview). Sized by the current page.
@@ -25,7 +26,7 @@ Item {
     id: loader
     anchors.fill: parent
     sourceComponent: ({
-      network: network, bluetooth: bluetooth, battery: battery,
+      network: network, bluetooth: bluetooth, battery: battery, audio: audio,
       lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow
     })[root.name] || null
   }
@@ -122,6 +123,55 @@ Item {
         icon: "wifi_find"; label: "Rescan networks"
         onClicked: Sys.run("nmcli device wifi rescan")
       }
+    }
+  }
+
+  // -------------------------------------------------------------- audio
+  Component {
+    id: audio
+    ColumnLayout {
+      implicitWidth: Tk.sizes.audioWidth
+      spacing: Tk.spacing.medium
+      readonly property var sink: Pipewire.defaultAudioSink
+      readonly property var nodes: Pipewire.nodes.values.filter(n => n.audio && !n.isStream)
+      PwObjectTracker { objects: [sink] }
+      component Radio: RowLayout {
+        id: rb
+        property string label
+        property bool checked
+        signal clicked()
+        Layout.fillWidth: true
+        spacing: Tk.spacing.medium
+        Rectangle {
+          width: 20; height: 20; radius: 10
+          color: "transparent"
+          border.width: 2
+          border.color: rb.checked ? Colours.m3primary : Colours.m3onSurfaceVariant
+          Behavior on border.color { CAnim {} }
+          Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Colours.m3primary; opacity: rb.checked ? 1 : 0; Behavior on opacity { Anim { type: "effects" } } }
+          Item { anchors.fill: parent; anchors.margins: -Tk.padding.small; property real radius: width / 2
+            StateLayer { color: rb.checked ? Colours.m3onSurface : Colours.m3primary; onClicked: rb.clicked() } }
+        }
+        MText { Layout.fillWidth: true; text: rb.label; elide: Text.ElideRight }
+      }
+      Heading { text: "Output device" }
+      Repeater {
+        model: parent.nodes.filter(n => n.isSink)
+        Radio { required property var modelData; label: modelData.description || modelData.name; checked: Pipewire.defaultAudioSink === modelData; onClicked: Pipewire.preferredDefaultAudioSink = modelData }
+      }
+      Heading { text: "Input device" }
+      Repeater {
+        model: parent.nodes.filter(n => !n.isSink)
+        Radio { required property var modelData; label: modelData.description || modelData.name; checked: Pipewire.defaultAudioSource === modelData; onClicked: Pipewire.preferredDefaultAudioSource = modelData }
+      }
+      Heading { text: sink && sink.audio ? (sink.audio.muted ? "Volume (muted)" : "Volume (" + Math.round(sink.audio.volume * 100) + "%)") : "Volume" }
+      MSlider {
+        Layout.fillWidth: true
+        implicitHeight: Tk.padding.medium * 3
+        value: sink && sink.audio ? sink.audio.volume : 0
+        onMoved: v => { if (sink && sink.audio) { sink.audio.muted = false; sink.audio.volume = v } }
+      }
+      WideButton { Layout.bottomMargin: Tk.padding.small; icon: "settings"; label: "Open mixer"; onClicked: { Sys.run("omarchy-launch-audio || wiremix || pavucontrol"); root.closeRequested() } }
     }
   }
 

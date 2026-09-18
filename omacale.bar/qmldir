@@ -1,3 +1,4 @@
+AboutCard 1.0 AboutCard.qml
 Anim 1.0 Anim.qml
 Bar 1.0 Bar.qml
 BarContent 1.0 BarContent.qml
@@ -5,8 +6,11 @@ CAnim 1.0 CAnim.qml
 CircularProgress 1.0 CircularProgress.qml
 ColouredIcon 1.0 ColouredIcon.qml
 singleton Colours 1.0 Colours.qml
+singleton Config 1.0 Config.qml
+ConnectedRect 1.0 ConnectedRect.qml
 Dashboard 1.0 Dashboard.qml
 IconButton 1.0 IconButton.qml
+KeybindsCard 1.0 KeybindsCard.qml
 Launcher 1.0 Launcher.qml
 MIcon 1.0 MIcon.qml
 MShape 1.0 MShape.qml
@@ -14,10 +18,22 @@ MSlider 1.0 MSlider.qml
 MSwitch 1.0 MSwitch.qml
 MText 1.0 MText.qml
 PopoutContent 1.0 PopoutContent.qml
+RowLabel 1.0 RowLabel.qml
+RowNav 1.0 RowNav.qml
+RowSelect 1.0 RowSelect.qml
+RowSlider 1.0 RowSlider.qml
+RowStepper 1.0 RowStepper.qml
+RowText 1.0 RowText.qml
+RowToggle 1.0 RowToggle.qml
 ScreenScope 1.0 ScreenScope.qml
+SectionHeader 1.0 SectionHeader.qml
+SeedPicker 1.0 SeedPicker.qml
 Session 1.0 Session.qml
+Settings 1.0 Settings.qml
+SettingsPage 1.0 SettingsPage.qml
 ShaderMaskEffect 1.0 ShaderMaskEffect.qml
 StateLayer 1.0 StateLayer.qml
+StylePreview 1.0 StylePreview.qml
 singleton Sys 1.0 Sys.qml
 singleton Tk 1.0 Tk.qml
 Toggle 1.0 Toggle.qml

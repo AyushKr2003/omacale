@@ -6,6 +6,7 @@ Column {
 
   property bool active: false
   signal dismissed()
+  readonly property var cfg: Config.o.session
 
   padding: Tk.padding.large
   rightPadding: Math.max(0, padding - Tk.border)
@@ -16,6 +17,7 @@ Column {
   SessionButton { id: logout; icon: "logout"; command: "omarchy system logout"; KeyNavigation.down: shutdown }
   SessionButton { id: shutdown; icon: "power_settings_new"; command: "omarchy system shutdown"; KeyNavigation.up: logout; KeyNavigation.down: hibernate }
   AnimatedImage {
+    visible: root.cfg.gif
     width: Tk.sizes.sessionButton
     height: Tk.sizes.sessionButton
     source: Qt.resolvedUrl("assets/kurukuru.gif")
@@ -23,7 +25,12 @@ Column {
     speed: 0.7
     fillMode: AnimatedImage.PreserveAspectFit
   }
-  SessionButton { id: hibernate; icon: "downloading"; command: "systemctl hibernate || systemctl suspend"; KeyNavigation.up: shutdown; KeyNavigation.down: reboot }
+  SessionButton {
+    id: hibernate
+    icon: root.cfg.sleepAction === "suspend" ? "bedtime" : "downloading"
+    command: root.cfg.sleepAction === "suspend" ? "systemctl suspend" : "systemctl hibernate || systemctl suspend"
+    KeyNavigation.up: shutdown; KeyNavigation.down: reboot
+  }
   SessionButton { id: reboot; icon: "cached"; command: "omarchy system reboot"; KeyNavigation.up: hibernate }
 
   component SessionButton: Rectangle {
@@ -44,6 +51,11 @@ Column {
     Keys.onEscapePressed: root.dismissed()
     Keys.onTabPressed: if (KeyNavigation.down) KeyNavigation.down.forceActiveFocus()
     Keys.onBacktabPressed: if (KeyNavigation.up) KeyNavigation.up.forceActiveFocus()
+    Keys.onPressed: e => {
+      if (!root.cfg.vimKeybinds || !(e.modifiers & Qt.ControlModifier)) return
+      if ((e.key === Qt.Key_J || e.key === Qt.Key_N) && KeyNavigation.down) { KeyNavigation.down.forceActiveFocus(); e.accepted = true }
+      else if ((e.key === Qt.Key_K || e.key === Qt.Key_P) && KeyNavigation.up) { KeyNavigation.up.forceActiveFocus(); e.accepted = true }
+    }
 
     StateLayer {
       id: state

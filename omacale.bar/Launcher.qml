@@ -11,17 +11,22 @@ Item {
   property bool active: false
   property real maxHeight: 800
   signal dismissed()
+  signal openSettings()
+  readonly property var cfg: Config.o.launcher
+  readonly property string prefix: cfg.actionPrefix || ">"
 
   readonly property int padding: Tk.padding.large
   readonly property int itemH: Tk.sizes.launcherItemHeight
-  readonly property bool actionMode: search.text.startsWith(">")
+  readonly property bool actionMode: search.text.startsWith(prefix)
 
   readonly property var actions: [
-    { name: "Lock", comment: "Lock the screen", icon: "lock", cmd: "omarchy system lock" },
-    { name: "Logout", comment: "End this session", icon: "logout", cmd: "omarchy system logout" },
-    { name: "Shutdown", comment: "Power off", icon: "power_settings_new", cmd: "omarchy system shutdown" },
-    { name: "Reboot", comment: "Restart the computer", icon: "cached", cmd: "omarchy system reboot" },
-    { name: "Theme", comment: "Pick an Omarchy theme", icon: "palette", cmd: "omarchy-launch-walker -m menus:omarchythemes || omarchy-theme-switcher" },
+    { name: "Settings", comment: "Open Omacale settings", icon: "settings", settings: true },
+    { name: "Lock", comment: "Lock the screen", icon: "lock", cmd: "omarchy system lock", dangerous: true },
+    { name: "Logout", comment: "End this session", icon: "logout", cmd: "omarchy system logout", dangerous: true },
+    { name: "Shutdown", comment: "Power off", icon: "power_settings_new", cmd: "omarchy system shutdown", dangerous: true },
+    { name: "Reboot", comment: "Restart the computer", icon: "cached", cmd: "omarchy system reboot", dangerous: true },
+    { name: "Theme", comment: "Pick an Omarchy theme", icon: "palette", cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' },
+    { name: "Background", comment: "Pick a wallpaper", icon: "wallpaper", cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' },
     { name: "Wallpaper", comment: "Next background", icon: "wallpaper", cmd: "omarchy theme bg next" },
     { name: "Nightlight", comment: "Toggle night light", icon: "nightlight", cmd: "omarchy toggle nightlight" },
     { name: "Screenshot", comment: "Capture a region", icon: "screenshot_region", cmd: "omarchy capture screenshot" },
@@ -30,8 +35,8 @@ Item {
   ]
 
   readonly property var results: {
-    const q = search.text.replace(/^>/, "").trim().toLowerCase()
-    if (actionMode) return actions.filter(a => !q || a.name.toLowerCase().indexOf(q) >= 0).map(a => ({ action: a }))
+    const q = (actionMode ? search.text.slice(prefix.length) : search.text).trim().toLowerCase()
+    if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0)).map(a => ({ action: a }))
     const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay)
     if (!q) return apps.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => ({ app: e }))
     const scored = []
@@ -52,6 +57,7 @@ Item {
 
   function activate(r) {
     if (!r) return
+    if (r.action && r.action.settings) { root.openSettings(); return }
     if (r.app) r.app.execute(); else Sys.run(r.action.cmd)
     root.dismissed()
   }
@@ -60,7 +66,7 @@ Item {
     if (active) { search.text = ""; list.currentIndex = 0; search.forceActiveFocus() }
   }
 
-  readonly property int shownRows: Math.max(0, Math.min(Tk.sizes.launcherMaxShown, results.length,
+  readonly property int shownRows: Math.max(0, Math.min(cfg.maxShown, results.length,
                                     Math.floor((maxHeight - searchBox.height - padding * 3 + Tk.spacing.small) / (itemH + Tk.spacing.small))))
   readonly property real listH: results.length ? (itemH + Tk.spacing.small) * shownRows - Tk.spacing.small : emptyState.implicitHeight
 
@@ -213,14 +219,14 @@ Item {
       Keys.onPressed: function(e) {
         if (e.key === Qt.Key_Escape) { root.dismissed(); e.accepted = true }
         else if (e.key === Qt.Key_Down || (e.key === Qt.Key_Tab && !(e.modifiers & Qt.ShiftModifier))
-                 || ((e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_J || e.key === Qt.Key_N))) { list.incrementCurrentIndex(); e.accepted = true }
+                 || (root.cfg.vimKeybinds && (e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_J || e.key === Qt.Key_N))) { list.incrementCurrentIndex(); e.accepted = true }
         else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab
-                 || ((e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_K || e.key === Qt.Key_P))) { list.decrementCurrentIndex(); e.accepted = true }
+                 || (root.cfg.vimKeybinds && (e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_K || e.key === Qt.Key_P))) { list.decrementCurrentIndex(); e.accepted = true }
         else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { root.activate(root.results[list.currentIndex]); e.accepted = true }
       }
       MText {
         anchors.verticalCenter: parent.verticalCenter
-        text: 'Type ">" for commands'
+        text: 'Type "' + root.prefix + '" for commands'
         color: Colours.m3onSurfaceVariant
         font.pointSize: Tk.body.medium
         opacity: search.text ? 0 : 1

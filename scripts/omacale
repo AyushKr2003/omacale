@@ -7,14 +7,15 @@
 #   1. ~/.config/omarchy/plugins/omacale.bar/   (its own plugin directory)
 #   2. `bar.id` in ~/.config/omarchy/shell.json (the one switch that selects
 #                                                a full bar plugin)
-#   3. ~/.local/state/omacale/                  (its own state + snapshots)
+#   3. ~/.config/omacale/                       (its settings, created on first change)
+#   4. ~/.local/state/omacale/                  (its own state + snapshots)
 #
 # It never edits ~/.config/hypr, themes, Omarchy's own files, or anything
 # under /usr. Everything it needs to undo is snapshotted before the first write.
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.2.0"
+VERSION="0.3.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -26,6 +27,7 @@ omarchy_cfg="$config_home/omarchy"
 plugins_dir="$omarchy_cfg/plugins"
 shell_json="$omarchy_cfg/shell.json"
 dest_plugin="$plugins_dir/$PLUGIN_ID"
+settings_dir="$config_home/omacale"
 state_dir="${OMACALE_STATE_DIR:-$state_home/omacale}"
 state_file="$state_dir/state.json"
 snap_dir="$state_dir/pre-install"
@@ -38,7 +40,9 @@ dry_run=0
 assume_yes=0
 dev_link=0
 keep_state=0
+keep_settings=0
 no_restart=0
+bind_mode="print"
 cmd=""
 
 # ------------------------------------------------------------------ output
@@ -65,17 +69,24 @@ Commands:
   uninstall    Remove the plugin and restore the exact pre-install state
   status       Show what is installed and what would be restored
   doctor       Check that Omacale and Omarchy are healthy
+  settings     Open the Omacale settings panel
+  binds        Print Omarchy-style keybindings to paste into bindings.lua
+                 --copy   copy them to the clipboard
+                 --try    bind them for this Hyprland session only
+                 --untry  remove the session-only binds again
 
 Options:
   --dry-run    Show what would change; change nothing
   --yes, -y    Do not ask for confirmation
   --dev        (install) symlink the plugin from this checkout for live editing
   --keep-state (uninstall) keep ~/.local/state/omacale afterwards
+  --keep-settings (uninstall) keep ~/.config/omacale (your Omacale settings)
   --no-restart (install) do not restart the Omarchy shell afterwards
   --help, -h   Show this help
 
-Omacale changes only: its plugin directory, \`bar.id\` in shell.json, and
-its own state directory. Nothing under ~/.config/hypr or /usr is touched.
+Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
+settings directory, and its own state directory. Nothing under ~/.config/hypr
+or /usr is touched.
 EOF
 }
 
@@ -292,7 +303,8 @@ cmd_install() {
   say "  untouched  : ~/.config/hypr, themes, /usr — nothing else is modified"
   confirm "Continue?"
 
-  local pre_existed=false pre_sha="absent" prev_bar="null" plugin_existed=false
+  local pre_existed=false pre_sha="absent" prev_bar="null" plugin_existed=false settings_existed=false
+  [[ -e $settings_dir ]] && settings_existed=true
   [[ -f $shell_json ]] && { pre_existed=true; pre_sha="$(sha "$shell_json")"; prev_bar="$(jq -c '.bar.id // null' "$shell_json")"; }
   [[ -e $dest_plugin || -L $dest_plugin ]] && plugin_existed=true
 
@@ -300,6 +312,9 @@ cmd_install() {
   act "create $snap_dir" mkdir -p -m 700 "$snap_dir"
   if [[ $pre_existed == true ]]; then
     act "copy shell.json → $snap_dir/shell.json" cp --preserve=mode,timestamps -- "$shell_json" "$snap_dir/shell.json"
+  fi
+  if [[ $settings_existed == true ]]; then
+    act "copy ~/.config/omacale → $snap_dir/settings" cp -a -- "$settings_dir" "$snap_dir/settings"
   fi
   if [[ $plugin_existed == true ]]; then
     warn "a plugin already exists at $dest_plugin — it will be set aside and restored on uninstall"
@@ -310,8 +325,9 @@ cmd_install() {
       --arg version "$VERSION" --arg at "$(date -Is)" --arg src "$src_plugin" \
       --argjson existed "$pre_existed" --arg sha "$pre_sha" --argjson barId "$prev_bar" \
       --argjson pluginExisted "$plugin_existed" --argjson dev "$( ((dev_link)) && echo true || echo false)" \
+      --argjson settingsExisted "$settings_existed" \
       '{version:$version, installedAt:$at, source:$src, devLink:$dev,
-        pre:{shellJsonExisted:$existed, shellJsonSha:$sha, barId:$barId, pluginDirExisted:$pluginExisted}}' \
+        pre:{shellJsonExisted:$existed, shellJsonSha:$sha, barId:$barId, pluginDirExisted:$pluginExisted, settingsDirExisted:$settingsExisted}}' \
       | write_atomic "$state_file"
   fi
   (( dry_run )) || ok "state recorded"
@@ -367,6 +383,8 @@ cmd_install() {
   say "  Open the launcher : omarchy-shell omacale launcher"
   say "  Dashboard         : omarchy-shell omacale dashboard"
   say "  Session menu      : omarchy-shell omacale session"
+  say "  Settings          : omarchy-shell omacale settings   (or right-click the logo)"
+  say "  Keybindings       : $script_dir/omacale binds"
   say "  Undo everything   : ${b}omacale uninstall${z}"
 }
 
@@ -396,6 +414,8 @@ cmd_uninstall() {
   say "  bar.id     → $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
   say "  shell.json → $(jq -r 'if .pre.shellJsonExisted then "restored from snapshot" else "removed if it only holds defaults" end' "$state_file")"
   say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
+  if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
+  else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
   confirm "Continue?"
 
   if (( dry_run )); then
@@ -405,6 +425,18 @@ cmd_uninstall() {
   step "Restore shell.json"
   restore_shell_json || fail "could not restore shell.json; nothing was removed. Snapshot: $snap_dir/shell.json"
   shell_call shell reloadConfig
+
+  # Runtime-only Hyprland state (blur rule, "try this session" binds) must be
+  # read before the settings go away.
+  local had_runtime=0
+  if (( ! offline )) && command -v hyprctl >/dev/null 2>&1; then
+    [[ "$(jq -r '.appearance.transparency.enabled // false' "$settings_dir/settings.json" 2>/dev/null)" == true ]] && had_runtime=1
+    if hyprctl binds -j 2>/dev/null | jq -e 'any(.[]; (.description // "") | startswith("Omacale"))' >/dev/null \
+       && ! grep -qs 'omarchy-shell omacale' "$config_home/hypr/bindings.lua"; then had_runtime=1; fi
+  fi
+
+  step "Restore settings"
+  restore_settings
 
   step "Remove plugin"
   if (( ! offline )); then
@@ -421,6 +453,10 @@ cmd_uninstall() {
       wait_for '! bar_layer_present' 8 && ok "no Omacale surfaces remain" || warn "an Omacale layer is still mapped — run: omarchy restart shell"
     fi
     if plugin_listed; then warn "the shell still lists $PLUGIN_ID — run: omarchy restart shell"; else ok "plugin is gone"; fi
+    if (( had_runtime )); then
+      # Reloading Hyprland re-reads your own config and drops runtime rules/binds.
+      hyprctl reload >/dev/null 2>&1 && ok "cleared Omacale's runtime Hyprland rules (hyprctl reload)"
+    fi
     shell_running && ok "Omarchy shell is running" || warn "Omarchy shell is not responding — run: omarchy restart shell"
   fi
 
@@ -432,11 +468,58 @@ cmd_uninstall() {
   step "Done — your system is back to its pre-install state."
 }
 
+restore_settings() {
+  local existed="false"
+  installed_state && existed="$(jq -r '.pre.settingsDirExisted // false' "$state_file")"
+  if (( keep_settings )); then
+    ok "settings kept at $settings_dir"; return
+  fi
+  if [[ -e $settings_dir || -L $settings_dir ]]; then
+    rm -rf -- "$settings_dir"
+  fi
+  if [[ $existed == true && -e $snap_dir/settings ]]; then
+    cp -a -- "$snap_dir/settings" "$settings_dir"
+    ok "settings restored to their pre-install copy"
+  else
+    ok "settings removed"
+  fi
+}
+
+# ----------------------------------------------------------------- binds
+
+binds_file() {
+  if [[ -f $dest_plugin/keybinds.lua ]]; then echo "$dest_plugin/keybinds.lua"; else echo "$src_plugin/keybinds.lua"; fi
+}
+
+cmd_binds() {
+  local f; f="$(binds_file)"
+  [[ -f $f ]] || fail "keybinds file not found: $f"
+  case "$bind_mode" in
+    print) cat -- "$f" ;;
+    copy)
+      need wl-copy
+      wl-copy < "$f"; ok "Omacale keybindings copied — paste them into ~/.config/hypr/bindings.lua" ;;
+    try)
+      need hyprctl
+      local lua; lua="$(grep -E '^o\.bind\(' "$f")"
+      [[ -n $lua ]] || fail "no bindings found in $f"
+      hyprctl eval "$lua" >/dev/null && ok "bound for this session (gone after 'hyprctl reload'):" && grep -oE '^o\.bind\("[^"]+", "[^"]+"' "$f" | sed -E 's/^o\.bind\("([^"]+)", "([^"]+)"/    \1  →  \2/' ;;
+    untry)
+      need hyprctl
+      local keys; keys="$(grep -oE '^o\.bind\("[^"]+"' "$f" | sed -E 's/^o\.bind\("([^"]+)"/hl.unbind("\1")/')"
+      hyprctl eval "$keys" >/dev/null && ok "session binds removed" ;;
+  esac
+}
+
 # --------------------------------------------------------------------- main
 
 while (( $# )); do
   case "$1" in
-    install|uninstall|status|doctor) cmd="$1" ;;
+    install|uninstall|status|doctor|binds|settings) cmd="$1" ;;
+    --copy) bind_mode=copy ;;
+    --try) bind_mode=try ;;
+    --untry) bind_mode=untry ;;
+    --keep-settings) keep_settings=1 ;;
     --dry-run) dry_run=1 ;;
     --yes|-y) assume_yes=1 ;;
     --dev) dev_link=1 ;;
@@ -453,5 +536,7 @@ case "$cmd" in
   uninstall) cmd_uninstall ;;
   status) cmd_status ;;
   doctor) cmd_doctor ;;
+  binds) cmd_binds ;;
+  settings) need omarchy-shell; omarchy-shell omacale settings >/dev/null || fail "Omacale is not running (is it installed?)" ;;
   "") usage; exit 1 ;;
 esac

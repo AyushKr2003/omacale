@@ -100,5 +100,34 @@ check "shell.json untouched"       cmp -s "$real_shell_json" "$(SJ)"
 check "no plugin left behind"      test ! -e "$H/.config/omarchy/plugins/omacale.bar"
 check "no state left behind"       test ! -e "$H/.local/state/omacale"
 
+echo "J. settings created while installed are removed on uninstall"
+new_home; cp "$real_shell_json" "$(SJ)"; before="$(snapshot_tree)"
+run install
+mkdir -p "$H/.config/omacale"; echo '{"bar":{"persistent":false}}' > "$H/.config/omacale/settings.json"
+run uninstall
+check "settings dir removed"       test ! -e "$H/.config/omacale"
+check "tree identical"             test "$before" = "$(snapshot_tree)"
+
+echo "K. settings that existed before install are restored exactly"
+new_home; cp "$real_shell_json" "$(SJ)"
+mkdir -p "$H/.config/omacale"; echo '{"appearance":{"variant":"vibrant"}}' > "$H/.config/omacale/settings.json"
+before="$(snapshot_tree)"
+run install
+echo '{"appearance":{"variant":"monochrome"}}' > "$H/.config/omacale/settings.json"
+run uninstall
+check "pre-install settings back"  test "$(jq -r .appearance.variant "$H/.config/omacale/settings.json")" = vibrant
+check "tree identical"             test "$before" = "$(snapshot_tree)"
+
+echo "L. --keep-settings keeps the user's settings"
+new_home; cp "$real_shell_json" "$(SJ)"
+run install
+mkdir -p "$H/.config/omacale"; echo '{"x":1}' > "$H/.config/omacale/settings.json"
+env -u XDG_CONFIG_HOME -u XDG_STATE_HOME HOME="$H" OMACALE_OFFLINE=1 "$omacale" uninstall --keep-settings --yes >/dev/null
+check "settings kept"              test -f "$H/.config/omacale/settings.json"
+check "plugin still removed"       test ! -e "$H/.config/omarchy/plugins/omacale.bar"
+
+echo "M. keybinds file is valid Omarchy Lua"
+check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 6"
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

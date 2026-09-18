@@ -4,6 +4,7 @@ import QtQuick
 // Caelestia's design tokens (plugin/src/Caelestia/Config/tokens.hpp and
 // appearanceconfig.hpp), verbatim. Font sizes are point sizes, as in Caelestia.
 QtObject {
+  id: tk
   readonly property QtObject rounding: QtObject {
     readonly property int extraSmall: 4
     readonly property int small: 8
@@ -52,10 +53,10 @@ QtObject {
     readonly property int small: 15
   }
 
-  // Frame / bar
-  readonly property int border: 10
-  readonly property int borderRounding: 25
-  readonly property int smoothing: 20
+  // Frame / bar (user-configurable)
+  readonly property int border: Config.o.border.thickness
+  readonly property int borderRounding: Config.o.border.rounding
+  readonly property int smoothing: Config.o.border.smoothing
   readonly property int barInner: 40
   readonly property int barWidth: barInner + 2 * Math.max(padding.small, border)
 
@@ -98,16 +99,17 @@ QtObject {
     readonly property var defaultEffects: [0.34, 0.8, 0.34, 1, 1, 1]
     readonly property var slowEffects: [0.34, 0.88, 0.34, 1, 1, 1]
   }
+  readonly property real animScale: Math.max(0.05, Config.o.appearance.animScale)
   readonly property QtObject durations: QtObject {
-    readonly property int small: 200
-    readonly property int normal: 400
-    readonly property int large: 600
-    readonly property int extraLarge: 1000
-    readonly property int fastSpatial: 350
-    readonly property int defaultSpatial: 500
-    readonly property int slowSpatial: 650
-    readonly property int fastEffects: 150
-    readonly property int defaultEffects: 200
-    readonly property int slowEffects: 300
+    readonly property int small: 200 * tk.animScale
+    readonly property int normal: 400 * tk.animScale
+    readonly property int large: 600 * tk.animScale
+    readonly property int extraLarge: 1000 * tk.animScale
+    readonly property int fastSpatial: 350 * tk.animScale
+    readonly property int defaultSpatial: 500 * tk.animScale
+    readonly property int slowSpatial: 650 * tk.animScale
+    readonly property int fastEffects: 150 * tk.animScale
+    readonly property int defaultEffects: 200 * tk.animScale
+    readonly property int slowEffects: 300 * tk.animScale
   }
 }

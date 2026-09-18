@@ -140,14 +140,18 @@ QtObject {
     "368": "weather_snowy", "371": "weather_snowy", "374": "weather_hail", "377": "weather_hail", "386": "thunderstorm",
     "389": "thunderstorm", "392": "thunderstorm", "395": "weather_snowy"
   })
+  readonly property string weatherLocation: Config.o.general.weatherLocation
+  readonly property bool imperial: Config.o.general.units === "imperial"
+  onWeatherLocationChanged: weatherProbe.running = true
+  onImperialChanged: weatherProbe.running = true
   property Process weatherProbe: Process {
-    command: ["bash", "-c", "curl -s --max-time 8 'https://wttr.in/?format=j1'"]
+    command: ["curl", "-s", "--max-time", "8", "https://wttr.in/" + encodeURIComponent(root.weatherLocation) + "?format=j1"]
     stdout: StdioCollector {
       onStreamFinished: {
         try {
           const j = JSON.parse(text)
           const c = j.current_condition[0]
-          root.temp = c.temp_C + "°C"
+          root.temp = root.imperial ? c.temp_F + "°F" : c.temp_C + "°C"
           root.weatherDesc = c.weatherDesc[0].value
           root.weatherIcon = root._codes[c.weatherCode] || "air"
           root.city = j.nearest_area ? j.nearest_area[0].areaName[0].value : ""
