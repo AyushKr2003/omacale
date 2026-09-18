@@ -9,6 +9,9 @@ Item {
   property bool interactive: true
   property color fgColour: Colours.m3primary
   property color bgColour: Colours.m3secondaryContainer
+  property bool wavy: false
+  property bool animateWave: true
+  property real waveFrequency: 5
   readonly property bool dragging: mouse.pressed
   property real pos: dragging ? mouse.dragPos : Math.max(0, Math.min(1, value))
   signal moved(real value)
@@ -19,8 +22,21 @@ Item {
   property real filledWidth: (width - handle.width - Tk.spacing.extraSmall) * pos
   Behavior on filledWidth { enabled: !root.dragging; Anim {} }
 
+  WavyLine {
+    visible: root.wavy
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    width: Math.max(root.height * 0.7, root.filledWidth)
+    height: implicitHeight
+    lineWidth: root.height * 0.7
+    fullLength: root.width
+    frequency: root.waveFrequency
+    running: root.animateWave
+    color: root.fgColour
+  }
   Rectangle {
     id: filled
+    visible: !root.wavy
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     width: root.filledWidth
@@ -32,8 +48,7 @@ Item {
   }
   Rectangle {
     id: handle
-    anchors.left: filled.right
-    anchors.leftMargin: Tk.spacing.extraSmall
+    x: root.filledWidth + Tk.spacing.extraSmall
     anchors.verticalCenter: parent.verticalCenter
     width: 4
     height: {

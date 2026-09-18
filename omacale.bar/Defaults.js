@@ -26,8 +26,9 @@ var values = {
     scroll: { workspaces: true, volume: true, brightness: true }
   },
   dashboard: {
-    enabled: true, showOnHover: true, clockSeconds: false, mediaGif: true,
-    tabs: { dashboard: true, media: true, performance: true, weather: true }
+    enabled: true, showOnHover: true, clockSeconds: false, mediaGif: true, lyrics: true, visualiser: true,
+    tabs: { dashboard: true, media: true, performance: true, weather: true },
+    performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
   launcher: { enabled: true, maxShown: 7, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },

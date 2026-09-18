@@ -176,11 +176,21 @@ var subpages = {
       { type: "toggle", key: "dashboard.showOnHover", label: "Show on hover", subtext: "Reveal when the cursor reaches the top edge" },
       { type: "toggle", key: "dashboard.clockSeconds", label: "Show clock seconds", subtext: "Display seconds for the clock in the main panel" },
       { type: "toggle", key: "dashboard.mediaGif", label: "Bongo cat", subtext: "Dance along while media plays" },
+      { type: "section", text: "Media" },
+      { type: "toggle", key: "dashboard.lyrics", label: "Lyrics", subtext: "Synced lyrics from lrclib.net" },
+      { type: "toggle", key: "dashboard.visualiser", label: "Visualiser", subtext: "Audio bars around the cover art (needs cava)" },
       { type: "section", text: "Tabs" },
       { type: "toggle", key: "dashboard.tabs.dashboard", label: "Dashboard" },
       { type: "toggle", key: "dashboard.tabs.media", label: "Media" },
       { type: "toggle", key: "dashboard.tabs.performance", label: "Performance" },
-      { type: "toggle", key: "dashboard.tabs.weather", label: "Weather" }
+      { type: "toggle", key: "dashboard.tabs.weather", label: "Weather" },
+      { type: "section", text: "Performance widgets" },
+      { type: "toggle", key: "dashboard.performance.showBattery", label: "Battery" },
+      { type: "toggle", key: "dashboard.performance.showGpu", label: "GPU" },
+      { type: "toggle", key: "dashboard.performance.showCpu", label: "CPU" },
+      { type: "toggle", key: "dashboard.performance.showMemory", label: "Memory" },
+      { type: "toggle", key: "dashboard.performance.showStorage", label: "Storage" },
+      { type: "toggle", key: "dashboard.performance.showNetwork", label: "Network" }
     ]
   },
   launcher: {

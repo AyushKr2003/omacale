@@ -34,6 +34,8 @@ function radius(name, th) {
   case "clover4": return 0.62 + 0.38 * Math.pow(Math.abs(Math.cos(2 * th - PI / 2)), 0.8)
   case "softBurst": return 0.88 + 0.12 * Math.cos(10 * th)
   case "ghostish": return Math.sin(th) > 0.2 ? 0.9 + 0.1 * Math.cos(6 * th) : 1
+  case "arch": return Math.sin(th) < 0 ? 1 : supe(th, 0, 1, 1, 6)
+  case "fan": return (th > Math.PI && th < 1.5 * Math.PI) ? supe(th, 0, 1, 1, 8) : 1
   case "clamShell": return supe(th, 0, 1, 0.8, 3) * (0.97 + 0.03 * Math.cos(10 * th))
   default: return 1
   }

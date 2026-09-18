@@ -39,10 +39,7 @@ Item {
 
   onActiveChanged: Sys.resourcesWanted += active ? 1 : -1
 
-  readonly property var player: {
-    const ps = Mpris.players.values
-    return ps.find(p => p.isPlaying) || ps[0] || null
-  }
+  readonly property var player: Sys.player
   SystemClock { id: clock; precision: SystemClock.Seconds }
 
   // --------------------------------------------------------------- tabs
@@ -134,9 +131,9 @@ Item {
       spacing: 0
       Behavior on x { Anim {} }
       Dash { id: dash; visible: root.cfg.tabs.dashboard || root.tabs[0].id === "dashboard" }
-      MediaPage { id: media; visible: root.cfg.tabs.media }
-      PerfPage { id: perf; visible: root.cfg.tabs.performance }
-      WeatherPage { id: weather; visible: root.cfg.tabs.weather }
+      MediaTab { id: media; visible: root.cfg.tabs.media; active: root.active && root.page === media }
+      PerfTab { id: perf; visible: root.cfg.tabs.performance; active: root.active && root.page === perf }
+      WeatherTab { id: weather; visible: root.cfg.tabs.weather; active: root.active && root.page === weather }
     }
   }
 
@@ -498,112 +495,6 @@ Item {
       source: Qt.resolvedUrl("assets/bongocat.gif")
       playing: root.active && root.player && root.player.isPlaying
       fillMode: AnimatedImage.PreserveAspectFit
-    }
-  }
-
-  // ================================================================ Media
-  component MediaPage: RowLayout {
-    spacing: Tk.spacing.large
-    implicitWidth: 760
-    Card {
-      Layout.preferredWidth: 280; Layout.preferredHeight: 280
-      radius: Tk.rounding.extraLarge * 2
-      clip: true
-      Image {
-        id: bigArt
-        anchors.fill: parent
-        source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
-        fillMode: Image.PreserveAspectCrop
-        sourceSize.width: 512; sourceSize.height: 512
-        layer.enabled: true
-        layer.effect: ShaderMaskEffect { maskItem: bigMask }
-      }
-      Rectangle { id: bigMask; anchors.fill: parent; radius: parent.radius; visible: false }
-      MIcon { anchors.centerIn: parent; text: "music_note"; size: Tk.iconSize.extraLarge * 1.5; color: Colours.m3onSurfaceVariant; visible: bigArt.status !== Image.Ready }
-    }
-    ColumnLayout {
-      Layout.fillWidth: true
-      spacing: Tk.spacing.small
-      MText { Layout.fillWidth: true; elide: Text.ElideRight; animate: true; text: root.player ? (root.player.trackTitle || "Unknown title") : "No media"; color: Colours.m3primary; font.pointSize: Tk.headline.small; weight: Font.Medium }
-      MText { Layout.fillWidth: true; elide: Text.ElideRight; animate: true; text: root.player ? (root.player.trackArtist || "Unknown artist") : ""; color: Colours.m3secondary; font.pointSize: Tk.body.large }
-      MText { Layout.fillWidth: true; elide: Text.ElideRight; animate: true; text: root.player ? (root.player.trackAlbum || "") : ""; color: Colours.m3outline; font.pointSize: Tk.body.medium }
-      Item { Layout.preferredHeight: Tk.spacing.large }
-      MSlider {
-        Layout.fillWidth: true
-        implicitHeight: 12
-        value: root.player && root.player.length > 0 ? root.player.position / root.player.length : 0
-        interactive: root.player ? root.player.canSeek : false
-        onMoved: v => { if (root.player) root.player.position = v * root.player.length }
-      }
-      RowLayout {
-        Layout.fillWidth: true
-        function fmt(s) { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") }
-        MText { text: parent.fmt(root.player ? root.player.position : 0); color: Colours.m3onSurfaceVariant }
-        Item { Layout.fillWidth: true }
-        MText { text: parent.fmt(root.player ? root.player.length : 0); color: Colours.m3onSurfaceVariant }
-      }
-      RowLayout {
-        Layout.alignment: Qt.AlignHCenter
-        spacing: Tk.spacing.small
-        IconButton { type: "text"; icon: "shuffle"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.shuffleSupported; onClicked: root.player.shuffle = !root.player.shuffle }
-        IconButton { type: "tonal"; icon: "skip_previous"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
-        IconButton { icon: root.player && root.player.isPlaying ? "pause" : "play_arrow"; iconSize: Tk.iconSize.extraLarge; padding: Tk.padding.medium; toggle: true; checked: root.player ? root.player.isPlaying : false; round: !checked; disabled: !root.player; onClicked: root.player.togglePlaying() }
-        IconButton { type: "tonal"; icon: "skip_next"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
-        IconButton { type: "text"; icon: "repeat"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.loopSupported; onClicked: root.player.loopState = (root.player.loopState + 1) % 3 }
-      }
-    }
-  }
-
-  // ========================================================== Performance
-  component Big: Card {
-    id: big
-    property string icon
-    property string label
-    property string detail
-    property real value
-    property color fg: Colours.m3primary
-    Layout.preferredWidth: 220; Layout.preferredHeight: 250
-    ColumnLayout {
-      anchors.centerIn: parent
-      spacing: Tk.spacing.medium
-      CircularProgress {
-        Layout.alignment: Qt.AlignHCenter
-        implicitSize: 140; width: 140; height: 140
-        strokeWidth: 10
-        value: big.value
-        fgColour: big.fg
-        Column {
-          anchors.centerIn: parent
-          MIcon { anchors.horizontalCenter: parent.horizontalCenter; text: big.icon; size: Tk.iconSize.large; color: big.fg }
-          MText { anchors.horizontalCenter: parent.horizontalCenter; text: Math.round(big.value * 100) + "%"; font.pointSize: Tk.title.large; weight: Font.Medium }
-        }
-      }
-      MText { Layout.alignment: Qt.AlignHCenter; text: big.label; font.pointSize: Tk.title.small; weight: Font.Medium; color: big.fg }
-      MText { Layout.alignment: Qt.AlignHCenter; text: big.detail; color: Colours.m3onSurfaceVariant }
-    }
-  }
-
-  component PerfPage: RowLayout {
-    spacing: Tk.spacing.medium
-    Big { icon: "memory"; label: "CPU"; value: Sys.cpu; detail: Sys.cpuTemp > 0 ? Math.round(Sys.cpuTemp) + "°C" : "" }
-    Big { icon: "memory_alt"; label: "Memory"; value: Sys.mem; fg: Colours.m3tertiary; detail: Sys.memUsedGb.toFixed(1) + " / " + Sys.memTotalGb.toFixed(1) + " GB" }
-    Big { icon: "hard_disk"; label: "Storage"; value: Sys.disk; fg: Colours.m3secondary; detail: Sys.diskText }
-  }
-
-  // ============================================================== Weather
-  component WeatherPage: Card {
-    implicitWidth: 560
-    implicitHeight: 250
-    RowLayout {
-      anchors.centerIn: parent
-      spacing: Tk.spacing.extraLarge
-      MIcon { text: Sys.weatherIcon; size: 96; color: Colours.m3secondary }
-      ColumnLayout {
-        spacing: Tk.spacing.small
-        MText { text: Sys.temp; font.pointSize: Tk.headline.large * 1.5; weight: Font.DemiBold; color: Colours.m3primary }
-        MText { text: Sys.weatherDesc; font.pointSize: Tk.title.medium }
-        MText { text: Sys.city; color: Colours.m3onSurfaceVariant; visible: text !== "" }
-      }
     }
   }
 }

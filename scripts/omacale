@@ -42,6 +42,7 @@ dev_link=0
 keep_state=0
 keep_settings=0
 no_restart=0
+cava_choice=""        # "", yes, no
 bind_mode="print"
 cmd=""
 
@@ -82,6 +83,8 @@ Options:
   --keep-state (uninstall) keep ~/.local/state/omacale afterwards
   --keep-settings (uninstall) keep ~/.config/omacale (your Omacale settings)
   --no-restart (install) do not restart the Omarchy shell afterwards
+  --with-cava  (install) also install cava for the media visualiser
+  --no-cava    (install) skip the cava question
   --help, -h   Show this help
 
 Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
@@ -181,7 +184,9 @@ cmd_doctor() {
   step "Environment"
   chk "quickshell available" "command -v quickshell"
   chk "omarchy CLI available" "command -v omarchy"
-  chk "Material Symbols Rounded font installed" "fc-list | grep -qi 'Material Symbols Rounded'"
+  chk "Material Symbols Rounded font installed" "fc-list : family | grep -i 'Material Symbols Rounded' >/dev/null"
+  chk "curl and jq available (weather, lyrics)" "command -v curl && command -v jq"
+  if command -v cava >/dev/null 2>&1; then ok "cava installed (music visualiser)"; else say "  - cava not installed (optional: music visualiser)"; fi
   if (( ! offline )); then
     chk "Omarchy shell is running" "shell_running"
   fi
@@ -351,6 +356,35 @@ cmd_install() {
     ok "shell discovered $PLUGIN_ID"
   fi
 
+  step "Optional: music visualiser"
+  local cava_installed_by_us=false
+  if command -v cava >/dev/null 2>&1; then
+    ok "cava already installed"
+  elif (( offline || dry_run )); then
+    say "  ${d}skipped (cava is optional)${z}"
+  else
+    local want="$cava_choice"
+    if [[ -z $want ]]; then
+      if (( assume_yes )) || [[ ! -t 0 ]]; then want=no
+      else
+        local reply; read -r -p "  Install cava for the audio bars around the cover art? It is removed again on uninstall. [y/N] " reply
+        [[ $reply =~ ^[yY] ]] && want=yes || want=no
+      fi
+    fi
+    if [[ $want == yes ]]; then
+      if omarchy pkg add cava && command -v cava >/dev/null 2>&1; then
+        cava_installed_by_us=true; ok "cava installed"
+      else
+        warn "could not install cava; the visualiser stays hidden"
+      fi
+    else
+      say "  skipped — the visualiser stays hidden (install later with: omarchy pkg add cava)"
+    fi
+  fi
+  if (( ! dry_run )); then
+    jq --argjson c "$cava_installed_by_us" '.installedCava = $c' "$state_file" | write_atomic "$state_file"
+  fi
+
   step "Switch the bar"
   if (( dry_run )); then
     say "  ${d}[dry-run]${z} set bar.id = $PLUGIN_ID in $shell_json"
@@ -414,6 +448,7 @@ cmd_uninstall() {
   say "  bar.id     → $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
   say "  shell.json → $(jq -r 'if .pre.shellJsonExisted then "restored from snapshot" else "removed if it only holds defaults" end' "$state_file")"
   say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
+  [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
   else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
   confirm "Continue?"
@@ -437,6 +472,11 @@ cmd_uninstall() {
 
   step "Restore settings"
   restore_settings
+
+  if [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && (( ! offline )); then
+    step "Remove cava"
+    omarchy pkg drop cava && ok "cava removed (it was installed by Omacale)" || warn "could not remove cava; remove it with: omarchy pkg drop cava"
+  fi
 
   step "Remove plugin"
   if (( ! offline )); then
@@ -520,6 +560,8 @@ while (( $# )); do
     --try) bind_mode=try ;;
     --untry) bind_mode=untry ;;
     --keep-settings) keep_settings=1 ;;
+    --with-cava) cava_choice=yes ;;
+    --no-cava) cava_choice=no ;;
     --dry-run) dry_run=1 ;;
     --yes|-y) assume_yes=1 ;;
     --dev) dev_link=1 ;;

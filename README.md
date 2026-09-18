@@ -26,9 +26,19 @@ It is a port of Caelestia's actual design, not an approximation:
 - **Hover popouts.** Wi-Fi list with connect/disconnect, Bluetooth toggles
   and devices, battery with the power-profile switch, tray menus with
   submenus, and a live preview of the active window.
-- **Dashboard.** Opens on hover at the top edge. Tabs: Dashboard (weather,
-  user card, Rubik clock, calendar with a "sunny" today marker, CPU/RAM/disk
-  rings, media with arc progress and bongo cat), Media, Performance, Weather.
+- **Dashboard.** Opens on hover at the top edge, with Caelestia's four tabs:
+  - **Dashboard**: weather, user card, Rubik clock, calendar with a "sunny"
+    today marker, CPU/RAM/disk rings, media with arc progress and bongo cat.
+  - **Media**: drifting background shapes, the cover art cut to a spinning
+    cookie shape and ringed by a 60-bar audio visualiser, a wavy seek bar,
+    shuffle/previous/play/next/repeat, synced lyrics (current line glows,
+    click a line to seek), and a player selector.
+  - **Performance**: CPU and GPU hero cards (usage ring, temperature bar, a
+    usage shape that turns from cookie to sunny to burst as load rises),
+    storage with a disk selector, a network sparkline with speeds and
+    totals, memory, and a battery "tank" that fills with charge.
+  - **Weather**: city, date, sunrise/sunset, current conditions, humidity,
+    feels-like, wind, and a 7-day forecast.
 - **Launcher.** Bottom drawer: search pill, 7 results, keyboard navigation;
   `>` lists Omarchy actions.
 - **Session.** Right drawer: logout, shutdown, kurukuru, hibernate, reboot.
@@ -55,6 +65,22 @@ It is a port of Caelestia's actual design, not an approximation:
 
   Open it with `omarchy-shell omacale settings`, `SUPER + SHIFT + I` (once
   bound), right-clicking the bar logo, or `>settings` in the launcher.
+
+## Helper scripts
+
+Caelestia gets this data from its C++ plugin; Omacale uses small scripts in
+`omacale.bar/scripts/` (bash, `curl`, `jq`):
+
+| Script | Does |
+|---|---|
+| `weather.sh [city] [metric\|imperial]` | Open-Meteo forecast (Caelestia's source); location from Open-Meteo geocoding or ip-api |
+| `lyrics.sh artist title [album] [secs]` | Synced lyrics from lrclib.net, skipping junk uploads and preferring the closest duration |
+| `gpu.sh` | NVIDIA (`nvidia-smi`) or AMD (`gpu_busy_percent`) usage and temperature; never wakes a sleeping hybrid-laptop dGPU |
+| `cava.sh [bars]` | Streams `cava` bar values for the media visualiser |
+
+The visualiser needs `cava`. The installer offers to install it
+(`--with-cava` / `--no-cava`) and records whether it did; uninstall only
+removes `cava` if Omacale installed it.
 
 ## Keybindings
 
@@ -107,7 +133,7 @@ omarchy-shell omacale launcher | dashboard | session | close
 
 ## What it changes — and how it is undone
 
-Omacale changes exactly four things, and records each before touching it:
+Omacale changes exactly four things (five if you opt into `cava`), and records each before touching it:
 
 | Thing | On install | On uninstall |
 |---|---|---|
@@ -115,6 +141,7 @@ Omacale changes exactly four things, and records each before touching it:
 | `bar.id` in `~/.config/omarchy/shell.json` | set to `omacale.bar` | put back to its previous value, or unset |
 | `~/.config/omacale/` | not created (appears on your first settings change) | removed, or restored if it existed before; `--keep-settings` keeps it |
 | `~/.local/state/omacale/` | snapshot of `shell.json` + install record | removed |
+| `cava` package (optional) | installed only if you say yes | removed only if Omacale installed it |
 
 It never edits `~/.config/hypr`, themes, or anything under `/usr`. Transparency's
 blur and "Try this session" keybinds are runtime-only Hyprland state; if

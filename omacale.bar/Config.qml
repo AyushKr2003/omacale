@@ -134,11 +134,21 @@ QtObject {
         property bool showOnHover: true
         property bool clockSeconds: false
         property bool mediaGif: true
+        property bool lyrics: true
+        property bool visualiser: true
         property JsonObject tabs: JsonObject {
           property bool dashboard: true
           property bool media: true
           property bool performance: true
           property bool weather: true
+        }
+        property JsonObject performance: JsonObject {
+          property bool showCpu: true
+          property bool showGpu: true
+          property bool showMemory: true
+          property bool showStorage: true
+          property bool showNetwork: true
+          property bool showBattery: true
         }
       }
       property JsonObject launcher: JsonObject {

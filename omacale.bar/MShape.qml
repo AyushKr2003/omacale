@@ -56,6 +56,17 @@ Item {
     return pts
   }
 
+  // Distance from the centre to the outline at a screen angle (degrees,
+  // 0 = right, clockwise), honouring the item's rotation.
+  function distanceAtAngle(deg) {
+    const rs = current()
+    if (!rs.length) return width / 2
+    let a = ((deg - rotation) % 360 + 360) % 360
+    const i = Math.round(a / 360 * rs.length) % rs.length
+    const th = a * Math.PI / 180
+    return rs[i] * Math.hypot(width / 2 * Math.cos(th), height / 2 * Math.sin(th))
+  }
+
   function contains(p) {
     const dx = p.x - width / 2, dy = p.y - height / 2
     const th = (Math.atan2(dy, dx) + 2 * Math.PI) % (2 * Math.PI)
