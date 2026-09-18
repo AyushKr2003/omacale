@@ -1,0 +1,457 @@
+#!/usr/bin/env bash
+# omacale — installer / uninstaller for the Omacale Omarchy shell.
+#
+# Design rule: install records exactly what it is about to change, changes
+# only that, and uninstall reverts only that. Omacale touches:
+#
+#   1. ~/.config/omarchy/plugins/omacale.bar/   (its own plugin directory)
+#   2. `bar.id` in ~/.config/omarchy/shell.json (the one switch that selects
+#                                                a full bar plugin)
+#   3. ~/.local/state/omacale/                  (its own state + snapshots)
+#
+# It never edits ~/.config/hypr, themes, Omarchy's own files, or anything
+# under /usr. Everything it needs to undo is snapshotted before the first write.
+set -Eeuo pipefail
+
+PLUGIN_ID="omacale.bar"
+VERSION="0.2.0"
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd -- "$script_dir/.." && pwd)"
+src_plugin="$repo_dir/$PLUGIN_ID"
+
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+omarchy_cfg="$config_home/omarchy"
+plugins_dir="$omarchy_cfg/plugins"
+shell_json="$omarchy_cfg/shell.json"
+dest_plugin="$plugins_dir/$PLUGIN_ID"
+state_dir="${OMACALE_STATE_DIR:-$state_home/omacale}"
+state_file="$state_dir/state.json"
+snap_dir="$state_dir/pre-install"
+
+# OMACALE_OFFLINE=1 skips every call into the running Omarchy shell and
+# compositor. Used for sandboxed tests of the file logic.
+offline="${OMACALE_OFFLINE:-0}"
+
+dry_run=0
+assume_yes=0
+dev_link=0
+keep_state=0
+no_restart=0
+cmd=""
+
+# ------------------------------------------------------------------ output
+
+if [[ -t 1 ]]; then b=$'\e[1m'; d=$'\e[2m'; g=$'\e[32m'; y=$'\e[33m'; r=$'\e[31m'; z=$'\e[0m'; else b=; d=; g=; y=; r=; z=; fi
+say()  { printf '%s\n' "$*"; }
+step() { printf '%s==>%s %s\n' "$b" "$z" "$*"; }
+ok()   { printf '  %s✓%s %s\n' "$g" "$z" "$*"; }
+warn() { printf '  %s!%s %s\n' "$y" "$z" "$*" >&2; }
+fail() { printf '%somacale:%s %s\n' "$r" "$z" "$*" >&2; exit 1; }
+act()  { # act "description" cmd...   (respects --dry-run)
+  local desc="$1"; shift
+  if (( dry_run )); then printf '  %s[dry-run]%s %s\n' "$d" "$z" "$desc"; else "$@"; fi
+}
+
+usage() {
+  cat <<EOF
+${b}omacale $VERSION${z} — a Caelestia-style shell for Omarchy
+
+Usage: omacale <command> [options]
+
+Commands:
+  install      Install the plugin and switch the bar to it
+  uninstall    Remove the plugin and restore the exact pre-install state
+  status       Show what is installed and what would be restored
+  doctor       Check that Omacale and Omarchy are healthy
+
+Options:
+  --dry-run    Show what would change; change nothing
+  --yes, -y    Do not ask for confirmation
+  --dev        (install) symlink the plugin from this checkout for live editing
+  --keep-state (uninstall) keep ~/.local/state/omacale afterwards
+  --no-restart (install) do not restart the Omarchy shell afterwards
+  --help, -h   Show this help
+
+Omacale changes only: its plugin directory, \`bar.id\` in shell.json, and
+its own state directory. Nothing under ~/.config/hypr or /usr is touched.
+EOF
+}
+
+# ------------------------------------------------------------------ helpers
+
+need() { command -v "$1" >/dev/null 2>&1 || fail "'$1' is required but not installed"; }
+
+sha() { [[ -e $1 ]] && sha256sum -- "$1" | cut -d' ' -f1 || echo "absent"; }
+
+confirm() {
+  (( assume_yes || dry_run )) && return 0
+  [[ -t 0 ]] || fail "confirmation needs a terminal; rerun with --yes"
+  local reply; read -r -p "$1 [y/N] " reply
+  [[ $reply =~ ^[yY]([eE][sS])?$ ]] || { say "Cancelled."; exit 0; }
+}
+
+# Atomic write of stdin to $1, same directory so rename is atomic.
+write_atomic() {
+  local target="$1" tmp
+  tmp="$(mktemp "${target}.omacale.XXXXXX")"
+  cat >"$tmp"
+  [[ -e $target ]] && chmod --reference="$target" "$tmp" 2>/dev/null || true
+  mv -f -- "$tmp" "$target"
+}
+
+shell_running() { (( ! offline )) && omarchy-shell shell ping 2>/dev/null | grep -q ok; }
+
+shell_call() { (( offline )) && return 0; omarchy-shell -q "$@" >/dev/null 2>&1 || true; }
+
+# Poll until $1 (a shell command string) succeeds or ~$2 seconds pass.
+wait_for() {
+  local tries=$(( $2 * 5 ))
+  while (( tries-- > 0 )); do eval "$1" >/dev/null 2>&1 && return 0; sleep 0.2; done
+  return 1
+}
+
+plugin_listed() { omarchy plugin list --json 2>/dev/null | jq -e --arg id "$PLUGIN_ID" 'any(.[]; .id == $id)' >/dev/null; }
+
+bar_layer_present() { hyprctl layers -j 2>/dev/null | grep -q '"namespace": *"omacale"'; }
+
+json_ok() { jq -e . "$1" >/dev/null 2>&1; }
+
+# Canonical form for semantic comparison of two JSON files.
+canon() { jq -S -c . "$1" 2>/dev/null || echo "invalid"; }
+
+# jq filter that strips everything Omacale owns from a shell.json document and
+# puts `bar.id` back to the recorded value. $prev is the pre-install bar.id
+# (null when it was unset); $pre is the pre-install document, used only to
+# decide whether an emptied array key existed before.
+read -r -d '' RESTORE_FILTER <<'JQ' || true
+def owned: ((if type == "object" then (.id // "") else tostring end) | startswith("omacale."));
+def drop($k): if has($k) and (.[$k] | type == "array")
+  then .[$k] |= map(select(owned | not))
+       | (if (.[$k] | length) == 0 and (($pre | has($k)) | not) then del(.[$k]) else . end)
+  else . end;
+(if ((.bar // {}) | .id // "") == $id
+   then (if $prev == null then del(.bar.id) else .bar.id = $prev end)
+   else . end)
+| (if (.bar? // null) != null and (.bar | type == "object") and (.bar | length) == 0
+      and (($pre.bar // null) == null) then del(.bar) else . end)
+| drop("plugins") | drop("disabledPlugins") | drop("cloneSourceRestores")
+JQ
+
+# ------------------------------------------------------------------ status
+
+installed_state() { [[ -f $state_file ]] && json_ok "$state_file"; }
+
+cmd_status() {
+  need jq
+  step "Omacale $VERSION"
+  if installed_state; then
+    ok "installed $(jq -r '.installedAt' "$state_file") ($(jq -r 'if .devLink then "dev symlink" else "copied" end' "$state_file"))"
+  else
+    say "  not installed (no state at $state_dir)"
+  fi
+  [[ -e $dest_plugin || -L $dest_plugin ]] && say "  plugin dir : $dest_plugin$([[ -L $dest_plugin ]] && echo ' (symlink)')" || say "  plugin dir : absent"
+  local cur="unset"
+  [[ -f $shell_json ]] && cur="$(jq -r '.bar.id // "unset (built-in omarchy.bar)"' "$shell_json" 2>/dev/null || echo unreadable)"
+  say "  bar.id     : $cur"
+  if installed_state; then
+    say "  on uninstall → bar.id : $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
+    say "  pre-install shell.json : $(jq -r 'if .pre.shellJsonExisted then "snapshot kept (" + .pre.shellJsonSha + ")" else "did not exist" end' "$state_file")"
+  fi
+}
+
+# ------------------------------------------------------------------ doctor
+
+cmd_doctor() {
+  need jq
+  local bad=0
+  chk() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else warn "$1"; bad=1; fi; }
+  step "Environment"
+  chk "quickshell available" "command -v quickshell"
+  chk "omarchy CLI available" "command -v omarchy"
+  chk "Material Symbols Rounded font installed" "fc-list | grep -qi 'Material Symbols Rounded'"
+  if (( ! offline )); then
+    chk "Omarchy shell is running" "shell_running"
+  fi
+  step "Omacale"
+  chk "source plugin has a valid manifest" "jq -e '.id == \"$PLUGIN_ID\" and (.kinds | index(\"bar\"))' '$src_plugin/manifest.json'"
+  if installed_state; then
+    chk "state file is valid" "json_ok '$state_file'"
+    chk "plugin directory present" "[[ -e '$dest_plugin' ]]"
+    chk "pre-install snapshot present" "[[ ! -f '$state_file' ]] || jq -e '.pre.shellJsonExisted | not' '$state_file' || [[ -f '$snap_dir/shell.json' ]]"
+    chk "shell.json is valid JSON" "json_ok '$shell_json'"
+    if (( ! offline )); then
+      chk "plugin is discovered by the shell" "plugin_listed"
+      chk "bar layer is mapped" "bar_layer_present"
+    fi
+  else
+    say "  not installed"
+  fi
+  exit $bad
+}
+
+# ------------------------------------------------------------------ install
+
+rollback_install() {
+  # Best-effort undo of a failed install, from the snapshot we just took.
+  warn "install failed — rolling back"
+  restore_shell_json || warn "could not restore shell.json automatically; snapshot is in $snap_dir"
+  remove_plugin_dir || true
+  restore_preexisting_plugin || true
+  shell_call shell rescanPlugins
+  rm -rf -- "$state_dir"     # a failed install leaves no trace
+}
+
+restore_shell_json() {
+  # Undo our change to shell.json. Preserves any edits the user made after
+  # install; only Omacale-owned keys are reverted.
+  local pre_existed prev
+  pre_existed="$(jq -r '.pre.shellJsonExisted' "$state_file")"
+  prev="$(jq -c '.pre.barId' "$state_file")"
+
+  if [[ $pre_existed == true ]]; then
+    local pre_doc="$snap_dir/shell.json"
+    [[ -f $pre_doc ]] || { warn "pre-install snapshot missing: $pre_doc"; return 1; }
+    if [[ -f $shell_json ]]; then
+      local tmp; tmp="$(mktemp)"
+      jq --arg id "$PLUGIN_ID" --argjson prev "$prev" \
+         --argjson pre "$(cat "$pre_doc")" "$RESTORE_FILTER" "$shell_json" >"$tmp" \
+         || { rm -f "$tmp"; return 1; }
+      if [[ "$(jq -S -c . "$tmp")" == "$(canon "$pre_doc")" ]]; then
+        # Semantically identical to the original → put the original bytes back.
+        cp --preserve=mode -- "$pre_doc" "$shell_json.omacale.tmp" && mv -f -- "$shell_json.omacale.tmp" "$shell_json"
+        ok "shell.json restored byte-for-byte from the pre-install snapshot"
+        rm -f "$tmp"
+      else
+        write_atomic "$shell_json" <"$tmp"; rm -f "$tmp"
+        ok "shell.json: Omacale entries removed, your later edits kept"
+      fi
+    else
+      cp --preserve=mode -- "$pre_doc" "$shell_json"
+      ok "shell.json recreated from the pre-install snapshot"
+    fi
+  else
+    # No shell.json existed before. The shell may have written one since.
+    if [[ -f $shell_json ]]; then
+      local tmp defaults; tmp="$(mktemp)"
+      defaults="${OMARCHY_PATH:-/usr/share/omarchy}/config/omarchy/shell.json"
+      jq --arg id "$PLUGIN_ID" --argjson prev null --argjson pre '{}' "$RESTORE_FILTER" "$shell_json" >"$tmp" \
+        || { rm -f "$tmp"; return 1; }
+      # Empty, version-only, or identical-to-defaults all mean "nothing of the
+      # user's is in here" — the file did not exist before, so it should not now.
+      if [[ "$(jq -S -c . "$tmp")" == '{"version":1}' || "$(jq -S -c . "$tmp")" == '{}' \
+            || ( -f $defaults && "$(jq -S -c . "$tmp")" == "$(canon "$defaults")" ) ]]; then
+        rm -f "$shell_json" "$tmp"
+        ok "shell.json removed (it did not exist before install; defaults apply again)"
+      else
+        write_atomic "$shell_json" <"$tmp"; rm -f "$tmp"
+        ok "shell.json: Omacale entries removed (file kept: it now holds other settings)"
+      fi
+    fi
+  fi
+}
+
+remove_plugin_dir() {
+  if [[ -L $dest_plugin ]]; then
+    rm -f -- "$dest_plugin"; ok "removed plugin symlink"
+  elif [[ -d $dest_plugin ]]; then
+    # Only ever delete a directory that really is ours.
+    if [[ "$(jq -r '.id // empty' "$dest_plugin/manifest.json" 2>/dev/null)" == "$PLUGIN_ID" ]]; then
+      rm -rf -- "$dest_plugin"; ok "removed $dest_plugin"
+    else
+      warn "$dest_plugin does not look like Omacale's plugin; left untouched"
+    fi
+  fi
+}
+
+restore_preexisting_plugin() {
+  # If the user had their own plugin dir with this id before install, put it back.
+  if [[ -d $snap_dir/plugin ]] && installed_state && [[ "$(jq -r '.pre.pluginDirExisted' "$state_file")" == true ]]; then
+    mv -- "$snap_dir/plugin" "$dest_plugin"
+    ok "restored the plugin directory that existed before install"
+  fi
+}
+
+cmd_install() {
+  need jq; need cp; need sha256sum
+  [[ ${EUID:-$(id -u)} -ne 0 ]] || fail "run as your normal user, not root"
+  [[ -f $src_plugin/manifest.json ]] || fail "plugin source not found at $src_plugin"
+  jq -e --arg id "$PLUGIN_ID" '.id == $id' "$src_plugin/manifest.json" >/dev/null || fail "manifest id mismatch"
+  if (( ! offline )); then
+    need omarchy; need omarchy-shell
+    shell_running || fail "the Omarchy shell is not running; start it first (omarchy restart shell)"
+  fi
+  installed_state && fail "already installed. Run 'omacale uninstall' first, or 'omacale status'."
+  if [[ -f $shell_json ]]; then json_ok "$shell_json" || fail "$shell_json is not valid JSON; refusing to touch it"; fi
+
+  step "Omacale $VERSION — install"
+  say "  plugin     : $src_plugin → $dest_plugin$( ((dev_link)) && echo ' (symlink)')"
+  say "  shell.json : set bar.id = $PLUGIN_ID  (current: $([[ -f $shell_json ]] && jq -r '.bar.id // "unset"' "$shell_json" || echo 'no file'))"
+  say "  snapshots  : $snap_dir"
+  say "  untouched  : ~/.config/hypr, themes, /usr — nothing else is modified"
+  confirm "Continue?"
+
+  local pre_existed=false pre_sha="absent" prev_bar="null" plugin_existed=false
+  [[ -f $shell_json ]] && { pre_existed=true; pre_sha="$(sha "$shell_json")"; prev_bar="$(jq -c '.bar.id // null' "$shell_json")"; }
+  [[ -e $dest_plugin || -L $dest_plugin ]] && plugin_existed=true
+
+  step "Snapshot"
+  act "create $snap_dir" mkdir -p -m 700 "$snap_dir"
+  if [[ $pre_existed == true ]]; then
+    act "copy shell.json → $snap_dir/shell.json" cp --preserve=mode,timestamps -- "$shell_json" "$snap_dir/shell.json"
+  fi
+  if [[ $plugin_existed == true ]]; then
+    warn "a plugin already exists at $dest_plugin — it will be set aside and restored on uninstall"
+    act "move existing plugin aside" mv -- "$dest_plugin" "$snap_dir/plugin"
+  fi
+  if (( ! dry_run )); then
+    jq -n \
+      --arg version "$VERSION" --arg at "$(date -Is)" --arg src "$src_plugin" \
+      --argjson existed "$pre_existed" --arg sha "$pre_sha" --argjson barId "$prev_bar" \
+      --argjson pluginExisted "$plugin_existed" --argjson dev "$( ((dev_link)) && echo true || echo false)" \
+      '{version:$version, installedAt:$at, source:$src, devLink:$dev,
+        pre:{shellJsonExisted:$existed, shellJsonSha:$sha, barId:$barId, pluginDirExisted:$pluginExisted}}' \
+      | write_atomic "$state_file"
+  fi
+  (( dry_run )) || ok "state recorded"
+
+  trap '(( dry_run )) || rollback_install' ERR
+
+  step "Install plugin"
+  act "mkdir -p $plugins_dir" mkdir -p "$plugins_dir"
+  if (( dev_link )); then
+    act "symlink $dest_plugin → $src_plugin" ln -s -- "$src_plugin" "$dest_plugin"
+  else
+    # Stage outside the watched plugins folder so the shell never hot-loads a
+    # half-copied tree, then move it into place in one rename.
+    local stage="$state_dir/stage.$$"
+    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' && cp -r --no-preserve=ownership -- '$src_plugin' '$stage' && mv -T -- '$stage' '$dest_plugin'"
+  fi
+  (( dry_run )) || ok "plugin files in place"
+  shell_call shell rescanPlugins
+  if (( ! offline && ! dry_run )); then
+    wait_for plugin_listed 8 || fail "the shell did not discover $PLUGIN_ID"
+    ok "shell discovered $PLUGIN_ID"
+  fi
+
+  step "Switch the bar"
+  if (( dry_run )); then
+    say "  ${d}[dry-run]${z} set bar.id = $PLUGIN_ID in $shell_json"
+  else
+    local base="{}"; [[ -f $shell_json ]] && base="$(cat "$shell_json")"
+    mkdir -p "$omarchy_cfg"
+    jq --arg id "$PLUGIN_ID" '. as $d | (if ($d.version // null) == null then .version = 1 else . end) | .bar = ((.bar // {}) | .id = $id)' <<<"$base" | write_atomic "$shell_json"
+    shell_call shell reloadConfig
+    ok "bar.id = $PLUGIN_ID"
+    if (( ! offline )); then
+      if command -v hyprctl >/dev/null 2>&1; then
+        wait_for bar_layer_present 10 || fail "the Omacale bar did not appear"
+        ok "Omacale bar is on screen"
+      else
+        warn "hyprctl not found; could not verify the bar is on screen"
+      fi
+      shell_running || fail "the Omarchy shell stopped responding after the switch"
+      if (( ! no_restart )); then
+        # The QML engine caches a plugin's types for the life of the process,
+        # so a reinstall/upgrade only shows new code after a restart.
+        say "  restarting the Omarchy shell to load fresh plugin code..."
+        omarchy restart shell >/dev/null 2>&1 || warn "shell restart failed; run: omarchy restart shell"
+        wait_for bar_layer_present 15 && ok "Omacale bar is on screen (fresh shell)" || warn "bar not visible after restart; run: omarchy restart shell"
+      fi
+    fi
+  fi
+  trap - ERR
+
+  step "Done"
+  say "  Open the launcher : omarchy-shell omacale launcher"
+  say "  Dashboard         : omarchy-shell omacale dashboard"
+  say "  Session menu      : omarchy-shell omacale session"
+  say "  Undo everything   : ${b}omacale uninstall${z}"
+}
+
+# ---------------------------------------------------------------- uninstall
+
+cmd_uninstall() {
+  need jq
+  [[ ${EUID:-$(id -u)} -ne 0 ]] || fail "run as your normal user, not root"
+
+  if ! installed_state; then
+    if [[ -e $dest_plugin || -L $dest_plugin ]] && [[ "$(jq -r '.id // empty' "$dest_plugin/manifest.json" 2>/dev/null)" == "$PLUGIN_ID" ]]; then
+      warn "no install record, but Omacale's plugin directory exists (orphan)"
+      confirm "Remove the orphaned plugin and reset bar.id if it points at Omacale?"
+      if (( ! dry_run )); then
+        if [[ -f $shell_json && "$(jq -r '.bar.id // ""' "$shell_json")" == "$PLUGIN_ID" ]]; then
+          jq 'del(.bar.id)' "$shell_json" | write_atomic "$shell_json"; ok "bar.id reset to the built-in bar"
+        fi
+        shell_call shell reloadConfig
+        remove_plugin_dir; shell_call shell rescanPlugins
+      fi
+      say "Done."; return
+    fi
+    say "Omacale is not installed; nothing to do."; return
+  fi
+
+  step "Omacale — uninstall"
+  say "  bar.id     → $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
+  say "  shell.json → $(jq -r 'if .pre.shellJsonExisted then "restored from snapshot" else "removed if it only holds defaults" end' "$state_file")"
+  say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
+  confirm "Continue?"
+
+  if (( dry_run )); then
+    say "  ${d}[dry-run]${z} nothing changed"; return
+  fi
+
+  step "Restore shell.json"
+  restore_shell_json || fail "could not restore shell.json; nothing was removed. Snapshot: $snap_dir/shell.json"
+  shell_call shell reloadConfig
+
+  step "Remove plugin"
+  if (( ! offline )); then
+    # Let the shell drop the bar first so no layer surface outlives its plugin.
+    wait_for '! bar_layer_present' 6 || warn "the Omacale layer is still mapped; continuing"
+  fi
+  remove_plugin_dir
+  restore_preexisting_plugin
+  shell_call shell rescanPlugins
+
+  if (( ! offline )); then
+    step "Verify"
+    if command -v hyprctl >/dev/null 2>&1; then
+      wait_for '! bar_layer_present' 8 && ok "no Omacale surfaces remain" || warn "an Omacale layer is still mapped — run: omarchy restart shell"
+    fi
+    if plugin_listed; then warn "the shell still lists $PLUGIN_ID — run: omarchy restart shell"; else ok "plugin is gone"; fi
+    shell_running && ok "Omarchy shell is running" || warn "Omarchy shell is not responding — run: omarchy restart shell"
+  fi
+
+  if (( keep_state )); then
+    ok "state kept at $state_dir"
+  else
+    rm -rf -- "$state_dir"; ok "state removed"
+  fi
+  step "Done — your system is back to its pre-install state."
+}
+
+# --------------------------------------------------------------------- main
+
+while (( $# )); do
+  case "$1" in
+    install|uninstall|status|doctor) cmd="$1" ;;
+    --dry-run) dry_run=1 ;;
+    --yes|-y) assume_yes=1 ;;
+    --dev) dev_link=1 ;;
+    --keep-state) keep_state=1 ;;
+    --no-restart) no_restart=1 ;;
+    --help|-h) usage; exit 0 ;;
+    *) fail "unknown argument: $1 (see --help)" ;;
+  esac
+  shift
+done
+
+case "$cmd" in
+  install) cmd_install ;;
+  uninstall) cmd_uninstall ;;
+  status) cmd_status ;;
+  doctor) cmd_doctor ;;
+  "") usage; exit 1 ;;
+esac

@@ -1,0 +1,24 @@
+Anim 1.0 Anim.qml
+Bar 1.0 Bar.qml
+BarContent 1.0 BarContent.qml
+CAnim 1.0 CAnim.qml
+CircularProgress 1.0 CircularProgress.qml
+ColouredIcon 1.0 ColouredIcon.qml
+singleton Colours 1.0 Colours.qml
+Dashboard 1.0 Dashboard.qml
+IconButton 1.0 IconButton.qml
+Launcher 1.0 Launcher.qml
+MIcon 1.0 MIcon.qml
+MShape 1.0 MShape.qml
+MSlider 1.0 MSlider.qml
+MSwitch 1.0 MSwitch.qml
+MText 1.0 MText.qml
+PopoutContent 1.0 PopoutContent.qml
+ScreenScope 1.0 ScreenScope.qml
+Session 1.0 Session.qml
+ShaderMaskEffect 1.0 ShaderMaskEffect.qml
+StateLayer 1.0 StateLayer.qml
+singleton Sys 1.0 Sys.qml
+singleton Tk 1.0 Tk.qml
+Toggle 1.0 Toggle.qml
+Workspaces 1.0 Workspaces.qml
