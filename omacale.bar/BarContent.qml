@@ -63,20 +63,24 @@ Item {
     spacing: Tk.spacing.medium
 
     // ---------------------------------------------------------- logo
+    // Full-width row so the icon is centred with a rounded x: the bar is an
+    // even width and the slot odd, so AlignHCenter would put it on a half
+    // pixel and blur it.
     Item {
       visible: root.cfg.logo
-      Layout.alignment: Qt.AlignHCenter
-      implicitWidth: Math.round(Tk.body.large * 1.2)
-      implicitHeight: implicitWidth
+      Layout.fillWidth: true
+      implicitHeight: logo.height
       LogoIcon {
-        anchors.centerIn: parent
+        id: logo
+        x: Math.round((parent.width - width) / 2)
+        width: Math.round(Tk.body.large * 1.2)
+        height: width
         value: root.cfg.logoIcon
-        size: parent.width
-        omarchyPath: root.host.omarchyPath
+        size: width
         colour: Colours.m3tertiary
       }
       MouseArea {
-        anchors.fill: parent
+        anchors.fill: logo
         anchors.margins: -4
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
