@@ -218,7 +218,7 @@ Item {
             Behavior on bottomLeftRadius { Anim { type: "effects" } }
             Behavior on color { CAnim {} }
 
-            StateLayer { id: st; radius: Math.min(item.topLeftRadius, item.bottomLeftRadius); onClicked: root.go(item.modelData.id) }
+            StateLayer { id: st; onClicked: root.go(item.modelData.id) }
             RowLayout {
               id: il
               anchors.fill: parent

@@ -119,7 +119,7 @@ ColumnLayout {
     Layout.fillWidth: true
     color: danger && root.confirmReset ? Colours.m3errorContainer : Colours.m3surfaceContainer
     implicitHeight: al.implicitHeight + Tk.padding.medium * 2
-    StateLayer { radius: Math.min(act.topLeftRadius, act.bottomLeftRadius); color: act.danger ? Colours.m3error : Colours.m3onSurface; onClicked: act.clicked() }
+    StateLayer { color: act.danger ? Colours.m3error : Colours.m3onSurface; onClicked: act.clicked() }
     RowLayout {
       id: al
       anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter

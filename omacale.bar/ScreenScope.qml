@@ -45,7 +45,11 @@ Scope {
       if (name === "close") { scope.closeAll(); return }
       if (name === "launcher" && scope.cfg.launcher.enabled) scope.launcher = !scope.launcher
       else if (name === "session" && scope.cfg.session.enabled) scope.session = !scope.session
-      else if (name === "settings") scope.settings = !scope.settings
+      else if (name === "settings") {
+        // With a page id it opens (never toggles) straight onto that page.
+        if (arg) { scope.popout = ""; nexus.go(arg); scope.settings = true }
+        else scope.settings = !scope.settings
+      }
       else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) {
         if (scope.session) scope.session = false
         scope.sidebar = !scope.sidebar

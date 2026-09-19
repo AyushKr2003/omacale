@@ -2,12 +2,19 @@ import QtQuick
 import QtQuick.Effects
 
 // Caelestia StateLayer: 8% hover veil plus a radial ripple on press, both
-// clipped to the parent's rounded shape.
+// clipped to the parent's rounded shape. Like Caelestia's, each corner is
+// picked up from the parent, so a ConnectedRect row (large outer corners,
+// tight inner ones) gets a highlight of exactly its own shape.
 MouseArea {
   id: root
   property bool disabled
   property color color: Colours.m3onSurface
   property real radius: parent && parent.radius !== undefined ? parent.radius : 0
+  property real topLeftRadius: parent && parent.topLeftRadius !== undefined ? parent.topLeftRadius : radius
+  property real topRightRadius: parent && parent.topRightRadius !== undefined ? parent.topRightRadius : radius
+  property real bottomLeftRadius: parent && parent.bottomLeftRadius !== undefined ? parent.bottomLeftRadius : radius
+  property real bottomRightRadius: parent && parent.bottomRightRadius !== undefined ? parent.bottomRightRadius : radius
+  function clampR(r) { return Math.max(0, Math.min(r, width / 2, height / 2)) }
   property real pressX: width / 2
   property real pressY: height / 2
   property real ripple: 0
@@ -29,7 +36,10 @@ MouseArea {
 
   Rectangle {
     anchors.fill: parent
-    radius: Math.min(root.radius, width / 2, height / 2)
+    topLeftRadius: root.clampR(root.topLeftRadius)
+    topRightRadius: root.clampR(root.topRightRadius)
+    bottomLeftRadius: root.clampR(root.bottomLeftRadius)
+    bottomRightRadius: root.clampR(root.bottomRightRadius)
     color: root.color
     opacity: root.containsMouse && !root.disabled ? 0.08 : 0
     Behavior on opacity { Anim { type: "effects" } }
@@ -56,7 +66,10 @@ MouseArea {
   Rectangle {
     id: mask
     anchors.fill: parent
-    radius: Math.min(root.radius, width / 2, height / 2)
+    topLeftRadius: root.clampR(root.topLeftRadius)
+    topRightRadius: root.clampR(root.topRightRadius)
+    bottomLeftRadius: root.clampR(root.bottomLeftRadius)
+    bottomRightRadius: root.clampR(root.bottomRightRadius)
     visible: false
     layer.enabled: true
   }

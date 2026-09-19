@@ -69,6 +69,14 @@ It is a port of Caelestia's actual design, not an approximation:
     transparency with Hyprland blur.
   - **Frame & motion**: border thickness, corner rounding, drawer blending,
     shadow, animation speed.
+  - **Network**: Wi-Fi on/off, network list with inline password (and
+    802.1X username) prompts, ethernet, share via Omarchy's QR card, and a
+    details page (signal, band, IP, gateway, forget / disconnect). Same engine
+    as Omarchy's network panel: Quickshell Networking + `omarchy-network-status`.
+  - **Connected devices**: Bluetooth on/off (`omarchy-bluetooth-power`), saved
+    devices with battery, pair new device, discoverable / pairable, and a
+    per-device page (trusted, blocked, wake, forget). Actions go through
+    `omarchy-bluetooth-device`.
   - **Panels**: taskbar (persistent or auto-hide, workspaces as shapes or
     numbers, indicator/trail, window icons, title, tray, clock, which status
     icons, popouts, scroll actions), dashboard (hover, tabs, seconds, bongo
@@ -80,6 +88,9 @@ It is a port of Caelestia's actual design, not an approximation:
 
   Open it with `omarchy-shell omacale settings`, `SUPER + SHIFT + I` (once
   bound), right-clicking the bar logo, or `>settings` in the launcher.
+  `omarchy-shell omacale settingsPage network` (or `bluetooth`, `style`, ...)
+  opens it on one page; the bar's Wi-Fi and Bluetooth popouts use this for
+  their "Open settings" buttons.
 
 ## Helper scripts
 

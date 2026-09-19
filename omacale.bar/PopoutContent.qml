@@ -111,17 +111,30 @@ Item {
             color: ap.modelData.active ? Colours.m3primary : Colours.m3onSurface
           }
           RoundAction {
+            readonly property var net: NetService.networkFor(ap.modelData.ssid)
             icon: ap.modelData.active ? "link_off" : "link"
             active: ap.modelData.active
-            onClicked: Sys.run(ap.modelData.active ? "nmcli connection down id " + JSON.stringify(ap.modelData.ssid)
-                                                   : "nmcli device wifi connect " + JSON.stringify(ap.modelData.ssid) + " || omarchy-launch-wifi")
+            busy: NetService.busy && NetService.actionSsid === ap.modelData.ssid
+            onClicked: {
+              if (!net) return
+              if (ap.modelData.active) { NetService.disconnect(net); return }
+              // Saved or open networks connect here; anything that needs a
+              // password opens Settings › Network with its prompt already
+              // expanded (Caelestia shows a password popout instead).
+              NetService.activate(net)
+              if (NetService.passwordSsid === net.name) { root.host.toggle("settings", "network"); root.closeRequested() }
+            }
           }
         }
       }
       WideButton {
-        Layout.bottomMargin: Tk.padding.small
         icon: "wifi_find"; label: "Rescan networks"
         onClicked: Sys.run("nmcli device wifi rescan")
+      }
+      WideButton {
+        Layout.bottomMargin: Tk.padding.small
+        icon: "settings"; label: "Open settings"
+        onClicked: { root.host.toggle("settings", "network"); root.closeRequested() }
       }
     }
   }
@@ -221,7 +234,7 @@ Item {
       WideButton {
         Layout.bottomMargin: Tk.padding.small
         icon: "settings"; label: "Open settings"
-        onClicked: { Sys.run("omarchy-launch-bluetooth || blueberry"); root.closeRequested() }
+        onClicked: { root.host.toggle("settings", "bluetooth"); root.closeRequested() }
       }
     }
   }

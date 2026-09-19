@@ -16,7 +16,6 @@ ConnectedRect {
   implicitHeight: rl.implicitHeight + Tk.padding.medium * 2
 
   StateLayer {
-    radius: Math.min(root.topLeftRadius, root.bottomLeftRadius)
     onClicked: root.settings.push(root.row.page)
   }
   RowLayout {

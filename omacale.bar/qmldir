@@ -59,3 +59,16 @@ Utilities 1.0 Utilities.qml
 WavyLine 1.0 WavyLine.qml
 WeatherTab 1.0 WeatherTab.qml
 Workspaces 1.0 Workspaces.qml
+BigButton 1.0 BigButton.qml
+BluetoothPage 1.0 BluetoothPage.qml
+BtDevice 1.0 BtDevice.qml
+BtDeviceRow 1.0 BtDeviceRow.qml
+BtPairing 1.0 BtPairing.qml
+singleton BtService 1.0 BtService.qml
+InfoRow 1.0 InfoRow.qml
+ItemList 1.0 ItemList.qml
+LoadingIndicator 1.0 LoadingIndicator.qml
+NetworkDetail 1.0 NetworkDetail.qml
+NetworkPage 1.0 NetworkPage.qml
+singleton NetService 1.0 NetService.qml
+RowButton 1.0 RowButton.qml

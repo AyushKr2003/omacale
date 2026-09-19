@@ -57,6 +57,16 @@ var pages = [
     ]
   },
   {
+    id: "network", label: "Network", icon: "wifi", category: "connectivity",
+    description: "Wi-Fi, ethernet",
+    rows: [ { type: "custom", comp: "network" } ]
+  },
+  {
+    id: "bluetooth", label: "Connected devices", icon: "devices_other", category: "connectivity",
+    description: "Bluetooth, pairing",
+    rows: [ { type: "custom", comp: "bluetooth" } ]
+  },
+  {
     id: "panels", label: "Panels", icon: "dock_to_bottom", category: "shell",
     description: "Taskbar, dashboard, launcher, session, sidebar, utilities",
     rows: [
@@ -95,6 +105,9 @@ var pages = [
 ]
 
 var subpages = {
+  networkDetail: { title: "Network details", rows: [ { type: "custom", comp: "networkDetail" } ] },
+  btPair: { title: "Pair new device", rows: [ { type: "custom", comp: "btPair" } ] },
+  btDevice: { title: "Device", rows: [ { type: "custom", comp: "btDevice" } ] },
   taskbar: {
     title: "Taskbar",
     rows: [

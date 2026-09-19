@@ -46,6 +46,8 @@ Item {
     function dashboard(): void { root.toggle("dashboard") }
     function session(): void { root.toggle("session") }
     function settings(): void { root.toggle("settings") }
+    // Open settings on one page, e.g. "network" or "bluetooth".
+    function settingsPage(page: string): void { root.toggle("settings", page) }
     function sidebar(): void { root.toggle("sidebar") }
     function utilities(): void { root.toggle("utilities") }
     function toggles(): void { root.toggle("utilities") }

@@ -1,24 +1,39 @@
 import QtQuick
 import QtQuick.Layouts
 
+// Caelestia ToggleRow. Bound to a Config key when `row.key` is set; otherwise
+// drive `checked` and handle `toggled` (Wi-Fi, Bluetooth, ...).
 ConnectedRect {
   id: root
-  property var row
+  property var row: ({})
   property var settings
-  readonly property bool value: !!Config.get(row.key)
+  property string text: row.label || ""
+  property string subtext: row.where ? row.where + (row.subtext ? " · " + row.subtext : "") : (row.subtext || "")
+  property bool checked: row.key ? !!Config.get(row.key) : false
+  property bool disabled: false
+  property real labelSize: Tk.body.small
+  signal toggled(bool checked)
+
+  function flip(c) {
+    if (root.disabled) return
+    if (root.row.key) Config.set(root.row.key, c)
+    root.toggled(c)
+  }
 
   implicitHeight: Math.max(lbl.implicitHeight, sw.implicitHeight) + Tk.padding.medium * 2
+  opacity: disabled ? 0.5 : 1
+  Behavior on opacity { Anim {} }
 
   StateLayer {
-    radius: Math.min(root.topLeftRadius, root.bottomLeftRadius)
-    onClicked: Config.set(root.row.key, !root.value)
+    disabled: root.disabled
+    onClicked: root.flip(!root.checked)
   }
   RowLayout {
     anchors.fill: parent
     anchors.leftMargin: Tk.padding.largeIncreased
     anchors.rightMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
-    RowLabel { id: lbl; Layout.fillWidth: true; text: root.row.label; subtext: root.row.where ? root.row.where + (root.row.subtext ? " · " + root.row.subtext : "") : (root.row.subtext || "") }
-    MSwitch { id: sw; checked: root.value; onToggled: c => Config.set(root.row.key, c) }
+    RowLabel { id: lbl; Layout.fillWidth: true; text: root.text; subtext: root.subtext; textSize: root.labelSize }
+    MSwitch { id: sw; checked: root.checked; enabled: !root.disabled; onToggled: c => root.flip(c) }
   }
 }
