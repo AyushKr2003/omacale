@@ -139,7 +139,9 @@ ColumnLayout {
   }
 
   function copy(text, what) {
-    Quickshell.execDetached(["wl-copy", text])
+    // "--" ends wl-copy's options: the Lua we copy starts with "--" comments,
+    // which it would otherwise reject as an unknown option and copy nothing.
+    Quickshell.execDetached(["wl-copy", "--", text])
     toast = what + " copied to the clipboard"
     toastTimer.restart()
   }
