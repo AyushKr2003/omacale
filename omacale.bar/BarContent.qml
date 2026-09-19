@@ -68,10 +68,11 @@ Item {
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Math.round(Tk.body.large * 1.2)
       implicitHeight: implicitWidth
-      ColouredIcon {
+      LogoIcon {
         anchors.centerIn: parent
-        implicitSize: parent.width
-        source: "file://" + root.host.omarchyPath + "/icon.png"
+        value: root.cfg.logoIcon
+        size: parent.width
+        omarchyPath: root.host.omarchyPath
         colour: Colours.m3tertiary
       }
       MouseArea {
@@ -208,7 +209,7 @@ Item {
       implicitHeight: clockCol.implicitHeight + (root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2
       radius: width / 2
       color: root.cfg.clock.background ? Colours.m3surfaceContainer : "transparent"
-      readonly property bool h12: !Config.o.general.clock24
+      readonly property bool h12: Sys.h12
       MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor

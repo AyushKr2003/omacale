@@ -16,6 +16,7 @@ var values = {
     persistent: true,
     showOnHover: true,
     logo: true,
+    logoIcon: "omarchy",   // see Logos.js
     power: true,
     workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5 },
     activeWindow: { enabled: true, compact: false },
@@ -33,7 +34,12 @@ var values = {
   launcher: { enabled: true, maxShown: 7, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
   sidebar: { enabled: true, width: 430 },
-  utilities: { enabled: true, width: 430 },
+  utilities: {
+    enabled: true, width: 430,
+    // Caelestia's default quick toggles (utilitiesconfig.hpp), plus Omarchy's
+    // night light, off by default so the card keeps Caelestia's single row.
+    toggles: { wifi: true, bluetooth: true, mic: true, settings: true, gameMode: true, dnd: true, nightlight: false }
+  },
   general: { clock24: true, weatherLocation: "", units: "metric" }
 }
 

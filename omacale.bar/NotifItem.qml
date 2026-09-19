@@ -17,7 +17,7 @@ Rectangle {
   readonly property string bodyText: modelData ? String(modelData.body || "") : ""
   readonly property string timeText: {
     if (!modelData || !modelData.timestamp) return ""
-    return Qt.formatTime(new Date(modelData.timestamp), Config.o.general.clock24 ? "HH:mm" : "hh:mm a")
+    return Sys.time(new Date(modelData.timestamp))
   }
   readonly property real nonAnimHeight: expanded
     ? summary.implicitHeight + expandedContent.implicitHeight + Tk.spacing.extraSmall + Tk.padding.medium * 2

@@ -10,7 +10,7 @@ ColumnLayout {
   function label(name) {
     const m = name.match(/(\d{4})-(\d{2})-(\d{2})[_ T-](\d{2})[-:](\d{2})[-:](\d{2})/) || name.match(/(\d{4})(\d{2})(\d{2})_(\d{2})-(\d{2})-(\d{2})/)
     if (!m) return name.replace(/\.[^.]+$/, "")
-    return "Recording at " + Qt.formatDateTime(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]), Qt.locale().dateTimeFormat(Locale.ShortFormat))
+    return "Recording at " + Sys.dateTime(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]))
   }
 
   MouseArea {

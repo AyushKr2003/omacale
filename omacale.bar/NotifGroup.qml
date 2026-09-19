@@ -31,7 +31,7 @@ Rectangle {
   function toggleExpand(expand) { NotifService.setExpanded(appName, expand) }
   function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p }
   function timeOf(n) {
-    return n && n.timestamp ? Qt.formatTime(new Date(n.timestamp), Config.o.general.clock24 ? "hh:mm" : "hh:mm a") : ""
+    return n && n.timestamp ? Sys.time(new Date(n.timestamp)) : ""
   }
 
   radius: Tk.rounding.large

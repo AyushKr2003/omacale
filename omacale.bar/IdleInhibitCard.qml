@@ -83,7 +83,7 @@ Rectangle {
       MText {
         id: activeText
         anchors.centerIn: parent
-        text: "Active since " + (IdleService.enabledSince ? Qt.formatTime(IdleService.enabledSince, Config.o.general.clock24 ? "hh:mm" : "hh:mm a") : "just now")
+        text: "Active since " + (IdleService.enabledSince ? Sys.time(IdleService.enabledSince) : "just now")
         color: Colours.m3onPrimary
         font.pointSize: Math.round(Tk.body.small * 0.9)
       }

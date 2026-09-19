@@ -72,3 +72,5 @@ NetworkDetail 1.0 NetworkDetail.qml
 NetworkPage 1.0 NetworkPage.qml
 singleton NetService 1.0 NetService.qml
 RowButton 1.0 RowButton.qml
+LogoIcon 1.0 LogoIcon.qml
+LogoPicker 1.0 LogoPicker.qml

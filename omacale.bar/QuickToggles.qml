@@ -2,12 +2,13 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
-import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 
 // Quick toggles card (Caelestia utilities/cards/Toggles.qml): a title and one
 // or two ButtonRows of round icon buttons that morph to a squircle when on and
-// bulge when pressed.
+// bulge when pressed. Which buttons show comes from Settings › Utilities, like
+// Caelestia's `utilities.quickToggles`; more than six wrap onto a second row.
+// Caelestia's VPN toggle is left out: Omarchy has no VPN provider for it.
 Rectangle {
   id: root
 
@@ -15,55 +16,55 @@ Rectangle {
   property var scope
 
   property bool nightlightOn: false
-  property bool vpnActive: false
 
-  readonly property var adapter: Bluetooth.defaultAdapter
   readonly property var micSrc: Pipewire.defaultAudioSource
   readonly property bool micOn: micSrc && micSrc.audio ? !micSrc.audio.muted : true
 
-  // Same order as Caelestia's default list, plus Omarchy's night light.
-  // Static definitions: the model must not change when a state flips, or the
-  // Repeater would rebuild the buttons mid-press.
-  readonly property var toggles: [
+  readonly property var all: [
     { id: "wifi", icon: "wifi", toggle: true },
     { id: "bluetooth", icon: "bluetooth", toggle: true },
     { id: "mic", icon: "mic", toggle: true },
     { id: "settings", icon: "settings", toggle: false },
     { id: "gameMode", icon: "gamepad", toggle: true },
     { id: "dnd", icon: "notifications_off", toggle: true },
-    { id: "nightlight", icon: "nightlight", toggle: true },
-    { id: "vpn", icon: "vpn_key", toggle: true }
+    { id: "nightlight", icon: "nightlight", toggle: true }
   ]
-  function isOn(id) {
-    switch (id) {
-      case "wifi": return Sys.wifi || Sys.ethernet
-      case "bluetooth": return adapter ? adapter.enabled : false
-      case "mic": return micOn
-      case "gameMode": return GameMode.enabled
-      case "dnd": return NotifService.dnd
-      case "nightlight": return nightlightOn
-      case "vpn": return vpnActive
-    }
-    return false
+  // Only changes when the settings do, never when a toggle's state flips, so
+  // the Repeater keeps its buttons mid-press.
+  readonly property var toggles: {
+    const on = Config.o.utilities.toggles
+    return all.filter(t => !on || on[t.id] !== false)
   }
   readonly property int splitIndex: Math.ceil(toggles.length / 2)
   readonly property bool needExtraRow: toggles.length > 6
 
+  function isOn(id) {
+    switch (id) {
+      case "wifi": return NetService.wifiEnabled
+      case "bluetooth": return BtService.enabled
+      case "mic": return micOn
+      case "gameMode": return GameMode.enabled
+      case "dnd": return NotifService.dnd
+      case "nightlight": return nightlightOn
+    }
+    return false
+  }
+
   function activate(id) {
-    if (id === "wifi") Sys.run("nmcli radio wifi " + (Sys.wifi ? "off" : "on"))
-    else if (id === "bluetooth") { if (adapter) adapter.enabled = !adapter.enabled }
+    if (id === "wifi") NetService.setWifiEnabled(!NetService.wifiEnabled)
+    else if (id === "bluetooth") BtService.setEnabled(!BtService.enabled)
     else if (id === "mic") {
       if (micSrc && micSrc.audio) micSrc.audio.muted = !micSrc.audio.muted
       else Sys.run("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")
     }
-    else if (id === "settings") { if (host) host.toggle("settings") }
+    else if (id === "settings") {
+      // Caelestia closes the utilities drawer and opens its settings window.
+      if (scope) { scope.utilities = false; scope.sidebar = false }
+      if (host) host.toggle("settings")
+    }
     else if (id === "gameMode") GameMode.toggle()
     else if (id === "dnd") NotifService.toggleDnd()
     else if (id === "nightlight") { Sys.run("omarchy toggle nightlight"); nlProbe.running = true }
-    else if (id === "vpn") {
-      Sys.run("omarchy-launch-vpn || omarchy-shell tailscale toggle 2>/dev/null || nmcli connection down id vpn 2>/dev/null || true")
-      vpnProbe.running = true
-    }
   }
 
   Process {
@@ -71,13 +72,7 @@ Rectangle {
     command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/nightlight ]] && echo 1 || echo 0"]
     stdout: SplitParser { onRead: line => root.nightlightOn = String(line).trim() === "1" }
   }
-  Timer { interval: 3000; running: true; repeat: true; triggeredOnStart: true; onTriggered: nlProbe.running = true }
-  Process {
-    id: vpnProbe
-    command: ["bash", "-c", "nmcli -t -f TYPE con show --active 2>/dev/null | grep -qE 'vpn|wireguard|tailscale' && echo 1 || echo 0"]
-    stdout: SplitParser { onRead: line => root.vpnActive = String(line).trim() === "1" }
-  }
-  Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true; onTriggered: vpnProbe.running = true }
+  Timer { interval: 3000; running: root.toggles.some(t => t.id === "nightlight"); repeat: true; triggeredOnStart: true; onTriggered: nlProbe.running = true }
 
   implicitHeight: layout.implicitHeight + Tk.padding.extraLargeIncreased
   radius: Tk.rounding.large

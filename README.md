@@ -18,7 +18,8 @@ It is a port of Caelestia's actual design, not an approximation:
 - **Caelestia tokens.** Its spacing, padding, rounding, type scale, and
   expressive motion curves and durations, verbatim. Bundled Google Sans Flex
   (rounded axis) and Rubik; Material Symbols Rounded with fill and grade axes.
-- **Bar.** Caelestia's default order: tinted logo; workspaces as M3 shapes
+- **Bar.** Caelestia's default order: tinted logo (Omarchy mark, a distro
+  glyph or a simple Material icon, picked in Settings › Panels › Taskbar); workspaces as M3 shapes
   (a random expressive shape for the focused one, square with app icons for
   occupied, dot for empty) with the trailing active pill; rotated window
   title; tray; clock; status pill (network, Bluetooth and its devices,
@@ -51,8 +52,9 @@ It is a port of Caelestia's actual design, not an approximation:
     `omarchy-shell omacale sidebar` (`SUPER + N`), dragging in from the top-right
     screen edge, or clicking the notification bell on the bar.
   - **Quick Toggles (Utilities)**: Material 3 shape-morphing toggles for Wi-Fi,
-    Bluetooth, microphone mute, Game Mode (Hyprland animation/blur/gap cut), Do
-    Not Disturb, Night Light, VPN, and Settings. Includes a "Keep awake" idle
+    Bluetooth, microphone mute, Settings, Game Mode (Hyprland animation/blur/gap
+    cut) and Do Not Disturb, in one row as in Caelestia. Night Light can be added
+    in Settings › Panels › Utilities, where each toggle can be switched off. Includes a "Keep awake" idle
     inhibitor card with M3 switch and active duration chip, plus a screen recorder
     card with fullscreen/region selector, audio toggle, and recent recordings list.
     Slides up from the bottom-right corner: hover the bottom edge there, run
@@ -81,7 +83,9 @@ It is a port of Caelestia's actual design, not an approximation:
     numbers, indicator/trail, window icons, title, tray, clock, which status
     icons, popouts, scroll actions), dashboard (hover, tabs, seconds, bongo
     cat), launcher (prefix, max items, vim keys, dangerous actions), session.
-  - **Language & region**: 24-hour clock, weather location and units.
+  - **Language & region**: one 12-hour clock switch for every time Omacale
+    shows (bar, dashboard, weather, notifications, keep awake, recordings),
+    weather location and units.
   - **Keybinds**: the bindings below with copy buttons, "Try this session",
     and "Open bindings.lua".
   - **About**: system info, open the settings file, reset everything.

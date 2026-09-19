@@ -85,6 +85,7 @@ QtObject {
         property bool persistent: true
         property bool showOnHover: true
         property bool logo: true
+        property string logoIcon: "omarchy"
         property bool power: true
         property JsonObject workspaces: JsonObject {
           property int shown: 5
@@ -175,6 +176,15 @@ QtObject {
       property JsonObject utilities: JsonObject {
         property bool enabled: true
         property int width: 430
+        property JsonObject toggles: JsonObject {
+          property bool wifi: true
+          property bool bluetooth: true
+          property bool mic: true
+          property bool settings: true
+          property bool gameMode: true
+          property bool dnd: true
+          property bool nightlight: false
+        }
       }
       property JsonObject general: JsonObject {
         property bool clock24: true

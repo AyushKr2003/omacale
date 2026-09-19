@@ -12,13 +12,13 @@ ColumnLayout {
   readonly property var rows: page ? page.rows : []
   spacing: Tk.spacing.extraLargeIncreased
 
-  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds") }
+  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker") }
   function isFirst(i) { return i === 0 || !groupable(rows[i - 1]) }
   function isLast(i) { return i === rows.length - 1 || !groupable(rows[i + 1]) }
   readonly property var files: ({
     toggle: "RowToggle.qml", stepper: "RowStepper.qml", slider: "RowSlider.qml", select: "RowSelect.qml",
     text: "RowText.qml", nav: "RowNav.qml", section: "SectionHeader.qml",
-    preview: "StylePreview.qml", seeds: "SeedPicker.qml", keybinds: "KeybindsCard.qml", about: "AboutCard.qml",
+    preview: "StylePreview.qml", seeds: "SeedPicker.qml", logoPicker: "LogoPicker.qml", keybinds: "KeybindsCard.qml", about: "AboutCard.qml",
     network: "NetworkPage.qml", networkDetail: "NetworkDetail.qml",
     bluetooth: "BluetoothPage.qml", btPair: "BtPairing.qml", btDevice: "BtDevice.qml"
   })

@@ -10,6 +10,14 @@ QtObject {
   id: root
 
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
+
+  // ------------------------------------------------------------ time
+  // The one clock-format switch (Settings › Language & region › 12-hour
+  // clock). Every time Omacale shows goes through these.
+  readonly property bool h12: !Config.o.general.clock24
+  readonly property string timeFormat: h12 ? "h:mm AP" : "HH:mm"
+  function time(d) { return d ? Qt.formatTime(d, timeFormat) : "" }
+  function dateTime(d) { return d ? Qt.formatDateTime(d, "d MMM yyyy, " + timeFormat) : "" }
   function hypr(dispatcher) { Quickshell.execDetached(["hyprctl", "dispatch", dispatcher]) }
   function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }
 
@@ -221,8 +229,11 @@ QtObject {
   property string feelsLike: "--°"
   property int humidity: 0
   property real windSpeed: 0
-  property string sunrise: "--:--"
-  property string sunset: "--:--"
+  // Kept raw so a clock-format change reformats them without a refetch.
+  property string sunriseIso: ""
+  property string sunsetIso: ""
+  readonly property string sunrise: fmtTime(sunriseIso)
+  readonly property string sunset: fmtTime(sunsetIso)
   property var forecast: []
   readonly property string weatherLocation: Config.o.general.weatherLocation
   readonly property bool imperial: Config.o.general.units === "imperial"
@@ -248,7 +259,7 @@ QtObject {
     return i
   }
   function fmtTemp(t) { return t === undefined || t === null ? "--°" : Math.round(t) + (imperial ? "°F" : "°C") }
-  function fmtTime(iso) { return iso ? Qt.formatDateTime(new Date(iso), Config.o.general.clock24 ? "HH:mm" : "h:mm AP") : "--:--" }
+  function fmtTime(iso) { return iso ? time(new Date(iso)) : "--:--" }
   onWeatherLocationChanged: weatherProbe.running = true
   onImperialChanged: weatherProbe.running = true
   property Process weatherProbe: Process {
@@ -267,7 +278,7 @@ QtObject {
           root.weatherIcon = root.weatherIconFor(c.weather_code, c.is_day)
           root.weatherDesc = root.wmoText[String(c.weather_code)] || "Unknown"
           root.forecast = j.daily
-          if (j.daily.length) { root.sunrise = root.fmtTime(j.daily[0].sunrise); root.sunset = root.fmtTime(j.daily[0].sunset) }
+          if (j.daily.length) { root.sunriseIso = j.daily[0].sunrise || ""; root.sunsetIso = j.daily[0].sunset || "" }
         } catch (e) {}
       }
     }

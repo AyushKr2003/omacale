@@ -83,7 +83,7 @@ var pages = [
     description: "Clock format, weather location, units",
     rows: [
       { type: "section", text: "Clock" },
-      { type: "toggle", key: "general.clock24", label: "24-hour clock", subtext: "Otherwise show AM/PM" },
+      { type: "toggle", key: "general.clock24", invert: true, label: "12-hour clock", subtext: "AM/PM everywhere: bar, dashboard, weather, notifications, keep awake, recordings" },
       { type: "section", text: "Weather" },
       { type: "text", key: "general.weatherLocation", label: "Location", subtext: "City name; empty detects it from your IP", placeholder: "Auto" },
       { type: "select", key: "general.units", label: "Units", subtext: "Temperature units", options: [
@@ -120,7 +120,8 @@ var subpages = {
       { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
       { type: "nav", icon: "signal_cellular_alt", label: "Status icons", subtext: "Visible indicators", page: "status" },
       { type: "nav", icon: "schedule", label: "Clock", subtext: "Date, icon, background", page: "clock" },
-      { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Omarchy logo at the top; click opens the launcher" },
+      { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the top; click opens the launcher" },
+      { type: "custom", comp: "logoPicker" },
       { type: "toggle", key: "bar.power", label: "Power button", subtext: "Opens the session menu" },
       { type: "section", text: "Scroll actions" },
       { type: "toggle", key: "bar.scroll.workspaces", label: "Workspaces", subtext: "Scroll over the workspace indicator to switch workspaces" },
@@ -250,7 +251,15 @@ var subpages = {
     rows: [
       { type: "section", text: "General" },
       { type: "toggle", key: "utilities.enabled", label: "Enabled", subtext: "Enable quick toggles and utilities drawer" },
-      { type: "slider", key: "utilities.width", label: "Utilities width", icon: "tune", from: 320, to: 600, step: 10, unit: "px" }
+      { type: "slider", key: "utilities.width", label: "Utilities width", icon: "tune", from: 320, to: 600, step: 10, unit: "px" },
+      { type: "section", text: "Quick toggles" },
+      { type: "toggle", key: "utilities.toggles.wifi", label: "Wi-Fi" },
+      { type: "toggle", key: "utilities.toggles.bluetooth", label: "Bluetooth" },
+      { type: "toggle", key: "utilities.toggles.mic", label: "Microphone" },
+      { type: "toggle", key: "utilities.toggles.settings", label: "Settings", subtext: "Opens Omacale settings" },
+      { type: "toggle", key: "utilities.toggles.gameMode", label: "Game mode" },
+      { type: "toggle", key: "utilities.toggles.dnd", label: "Do not disturb" },
+      { type: "toggle", key: "utilities.toggles.nightlight", label: "Night light", subtext: "Omarchy's night light; more than six toggles wrap onto a second row" }
     ]
   }
 }

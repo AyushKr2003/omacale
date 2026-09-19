@@ -29,7 +29,7 @@ Item {
   }
 
   readonly property Item page: tabs[Math.min(tab, tabs.length - 1)].page
-  readonly property bool h12: !Config.o.general.clock24
+  readonly property bool h12: Sys.h12
   readonly property real margins: Tk.padding.large
 
   implicitWidth: page.implicitWidth + margins * 2

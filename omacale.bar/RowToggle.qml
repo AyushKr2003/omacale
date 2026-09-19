@@ -9,14 +9,15 @@ ConnectedRect {
   property var settings
   property string text: row.label || ""
   property string subtext: row.where ? row.where + (row.subtext ? " · " + row.subtext : "") : (row.subtext || "")
-  property bool checked: row.key ? !!Config.get(row.key) : false
+  // `row.invert` shows a key the other way round (12-hour clock on = clock24 off).
+  property bool checked: row.key ? !!Config.get(row.key) !== !!row.invert : false
   property bool disabled: false
   property real labelSize: Tk.body.small
   signal toggled(bool checked)
 
   function flip(c) {
     if (root.disabled) return
-    if (root.row.key) Config.set(root.row.key, c)
+    if (root.row.key) Config.set(root.row.key, root.row.invert ? !c : c)
     root.toggled(c)
   }
 
