@@ -129,22 +129,22 @@ check "plugin still removed"       test ! -e "$H/.config/omarchy/plugins/omacale
 echo "M. keybinds file is valid Omarchy Lua"
 check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 8"
 
-echo "N. the switcher's menu block is removed on uninstall"
-switcher() { env -u XDG_CONFIG_HOME HOME="$H" bash "$H/.config/omarchy/plugins/omacale.bar/scripts/switcher.sh" menu "$1"; }
+echo "N. an old switcher menu block is removed on uninstall"
 EXT() { echo "$H/.config/omarchy/extensions/omarchy-menu.jsonc"; }
+# What Omacale <= 0.6 wrote to the menu extension (it no longer writes it).
+old_block() { printf '  // >>> omacale switcher%s — managed by Omacale\n  "style.theme": {"action":"true"},\n  // <<< omacale switcher\n' "$1"; }
 new_home; cp "$real_shell_json" "$(SJ)"
 mkdir -p "$(dirname "$(EXT)")"; printf '{\n  // mine\n  "about": {"label":"Me"},\n}\n' > "$(EXT)"
 before="$(snapshot_tree)"
 run install
-switcher on
-check "block added"                grep -qF '"style.background"' "$(EXT)"
+{ echo '{'; old_block ""; tail -n +2 "$(EXT)"; } > "$(EXT).new" && mv "$(EXT).new" "$(EXT)"
+check "old block present"          grep -qF '"style.theme"' "$(EXT)"
 run uninstall
 check "user's extension restored"  test "$before" = "$(snapshot_tree)"
 new_home; cp "$real_shell_json" "$(SJ)"
 before="$(snapshot_tree)"
 run install
-switcher on
-check "extension file created"     test -f "$(EXT)"
+mkdir -p "$(dirname "$(EXT)")"; { echo '{'; old_block " (created, dir)"; echo '}'; } > "$(EXT)"
 run uninstall
 check "created file removed again" test "$before" = "$(snapshot_tree)"
 

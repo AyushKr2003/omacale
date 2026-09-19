@@ -10,9 +10,6 @@ QtObject {
   id: root
 
   readonly property string script: Qt.resolvedUrl("scripts/switcher.sh").toString().replace("file://", "")
-  // Settings › Style › Switcher: Omarchy's own picker routes open ours.
-  readonly property bool enabled: Config.o.appearance.switcher
-
   property var walls: []          // [{ key: path, thumb, label }]
   property string currentWall: ""
   property var themes: []         // [{ key: name, thumb: preview, label }]
@@ -84,12 +81,7 @@ QtObject {
     }
   }
 
-  // Keep Omarchy's menu routes in step with the setting (see switcher.sh).
-  function syncMenu() { Quickshell.execDetached(["bash", script, "menu", enabled ? "on" : "off"]) }
-  onEnabledChanged: if (Config.loaded) syncMenu()
-  property Connections configLoad: Connections {
-    target: Config
-    function onLoadedChanged() { if (Config.loaded) root.syncMenu() }
-  }
-  Component.onCompleted: if (Config.loaded) syncMenu()
+  // Omacale no longer touches Omarchy's menu; drop the route block an older
+  // version may have left in omarchy-menu.jsonc (a no-op when there is none).
+  Component.onCompleted: Quickshell.execDetached(["bash", script, "menu", "off"])
 }

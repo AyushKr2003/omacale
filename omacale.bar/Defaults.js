@@ -10,7 +10,6 @@ var values = {
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
     animScale: 1.0,
     shadow: true,
-    switcher: false,         // Omarchy's background/theme pickers open Omacale's carousel
     transparency: { enabled: false, base: 0.85, layers: 0.4 }
   },
   border: { thickness: 10, rounding: 25, smoothing: 20 },

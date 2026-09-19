@@ -42,8 +42,8 @@ Item {
     { name: "Logout", comment: "End this session", icon: "logout", cmd: "omarchy system logout", dangerous: true },
     { name: "Shutdown", comment: "Power off", icon: "power_settings_new", cmd: "omarchy system shutdown", dangerous: true },
     { name: "Reboot", comment: "Restart the computer", icon: "cached", cmd: "omarchy system reboot", dangerous: true },
-    // With the Omacale switcher on these autocomplete into the carousel, as
-    // Caelestia's Wallpaper/Scheme actions; otherwise Omarchy's pickers run.
+    // These autocomplete into the carousel, as Caelestia's Wallpaper/Scheme
+    // actions; `cmd` (Omarchy's own pickers) is kept for reference only.
     { name: "Theme", comment: "Change the Omarchy theme", icon: "palette", autocomplete: "theme", cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' },
     { name: "Background", comment: "Change the wallpaper", icon: "wallpaper", autocomplete: "wallpaper", cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' },
     { name: "Wallpaper", comment: "Next background", icon: "wallpaper", cmd: "omarchy theme bg next" },
@@ -77,7 +77,7 @@ Item {
   function activate(r) {
     if (!r) return
     if (r.action && r.action.settings) { root.openSettings(); return }
-    if (r.action && r.action.autocomplete && Wallpapers.enabled) { search.text = prefix + r.action.autocomplete + " "; return }
+    if (r.action && r.action.autocomplete) { search.text = prefix + r.action.autocomplete + " "; return }
     if (r.app) r.app.execute(); else Sys.run(r.action.cmd)
     root.dismissed()
   }

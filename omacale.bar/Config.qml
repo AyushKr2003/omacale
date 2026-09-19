@@ -71,7 +71,6 @@ QtObject {
         property string seed: ""
         property real animScale: 1.0
         property bool shadow: true
-        property bool switcher: false
         property JsonObject transparency: JsonObject {
           property bool enabled: false
           property real base: 0.85

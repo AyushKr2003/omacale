@@ -71,13 +71,13 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |
 | Power / session | `omarchy system lock/logout/reboot/shutdown` |
 | Theme | `omarchy theme set`, `omarchy-theme-*` (Colours re-seed from the theme accent) |
-| Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`); Settings › Style › Switcher overrides the `style.background` / `style.theme` routes in `~/.config/omarchy/extensions/omarchy-menu.jsonc` |
+| Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`) |
 | Bar hide | `omarchy toggle bar`; `omarchy.bar` IPC `syncHidden` |
 | Launching UIs | `omarchy-launch-editor`, `omarchy-launch-browser`, ... (there is no `omarchy-launch-wifi`/`-bluetooth`; use the settings pages above) |
 | Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `omacale.bar/keybinds.lua`) |
 | Look'n'feel | `hl.config` / `hl.curve` / `hl.animation` / `o.window` in `omacale.bar/omacale.lua`, loaded by the user from `~/.config/hypr/looknfeel.lua` with `pcall(dofile, ...)` |
 
-Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`, `switcher.sh` (lists the backgrounds/themes Omarchy's pickers show, since Omarchy only feeds them to its own image menu; adds/removes the menu-route block). Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
+Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`, `switcher.sh` (lists the backgrounds/themes Omarchy's pickers show, since Omarchy only feeds them to its own image menu; `menu off` only removes a menu-route block older versions wrote). Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
 
 ## Layout
 
@@ -96,7 +96,7 @@ shell/omacale/
 ```
 
 - **Every QML type must be registered in `omacale.bar/qmldir`** (`Name 1.0 Name.qml`; singletons as `singleton Name 1.0 Name.qml`), or it will be "unavailable".
-- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `switcher(kind: string): string`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. `switcher` answers `ok`/`off` for the Omarchy menu routes; keep it that way, since their fallback depends on it. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
+- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
 - Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`
 
@@ -128,7 +128,8 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - **Qt's `hh` is only 12-hour when the same format string has `AP`.** `Qt.formatTime(d, "hh")` alone is 24-hour. Use `Sys.hour(d)` / `Sys.time(d)`, never a bare `"hh"`.
 - A PathView/ListView bound to a plain JS array resets `currentIndex` when the array is reassigned, after any `onValuesChanged` handler has run. Set the index in `onModelChanged` (see `WallpaperList.recentre`).
 - Hyprland animation leaves set explicitly by Omarchy's `looknfeel.lua` (`fadeIn`, `fadeLayersIn`, ...) don't inherit a parent leaf you set later; override them by name (see `omacale.lua`).
-- Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu on/off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
+- Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
+- **Don't write to Omarchy's menu extension (`omarchy-menu.jsonc`).** The user doesn't want Omacale inserting anything there; the old Style › Switcher block was removed for this reason.
 
 ## Style for new code
 

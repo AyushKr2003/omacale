@@ -128,13 +128,9 @@ Item {
         }
       }
       WideButton {
+        Layout.bottomMargin: Tk.padding.small
         icon: "wifi_find"; label: "Rescan networks"
         onClicked: Sys.run("nmcli device wifi rescan")
-      }
-      WideButton {
-        Layout.bottomMargin: Tk.padding.small
-        icon: "settings"; label: "Open settings"
-        onClicked: { root.host.toggle("settings", "network"); root.closeRequested() }
       }
     }
   }

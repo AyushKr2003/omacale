@@ -54,11 +54,9 @@ It is a port of Caelestia's actual design, not an approximation:
   scroll wheel move, typing filters, Enter or a click applies it
   (`omarchy-theme-bg-set` / `omarchy-theme-set`). Scrolling wallpapers
   previews each one live on the desktop; Escape puts the old one back. Open it
-  with `omarchy-shell omacale wallpapers` / `themes`. Turn on **Settings ›
-  Style › Switcher** and Omarchy's own Background and Theme pickers
-  (`SUPER + CTRL + SPACE`, `SUPER + SHIFT + CTRL + SPACE`, Menu › Style, and
-  the launcher's Theme/Background actions) open this carousel instead; turn it
-  off to get Omarchy's pickers back.
+  with `omarchy-shell omacale wallpapers` / `themes`, or the launcher's
+  Theme/Background actions. Omarchy's own pickers and menu are left as they
+  are.
 - **Session.** Right drawer: logout, shutdown, kurukuru, hibernate, reboot.
   Opens from the power button or by dragging in from the right edge.
 - **Sidebar & Quick Toggles (Utilities).** Right-edge control center:
@@ -86,7 +84,7 @@ It is a port of Caelestia's actual design, not an approximation:
   - **Style**: live miniature of your shell, palette (Material, generated
     from a seed, or Omarchy, the theme's own colours), seed colour (theme accent, any
     theme colour, or hex), 9 Material scheme variants, light/dark/auto,
-    transparency with Hyprland blur, and the wallpaper & theme switcher.
+    and transparency with Hyprland blur.
   - **Frame & motion**: border thickness, corner rounding, drawer blending,
     shadow, animation speed.
   - **Network**: Wi-Fi on/off, network list with inline password (and
@@ -129,7 +127,7 @@ Caelestia gets this data from its C++ plugin; Omacale uses small scripts in
 | `lyrics.sh artist title [album] [secs]` | Synced lyrics from lrclib.net, skipping junk uploads and preferring the closest duration |
 | `gpu.sh` | NVIDIA (`nvidia-smi`) or AMD (`gpu_busy_percent`) usage and temperature; never wakes a sleeping hybrid-laptop dGPU |
 | `cava.sh [bars]` | Streams `cava` bar values for the media visualiser |
-| `switcher.sh walls\|themes\|menu on\|off` | Lists the backgrounds (with Omarchy's cached thumbnails) and themes that Omarchy's pickers show, and adds/removes the switcher's menu override |
+| `switcher.sh walls\|themes\|menu off` | Lists the backgrounds (with Omarchy's cached thumbnails) and themes that Omarchy's pickers show; `menu off` removes a menu block left by an older Omacale |
 
 The visualiser needs `cava`. The installer offers to install it
 (`--with-cava` / `--no-cava`) and records whether it did; uninstall only
@@ -214,7 +212,7 @@ omarchy-shell omacale wallpapers | themes     # the launcher's carousels
 
 ## What it changes — and how it is undone
 
-Omacale changes exactly four things (more only if you opt in: `cava`, the switcher), and records each before touching it:
+Omacale changes exactly four things (more only if you opt in: `cava`), and records each before touching it:
 
 | Thing | On install | On uninstall |
 |---|---|---|
@@ -223,7 +221,7 @@ Omacale changes exactly four things (more only if you opt in: `cava`, the switch
 | `~/.config/omacale/` | not created (appears on your first settings change) | removed, or restored if it existed before; `--keep-settings` keeps it |
 | `~/.local/state/omacale/` | snapshot of `shell.json` + install record | removed |
 | `cava` package (optional) | installed only if you say yes | removed only if Omacale installed it |
-| `~/.config/omarchy/extensions/omarchy-menu.jsonc` (optional) | untouched; turning on Settings › Style › Switcher adds a marked block that points the Background/Theme routes at Omacale (falling back to Omarchy's pickers when Omacale isn't running), turning it off removes it | the block is removed; a file (or folder) Omacale created is deleted again |
+| `~/.config/omarchy/extensions/omarchy-menu.jsonc` | never written; a marked block left by an older Omacale (which had a Style › Switcher option) is removed when the shell starts | same cleanup; a file (or folder) that older version created is deleted again |
 
 It never edits `~/.config/hypr`, themes, or anything under `/usr`. Transparency's
 blur and "Try this session" keybinds are runtime-only Hyprland state; if
@@ -233,10 +231,10 @@ snapshot; if you edited it in the meantime, only Omacale's entries are reverted
 and your edits are kept. If `shell.json` did not exist before, it is removed
 again. A failed install rolls itself back and leaves no state behind.
 
-`tests/test-restore.sh` proves this in a throwaway `HOME` (37 checks: byte-exact
+`tests/test-restore.sh` proves this in a throwaway `HOME` (36 checks: byte-exact
 restore, later user edits, absent `shell.json`, a previously active custom bar,
 a pre-existing plugin dir, dry-run, `--dev`, rollback on failure, settings
-created/pre-existing/kept, the switcher's menu block with and without an
+created/pre-existing/kept, an old menu block with and without an
 existing extension file, the keybinds file, and `omacale.lua` parsing).
 
 ## Not yet ported from Caelestia

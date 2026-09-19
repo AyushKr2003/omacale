@@ -192,15 +192,32 @@ Scope {
     readonly property real sx: ax + aw - sw + (sw + 5) * Math.max(0, sOff)
     readonly property real sy: ay + (ah - sh) / 2
     // Popout (left, beside the bar)
-    property real pw: pop.implicitWidth + Tk.padding.large * 2
-    property real ph: pop.implicitHeight + Tk.padding.large * 2
-    Behavior on pw { enabled: win.pOff < 1; Anim {} }
-    Behavior on ph { enabled: win.pOff < 1; Anim {} }
-    property real py: {
-      const off = scope.popoutCenter - bt - ph / 2
-      return ay + Math.max(0, Math.min(off, ah - ph))
+    // Caelestia's ClipWrapper places the popout from the page's final size
+    // (nonAnimHeight), so it moves straight to its spot while the size
+    // animates; placing it from the animated `ph` made it drift.
+    readonly property real pwTarget: pop.implicitWidth + Tk.padding.large * 2
+    readonly property real phTarget: pop.implicitHeight + Tk.padding.large * 2
+    property real pw: pwTarget
+    property real ph: phTarget
+    // Opening from closed: a page's Layout only reports its size on the next
+    // polish, after pOff has started moving. Snap until it has settled, so the
+    // popout opens in place instead of sliding from the last page's geometry.
+    property bool pSettled: true
+    Timer { id: pSettle; interval: 60; onTriggered: win.pSettled = true }
+    Connections {
+      target: scope
+      function onPopoutChanged() {
+        if (scope.popout !== "" && win.pOff >= 0.999) { win.pSettled = false; pSettle.restart() }
+      }
     }
-    Behavior on py { enabled: win.pOff < 1; Anim {} }
+    readonly property bool pAnimate: pOff < 1 && pSettled
+    Behavior on pw { enabled: win.pAnimate; Anim {} }
+    Behavior on ph { enabled: win.pAnimate; Anim {} }
+    property real py: {
+      const off = scope.popoutCenter - bt - phTarget / 2
+      return ay + Math.max(0, Math.min(off, ah - phTarget))
+    }
+    Behavior on py { enabled: win.pAnimate; Anim {} }
     // A popout pressed against the top or bottom of the panel area grows out of
     // that frame edge too: it reaches into the frame so its corner there is
     // square and the frame flares into it, as the dashboard and launcher do.

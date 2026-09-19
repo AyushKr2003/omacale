@@ -4,14 +4,13 @@
 # Omarchy's pickers (omarchy-theme-bg-switcher, omarchy-theme-switcher) only
 # hand their lists to their own image menu, and Omarchy has no command that
 # prints them. This script lists the same sources so Omacale's launcher
-# carousel can show them, and switches Omarchy's menu routes between the two
-# pickers.
+# carousel can show them.
 #
 # usage:
 #   switcher.sh walls       current:<path>, then <image>\t<thumbnail> per background
 #   switcher.sh themes      current:<name>, then <name>\t<label>\t<preview> per theme
-#   switcher.sh menu on|off add/remove Omacale's override of the "background"
-#                           and "theme" menu routes (SUPER+CTRL+SPACE, ...)
+#   switcher.sh menu off    remove the menu-route block older Omacale versions
+#                           wrote to Omarchy's omarchy-menu.jsonc
 set -uo pipefail
 
 state="$HOME/.local/state/omarchy/current"
@@ -61,18 +60,13 @@ themes() {
   done
 }
 
-# ---------------------------------------------------------------- menu routes
-# The block reuses the default ids, so Omarchy keeps the label/icon/aliases and
-# only the action changes. If Omacale is not running, or its switcher setting
-# is off, the action falls through to Omarchy's own picker.
+# ------------------------------------------------------ old menu-route block
+# Omacale no longer writes Omarchy's menu extension. Older versions added a
+# block (between these markers) overriding the "background" and "theme"
+# routes; this removes it, and the file too if Omacale had created it.
 ext="$HOME/.config/omarchy/extensions/omarchy-menu.jsonc"
 begin="// >>> omacale switcher"
 end="// <<< omacale switcher"
-
-default_action() {
-  grep -m1 "^ *\"$1\":" "$omarchy/default/omarchy/omarchy-menu.jsonc" \
-    | sed -E "s/^ *\"$1\": *//; s/, *$//" | jq -r '.action // empty'
-}
 
 menu_off() {
   [[ -f $ext ]] && grep -qF "$begin" "$ext" || return 0
@@ -88,46 +82,9 @@ menu_off() {
   return 0
 }
 
-menu_block() { # menu_block <tag>
-  local bg theme
-  bg=$(default_action style.background)
-  theme=$(default_action style.theme)
-  [[ -n $bg && -n $theme ]] || { echo "switcher: Omarchy's default menu actions not found" >&2; exit 1; }
-  jq -rn --arg bg "$bg" --arg theme "$theme" --arg begin "$begin$1" --arg end "$end" '
-    def route(kind; fallback):
-      { action: "[[ $(omarchy-shell omacale switcher \(kind) 2>/dev/null) == ok ]] || { \(fallback); }" } | tojson;
-    "  \($begin) — managed by Omacale (Settings › Style › Switcher)",
-    "  \"style.background\": \(route("wallpaper"; $bg)),",
-    "  \"style.theme\": \(route("theme"; $theme)),",
-    "  \($end)"'
-}
-
-menu_on() {
-  local block tag=""
-  # Runs on every shell start: leave the file alone when it is already current.
-  if [[ -f $ext ]] && grep -qF "$begin" "$ext"; then
-    tag=$(grep -oF -e "$begin (created, dir)" -e "$begin (created)" "$ext" | head -n1)
-    tag=${tag#"$begin"}
-    block=$(menu_block "$tag") || exit 1
-    [[ $(sed -n "\|$begin|,\|$end|p" "$ext") == "$block" ]] && return 0
-  fi
-  menu_off
-  tag=""
-  if [[ ! -f $ext ]]; then
-    tag=" (created)"
-    [[ -d ${ext%/*} ]] || { mkdir -p "${ext%/*}"; tag=" (created, dir)"; }
-    printf '{\n}\n' >"$ext"
-  fi
-  block=$(menu_block "$tag") || exit 1
-  # Insert right after the opening brace.
-  # (ENVIRON, not -v: awk -v would unescape the JSON's \" quotes.)
-  BLOCK=$block awk '!done && /^[[:space:]]*\{/ { print; print ENVIRON["BLOCK"]; done = 1; next } { print }' "$ext" >"$ext.tmp" \
-    && mv -f "$ext.tmp" "$ext"
-}
-
 case "${1:-}" in
   walls) walls ;;
   themes) themes ;;
-  menu) case "${2:-}" in on) menu_on ;; off) menu_off ;; *) exit 2 ;; esac ;;
-  *) sed -n '10,15p' "$0"; exit 2 ;;
+  menu) [[ ${2:-} == off ]] && menu_off || exit 2 ;;
+  *) sed -n '9,13p' "$0"; exit 2 ;;
 esac

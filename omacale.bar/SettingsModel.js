@@ -43,8 +43,6 @@ var pages = [
         { value: "dark", label: "Dark", icon: "dark_mode" },
         { value: "light", label: "Light", icon: "light_mode" }
       ] },
-      { type: "section", text: "Switcher" },
-      { type: "toggle", key: "appearance.switcher", label: "Omacale wallpaper & theme switcher", subtext: "Omarchy's Background and Theme pickers (Super+Ctrl+Space, Super+Shift+Ctrl+Space, Menu › Style) open Omacale's carousel instead" },
       { type: "section", text: "Transparency" },
       { type: "toggle", key: "appearance.transparency.enabled", label: "Transparency", subtext: "Translucent frame and drawers with background blur" },
       { type: "slider", key: "appearance.transparency.base", label: "Surface opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },

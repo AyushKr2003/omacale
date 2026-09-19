@@ -56,18 +56,10 @@ Item {
     // Caelestia's launcher carousels: ">wallpaper " and ">theme ".
     function wallpapers(): void { root.toggle("launcher", "wallpaper") }
     function themes(): void { root.toggle("launcher", "theme") }
-    // Omarchy's Background/Theme menu routes call this (scripts/switcher.sh):
-    // "ok" when Omacale's switcher is on and opened, else they fall back to
-    // Omarchy's own picker.
-    function switcher(kind: string): string {
-      if (!Wallpapers.enabled || !Config.o.launcher.enabled || (kind !== "wallpaper" && kind !== "theme")) return "off"
-      root.toggle("launcher", kind)
-      return "ok"
-    }
   }
 
-  // Created at startup so Omarchy's menu routes follow the switcher setting.
-  readonly property bool switcherEnabled: Wallpapers.enabled
+  // Created at startup so an old menu-route block gets cleaned up.
+  readonly property string wallpapersScript: Wallpapers.script
 
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to
