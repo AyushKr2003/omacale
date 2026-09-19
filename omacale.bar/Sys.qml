@@ -36,11 +36,6 @@ QtObject {
     const ws = Hyprland.focusedWorkspace
     return t && (t.workspace?.name.startsWith("special:") || ws?.toplevels.values.length > 0) ? t : null
   }
-  // Bar label for an empty workspace: "Desktop <n>".
-  readonly property string desktopName: {
-    const ws = Hyprland.focusedWorkspace
-    return ws ? "Desktop " + (ws.id > 0 ? ws.id : ws.name) : "Desktop"
-  }
 
   // ------------------------------------------------------------ network
   property bool ethernet: false

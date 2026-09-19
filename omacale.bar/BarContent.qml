@@ -102,7 +102,7 @@ Item {
         visible: root.cfg.activeWindow.enabled
         readonly property var tl: Sys.activeToplevel
         readonly property string title: {
-          const t = tl && tl.title ? tl.title : Sys.desktopName
+          const t = tl && tl.title ? tl.title : "Desktop"
           if (!root.cfg.activeWindow.compact) return t
           const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
           return parts.length > 1 ? parts[parts.length - 1].trim() : t
