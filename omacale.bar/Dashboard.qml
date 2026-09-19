@@ -190,7 +190,7 @@ Item {
       ColumnLayout {
         anchors.centerIn: parent
         spacing: 0
-        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, root.h12 ? "hh" : "HH"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
+        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Sys.hour(clock.date); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
         MText { Layout.alignment: Qt.AlignHCenter; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }
         MText { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "mm"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
         MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }

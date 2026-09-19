@@ -79,6 +79,8 @@ QtObject {
     readonly property int launcherItemWidth: 600
     readonly property int launcherItemHeight: 57
     readonly property int launcherMaxShown: 7
+    readonly property int launcherWallpaperWidth: 280
+    readonly property int launcherWallpaperHeight: 200
     readonly property int sessionButton: 80
     readonly property int sidebarWidth: (Config.o.sidebar && Config.o.sidebar.width) ? Config.o.sidebar.width : 430
     readonly property int utilitiesWidth: (Config.o.utilities && Config.o.utilities.width) ? Config.o.utilities.width : 430

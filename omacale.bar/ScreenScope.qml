@@ -43,7 +43,13 @@ Scope {
     function onToggleRequested(name, screenName, arg) {
       if (screenName !== scope.screen.name) return
       if (name === "close") { scope.closeAll(); return }
-      if (name === "launcher" && scope.cfg.launcher.enabled) scope.launcher = !scope.launcher
+      if (name === "launcher" && scope.cfg.launcher.enabled) {
+        // With a carousel ("wallpaper" / "theme") it opens onto it, and only
+        // closes if that carousel is already showing.
+        const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : ""
+        if (mode && !(scope.launcher && launch.mode === mode)) { launch.openMode(arg); scope.launcher = true }
+        else scope.launcher = !scope.launcher
+      }
       else if (name === "session" && scope.cfg.session.enabled) scope.session = !scope.session
       else if (name === "settings") {
         // With a page id it opens (never toggles) straight onto that page.
@@ -459,6 +465,7 @@ Scope {
         visible: win.lVis
         opacity: 1 - win.lOff
         active: scope.launcher
+        screenWidth: win.width
         maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
         onDismissed: scope.launcher = false
         onOpenSettings: { scope.launcher = false; scope.settings = true }

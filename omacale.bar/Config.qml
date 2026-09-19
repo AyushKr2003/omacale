@@ -70,6 +70,7 @@ QtObject {
         property string seed: ""
         property real animScale: 1.0
         property bool shadow: true
+        property bool switcher: false
         property JsonObject transparency: JsonObject {
           property bool enabled: false
           property real base: 0.85
@@ -157,6 +158,7 @@ QtObject {
       property JsonObject launcher: JsonObject {
         property bool enabled: true
         property int maxShown: 7
+        property int maxWallpapers: 9
         property string actionPrefix: ">"
         property bool vimKeybinds: false
         property bool dangerousActions: true

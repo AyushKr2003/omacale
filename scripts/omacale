@@ -9,13 +9,16 @@
 #                                                a full bar plugin)
 #   3. ~/.config/omacale/                       (its settings, created on first change)
 #   4. ~/.local/state/omacale/                  (its own state + snapshots)
+#   5. a marked block in ~/.config/omarchy/extensions/omarchy-menu.jsonc,
+#      only while Settings › Style › Switcher is on (the plugin adds and
+#      removes it itself; uninstall removes it too)
 #
 # It never edits ~/.config/hypr, themes, Omarchy's own files, or anything
 # under /usr. Everything it needs to undo is snapshotted before the first write.
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.4.0"
+VERSION="0.5.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -437,6 +440,7 @@ cmd_uninstall() {
           jq 'del(.bar.id)' "$shell_json" | write_atomic "$shell_json"; ok "bar.id reset to the built-in bar"
         fi
         shell_call shell reloadConfig
+        remove_menu_block
         remove_plugin_dir; shell_call shell rescanPlugins
       fi
       say "Done."; return
@@ -469,6 +473,9 @@ cmd_uninstall() {
     if hyprctl binds -j 2>/dev/null | jq -e 'any(.[]; (.description // "") | startswith("Omacale"))' >/dev/null \
        && ! grep -qs 'omarchy-shell omacale' "$config_home/hypr/bindings.lua"; then had_runtime=1; fi
   fi
+
+  step "Restore Omarchy menu routes"
+  remove_menu_block
 
   step "Restore settings"
   restore_settings
@@ -506,6 +513,14 @@ cmd_uninstall() {
     rm -rf -- "$state_dir"; ok "state removed"
   fi
   step "Done — your system is back to its pre-install state."
+}
+
+# The switcher's block in Omarchy's menu extension (see scripts/switcher.sh).
+remove_menu_block() {
+  local helper="$dest_plugin/scripts/switcher.sh"
+  [[ -f $helper ]] || helper="$src_plugin/scripts/switcher.sh"
+  if bash "$helper" menu off; then ok "Background/Theme menu routes back to Omarchy's pickers"
+  else warn "could not clean $omarchy_cfg/extensions/omarchy-menu.jsonc; remove the 'omacale switcher' block by hand"; fi
 }
 
 restore_settings() {

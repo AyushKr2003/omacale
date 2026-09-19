@@ -9,6 +9,7 @@ var values = {
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
     animScale: 1.0,
     shadow: true,
+    switcher: false,         // Omarchy's background/theme pickers open Omacale's carousel
     transparency: { enabled: false, base: 0.85, layers: 0.4 }
   },
   border: { thickness: 10, rounding: 25, smoothing: 20 },
@@ -31,7 +32,7 @@ var values = {
     tabs: { dashboard: true, media: true, performance: true, weather: true },
     performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
-  launcher: { enabled: true, maxShown: 7, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
+  launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
   sidebar: { enabled: true, width: 430 },
   utilities: {

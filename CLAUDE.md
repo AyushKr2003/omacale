@@ -8,7 +8,7 @@ Omacale is a **Caelestia-style desktop shell for Omarchy**, shipped as one Omarc
 
 - **UI/UX source of truth:** `shell/caelestia_shell/` (a checkout of Caelestia). When something looks or feels different from Caelestia, Caelestia is right and Omacale is the bug.
 - **Engine:** Omarchy (`/usr/share/omarchy`, source in `omarchy-repo/`). Data, actions and state come from Omarchy commands and state files.
-- **Runtime:** inside the already-running Omarchy shell (Quickshell). **Never start a second Quickshell process.** No C++ build, no changes to the user's Hyprland config beyond the optional `keybinds.lua` snippet.
+- **Runtime:** inside the already-running Omarchy shell (Quickshell). **Never start a second Quickshell process.** No C++ build, no changes to the user's Hyprland config beyond the optional `keybinds.lua` and `omacale.lua` snippets.
 
 Other directories under `shell/` (`lacuna-shell`, `ruixen-shell`, `Shibumi-Shell`) are unrelated references. Don't pull from them unless asked.
 
@@ -36,6 +36,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
 | `BluetoothPage.qml`, `BtPairing.qml`, `BtDevice.qml`, `BtDeviceRow.qml` | `modules/nexus/pages/BluetoothPage.qml`, `bluetooth/BluetoothPairing.qml`, `BtDeviceInfo.qml` |
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
+| `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
+| `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
+| `omacale.bar/omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
 
@@ -67,11 +70,13 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |
 | Power / session | `omarchy system lock/logout/reboot/shutdown` |
 | Theme | `omarchy theme set`, `omarchy-theme-*` (Colours re-seed from the theme accent) |
+| Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`); Settings › Style › Switcher overrides the `style.background` / `style.theme` routes in `~/.config/omarchy/extensions/omarchy-menu.jsonc` |
 | Bar hide | `omarchy toggle bar`; `omarchy.bar` IPC `syncHidden` |
 | Launching UIs | `omarchy-launch-editor`, `omarchy-launch-browser`, ... (there is no `omarchy-launch-wifi`/`-bluetooth`; use the settings pages above) |
 | Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `omacale.bar/keybinds.lua`) |
+| Look'n'feel | `hl.config` / `hl.curve` / `hl.animation` / `o.window` in `omacale.bar/omacale.lua`, loaded by the user from `~/.config/hypr/looknfeel.lua` with `pcall(dofile, ...)` |
 
-Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`. Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
+Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`, `switcher.sh` (lists the backgrounds/themes Omarchy's pickers show, since Omarchy only feeds them to its own image menu; adds/removes the menu-route block). Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
 
 ## Layout
 
@@ -84,13 +89,13 @@ shell/omacale/
     Tk.qml Colours.qml Config.qml Defaults.js   tokens, palette, live settings
     *Service.qml / GameMode.qml / Sys.qml       singletons wrapping Omarchy data
     scripts/            our own helper scripts (last resort)
-    assets/  keybinds.lua  manifest.json  qmldir
+    assets/  keybinds.lua  omacale.lua  manifest.json  qmldir
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
 
 - **Every QML type must be registered in `omacale.bar/qmldir`** (`Name 1.0 Name.qml`; singletons as `singleton Name 1.0 Name.qml`), or it will be "unavailable".
-- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `close`. IPC functions **must have typed args and `: void` return** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
+- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `switcher(kind: string): string`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. `switcher` answers `ok`/`off` for the Omarchy menu routes; keep it that way, since their fallback depends on it. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
 - Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`
 
@@ -118,13 +123,20 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - A Repeater whose `model` array is rebuilt on every state change destroys its delegates (lost presses, lost expanded state). Keep models static and look state up from the delegate, or store UI state in a singleton (see `NotifService.expandedApps`).
 - `omacale` IPC calls **toggle**; a second call closes the drawer.
 - `'r6' / 'join' does not have a matching property` in the log is harmless: `Settings.qml` and `StylePreview.qml` reuse `blob.frag.qsb` without those uniforms, which then default to zero.
-- Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files.
+- **Qt's `hh` is only 12-hour when the same format string has `AP`.** `Qt.formatTime(d, "hh")` alone is 24-hour. Use `Sys.hour(d)` / `Sys.time(d)`, never a bare `"hh"`.
+- A PathView/ListView bound to a plain JS array resets `currentIndex` when the array is reassigned, after any `onValuesChanged` handler has run. Set the index in `onModelChanged` (see `WallpaperList.recentre`).
+- Hyprland animation leaves set explicitly by Omarchy's `looknfeel.lua` (`fadeIn`, `fadeLayersIn`, ...) don't inherit a parent leaf you set later; override them by name (see `omacale.lua`).
+- Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu on/off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
 
 ## Style for new code
 
 - Match the surrounding QML: 2-space indent, `Tk`/`Colours` tokens, `MText`/`MIcon` for text/icons (`MText.weight`, not `font.weight`), `StateLayer` for interactive surfaces, `IconButton` for round buttons.
 - Comments explain *why* or which Caelestia file is being ported, not what the line does. Reference the Caelestia file in a header comment for each ported component.
 - Prefer editing an existing Omacale component over adding a parallel one.
+
+## Versioning
+
+The version lives in `omacale.bar/manifest.json`, `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all three together (minor for features, patch for fixes).
 
 ## Git
 

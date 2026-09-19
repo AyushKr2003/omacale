@@ -17,6 +17,7 @@ IdleInhibitCard 1.0 IdleInhibitCard.qml
 singleton IdleService 1.0 IdleService.qml
 KeybindsCard 1.0 KeybindsCard.qml
 Launcher 1.0 Launcher.qml
+LookNFeelCard 1.0 LookNFeelCard.qml
 MIcon 1.0 MIcon.qml
 MProgress 1.0 MProgress.qml
 MShape 1.0 MShape.qml
@@ -28,6 +29,7 @@ NotifGroup 1.0 NotifGroup.qml
 NotifItem 1.0 NotifItem.qml
 singleton NotifService 1.0 NotifService.qml
 PerfTab 1.0 PerfTab.qml
+Pill 1.0 Pill.qml
 PopoutContent 1.0 PopoutContent.qml
 QuickToggles 1.0 QuickToggles.qml
 RecordCard 1.0 RecordCard.qml
@@ -74,3 +76,6 @@ singleton NetService 1.0 NetService.qml
 RowButton 1.0 RowButton.qml
 LogoIcon 1.0 LogoIcon.qml
 LogoPicker 1.0 LogoPicker.qml
+WallpaperItem 1.0 WallpaperItem.qml
+WallpaperList 1.0 WallpaperList.qml
+singleton Wallpapers 1.0 Wallpapers.qml

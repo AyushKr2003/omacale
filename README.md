@@ -3,7 +3,8 @@
 A [Caelestia](https://github.com/caelestia-dots/shell)-style desktop shell for
 [Omarchy](https://omarchy.org), built as a single Omarchy shell **bar plugin**
 (`omacale.bar`). It runs inside the Omarchy shell you already have — no second
-Quickshell process, no C++ build, no changes to Hyprland config.
+Quickshell process, no C++ build, no changes to Hyprland config (an optional
+look'n'feel file is there if you want Caelestia's window styling too).
 
 It is a port of Caelestia's actual design, not an approximation:
 
@@ -42,6 +43,18 @@ It is a port of Caelestia's actual design, not an approximation:
     feels-like, wind, and a 7-day forecast.
 - **Launcher.** Bottom drawer: search pill, 7 results, keyboard navigation;
   `>` lists Omarchy actions.
+- **Wallpaper & theme switcher.** Caelestia's launcher carousel:
+  `>wallpaper ` shows the current theme's backgrounds (Omarchy's own
+  thumbnails), `>theme ` shows the installed Omarchy themes by their preview
+  image. The centred item is full size, the rest shrink; ↑/↓, Tab or the
+  scroll wheel move, typing filters, Enter or a click applies it
+  (`omarchy-theme-bg-set` / `omarchy-theme-set`). Scrolling wallpapers
+  previews each one live on the desktop; Escape puts the old one back. Open it
+  with `omarchy-shell omacale wallpapers` / `themes`. Turn on **Settings ›
+  Style › Switcher** and Omarchy's own Background and Theme pickers
+  (`SUPER + CTRL + SPACE`, `SUPER + SHIFT + CTRL + SPACE`, Menu › Style, and
+  the launcher's Theme/Background actions) open this carousel instead; turn it
+  off to get Omarchy's pickers back.
 - **Session.** Right drawer: logout, shutdown, kurukuru, hibernate, reboot.
   Opens from the power button or by dragging in from the right edge.
 - **Sidebar & Quick Toggles (Utilities).** Right-edge control center:
@@ -68,7 +81,7 @@ It is a port of Caelestia's actual design, not an approximation:
   your first change; hand edits reload live):
   - **Style**: live miniature of your shell, seed colour (theme accent, any
     theme colour, or hex), 9 Material scheme variants, light/dark/auto,
-    transparency with Hyprland blur.
+    transparency with Hyprland blur, and the wallpaper & theme switcher.
   - **Frame & motion**: border thickness, corner rounding, drawer blending,
     shadow, animation speed.
   - **Network**: Wi-Fi on/off, network list with inline password (and
@@ -82,12 +95,16 @@ It is a port of Caelestia's actual design, not an approximation:
   - **Panels**: taskbar (persistent or auto-hide, workspaces as shapes or
     numbers, indicator/trail, window icons, title, tray, clock, which status
     icons, popouts, scroll actions), dashboard (hover, tabs, seconds, bongo
-    cat), launcher (prefix, max items, vim keys, dangerous actions), session.
+    cat), launcher (prefix, max items, carousel size, vim keys, dangerous
+    actions), session.
   - **Language & region**: one 12-hour clock switch for every time Omacale
     shows (bar, dashboard, weather, notifications, keep awake, recordings),
     weather location and units.
   - **Keybinds**: the bindings below with copy buttons, "Try this session",
     and "Open bindings.lua".
+  - **Look'n'feel**: every value in `omacale.lua` with its live Hyprland
+    state, a copy button per value (as its own `hl.config` line), the loader
+    snippet, "Try this session" / "Revert", and "Open looknfeel.lua".
   - **About**: system info, open the settings file, reset everything.
 
   Open it with `omarchy-shell omacale settings`, `SUPER + SHIFT + I` (once
@@ -107,10 +124,38 @@ Caelestia gets this data from its C++ plugin; Omacale uses small scripts in
 | `lyrics.sh artist title [album] [secs]` | Synced lyrics from lrclib.net, skipping junk uploads and preferring the closest duration |
 | `gpu.sh` | NVIDIA (`nvidia-smi`) or AMD (`gpu_busy_percent`) usage and temperature; never wakes a sleeping hybrid-laptop dGPU |
 | `cava.sh [bars]` | Streams `cava` bar values for the media visualiser |
+| `switcher.sh walls\|themes\|menu on\|off` | Lists the backgrounds (with Omarchy's cached thumbnails) and themes that Omarchy's pickers show, and adds/removes the switcher's menu override |
 
 The visualiser needs `cava`. The installer offers to install it
 (`--with-cava` / `--no-cava`) and records whether it did; uninstall only
 removes `cava` if Omacale installed it.
+
+## Look'n'feel (optional)
+
+`omacale.bar/omacale.lua` brings Caelestia's Hyprland styling (from
+caelestia-dots' `hypr/`) to Omarchy: Material 3 animation curves (emphasized
+decelerate/accelerate, standard) for windows, layers, workspaces and special
+workspaces; 15px window rounding; 5/10px gaps (20px for a lone window, 20px
+between workspaces); 1px borders; blur (8px, 2 passes, popups and input
+methods); a soft shadow tinted with the theme accent; 0.95 window opacity
+through Omarchy's `default-opacity` tag; and fade/no-anim rules for Omacale's
+own layers. Border colours stay with your Omarchy theme.
+
+Load it from `~/.config/hypr/looknfeel.lua`, above your own tweaks so they
+still win:
+
+```lua
+pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
+```
+
+`pcall` keeps Hyprland starting if Omacale is uninstalled, and `dofile`
+re-reads the file on every `hyprctl reload`. The values sit in a `vars` table
+at the top of the file, as in Caelestia's `variables.lua`.
+
+Settings › Look'n'feel shows those values and copies the loader line. "Try
+this session" runs the file with `hyprctl eval` (nothing is written to
+`~/.config/hypr`); "Revert" is `hyprctl reload`, which also drops session-only
+keybinds.
 
 ## Keybindings
 
@@ -159,11 +204,12 @@ Drive the drawers from a Hyprland binding:
 
 ```
 omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | toggles | close
+omarchy-shell omacale wallpapers | themes     # the launcher's carousels
 ```
 
 ## What it changes — and how it is undone
 
-Omacale changes exactly four things (five if you opt into `cava`), and records each before touching it:
+Omacale changes exactly four things (more only if you opt in: `cava`, the switcher), and records each before touching it:
 
 | Thing | On install | On uninstall |
 |---|---|---|
@@ -172,6 +218,7 @@ Omacale changes exactly four things (five if you opt into `cava`), and records e
 | `~/.config/omacale/` | not created (appears on your first settings change) | removed, or restored if it existed before; `--keep-settings` keeps it |
 | `~/.local/state/omacale/` | snapshot of `shell.json` + install record | removed |
 | `cava` package (optional) | installed only if you say yes | removed only if Omacale installed it |
+| `~/.config/omarchy/extensions/omarchy-menu.jsonc` (optional) | untouched; turning on Settings › Style › Switcher adds a marked block that points the Background/Theme routes at Omacale (falling back to Omarchy's pickers when Omacale isn't running), turning it off removes it | the block is removed; a file (or folder) Omacale created is deleted again |
 
 It never edits `~/.config/hypr`, themes, or anything under `/usr`. Transparency's
 blur and "Try this session" keybinds are runtime-only Hyprland state; if
@@ -181,10 +228,11 @@ snapshot; if you edited it in the meantime, only Omacale's entries are reverted
 and your edits are kept. If `shell.json` did not exist before, it is removed
 again. A failed install rolls itself back and leaves no state behind.
 
-`tests/test-restore.sh` proves this in a throwaway `HOME` (32 checks: byte-exact
+`tests/test-restore.sh` proves this in a throwaway `HOME` (37 checks: byte-exact
 restore, later user edits, absent `shell.json`, a previously active custom bar,
 a pre-existing plugin dir, dry-run, `--dev`, rollback on failure, settings
-created/pre-existing/kept, and the keybinds file).
+created/pre-existing/kept, the switcher's menu block with and without an
+existing extension file, the keybinds file, and `omacale.lua` parsing).
 
 ## Not yet ported from Caelestia
 

@@ -17,6 +17,10 @@ QtObject {
   readonly property bool h12: !Config.o.general.clock24
   readonly property string timeFormat: h12 ? "h:mm AP" : "HH:mm"
   function time(d) { return d ? Qt.formatTime(d, timeFormat) : "" }
+  // Hour on its own (the stacked bar/dashboard clocks). Qt only gives a
+  // 12-hour "hh" when the same format string has an AP, so format both and
+  // drop the AP.
+  function hour(d) { return d ? (h12 ? Qt.formatTime(d, "hh AP").split(" ")[0] : Qt.formatTime(d, "HH")) : "" }
   function dateTime(d) { return d ? Qt.formatDateTime(d, "d MMM yyyy, " + timeFormat) : "" }
   function hypr(dispatcher) { Quickshell.execDetached(["hyprctl", "dispatch", dispatcher]) }
   function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }

@@ -129,5 +129,27 @@ check "plugin still removed"       test ! -e "$H/.config/omarchy/plugins/omacale
 echo "M. keybinds file is valid Omarchy Lua"
 check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 8"
 
+echo "N. the switcher's menu block is removed on uninstall"
+switcher() { env -u XDG_CONFIG_HOME HOME="$H" bash "$H/.config/omarchy/plugins/omacale.bar/scripts/switcher.sh" menu "$1"; }
+EXT() { echo "$H/.config/omarchy/extensions/omarchy-menu.jsonc"; }
+new_home; cp "$real_shell_json" "$(SJ)"
+mkdir -p "$(dirname "$(EXT)")"; printf '{\n  // mine\n  "about": {"label":"Me"},\n}\n' > "$(EXT)"
+before="$(snapshot_tree)"
+run install
+switcher on
+check "block added"                grep -qF '"style.background"' "$(EXT)"
+run uninstall
+check "user's extension restored"  test "$before" = "$(snapshot_tree)"
+new_home; cp "$real_shell_json" "$(SJ)"
+before="$(snapshot_tree)"
+run install
+switcher on
+check "extension file created"     test -f "$(EXT)"
+run uninstall
+check "created file removed again" test "$before" = "$(snapshot_tree)"
+
+echo "O. look'n'feel file is valid Lua"
+check "omacale.lua parses"         luac -p "$here/../omacale.bar/omacale.lua"
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

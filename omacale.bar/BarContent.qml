@@ -240,7 +240,7 @@ Item {
         }
         MText {
           anchors.horizontalCenter: parent.horizontalCenter
-          text: Qt.formatTime(clock.date, parent.parent.h12 ? "hh" : "HH")
+          text: Sys.hour(clock.date)
           font.pointSize: Tk.body.small * 1.1
           color: Colours.m3tertiary
         }

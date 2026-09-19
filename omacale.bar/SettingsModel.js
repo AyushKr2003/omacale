@@ -37,6 +37,8 @@ var pages = [
         { value: "dark", label: "Dark", icon: "dark_mode" },
         { value: "light", label: "Light", icon: "light_mode" }
       ] },
+      { type: "section", text: "Switcher" },
+      { type: "toggle", key: "appearance.switcher", label: "Omacale wallpaper & theme switcher", subtext: "Omarchy's Background and Theme pickers (Super+Ctrl+Space, Super+Shift+Ctrl+Space, Menu › Style) open Omacale's carousel instead" },
       { type: "section", text: "Transparency" },
       { type: "toggle", key: "appearance.transparency.enabled", label: "Transparency", subtext: "Translucent frame and drawers with background blur" },
       { type: "slider", key: "appearance.transparency.base", label: "Surface opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
@@ -96,6 +98,11 @@ var pages = [
     id: "keybinds", label: "Keybinds", icon: "keyboard", category: "system",
     description: "Omarchy-style bindings to copy",
     rows: [ { type: "custom", comp: "keybinds" } ]
+  },
+  {
+    id: "looknfeel", label: "Look'n'feel", icon: "auto_awesome", category: "system",
+    description: "Caelestia's Hyprland styling to load",
+    rows: [ { type: "custom", comp: "looknfeel" } ]
   },
   {
     id: "about", label: "About", icon: "info", category: "about",
@@ -219,6 +226,7 @@ var subpages = {
       { type: "text", key: "launcher.actionPrefix", label: "Action prefix", subtext: "Prefix used to run actions in the launcher", placeholder: ">" },
       { type: "section", text: "Display" },
       { type: "stepper", key: "launcher.maxShown", label: "Max items shown", from: 3, to: 12, step: 1 },
+      { type: "stepper", key: "launcher.maxWallpapers", label: "Max wallpapers shown", subtext: "Carousel size for \">wallpaper\" and \">theme\"", from: 1, to: 15, step: 2 },
       { type: "stepper", key: "launcher.dragThreshold", label: "Drag threshold", subtext: "Pixels dragged up from the bottom edge before it opens", from: 10, to: 200, step: 5 },
       { type: "section", text: "Behaviour" },
       { type: "toggle", key: "launcher.vimKeybinds", label: "Vim keybinds", subtext: "Navigate results with Ctrl+J / Ctrl+K" },
