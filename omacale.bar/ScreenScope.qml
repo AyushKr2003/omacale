@@ -142,16 +142,16 @@ Scope {
     readonly property real dw: dash.implicitWidth || 854
     readonly property real dh: dash.implicitHeight
     readonly property real dx: ax + (aw - dw) / 2
-    readonly property real dy: ay + (-dh - 5) * dOff
+    readonly property real dy: ay + (-dh - 5) * Math.max(0, dOff)
     // Launcher (bottom centre)
     readonly property real lw: launch.implicitWidth
     property real lh: launch.implicitHeight
     readonly property real lx: ax + (aw - lw) / 2
-    readonly property real ly: ay + ah - lh + (lh + 5) * lOff
+    readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
     // Session (right centre)
     readonly property real sw: sess.implicitWidth
     readonly property real sh: sess.implicitHeight
-    readonly property real sx: ax + aw - sw + (sw + 5) * sOff
+    readonly property real sx: ax + aw - sw + (sw + 5) * Math.max(0, sOff)
     readonly property real sy: ay + (ah - sh) / 2
     // Popout (left, beside the bar)
     property real pw: pop.implicitWidth + Tk.padding.large * 2
@@ -163,7 +163,7 @@ Scope {
       return ay + Math.max(0, Math.min(off, ah - ph))
     }
     Behavior on py { enabled: win.pOff < 1; Anim {} }
-    readonly property real px: ax + (-pw - 5) * pOff
+    readonly property real px: ax + (-pw - 5) * Math.max(0, pOff)
     // Settings (floating, centred) — grows out of a small pill.
     readonly property real nfw: nexus.implicitWidth
     readonly property real nfh: nexus.implicitHeight
@@ -233,6 +233,9 @@ Scope {
         property rect r3: win.pVis ? Qt.rect(win.px - win.pw * 0.2, win.py, win.pw * 1.2, win.ph) : Qt.rect(0, 0, 0, 0)
         property rect r4: win.nVis ? Qt.rect(win.nx, win.ny, win.nw, win.nh) : Qt.rect(0, 0, 0, 0)
         property rect r5: Qt.rect(0, 0, 0, 0)
+        // Edge each drawer grows out of (0 none, 1 top, 2 right, 3 bottom, 4 left).
+        property vector4d attachA: Qt.vector4d(1, 3, 2, 4)
+        property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
 
         Behavior on color { CAnim {} }
       }

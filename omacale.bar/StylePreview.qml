@@ -67,6 +67,9 @@ ColumnLayout {
           property rect r3: Qt.rect(0, 0, 0, 0)
           property rect r4: Qt.rect(0, 0, 0, 0)
           property rect r5: Qt.rect(0, 0, 0, 0)
+          // Edge each drawer grows out of (0 none, 1 top, 2 right, 3 bottom, 4 left).
+          property vector4d attachA: Qt.vector4d(1, 0, 0, 0)
+          property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
         }
 
         // mini bar

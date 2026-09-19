@@ -22,12 +22,23 @@ layout(std140, binding = 0) uniform buf {
     vec4 r3;
     vec4 r4;
     vec4 r5;
+    vec4 attachA;     // edge each rect is attached to (r0..r3):
+    vec4 attachB;     // 0 none, 1 top, 2 right, 3 bottom, 4 left (r4, r5 in .xy)
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
     r = min(r, min(hs.x, hs.y));
     vec2 d = abs(p - c) - hs + vec2(r);
     return length(max(d, vec2(0.0))) + min(max(d.x, d.y), 0.0) - r;
+}
+
+// Rounded box with per-corner radii r = (topRight, bottomRight, bottomLeft, topLeft).
+float sdRoundedBox4(vec2 p, vec2 c, vec2 hs, vec4 r) {
+    p -= c;
+    r.xy = (p.x > 0.0) ? r.xy : r.wz;
+    r.x = (p.y > 0.0) ? r.y : r.x;
+    vec2 q = abs(p) - hs + r.x;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r.x;
 }
 
 float sdBox(vec2 p, vec2 c, vec2 hs) {
@@ -44,6 +55,29 @@ float smin(float a, float b, float k) {
 float smaxSharpA(float a, float b, float k) {
     float sm = min(-k, max(a, b)) + length(max(vec2(a, b) + vec2(k), vec2(0.0)));
     return max(a, b) + (sm - max(a, b)) * smoothstep(0.0, k * 0.5, -a);
+}
+
+float attachAt(int i) {
+    if (i == 0) return attachA.x;
+    if (i == 1) return attachA.y;
+    if (i == 2) return attachA.z;
+    if (i == 3) return attachA.w;
+    if (i == 4) return attachB.x;
+    return attachB.y;
+}
+
+// A drawer's corners on the side it grows out of are square: the frame's
+// fillet then meets a straight edge and forms one clean concave flare,
+// instead of fighting a convex corner and pinching the join.
+vec4 cornerRadii(int i, vec2 hs) {
+    float r = min(panelRadius, min(hs.x, hs.y));
+    vec4 c = vec4(r); // tr, br, bl, tl
+    int a = int(attachAt(i) + 0.5);
+    if (a == 1) { c.x = 0.0; c.w = 0.0; }
+    else if (a == 2) { c.x = 0.0; c.y = 0.0; }
+    else if (a == 3) { c.y = 0.0; c.z = 0.0; }
+    else if (a == 4) { c.z = 0.0; c.w = 0.0; }
+    return c;
 }
 
 vec4 rectAt(int i) {
@@ -63,7 +97,7 @@ void main() {
     for (int i = 0; i < 6; i++) {
         vec4 r = rectAt(i);
         if (r.z <= 0.5 || r.w <= 0.5) { d[i] = 1e10; continue; }
-        d[i] = sdRoundedBox(pixel, r.xy + r.zw * 0.5, r.zw * 0.5, panelRadius);
+        d[i] = sdRoundedBox4(pixel, r.xy + r.zw * 0.5, r.zw * 0.5, cornerRadii(i, r.zw * 0.5));
     }
 
     float merged = 1e10;
