@@ -57,15 +57,19 @@ Rectangle {
       if (micSrc && micSrc.audio) micSrc.audio.muted = !micSrc.audio.muted
       else Sys.run("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle")
     }
-    else if (id === "settings") {
-      // Caelestia closes the utilities drawer and opens its settings window.
-      if (scope) { scope.utilities = false; scope.sidebar = false }
-      if (host) host.toggle("settings")
-    }
+    else if (id === "settings") openSettings("")
     else if (id === "gameMode") GameMode.toggle()
     else if (id === "dnd") NotifService.toggleDnd()
     else if (id === "nightlight") { Sys.run("omarchy toggle nightlight"); nlProbe.running = true }
   }
+
+  // Caelestia closes the utilities drawer and opens its settings window;
+  // `page` opens it on one page (right-click on Wi-Fi / Bluetooth).
+  function openSettings(page) {
+    if (scope) { scope.utilities = false; scope.sidebar = false }
+    if (host) host.toggle("settings", page)
+  }
+  readonly property var settingsPages: ({ wifi: "network", bluetooth: "bluetooth" })
 
   Process {
     id: nlProbe
@@ -111,6 +115,15 @@ Rectangle {
         inactiveColour: Colours.m3surfaceContainerHighest
         inactiveOnColour: Colours.m3onSurfaceVariant
         onClicked: root.activate(modelData.id)
+
+        // Right-click jumps to the matching settings page. Only the right
+        // button is taken, so left clicks still reach the button below.
+        MouseArea {
+          anchors.fill: parent
+          enabled: !!root.settingsPages[parent.modelData.id]
+          acceptedButtons: Qt.RightButton
+          onClicked: root.openSettings(root.settingsPages[parent.modelData.id])
+        }
       }
     }
   }
