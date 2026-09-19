@@ -1,9 +1,9 @@
 -- ╭─────────────────────────────────────────────────────────────────────────╮
--- │  Omacale keybindings — paste into ~/.config/hypr/bindings.lua          │
+-- │  Omacale keybindings — paste into ~/.config/hypr/bindings.lua           │
 -- │  Each action is an IPC call into the running Omarchy shell:             │
--- │    omarchy-shell omacale <launcher|dashboard|session|settings|close>   │
+-- │  omarchy-shell omacale <launcher|dashboard|session|settings|close>      │
 -- │  Keys below are unbound in a stock Omarchy install. Check yours with:   │
--- │    omarchy menu keybindings --print                                     │
+-- │  omarchy menu keybindings --print                                       │
 -- ╰─────────────────────────────────────────────────────────────────────────╯
 
 -- ── Drawers ─────────────────────────────────────────────────────────────────
