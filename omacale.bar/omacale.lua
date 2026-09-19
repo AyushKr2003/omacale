@@ -115,8 +115,10 @@ hl.animation({ leaf = "layersIn", enabled = true, speed = 5, bezier = "emphasize
 hl.animation({ leaf = "layersOut", enabled = true, speed = 4, bezier = "emphasizedAccel", style = "slide" })
 hl.animation({ leaf = "fadeLayers", enabled = true, speed = 5, bezier = "standard" })
 
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 5, bezier = "emphasizedDecel" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 3, bezier = "emphasizedAccel" })
+-- Open/close run a touch quicker than Caelestia's 5 / 3 (speed is in 100ms
+-- units, so lower is faster).
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 4, bezier = "emphasizedDecel" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel" })
 hl.animation({ leaf = "windowsMove", enabled = true, speed = 6, bezier = "standard" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "standard" })
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
@@ -132,6 +134,11 @@ hl.animation({ leaf = "fadeOut", enabled = true, speed = 6, bezier = "standard" 
 hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 6, bezier = "standard" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 5, bezier = "standard" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 5, bezier = "standard" })
+
+-- Omarchy's qconsole.lua sets the special-workspace children (a Quake-style
+-- "slide top"/"slide bottom"), which would mask Caelestia's slidefadevert.
+hl.animation({ leaf = "specialWorkspaceIn", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
+hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
 
 -- ── Rules (rules.lua) ───────────────────────────────────────────────────────
 
