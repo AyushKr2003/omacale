@@ -80,6 +80,8 @@ QtObject {
     readonly property int launcherItemHeight: 57
     readonly property int launcherMaxShown: 7
     readonly property int sessionButton: 80
+    readonly property int sidebarWidth: (Config.o.sidebar && Config.o.sidebar.width) ? Config.o.sidebar.width : 430
+    readonly property int utilitiesWidth: (Config.o.utilities && Config.o.utilities.width) ? Config.o.utilities.width : 430
     readonly property int tabIndicatorHeight: 3
     readonly property int tabIndicatorSpacing: 5
   }

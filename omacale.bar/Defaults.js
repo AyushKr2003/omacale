@@ -21,7 +21,7 @@ var values = {
     activeWindow: { enabled: true, compact: false },
     tray: { enabled: true, background: false, recolour: false },
     clock: { showIcon: true, showDate: false, showSeconds: false, background: false },
-    status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true },
+    status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, notifications: true },
     popouts: { statusIcons: true, tray: true, activeWindow: true },
     scroll: { workspaces: true, volume: true, brightness: true }
   },
@@ -32,6 +32,8 @@ var values = {
   },
   launcher: { enabled: true, maxShown: 7, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
+  sidebar: { enabled: true, width: 430 },
+  utilities: { enabled: true, width: 430 },
   general: { clock24: true, weatherLocation: "", units: "metric" }
 }
 

@@ -58,12 +58,14 @@ var pages = [
   },
   {
     id: "panels", label: "Panels", icon: "dock_to_bottom", category: "shell",
-    description: "Taskbar, dashboard, launcher, session",
+    description: "Taskbar, dashboard, launcher, session, sidebar, utilities",
     rows: [
       { type: "nav", icon: "dock_to_right", label: "Taskbar", page: "taskbar", status: "bar" },
       { type: "nav", icon: "dashboard", label: "Dashboard", page: "dashboard", status: "dashboard.enabled" },
       { type: "nav", icon: "apps", label: "Launcher", page: "launcher", status: "launcher.enabled" },
-      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" }
+      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
+      { type: "nav", icon: "notifications", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
+      { type: "nav", icon: "tune", label: "Utilities", page: "utilities", status: "utilities.enabled" }
     ]
   },
   {
@@ -155,6 +157,8 @@ var subpages = {
       { type: "toggle", key: "bar.status.network", label: "Network" },
       { type: "toggle", key: "bar.status.bluetooth", label: "Bluetooth" },
       { type: "toggle", key: "bar.status.battery", label: "Battery / power profile" },
+      { type: "toggle", key: "bar.status.keepAwake", label: "Keep awake", subtext: "Coffee icon while keep awake is on" },
+      { type: "toggle", key: "bar.status.notifications", label: "Notifications", subtext: "Unread count and do-not-disturb state; click opens the sidebar" },
       { type: "section", text: "Behaviour" },
       { type: "toggle", key: "bar.popouts.statusIcons", label: "Popout on hover", subtext: "Show a details popout when hovering the status icons" }
     ]
@@ -218,6 +222,22 @@ var subpages = {
         { value: "hibernate", label: "Hibernate", icon: "downloading" },
         { value: "suspend", label: "Suspend", icon: "bedtime" }
       ] }
+    ]
+  },
+  sidebar: {
+    title: "Sidebar",
+    rows: [
+      { type: "section", text: "General" },
+      { type: "toggle", key: "sidebar.enabled", label: "Enabled", subtext: "Enable notification sidebar drawer" },
+      { type: "slider", key: "sidebar.width", label: "Sidebar width", icon: "dock_to_right", from: 320, to: 600, step: 10, unit: "px" }
+    ]
+  },
+  utilities: {
+    title: "Utilities",
+    rows: [
+      { type: "section", text: "General" },
+      { type: "toggle", key: "utilities.enabled", label: "Enabled", subtext: "Enable quick toggles and utilities drawer" },
+      { type: "slider", key: "utilities.width", label: "Utilities width", icon: "tune", from: 320, to: 600, step: 10, unit: "px" }
     ]
   }
 }

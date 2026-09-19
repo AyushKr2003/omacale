@@ -41,10 +41,14 @@ Item {
 
   IpcHandler {
     target: "omacale"
+    // Quickshell IPC needs typed arguments and return types.
     function launcher(): void { root.toggle("launcher") }
     function dashboard(): void { root.toggle("dashboard") }
     function session(): void { root.toggle("session") }
     function settings(): void { root.toggle("settings") }
+    function sidebar(): void { root.toggle("sidebar") }
+    function utilities(): void { root.toggle("utilities") }
+    function toggles(): void { root.toggle("utilities") }
     function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
   }

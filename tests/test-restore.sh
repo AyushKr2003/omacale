@@ -127,7 +127,7 @@ check "settings kept"              test -f "$H/.config/omacale/settings.json"
 check "plugin still removed"       test ! -e "$H/.config/omarchy/plugins/omacale.bar"
 
 echo "M. keybinds file is valid Omarchy Lua"
-check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 6"
+check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 8"
 
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

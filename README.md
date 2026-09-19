@@ -43,6 +43,21 @@ It is a port of Caelestia's actual design, not an approximation:
   `>` lists Omarchy actions.
 - **Session.** Right drawer: logout, shutdown, kurukuru, hibernate, reboot.
   Opens from the power button or by dragging in from the right edge.
+- **Sidebar & Quick Toggles (Utilities).** Right-edge control center:
+  - **Notifications (Sidebar)**: Material 3 notification center grouped by app,
+    showing live and recent Omarchy notifications with timestamps, urgency badges,
+    action buttons, app clear, and a "clear all" floating action button. Includes
+    Caelestia's dino empty state when all caught up. Opens with
+    `omarchy-shell omacale sidebar` (`SUPER + N`), dragging in from the top-right
+    screen edge, or clicking the notification bell on the bar.
+  - **Quick Toggles (Utilities)**: Material 3 shape-morphing toggles for Wi-Fi,
+    Bluetooth, microphone mute, Game Mode (Hyprland animation/blur/gap cut), Do
+    Not Disturb, Night Light, VPN, and Settings. Includes a "Keep awake" idle
+    inhibitor card with M3 switch and active duration chip, plus a screen recorder
+    card with fullscreen/region selector, audio toggle, and recent recordings list.
+    Slides up from the bottom-right corner: hover the bottom edge there, run
+    `omarchy-shell omacale utilities` (`SUPER + U`), or open the sidebar, which
+    it docks underneath. Opened by hover it closes when the cursor leaves.
 
 - **Settings.** A port of Caelestia's "Nexus" settings app: navigation pane
   with search, connected row groups, M3 switches, steppers, sliders and
@@ -128,7 +143,7 @@ because the QML engine caches plugin code for the life of the process.
 Drive the drawers from a Hyprland binding:
 
 ```
-omarchy-shell omacale launcher | dashboard | session | close
+omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | toggles | close
 ```
 
 ## What it changes — and how it is undone
@@ -158,10 +173,9 @@ created/pre-existing/kept, and the keybinds file).
 
 ## Not yet ported from Caelestia
 
-Notification sidebar, utilities drawer, OSD styling, lock screen,
-wallpaper-derived colours (the seed here is the theme
+OSD styling, lock screen, wallpaper-derived colours (the seed here is the theme
 accent), and the "jelly" deformation drawers show while they move. Omarchy's
-own notifications, OSD and lock screen keep working underneath.
+own OSD and lock screen keep working underneath.
 
 ## Credits and licences
 

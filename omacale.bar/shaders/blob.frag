@@ -22,8 +22,11 @@ layout(std140, binding = 0) uniform buf {
     vec4 r3;
     vec4 r4;
     vec4 r5;
+    vec4 r6;
     vec4 attachA;     // edges each rect grows out of, as a bitmask (r0..r3):
-    vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4, r5 in .xy)
+    vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4, r5, r6 in .xyz)
+    vec2 join;        // sidebar (r6) over utilities (r5), as Caelestia's PanelBg:
+                      // x scales the corners they share, y > 0.5 drops their fillet
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -63,7 +66,8 @@ float attachAt(int i) {
     if (i == 2) return attachA.z;
     if (i == 3) return attachA.w;
     if (i == 4) return attachB.x;
-    return attachB.y;
+    if (i == 5) return attachB.y;
+    return attachB.z;
 }
 
 // A drawer's corners on the side(s) it grows out of are square: the frame's
@@ -84,6 +88,10 @@ vec4 cornerRadii(int i, vec2 hs) {
     if (right) { c.x = 0.0; c.y = 0.0; }
     if (bottom) { c.y = 0.0; c.z = 0.0; }
     if (left) { c.z = 0.0; c.w = 0.0; }
+    // The sidebar's bottom-left and the utilities' top-left corner flatten as
+    // the two drawers join, so their shared left side is one straight edge.
+    if (i == 5) c.w *= join.x;
+    if (i == 6) c.z *= join.x;
     return c;
 }
 
@@ -93,26 +101,30 @@ vec4 rectAt(int i) {
     if (i == 2) return r2;
     if (i == 3) return r3;
     if (i == 4) return r4;
-    return r5;
+    if (i == 5) return r5;
+    return r6;
 }
 
 void main() {
     vec2 pixel = qt_TexCoord0 * res;
     float k = smoothing;
 
-    float d[6];
-    for (int i = 0; i < 6; i++) {
+    float d[7];
+    for (int i = 0; i < 7; i++) {
         vec4 r = rectAt(i);
         if (r.z <= 0.5 || r.w <= 0.5) { d[i] = 1e10; continue; }
         d[i] = sdRoundedBox4(pixel, r.xy + r.zw * 0.5, r.zw * 0.5, cornerRadii(i, r.zw * 0.5));
     }
 
     float merged = 1e10;
-    for (int i = 0; i < 6; i++) merged = min(merged, d[i]);
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) merged = min(merged, d[i]);
+    for (int i = 0; i < 7; i++) {
         if (d[i] >= 1e9) continue;
-        for (int j = i + 1; j < 6; j++) {
+        for (int j = i + 1; j < 7; j++) {
             if (d[j] >= 1e9 || max(d[i], d[j]) >= k) continue;
+            // Two flush edges smooth-min into an outward bulge; joined drawers
+            // are excluded from each other, as Caelestia's PanelBg `exclude`.
+            if (i == 5 && j == 6 && join.y > 0.5) continue;
             merged = min(merged, smin(d[i], d[j], k));
         }
     }
@@ -135,7 +147,7 @@ void main() {
     // back so it emerges from a pocket rather than a bump.
     float sinkValue = 0.0;
     float preOff = k * (2.0 - sqrt(2.0)) * 0.5;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         if (d[i] >= 1e9) continue;
         vec4 r = rectAt(i);
         vec2 ctr = r.xy + r.zw * 0.5;

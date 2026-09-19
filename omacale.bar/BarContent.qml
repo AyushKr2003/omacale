@@ -209,6 +209,15 @@ Item {
       radius: width / 2
       color: root.cfg.clock.background ? Colours.m3surfaceContainer : "transparent"
       readonly property bool h12: !Config.o.general.clock24
+      MouseArea {
+        anchors.fill: parent
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: e => {
+          if (e.button === Qt.RightButton) root.host.toggle("sidebar")
+          else root.host.toggle("dashboard")
+        }
+      }
       Column {
         id: clockCol
         anchors.centerIn: parent
@@ -279,6 +288,56 @@ Item {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Tk.padding.medium
         spacing: Tk.spacing.medium / 2
+
+        // Keep awake indicator
+        MIcon {
+          visible: root.cfg.status.keepAwake && IdleService.enabled
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "coffee"
+          color: Colours.m3secondary
+          fill: 1
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.host.toggle("utilities")
+          }
+        }
+
+        // Screen recording active indicator
+        MIcon {
+          visible: RecordService.running
+          anchors.horizontalCenter: parent.horizontalCenter
+          text: "fiber_manual_record"
+          color: Colours.m3error
+          fill: 1
+          SequentialAnimation on opacity {
+            running: RecordService.running
+            loops: Animation.Infinite
+            NumberAnimation { from: 1; to: 0.2; duration: 600 }
+            NumberAnimation { from: 0.2; to: 1; duration: 600 }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.host.toggle("utilities")
+          }
+        }
+
+        // Notifications indicator: always there (when enabled) so the sidebar
+        // has a target; filled with unread notifications, outlined when empty.
+        MIcon {
+          visible: root.cfg.status.notifications
+          anchors.horizontalCenter: parent.horizontalCenter
+          animate: true
+          text: NotifService.dnd ? "notifications_off" : NotifService.count > 0 ? "notifications_unread" : "notifications"
+          color: NotifService.dnd ? Colours.m3error : Colours.m3secondary
+          fill: NotifService.count > 0 || NotifService.dnd ? 1 : 0
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.host.toggle("sidebar")
+          }
+        }
 
         // caps/num lock
         MIcon {

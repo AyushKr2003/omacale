@@ -1,6 +1,7 @@
 AboutCard 1.0 AboutCard.qml
 Anim 1.0 Anim.qml
 Bar 1.0 Bar.qml
+ButtonRow 1.0 ButtonRow.qml
 BarContent 1.0 BarContent.qml
 CAnim 1.0 CAnim.qml
 CircularProgress 1.0 CircularProgress.qml
@@ -10,7 +11,10 @@ singleton Config 1.0 Config.qml
 ConnectedRect 1.0 ConnectedRect.qml
 CoverArt 1.0 CoverArt.qml
 Dashboard 1.0 Dashboard.qml
+singleton GameMode 1.0 GameMode.qml
 IconButton 1.0 IconButton.qml
+IdleInhibitCard 1.0 IdleInhibitCard.qml
+singleton IdleService 1.0 IdleService.qml
 KeybindsCard 1.0 KeybindsCard.qml
 Launcher 1.0 Launcher.qml
 MIcon 1.0 MIcon.qml
@@ -20,8 +24,15 @@ MSlider 1.0 MSlider.qml
 MSwitch 1.0 MSwitch.qml
 MText 1.0 MText.qml
 MediaTab 1.0 MediaTab.qml
+NotifGroup 1.0 NotifGroup.qml
+NotifItem 1.0 NotifItem.qml
+singleton NotifService 1.0 NotifService.qml
 PerfTab 1.0 PerfTab.qml
 PopoutContent 1.0 PopoutContent.qml
+QuickToggles 1.0 QuickToggles.qml
+RecordCard 1.0 RecordCard.qml
+RecordingList 1.0 RecordingList.qml
+singleton RecordService 1.0 RecordService.qml
 RowLabel 1.0 RowLabel.qml
 RowNav 1.0 RowNav.qml
 RowSelect 1.0 RowSelect.qml
@@ -36,6 +47,7 @@ Session 1.0 Session.qml
 Settings 1.0 Settings.qml
 SettingsPage 1.0 SettingsPage.qml
 ShaderMaskEffect 1.0 ShaderMaskEffect.qml
+Sidebar 1.0 Sidebar.qml
 Sparkline 1.0 Sparkline.qml
 SplitSelect 1.0 SplitSelect.qml
 StateLayer 1.0 StateLayer.qml
@@ -43,6 +55,7 @@ StylePreview 1.0 StylePreview.qml
 singleton Sys 1.0 Sys.qml
 singleton Tk 1.0 Tk.qml
 Toggle 1.0 Toggle.qml
+Utilities 1.0 Utilities.qml
 WavyLine 1.0 WavyLine.qml
 WeatherTab 1.0 WeatherTab.qml
 Workspaces 1.0 Workspaces.qml

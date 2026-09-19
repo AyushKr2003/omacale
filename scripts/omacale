@@ -555,7 +555,7 @@ cmd_binds() {
 
 while (( $# )); do
   case "$1" in
-    install|uninstall|status|doctor|binds|settings) cmd="$1" ;;
+    install|uninstall|status|doctor|binds|settings|sidebar|utilities|toggles) cmd="$1" ;;
     --copy) bind_mode=copy ;;
     --try) bind_mode=try ;;
     --untry) bind_mode=untry ;;
@@ -580,5 +580,7 @@ case "$cmd" in
   doctor) cmd_doctor ;;
   binds) cmd_binds ;;
   settings) need omarchy-shell; omarchy-shell omacale settings >/dev/null || fail "Omacale is not running (is it installed?)" ;;
+  sidebar) need omarchy-shell; omarchy-shell omacale sidebar >/dev/null || fail "Omacale is not running (is it installed?)" ;;
+  utilities|toggles) need omarchy-shell; omarchy-shell omacale utilities >/dev/null || fail "Omacale is not running (is it installed?)" ;;
   "") usage; exit 1 ;;
 esac

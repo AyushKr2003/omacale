@@ -13,8 +13,16 @@ Item {
   property bool menuOnTop: true
   property bool disabled: items.length === 0
   property real minLeftWidth: 0
+  property real horizontalPadding: Tk.padding.large
   property bool expanded: false
+  // Caelestia SplitButton type: filled (primary) instead of tonal, and a main
+  // half that acts (mainClicked) rather than only showing the selection.
+  property bool filled: false
+  property bool mainClickable: false
+  readonly property color colour: filled ? Colours.m3primary : Colours.m3secondaryContainer
+  readonly property color textColour: filled ? Colours.m3onPrimary : Colours.m3onSecondaryContainer
   signal selected(var value)
+  signal mainClicked()
 
   readonly property var active: items.find(i => i.value === current) || items[0] || null
   implicitWidth: row.implicitWidth
@@ -26,22 +34,27 @@ Item {
     Rectangle {
       id: main
       height: 40
-      width: Math.max(root.minLeftWidth, mainRow.implicitWidth + Tk.padding.large * 2)
-      color: root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : Colours.m3secondaryContainer
+      width: Math.max(root.minLeftWidth, mainRow.implicitWidth + root.horizontalPadding * 2)
+      color: root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : root.colour
+      Behavior on color { CAnim {} }
       topLeftRadius: height / 2; bottomLeftRadius: height / 2
       topRightRadius: Tk.rounding.extraSmall; bottomRightRadius: Tk.rounding.extraSmall
+      StateLayer {
+        visible: root.mainClickable
+        disabled: !root.mainClickable || root.disabled
+        color: root.textColour
+        onClicked: root.mainClicked()
+      }
       Row {
         id: mainRow
         anchors.centerIn: parent
         spacing: Tk.spacing.small
-        MIcon { anchors.verticalCenter: parent.verticalCenter; text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon; fill: 1; color: Colours.m3onSecondaryContainer }
+        MIcon { anchors.verticalCenter: parent.verticalCenter; text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon; fill: 1; color: root.textColour }
         MText {
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, main.width - Tk.padding.large * 2 - 28)
-          elide: Text.ElideRight
-          text: root.active ? root.active.text : root.fallbackText
+          text: root.active ? (root.active.activeText || root.active.text) : root.fallbackText
           weight: Font.Medium
-          color: Colours.m3onSecondaryContainer
+          color: root.textColour
           animate: true
         }
       }
@@ -49,17 +62,17 @@ Item {
     Rectangle {
       id: chev
       height: 40; width: 36
-      color: root.expanded ? Colours.m3secondary : (root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : Colours.m3secondaryContainer)
+      color: root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : (root.expanded && !root.filled ? Colours.m3secondary : root.colour)
       topRightRadius: height / 2; bottomRightRadius: height / 2
       topLeftRadius: root.expanded ? height / 2 : Tk.rounding.extraSmall; bottomLeftRadius: topLeftRadius
       Behavior on topLeftRadius { Anim { type: "effects" } }
       Behavior on color { CAnim {} }
-      StateLayer { color: Colours.m3onSecondaryContainer; disabled: root.disabled; onClicked: root.expanded = !root.expanded }
+      StateLayer { color: root.textColour; disabled: root.disabled; onClicked: root.expanded = !root.expanded }
       MIcon {
         anchors.centerIn: parent
         text: "expand_more"
         size: Tk.iconSize.medium
-        color: root.expanded ? Colours.m3onSecondary : Colours.m3onSecondaryContainer
+        color: root.expanded && !root.filled ? Colours.m3onSecondary : root.textColour
         rotation: (root.expanded ? 180 : 0) + (root.menuOnTop ? 180 : 0)
         Behavior on rotation { Anim {} }
       }

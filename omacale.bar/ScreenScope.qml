@@ -21,15 +21,22 @@ Scope {
   property bool dashboard: false
   property bool session: false
   property bool settings: false
+  property bool sidebar: false
+  property bool utilities: false
   property bool dashShortcut: false
+  // Utilities opened by a shortcut/click stay open; opened by hovering the
+  // bottom-right corner they close once the cursor leaves (Caelestia Interactions).
+  property bool utilShortcut: false
   property bool barHover: false
   property string popout: ""
   property real popoutCenter: 0
   property var trayItem: null
 
   function closeAll() {
-    launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false
+    launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false
   }
+
+  onUtilitiesChanged: utilShortcut = utilities && !interactions.inBottomUtil(interactions.mouseX, interactions.mouseY)
 
   Connections {
     target: scope.host
@@ -39,6 +46,14 @@ Scope {
       if (name === "launcher" && scope.cfg.launcher.enabled) scope.launcher = !scope.launcher
       else if (name === "session" && scope.cfg.session.enabled) scope.session = !scope.session
       else if (name === "settings") scope.settings = !scope.settings
+      else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) {
+        if (scope.session) scope.session = false
+        scope.sidebar = !scope.sidebar
+      }
+      else if (name === "utilities" && (!scope.cfg.utilities || scope.cfg.utilities.enabled)) {
+        if (scope.session) scope.session = false
+        scope.utilities = !scope.utilities
+      }
       else if (name === "dashboard" && scope.cfg.dashboard.enabled) {
         if (arg && scope.dashboard) { dash.selectTab(arg); return }
         scope.dashboard = !scope.dashboard
@@ -132,11 +147,24 @@ Scope {
     property real sOff: scope.session ? 0 : 1
     property real pOff: scope.popout !== "" ? 0 : 1
     property real nOff: scope.settings ? 0 : 1
+    property real sbOff: scope.sidebar ? 0 : 1
+    property real uOff: (scope.utilities || scope.sidebar) ? 0 : 1
     Behavior on dOff { Anim {} }
     Behavior on lOff { Anim {} }
     Behavior on sOff { Anim {} }
     Behavior on pOff { Anim {} }
     Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "emphasized" } }
+    Behavior on sbOff { Anim {} }
+    Behavior on uOff { Anim {} }
+
+    // Visibility flags
+    readonly property bool dVis: dOff < 1
+    readonly property bool lVis: lOff < 1
+    readonly property bool sVis: sOff < 1
+    readonly property bool pVis: pOff < 1
+    readonly property bool nVis: nOff < 0.999
+    readonly property bool uVis: uOff < 1
+    readonly property bool sbVis: sbOff < 1
 
     // Dashboard (top centre)
     readonly property real dw: dash.implicitWidth || 854
@@ -176,13 +204,31 @@ Scope {
     readonly property real nh: nfh * (1 - 0.8 * nOff)
     readonly property real nx: ax + (aw - nw) / 2
     readonly property real ny: ay + (ah - nh) / 2
+    // Sidebar (top right, above utilities)
+    readonly property real sbw: Tk.sizes.sidebarWidth
+    readonly property real sbx: ax + aw - sbw + (sbw + 5) * sbOff
+    readonly property real sby: ay
+    // Anchored to the utilities' top edge, as Caelestia's Sidebar.Wrapper.
+    readonly property real sbh: Math.max(0, Math.min(ah, uy - ay))
+    // Utilities (bottom right), sliding up out of the bottom edge like
+    // Caelestia's Utilities.Wrapper. While the sidebar is open it takes the
+    // sidebar's visible width, so the two drawers share one straight side.
+    property real sbLerp: scope.sidebar ? 1 : 0
+    Behavior on sbLerp {
+      Anim {
+        duration: Tk.durations.defaultSpatial / 2
+        easing.bezierCurve: scope.sidebar ? Tk.curves.standardAccel : Tk.curves.standardDecel
+      }
+    }
+    readonly property real uw: Math.max(0, ax + aw - sbx) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
+    readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : 450
+    readonly property real ux: ax + aw - uw
+    readonly property real uy: ay + ah - uh + (uh + 5) * uOff
+    // Caelestia's PanelBg: the corners they share square up and their fillet
+    // is dropped once the sidebar is (nearly) in place.
+    readonly property real joinRound: Math.max(0, Math.min(1, sbOff / 0.3))
 
     // ------------------------------------------------------ input mask
-    readonly property bool dVis: dOff < 1
-    readonly property bool lVis: lOff < 1
-    readonly property bool sVis: sOff < 1
-    readonly property bool pVis: pOff < 1
-    readonly property bool nVis: nOff < 0.999
 
     mask: Region {
       // While settings are open the whole screen takes input (click outside closes).
@@ -195,11 +241,13 @@ Scope {
       Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.nVis ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
       Region { intersection: Intersection.Subtract; x: win.sx; y: win.sy; width: win.sVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.sx) : 0; height: win.sVis ? win.sh : 0 }
       Region { intersection: Intersection.Subtract; x: win.ax; y: win.py; width: win.pVis && !win.nVis ? Math.max(0, win.px + win.pw - win.ax) : 0; height: win.pVis ? win.ph : 0 }
+      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.ux) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sbx; y: win.sby; width: win.sbVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.sbx) : 0; height: win.sbVis ? win.sbh : 0 }
     }
 
     HyprlandFocusGrab {
       windows: [win]
-      active: scope.launcher || scope.session || scope.settings || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
+      active: scope.launcher || scope.session || scope.settings || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
       onCleared: scope.closeAll()
     }
 
@@ -237,10 +285,15 @@ Scope {
         // Popout background reaches 20% behind the bar so it never detaches.
         property rect r3: win.pVis ? Qt.rect(win.px - win.pw * 0.2, win.py - (win.pTouchTop ? win.bt : 0), win.pw * 1.2, win.ph + (win.pTouchTop ? win.bt : 0) + (win.pTouchBottom ? win.bt : 0)) : Qt.rect(0, 0, 0, 0)
         property rect r4: win.nVis ? Qt.rect(win.nx, win.ny, win.nw, win.nh) : Qt.rect(0, 0, 0, 0)
-        property rect r5: Qt.rect(0, 0, 0, 0)
+        // Sidebar and utilities stretch to keep touching their frame edges
+        // while their spatial curve overshoots; the sidebar overlaps the
+        // utilities by 2px so the join never shows a seam.
+        property rect r5: win.uVis ? Qt.rect(win.ux, win.uy, win.uw, Math.max(win.uh, win.ay + win.ah - win.uy)) : Qt.rect(0, 0, 0, 0)
+        property rect r6: win.sbVis ? Qt.rect(win.sbx, win.sby, Math.max(win.sbw, win.ax + win.aw - win.sbx), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
         // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
         property vector4d attachA: Qt.vector4d(1, 4, 2, 8 + (win.pTouchTop ? 1 : 0) + (win.pTouchBottom ? 4 : 0))
-        property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
+        property vector4d attachB: Qt.vector4d(0, 6, 3, 0)
+        property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
 
         Behavior on color { CAnim {} }
       }
@@ -257,6 +310,11 @@ Scope {
       function inPopout(x, y) {
         return x < win.px + win.pw + Tk.borderRounding && y >= win.py - Tk.borderRounding && y <= win.py + win.ph + Tk.borderRounding
       }
+      // Caelestia inBottomPanel(utilities, isCorner = true).
+      function inBottomUtil(x, y) {
+        const visibleH = win.uh * (1 - win.uOff)
+        return y > win.height - Math.max(Tk.border, 2, win.bt + visibleH) - Tk.borderRounding && x >= win.ux - Tk.borderRounding && x <= win.ux + win.uw + Tk.borderRounding
+      }
       function inTopDash(x, y) {
         const visibleH = win.dh * (1 - win.dOff)
         return y < Math.max(Tk.border, 2, win.bt + visibleH) && x >= win.dx - Tk.borderRounding && x <= win.dx + win.dw + Tk.borderRounding
@@ -266,10 +324,13 @@ Scope {
         dragStart = Qt.point(e.x, e.y)
         // A click on the scrim (outside the settings panel) closes it.
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
+        if (scope.sidebar && e.x < win.sbx) scope.sidebar = false
+        if (scope.utilities && !scope.sidebar && (e.x < win.ux || e.y < win.uy)) scope.utilities = false
       }
       onContainsMouseChanged: {
         if (containsMouse) return
         if (!scope.dashShortcut) scope.dashboard = false
+        if (!scope.utilShortcut) scope.utilities = false
         if (scope.popout !== "traymenu") scope.popout = ""
         scope.barHover = false
       }
@@ -290,6 +351,13 @@ Scope {
           if (dx < -scope.cfg.session.dragThreshold) scope.session = true
           else if (dx > scope.cfg.session.dragThreshold) scope.session = false
         }
+        // Sidebar: drag in from top-right edge, or drag right to close
+        if ((!scope.cfg.sidebar || scope.cfg.sidebar.enabled) && pressed && !scope.sidebar && dragStart.x > win.ax + win.aw - Tk.borderRounding && y < win.sy && dx < -30) {
+          scope.sidebar = true
+        } else if (pressed && scope.sidebar && dragStart.x >= win.sbx && dx > 40) {
+          scope.sidebar = false
+          if (scope.utilShortcut) scope.utilities = false
+        }
         // Launcher: drag up from the bottom edge.
         if (scope.cfg.launcher.enabled && pressed && dragStart.y > win.ay + win.ah - Tk.borderRounding && x >= win.lx - Tk.borderRounding && x <= win.lx + win.lw + Tk.borderRounding) {
           if (dy < -scope.cfg.launcher.dragThreshold) scope.launcher = true
@@ -300,6 +368,13 @@ Scope {
           const showDash = scope.cfg.dashboard.showOnHover && inTopDash(x, y)
           if (!scope.dashShortcut) scope.dashboard = showDash
           else if (showDash) scope.dashShortcut = false
+        }
+
+        // Utilities: hover the bottom-right corner.
+        if (!scope.cfg.utilities || scope.cfg.utilities.enabled) {
+          const showUtil = inBottomUtil(x, y)
+          if (!scope.utilShortcut) scope.utilities = showUtil
+          else if (showUtil) scope.utilShortcut = false
         }
 
         // Popouts: hover bar entries.
@@ -394,6 +469,33 @@ Scope {
         opacity: 1 - win.sOff
         active: scope.session
         onDismissed: scope.session = false
+      }
+
+      // ---- sidebar
+      Sidebar {
+        id: sidebarPanel
+        x: win.sbx
+        y: win.sby
+        width: win.sbw
+        height: win.sbh
+        visible: win.sbVis
+        opacity: 1 - win.sbOff
+        host: scope.host
+        scope: scope
+        active: scope.sidebar
+      }
+
+      // ---- utilities
+      Utilities {
+        id: util
+        x: win.ux
+        y: win.uy
+        width: win.uw
+        visible: win.uVis
+        opacity: 1 - win.uOff
+        host: scope.host
+        scope: scope
+        active: scope.utilities || scope.sidebar
       }
 
       // ---- settings

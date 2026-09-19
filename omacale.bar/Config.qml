@@ -117,6 +117,8 @@ QtObject {
           property bool network: true
           property bool bluetooth: true
           property bool battery: true
+          property bool keepAwake: true
+          property bool notifications: true
         }
         property JsonObject popouts: JsonObject {
           property bool statusIcons: true
@@ -165,6 +167,14 @@ QtObject {
         property bool vimKeybinds: false
         property int dragThreshold: 30
         property string sleepAction: "hibernate"
+      }
+      property JsonObject sidebar: JsonObject {
+        property bool enabled: true
+        property int width: 430
+      }
+      property JsonObject utilities: JsonObject {
+        property bool enabled: true
+        property int width: 430
       }
       property JsonObject general: JsonObject {
         property bool clock24: true
