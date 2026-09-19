@@ -90,6 +90,22 @@ Item {
   onActiveChanged: {
     if (active) { search.text = pendingText; pendingText = ""; list.currentIndex = 0; search.forceActiveFocus() }
     else Wallpapers.stopPreview()
+    disarmPointer()
+  }
+
+  // One cursor for mouse and keys, as Omarchy's launcher/clipboard: hovering a
+  // row moves currentIndex there, and the keys carry on from it. Only real
+  // pointer motion counts (Omarchy's Ui/PointerMoveGate), so rows sliding
+  // under a still pointer on keyboard scroll or a new search don't steal it.
+  property bool pointerPrimed: false
+  property point pointerLast
+  function disarmPointer() { pointerPrimed = false }
+  function hoverRow(index, area, e) {
+    const p = area.mapToItem(null, e.x, e.y)
+    const moved = pointerPrimed && (Math.abs(p.x - pointerLast.x) > 1 || Math.abs(p.y - pointerLast.y) > 1)
+    if (!pointerPrimed || moved) pointerLast = p
+    pointerPrimed = true
+    if (moved) list.currentIndex = index
   }
 
   readonly property var carouselView: carousel.item
@@ -133,7 +149,7 @@ Item {
       clip: true
       model: ScriptModel {
         values: root.results
-        onValuesChanged: list.currentIndex = 0
+        onValuesChanged: { list.currentIndex = 0; root.disarmPointer() }
       }
       spacing: Tk.spacing.small
       currentIndex: 0
@@ -178,7 +194,13 @@ Item {
         Item {
           anchors.fill: parent
           property real radius: Tk.rounding.large
-          StateLayer { onClicked: root.activate(item.modelData) }
+          // The list highlight is the hover veil, so there is one highlight.
+          StateLayer {
+            id: rowLayer
+            showHoverBackground: false
+            onPositionChanged: e => root.hoverRow(item.index, rowLayer, e)
+            onClicked: root.activate(item.modelData)
+          }
         }
         Item {
           anchors.fill: parent
@@ -308,6 +330,7 @@ Item {
       clip: true
       onTextChanged: list.currentIndex = 0
       Keys.onPressed: function(e) {
+        root.disarmPointer()
         if (e.key === Qt.Key_Escape) { root.dismissed(); e.accepted = true }
         else if (e.key === Qt.Key_Down || (e.key === Qt.Key_Tab && !(e.modifiers & Qt.ShiftModifier))
                  || (root.cfg.vimKeybinds && (e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_J || e.key === Qt.Key_N))) { const l = root.currentList(); if (l) l.incrementCurrentIndex(); e.accepted = true }

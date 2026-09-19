@@ -104,7 +104,7 @@ MouseArea {
         }
         GradientStop {
           position: 1
-          color: Qt.alpha(root.color, Math.max(0, Math.min(1, (root.circleRadius / root.endRadius - 0.9) / 0.1)))
+          color: Qt.alpha(root.color, Math.max(0, Math.min(1, (root.circleRadius / Math.max(0.01, root.endRadius) - 0.9) / 0.1)))
         }
       }
       startX: circle.tl
