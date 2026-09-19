@@ -147,3 +147,9 @@ hl.workspace_rule({ workspace = "f[1]s[false]", gaps_out = vars.singleWindowGaps
 -- border exclusion zone. Omacale's drawers animate themselves inside the layer.
 hl.layer_rule({ match = { namespace = "omacale-reserve" }, no_anim = true })
 hl.layer_rule({ match = { namespace = "^(omacale|omarchy-background)$" }, animation = "fade" })
+
+-- Caelestia's layersIn/layersOut slide would drop Omarchy's own overlays (OSD,
+-- notifications, polkit, the overview plugin, ...) in from the top and pull
+-- them back up. Keep them on Omarchy's stock fade; layers Omarchy marks
+-- no_anim (bar, menu, pickers) stay instant.
+hl.layer_rule({ match = { namespace = "^(omarchy-.*|quickshell:overview.*)$" }, animation = "fade" })

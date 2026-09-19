@@ -293,7 +293,7 @@ Scope {
       layer.effect: MultiEffect {
         shadowEnabled: scope.cfg.appearance.shadow
         blurMax: 15
-        shadowColor: Qt.alpha(Colours.m3shadow, 0.7 * (1 - win.fs))
+        shadowColor: Qt.alpha(Colours.m3shadow, 0.7 * Math.max(0, 1 - win.fs))
       }
 
       ShaderEffect {

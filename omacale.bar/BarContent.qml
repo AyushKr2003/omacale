@@ -278,7 +278,13 @@ Item {
     Rectangle {
       id: statusPill
       readonly property int anchorsPad: Tk.padding.medium
-      visible: statusCol.visibleChildren.length > 0
+      // Not `statusCol.visibleChildren`: while the bar is hidden (fullscreen)
+      // every child reads invisible, the pill hides, and its children then
+      // stay invisible for good, so the pill never came back.
+      readonly property var st: root.cfg.status
+      visible: (st.keepAwake && IdleService.enabled) || RecordService.running || st.notifications
+        || (st.lockStatus && (root.host.capsLock || root.host.numLock))
+        || st.audio || st.microphone || st.network || st.bluetooth || st.battery
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Tk.barInner
       implicitHeight: statusCol.implicitHeight + Tk.padding.medium * 2

@@ -36,6 +36,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `Dashboard.qml`, `Launcher.qml`, `Session.qml`, `Settings.qml` (Nexus) | `modules/dashboard`, `launcher`, `session`, `nexus` |
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
 | `BluetoothPage.qml`, `BtPairing.qml`, `BtDevice.qml`, `BtDeviceRow.qml` | `modules/nexus/pages/BluetoothPage.qml`, `bluetooth/BluetoothPairing.qml`, `BtDeviceInfo.qml` |
+| `AudioPage.qml`, `AppVolumes.qml`, `AudioDeviceList.qml`, `AudioSlider.qml`, `AudioService.qml` | `modules/nexus/pages/AudioPage.qml`, `audio/AppVolumes.qml`, `common/AudioDeviceList.qml`, `SliderRow.qml`, `services/Audio.qml` |
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
@@ -66,6 +67,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Notifications | reads `~/.local/state/omarchy/notifications/` (+ `history/`), DND in `notifications.json`; `omarchy toggle notification silencing`; `omarchy-shell notifications dismiss/clear` |
 | Wi-Fi / ethernet (`NetService`) | `Quickshell.Networking` (NetworkManager) as Omarchy's `plugins/panels/network`; `omarchy-network-status --verbose` for link details; `omarchy-shell shell summon omarchy.wifiqr` to share |
 | Bluetooth (`BtService`) | `Quickshell.Bluetooth` as Omarchy's `plugins/panels/bluetooth`; `omarchy-bluetooth-power on/off`, `omarchy-bluetooth-device pair/connect/disconnect/forget` |
+| Audio (`AudioService`) | `Quickshell.Services.Pipewire` as Omarchy's `plugins/panels/audio`; `omarchy-audio-sink-availability`, `omarchy-audio-output-sink` (volume on the sink behind a tuning), `omarchy-audio-{output,input}-set-default` |
 | Keep awake | `~/.local/state/omarchy/indicators/stay-awake`, `omarchy-shell idle enable/disable` |
 | Screen recording | `omarchy capture screenrecording [--stop-recording]` |
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |

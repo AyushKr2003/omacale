@@ -73,6 +73,11 @@ var pages = [
     rows: [ { type: "custom", comp: "bluetooth" } ]
   },
   {
+    id: "audio", label: "Audio", icon: "volume_up", category: "connectivity",
+    description: "App volumes, sound devices",
+    rows: [ { type: "custom", comp: "audio" } ]
+  },
+  {
     id: "panels", label: "Panels", icon: "dock_to_bottom", category: "shell",
     description: "Taskbar, dashboard, launcher, session, sidebar, utilities",
     rows: [
@@ -119,6 +124,7 @@ var subpages = {
   networkDetail: { title: "Network details", rows: [ { type: "custom", comp: "networkDetail" } ] },
   btPair: { title: "Pair new device", rows: [ { type: "custom", comp: "btPair" } ] },
   btDevice: { title: "Device", rows: [ { type: "custom", comp: "btDevice" } ] },
+  appVolumes: { title: "App volumes", rows: [ { type: "custom", comp: "appVolumes" } ] },
   taskbar: {
     title: "Taskbar",
     rows: [
