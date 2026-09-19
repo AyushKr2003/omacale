@@ -86,7 +86,8 @@ ColumnLayout {
   }
 
   Header { text: "Credits" }
-  Action { first: true; last: true; icon: "favorite"; label: "Design by Caelestia"; sub: "github.com/caelestia-dots/shell · GPL-3.0"; onClicked: Qt.openUrlExternally("https://github.com/caelestia-dots/shell") }
+  Action { first: true; icon: "code"; label: "Made by AyushKr2003"; sub: "github.com/AyushKr2003"; onClicked: Qt.openUrlExternally("https://github.com/AyushKr2003") }
+  Action { last: true; icon: "favorite"; label: "Design by Caelestia"; sub: "github.com/caelestia-dots/shell · GPL-3.0"; onClicked: Qt.openUrlExternally("https://github.com/caelestia-dots/shell") }
 
   component Header: MText {
     Layout.fillWidth: true

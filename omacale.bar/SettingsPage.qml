@@ -91,7 +91,11 @@ ColumnLayout {
           Loader {
             required property var modelData
             required property int index
+            readonly property bool live: !modelData.when || Config.get(modelData.when.key) === modelData.when.value
             Layout.fillWidth: true
+            enabled: live
+            opacity: live ? 1 : 0.38
+            Behavior on opacity { Anim { type: "effects" } }
             Component.onCompleted: {
               const f = root.files[modelData.type === "custom" ? modelData.comp : modelData.type]
               if (f) setSource(Qt.resolvedUrl(f), { row: modelData, settings: root.settings, first: root.isFirst(index), last: root.isLast(index) })

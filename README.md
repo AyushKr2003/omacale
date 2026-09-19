@@ -22,7 +22,11 @@ It is a port of Caelestia's actual design, not an approximation:
 - **Bar.** Caelestia's default order: tinted logo (Omarchy mark, a distro
   glyph or a simple Material icon, picked in Settings › Panels › Taskbar); workspaces as M3 shapes
   (a random expressive shape for the focused one, square with app icons for
-  occupied, dot for empty) with the trailing active pill; rotated window
+  occupied, dot for empty) with the trailing active pill; while a special
+  workspace (Omarchy's scratchpad, Super+S) is open, the list blurs behind
+  Caelestia's special-workspace strip (icons, ★, letters or shapes, window
+  icons, tertiary pill;
+  click to switch, scroll or click the active one to close); rotated window
   title; tray; clock; status pill (network, Bluetooth and its devices,
   battery or power profile, caps/num lock); power.
 - **Hover popouts.** Wi-Fi list with connect/disconnect, Bluetooth toggles
@@ -79,7 +83,8 @@ It is a port of Caelestia's actual design, not an approximation:
   split-button menus, sub-pages, and a pop-out into a real window. Everything
   applies live and is saved to `~/.config/omacale/settings.json` (created on
   your first change; hand edits reload live):
-  - **Style**: live miniature of your shell, seed colour (theme accent, any
+  - **Style**: live miniature of your shell, palette (Material, generated
+    from a seed, or Omarchy, the theme's own colours), seed colour (theme accent, any
     theme colour, or hex), 9 Material scheme variants, light/dark/auto,
     transparency with Hyprland blur, and the wallpaper & theme switcher.
   - **Frame & motion**: border thickness, corner rounding, drawer blending,
@@ -93,7 +98,7 @@ It is a port of Caelestia's actual design, not an approximation:
     per-device page (trusted, blocked, wake, forget). Actions go through
     `omarchy-bluetooth-device`.
   - **Panels**: taskbar (persistent or auto-hide, workspaces as shapes or
-    numbers, indicator/trail, window icons, title, tray, clock, which status
+    numbers, indicator/trail, window icons, special workspace display, title, tray, clock, which status
     icons, popouts, scroll actions), dashboard (hover, tabs, seconds, bongo
     cat), launcher (prefix, max items, carousel size, vim keys, dangerous
     actions), session.

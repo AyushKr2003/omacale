@@ -4,6 +4,7 @@
 // from these values, and "reset" writes them back.
 var values = {
   appearance: {
+    palette: "material",     // material (M3 scheme from the seed) | omarchy (the theme's own colours)
     mode: "auto",            // auto | dark | light
     variant: "tonalspot",    // M3 dynamic scheme
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
@@ -19,7 +20,7 @@ var values = {
     logo: true,
     logoIcon: "omarchy",   // see Logos.js
     power: true,
-    workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5 },
+    workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5, specialDisplay: "icons", specialShowWindows: true },
     activeWindow: { enabled: true, compact: false },
     tray: { enabled: true, background: false, recolour: false },
     clock: { showIcon: true, showDate: false, showSeconds: false, background: false },

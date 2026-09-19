@@ -46,7 +46,7 @@ Item {
 
   function handleWheel(y, dy) {
     const ws = mapToItem(workspaces, 0, y)
-    if (ws.y >= 0 && ws.y <= workspaces.height) { if (cfg.scroll.workspaces) Sys.workspace(dy > 0 ? "r-1" : "r+1"); return }
+    if (ws.y >= 0 && ws.y <= workspaces.height) { workspaces.scroll(dy); return }
     if (y < height / 2) { if (cfg.scroll.volume) Sys.run(dy > 0 ? "swayosd-client --output-volume raise || wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"
                                        : "swayosd-client --output-volume lower || wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-") }
     else if (cfg.scroll.brightness) Sys.run(dy > 0 ? "swayosd-client --brightness raise || brightnessctl set 5%+" : "swayosd-client --brightness lower || brightnessctl set 5%-")

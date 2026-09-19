@@ -24,6 +24,7 @@ QtObject {
   function dateTime(d) { return d ? Qt.formatDateTime(d, "d MMM yyyy, " + timeFormat) : "" }
   function hypr(dispatcher) { Quickshell.execDetached(["hyprctl", "dispatch", dispatcher]) }
   function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }
+  function toggleSpecial(name) { hypr('hl.dsp.workspace.toggle_special("' + name + '")') }
 
   // ------------------------------------------------------------ network
   property bool ethernet: false

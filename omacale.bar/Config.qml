@@ -65,6 +65,7 @@ QtObject {
 
     JsonAdapter {
       property JsonObject appearance: JsonObject {
+        property string palette: "material"
         property string mode: "auto"
         property string variant: "tonalspot"
         property string seed: ""
@@ -96,6 +97,8 @@ QtObject {
           property bool occupiedBg: false
           property bool showWindows: true
           property int maxWindowIcons: 5
+          property string specialDisplay: "icons"
+          property bool specialShowWindows: true
         }
         property JsonObject activeWindow: JsonObject {
           property bool enabled: true

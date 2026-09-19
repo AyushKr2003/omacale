@@ -1,4 +1,5 @@
 AboutCard 1.0 AboutCard.qml
+ActiveIndicator 1.0 ActiveIndicator.qml
 Anim 1.0 Anim.qml
 Bar 1.0 Bar.qml
 ButtonRow 1.0 ButtonRow.qml
@@ -52,6 +53,7 @@ ShaderMaskEffect 1.0 ShaderMaskEffect.qml
 Sidebar 1.0 Sidebar.qml
 Sparkline 1.0 Sparkline.qml
 SplitSelect 1.0 SplitSelect.qml
+SpecialWorkspaces 1.0 SpecialWorkspaces.qml
 StateLayer 1.0 StateLayer.qml
 StylePreview 1.0 StylePreview.qml
 singleton Sys 1.0 Sys.qml

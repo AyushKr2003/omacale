@@ -21,7 +21,10 @@ QtObject {
     return (0.2126 * b.r + 0.7152 * b.g + 0.0722 * b.b) > 0.5
   }
   readonly property string mode: Config.o.appearance.mode
-  readonly property bool light: mode === "light" || (mode !== "dark" && themeLight)
+  // Settings › Style › Palette: "omarchy" skips the generated scheme and
+  // paints with the theme's own colours (see `om` below).
+  readonly property bool omarchy: Config.o.appearance.palette === "omarchy"
+  readonly property bool light: omarchy ? themeLight : mode === "light" || (mode !== "dark" && themeLight)
   readonly property string variant: Config.o.appearance.variant
 
   readonly property bool transparent: Config.o.appearance.transparency.enabled
@@ -30,22 +33,28 @@ QtObject {
 
   // Colours of the active Omarchy theme, offered as seed swatches.
   property var themeSwatches: []
+  // Every named colour in the theme's colors.toml (name -> "#rrggbb").
+  property var themeRaw: ({})
   readonly property FileView themeColors: FileView {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/colors.toml"
     printErrors: false
     onLoaded: {
       const want = ["accent", "red", "orange", "yellow", "green", "cyan", "blue", "magenta", "color1", "color2", "color3", "color4", "color5", "color6"]
-      const seen = {}, out = []
+      const seen = {}, out = [], raw = {}
       seen[String(Color.accent).toLowerCase()] = true   // already offered as "Theme"
       String(text()).split("\n").forEach(l => {
         const m = l.match(/^\s*([A-Za-z0-9_]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+        if (m) raw[m[1]] = m[2]
         if (m && want.indexOf(m[1]) >= 0 && !seen[m[2].toLowerCase()]) { seen[m[2].toLowerCase()] = true; out.push({ name: m[1], color: m[2] }) }
       })
+      root.themeRaw = raw
       root.themeSwatches = out.slice(0, 9)
     }
   }
-  // Omarchy pushes theme switches over IPC; re-read the swatches when the accent moves.
-  onSeedChanged: themeColors.reload()
+  // Omarchy pushes theme switches over IPC; re-read colors.toml when the
+  // theme's colours move (the seed alone misses it when a custom seed is set).
+  readonly property string themeKey: String(Color.accent) + String(Color.background) + String(Color.foreground)
+  onThemeKeyChanged: themeColors.reload()
 
   // ------------------------------------------------------- colour maths
   function lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
@@ -124,41 +133,88 @@ QtObject {
 
   function t(pal, darkTone, lightTone) { return tone(pal, light ? lightTone : darkTone) }
 
+  // ------------------------------------------------------ Omarchy palette
+  // The theme's colours on the M3 roles, the way Omarchy's own shell uses
+  // them: accent for highlights, urgent for errors, surfaces stepped from
+  // background towards foreground. Secondary is the accent softened towards
+  // the text colour (M3's low-chroma secondary); tertiary is the theme's
+  // magenta, else the accent softened further.
+  function mix(a, b, f) { return Qt.rgba(a.r + (b.r - a.r) * f, a.g + (b.g - a.g) * f, a.b + (b.b - a.b) * f, 1) }
+  function lum(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
+  function hex(h) { return Qt.rgba(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255, 1) }
+  readonly property var om: {
+    const bg = Color.background, fg = Color.foreground
+    const raw = themeRaw
+    const named = (keys, fallback) => { for (const k of keys) if (raw[k]) return hex(raw[k]); return fallback }
+    // Text on a colour: whichever of background/foreground contrasts more.
+    const on = c => Math.abs(lum(c) - lum(bg)) >= Math.abs(lum(c) - lum(fg)) ? bg : fg
+    const s = f => mix(bg, fg, f)
+    const o = {}
+    const role = (name, c) => {
+      o[name] = c
+      o["on" + name[0].toUpperCase() + name.slice(1)] = on(c)
+      o[name + "Container"] = mix(bg, c, 0.3)
+      o["on" + name[0].toUpperCase() + name.slice(1) + "Container"] = mix(c, fg, 0.4)
+    }
+    role("primary", Color.accent)
+    role("secondary", mix(Color.accent, fg, 0.45))
+    role("tertiary", named(["magenta", "color5"], mix(Color.accent, fg, 0.7)))
+    role("error", Color.urgent)
+    o.surface = bg
+    o.surfaceDim = mix(bg, Qt.rgba(0, 0, 0, 1), 0.15)
+    o.surfaceBright = s(0.2)
+    o.surfaceContainerLowest = mix(bg, light ? Qt.rgba(1, 1, 1, 1) : Qt.rgba(0, 0, 0, 1), 0.3)
+    o.surfaceContainerLow = s(0.04)
+    o.surfaceContainer = s(0.07)
+    o.surfaceContainerHigh = s(0.11)
+    o.surfaceContainerHighest = s(0.15)
+    o.onSurface = fg
+    o.surfaceVariant = s(0.2)
+    o.onSurfaceVariant = s(0.78)
+    o.outline = s(0.55)
+    o.outlineVariant = s(0.25)
+    o.inverseSurface = fg
+    o.inverseOnSurface = bg
+    return o
+  }
+  // A role's colour: the theme's in Omarchy mode, else the tone from the scheme.
+  function role(name, pal, darkTone, lightTone) { return omarchy ? om[name] : t(pal, darkTone, lightTone) }
+
   // --------------------------------------------------------------- roles
-  readonly property color m3primary: t(pP, 80, 40)
-  readonly property color m3onPrimary: t(pP, 20, 100)
-  readonly property color m3primaryContainer: t(pP, 30, 90)
-  readonly property color m3onPrimaryContainer: t(pP, 90, 10)
-  readonly property color m3secondary: t(pS, 80, 40)
-  readonly property color m3onSecondary: t(pS, 20, 100)
-  readonly property color m3secondaryContainer: t(pS, 30, 90)
-  readonly property color m3onSecondaryContainer: t(pS, 90, 10)
-  readonly property color m3tertiary: t(pT, 80, 40)
-  readonly property color m3onTertiary: t(pT, 20, 100)
-  readonly property color m3tertiaryContainer: t(pT, 30, 90)
-  readonly property color m3onTertiaryContainer: t(pT, 90, 10)
-  readonly property color m3error: t(pE, 80, 40)
-  readonly property color m3onError: t(pE, 20, 100)
-  readonly property color m3errorContainer: t(pE, 30, 90)
-  readonly property color m3onErrorContainer: t(pE, 90, 10)
+  readonly property color m3primary: role("primary", pP, 80, 40)
+  readonly property color m3onPrimary: role("onPrimary", pP, 20, 100)
+  readonly property color m3primaryContainer: role("primaryContainer", pP, 30, 90)
+  readonly property color m3onPrimaryContainer: role("onPrimaryContainer", pP, 90, 10)
+  readonly property color m3secondary: role("secondary", pS, 80, 40)
+  readonly property color m3onSecondary: role("onSecondary", pS, 20, 100)
+  readonly property color m3secondaryContainer: role("secondaryContainer", pS, 30, 90)
+  readonly property color m3onSecondaryContainer: role("onSecondaryContainer", pS, 90, 10)
+  readonly property color m3tertiary: role("tertiary", pT, 80, 40)
+  readonly property color m3onTertiary: role("onTertiary", pT, 20, 100)
+  readonly property color m3tertiaryContainer: role("tertiaryContainer", pT, 30, 90)
+  readonly property color m3onTertiaryContainer: role("onTertiaryContainer", pT, 90, 10)
+  readonly property color m3error: role("error", pE, 80, 40)
+  readonly property color m3onError: role("onError", pE, 20, 100)
+  readonly property color m3errorContainer: role("errorContainer", pE, 30, 90)
+  readonly property color m3onErrorContainer: role("onErrorContainer", pE, 90, 10)
 
   // Surfaces honour transparency (Caelestia's base/layer alphas).
   function layer(c) { return layerAlpha < 1 ? Qt.rgba(c.r, c.g, c.b, layerAlpha) : c }
-  readonly property color m3surface: Qt.alpha(t(pN, 6, 98), baseAlpha)
-  readonly property color m3surfaceDim: t(pN, 6, 87)
-  readonly property color m3surfaceBright: t(pN, 24, 98)
-  readonly property color m3surfaceContainerLowest: layer(t(pN, 4, 100))
-  readonly property color m3surfaceContainerLow: layer(t(pN, 10, 96))
-  readonly property color m3surfaceContainer: layer(t(pN, 12, 94))
-  readonly property color m3surfaceContainerHigh: layer(t(pN, 17, 92))
-  readonly property color m3surfaceContainerHighest: layer(t(pN, 22, 90))
-  readonly property color m3onSurface: t(pN, 90, 10)
-  readonly property color m3surfaceVariant: t(pNV, 30, 90)
-  readonly property color m3onSurfaceVariant: t(pNV, 80, 30)
-  readonly property color m3outline: t(pNV, 60, 50)
-  readonly property color m3outlineVariant: t(pNV, 30, 80)
-  readonly property color m3inverseSurface: t(pN, 90, 20)
-  readonly property color m3inverseOnSurface: t(pN, 20, 95)
+  readonly property color m3surface: Qt.alpha(role("surface", pN, 6, 98), baseAlpha)
+  readonly property color m3surfaceDim: role("surfaceDim", pN, 6, 87)
+  readonly property color m3surfaceBright: role("surfaceBright", pN, 24, 98)
+  readonly property color m3surfaceContainerLowest: layer(role("surfaceContainerLowest", pN, 4, 100))
+  readonly property color m3surfaceContainerLow: layer(role("surfaceContainerLow", pN, 10, 96))
+  readonly property color m3surfaceContainer: layer(role("surfaceContainer", pN, 12, 94))
+  readonly property color m3surfaceContainerHigh: layer(role("surfaceContainerHigh", pN, 17, 92))
+  readonly property color m3surfaceContainerHighest: layer(role("surfaceContainerHighest", pN, 22, 90))
+  readonly property color m3onSurface: role("onSurface", pN, 90, 10)
+  readonly property color m3surfaceVariant: role("surfaceVariant", pNV, 30, 90)
+  readonly property color m3onSurfaceVariant: role("onSurfaceVariant", pNV, 80, 30)
+  readonly property color m3outline: role("outline", pNV, 60, 50)
+  readonly property color m3outlineVariant: role("outlineVariant", pNV, 30, 80)
+  readonly property color m3inverseSurface: role("inverseSurface", pN, 90, 20)
+  readonly property color m3inverseOnSurface: role("inverseOnSurface", pN, 20, 95)
   readonly property color m3scrim: Qt.rgba(0, 0, 0, 1)
   readonly property color m3shadow: Qt.rgba(0, 0, 0, 1)
 }

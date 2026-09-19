@@ -8,6 +8,10 @@ import Quickshell.Hyprland
 // a random expressive shape = focused) with each workspace's windows listed
 // underneath as app-category icons, and a primary "active" pill that slides
 // between workspaces with a trailing edge.
+//
+// While a special workspace (Omarchy's scratchpad, Super+S) is open, the
+// normal list shrinks, fades and blurs behind a scrolling list of the special
+// workspaces (modules/bar/components/workspaces/Workspaces.qml, `specialWs`).
 Rectangle {
   id: root
 
@@ -19,6 +23,12 @@ Rectangle {
   readonly property int groupOffset: Math.floor((activeId - 1) / shown) * shown
   readonly property var focusedShapes: ["slanted", "oval", "pill", "triangle", "arrow", "diamond", "pentagon", "gem",
     "verySunny", "sunny", "cookie4", "cookie6", "cookie7", "cookie9", "cookie12", "clover4", "softBurst", "ghostish"]
+
+  readonly property var special: monitor && monitor.lastIpcObject ? monitor.lastIpcObject.specialWorkspace : null
+  readonly property string specialName: special && special.name ? special.name : ""
+  readonly property bool inSpecial: specialName !== ""
+  property real blur: inSpecial ? 1 : 0
+  Behavior on blur { Anim { type: "standardSmall" } }
 
   implicitWidth: Tk.barInner
   implicitHeight: list.implicitHeight + Tk.padding.extraSmall * 2
@@ -32,18 +42,48 @@ Rectangle {
     return null
   }
 
+  // Caelestia's Bar.qml wheel: on a special workspace, scrolling closes it.
+  function scroll(dy) {
+    if (!Config.o.bar.scroll.workspaces) return
+    if (inSpecial) Sys.toggleSpecial(specialName.slice("special:".length))
+    else if (dy < 0 || activeId > 1) Sys.workspace(dy > 0 ? "r-1" : "r+1")
+  }
+
+  // Caelestia services/Hypr.qml: the monitor's specialWorkspace only lives in
+  // lastIpcObject, which Quickshell refreshes on demand.
   Connections {
     target: Hyprland
     function onRawEvent(e) {
-      if (["openwindow", "closewindow", "movewindow", "movewindowv2", "windowtitle"].indexOf(e.name) >= 0)
+      const n = e.name
+      if (n.endsWith("v2")) return
+      if (["workspace", "moveworkspace", "activespecial", "focusedmon"].indexOf(n) >= 0) {
+        Hyprland.refreshWorkspaces()
+        Hyprland.refreshMonitors()
+      } else if (["openwindow", "closewindow", "movewindow", "windowtitle"].indexOf(n) >= 0) {
         Hyprland.refreshToplevels()
+        Hyprland.refreshWorkspaces()
+      }
     }
   }
-  Component.onCompleted: Hyprland.refreshToplevels()
+  Component.onCompleted: {
+    Hyprland.refreshToplevels()
+    Hyprland.refreshMonitors()
+  }
 
   Item {
-    id: content
+    id: normal
     anchors.fill: parent
+    scale: root.inSpecial ? 0.8 : 1
+    opacity: root.inSpecial ? 0.5 : 1
+    Behavior on scale { Anim {} }
+    Behavior on opacity { Anim { type: "effects" } }
+
+    layer.enabled: root.blur > 0
+    layer.effect: MultiEffect {
+      blurEnabled: true
+      blur: root.blur
+      blurMax: 32
+    }
 
     Column {
       id: list
@@ -124,90 +164,81 @@ Rectangle {
         }
       }
     }
-  }
 
-  // Runs of consecutive occupied workspaces get a shared background pill.
-  Repeater {
-    model: {
-      if (!root.cfg.occupiedBg) return []
-      const runs = []
-      let start = -1
-      for (let i = 0; i <= root.shown; i++) {
-        const it = i < root.shown ? rep.itemAt(i) : null
-        const occ = it && it.occupied
-        if (occ && start < 0) start = i
-        if (!occ && start >= 0) { runs.push([start, i - 1]); start = -1 }
+    // Runs of consecutive occupied workspaces get a shared background pill.
+    Repeater {
+      model: {
+        if (!root.cfg.occupiedBg) return []
+        const runs = []
+        let start = -1
+        for (let i = 0; i <= root.shown; i++) {
+          const it = i < root.shown ? rep.itemAt(i) : null
+          const occ = it && it.occupied
+          if (occ && start < 0) start = i
+          if (!occ && start >= 0) { runs.push([start, i - 1]); start = -1 }
+        }
+        return runs
       }
-      return runs
+      Rectangle {
+        required property var modelData
+        readonly property var a: rep.itemAt(modelData[0])
+        readonly property var b: rep.itemAt(modelData[1])
+        x: list.x
+        y: a ? list.y + a.y : 0
+        width: list.width
+        height: a && b ? b.y + b.height - a.y : 0
+        radius: width / 2
+        color: Colours.m3secondaryContainer
+        z: -1
+      }
     }
-    Rectangle {
-      required property var modelData
-      readonly property var a: rep.itemAt(modelData[0])
-      readonly property var b: rep.itemAt(modelData[1])
-      x: list.x
-      y: a ? list.y + a.y : 0
-      width: list.width
-      height: a && b ? b.y + b.height - a.y : 0
-      radius: width / 2
-      color: Colours.m3secondaryContainer
-      z: -1
+
+    ActiveIndicator {
+      visible: root.cfg.activeIndicator
+      list: list
+      target: rep.count ? rep.itemAt(Math.max(0, Math.min(root.shown - 1, root.activeId - 1 - root.groupOffset))) : null
     }
-  }
 
-  // Active pill with a trailing edge; its content is the list recoloured to onPrimary.
-  Rectangle {
-    id: indicator
-    visible: root.cfg.activeIndicator
-    property real start: 0
-    property real end: 0
-    readonly property var target: rep.count ? rep.itemAt(Math.max(0, Math.min(root.shown - 1, root.activeId - 1 - root.groupOffset))) : null
-
-    function run() {
-      if (!target) return
-      const s = target.y, e = target.y + target.height
-      const up = s < start
-      const lead = Tk.durations.defaultSpatial, trail = lead * (root.cfg.activeTrail ? 1.5 : 1)
-      sA.stop(); eA.stop()
-      sA.to = s; eA.to = e
-      sA.duration = up ? lead : trail
-      eA.duration = up ? trail : lead
-      sA.start(); eA.start()
-    }
-    onTargetChanged: run()
-    Connections { target: indicator.target; function onYChanged() { indicator.run() } function onHeightChanged() { indicator.run() } }
-    Component.onCompleted: run()
-
-    NumberAnimation { id: sA; target: indicator; property: "start"; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.defaultSpatial }
-    NumberAnimation { id: eA; target: indicator; property: "end"; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.defaultSpatial }
-
-    x: list.x
-    y: list.y + start
-    width: list.width
-    height: Math.max(0, end - start)
-    radius: width / 2
-    color: Colours.m3primary
-    clip: true
-
-    MultiEffect {
-      x: 0
-      y: -indicator.start
-      width: list.width
-      height: list.height
-      source: ShaderEffectSource { sourceItem: list; hideSource: false; live: true }
-      colorization: 1
-      colorizationColor: Colours.m3onPrimary
-      brightness: 1 - Colours.m3onSurface.hslLightness
+    // Caelestia: clicking the focused workspace toggles the default special
+    // workspace, which on Omarchy is the scratchpad.
+    MouseArea {
+      anchors.fill: parent
+      cursorShape: Qt.PointingHandCursor
+      onClicked: function(e) {
+        const p = mapToItem(list, e.x, e.y)
+        const it = list.childAt(p.x, p.y)
+        if (!it || it.wsId === undefined) return
+        if (it.wsId !== root.activeId) Sys.workspace(it.wsId)
+        else Sys.toggleSpecial("scratchpad")
+      }
+      onWheel: function(e) { root.scroll(e.angleDelta.y) }
     }
   }
 
-  MouseArea {
+  Loader {
     anchors.fill: parent
-    cursorShape: Qt.PointingHandCursor
-    onClicked: function(e) {
-      const p = mapToItem(list, e.x, e.y)
-      const it = list.childAt(p.x, p.y)
-      if (it && it.wsId !== undefined) Sys.workspace(it.wsId)
+    opacity: root.inSpecial ? 1 : 0
+    active: opacity > 0
+    Behavior on opacity { Anim { type: "effects" } }
+
+    sourceComponent: Item {
+      Rectangle {
+        anchors.fill: parent
+        radius: width / 2
+        color: Qt.alpha(Colours.m3scrim, Colours.light ? 0 : 0.2)
+      }
+
+      SpecialWorkspaces {
+        anchors.fill: parent
+        anchors.margins: Tk.padding.extraSmall
+        monitor: root.monitor
+        focusedShapes: root.focusedShapes
+        onWheel: dy => root.scroll(dy)
+
+        scale: 0.5
+        Component.onCompleted: scale = Qt.binding(() => root.inSpecial ? 1 : 0.5)
+        Behavior on scale { Anim {} }
+      }
     }
-    onWheel: function(e) { if (Config.o.bar.scroll.workspaces) Sys.workspace(e.angleDelta.y > 0 ? "r-1" : "r+1") }
   }
 }

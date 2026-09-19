@@ -12,6 +12,8 @@
 //   text     { key, label, subtext, placeholder }
 //   nav      { icon, label, subtext, page, status? }
 //   custom   { comp }  — rendered by a dedicated component
+// Any row can carry `when: { key, value }`; it is dimmed and inert unless
+// that setting has that value.
 
 var pages = [
   {
@@ -20,8 +22,12 @@ var pages = [
     rows: [
       { type: "custom", comp: "preview" },
       { type: "section", text: "Colours" },
-      { type: "custom", comp: "seeds" },
-      { type: "select", key: "appearance.variant", label: "Scheme", subtext: "How the palette is built from the seed colour", options: [
+      { type: "select", key: "appearance.palette", label: "Palette", subtext: "Material colours generated from a seed, or the Omarchy theme's own colours", options: [
+        { value: "material", label: "Material", icon: "palette" },
+        { value: "omarchy", label: "Omarchy", icon: "format_paint" }
+      ] },
+      { type: "custom", comp: "seeds", when: { key: "appearance.palette", value: "material" } },
+      { type: "select", key: "appearance.variant", when: { key: "appearance.palette", value: "material" }, label: "Scheme", subtext: "How the palette is built from the seed colour", options: [
         { value: "tonalspot", label: "Tonal spot", icon: "palette" },
         { value: "vibrant", label: "Vibrant", icon: "colors" },
         { value: "expressive", label: "Expressive", icon: "gradient" },
@@ -32,7 +38,7 @@ var pages = [
         { value: "neutral", label: "Neutral", icon: "contrast" },
         { value: "monochrome", label: "Monochrome", icon: "tonality" }
       ] },
-      { type: "select", key: "appearance.mode", label: "Mode", subtext: "Light or dark surfaces", options: [
+      { type: "select", key: "appearance.mode", when: { key: "appearance.palette", value: "material" }, label: "Mode", subtext: "Light or dark surfaces", options: [
         { value: "auto", label: "Follow theme", icon: "brightness_auto" },
         { value: "dark", label: "Dark", icon: "dark_mode" },
         { value: "light", label: "Light", icon: "light_mode" }
@@ -148,7 +154,15 @@ var subpages = {
       { type: "toggle", key: "bar.workspaces.activeTrail", label: "Active trail", subtext: "The indicator's trailing edge lags behind" },
       { type: "toggle", key: "bar.workspaces.occupiedBg", label: "Occupied background", subtext: "Highlight runs of occupied workspaces" },
       { type: "toggle", key: "bar.workspaces.showWindows", label: "Show windows", subtext: "Show icons of open windows on each workspace" },
-      { type: "stepper", key: "bar.workspaces.maxWindowIcons", label: "Max window icons", from: 0, to: 10, step: 1 }
+      { type: "stepper", key: "bar.workspaces.maxWindowIcons", label: "Max window icons", from: 0, to: 10, step: 1 },
+      { type: "section", text: "Special workspaces" },
+      { type: "select", key: "bar.workspaces.specialDisplay", label: "Display", subtext: "How the scratchpad and other special workspaces are drawn while one is open", options: [
+        { value: "icons", label: "Icons", icon: "star" },
+        { value: "star", label: "Star only", icon: "grade" },
+        { value: "letters", label: "Letters", icon: "text_fields" },
+        { value: "shapes", label: "Shapes", icon: "category" }
+      ] },
+      { type: "toggle", key: "bar.workspaces.specialShowWindows", label: "Show windows", subtext: "Show icons of open windows on each special workspace" }
     ]
   },
   activeWindow: {

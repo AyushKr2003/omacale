@@ -29,8 +29,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `ButtonRow.qml`, `IconButton.qml` | `plugin/src/Caelestia/Components/buttonrow.cpp`, `components/controls/ButtonBase.qml`, `IconButton.qml` |
 | `SplitSelect.qml` | `components/controls/SplitButton.qml` |
 | `StateLayer.qml`, `Anim.qml`, `CAnim.qml` | `components/StateLayer.qml`, `Anim.qml`, `CAnim.qml` |
+| `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
-| `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent) |
+| `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent; or, with Settings › Style › Palette › Omarchy, the theme's own colours on the M3 roles) |
 | `ScreenScope.qml` + `shaders/blob.frag` | `modules/drawers/` (`Panels.qml`, `Backgrounds`) and its `blob.frag` |
 | `Dashboard.qml`, `Launcher.qml`, `Session.qml`, `Settings.qml` (Nexus) | `modules/dashboard`, `launcher`, `session`, `nexus` |
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
@@ -119,6 +120,7 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 
 - **A QML load error silently keeps the OLD UI**, and after a restart the shell **falls back to the stock `omarchy.bar`** ("bar option omacale.bar failed to load"). Live auto-reload ("Local plugin changed, reloading") does not report the error clearly. If a change doesn't show up, `omarchy-restart-shell` and read the log for `Type X unavailable` / `Invalid property assignment`.
 - **`Behavior on` a `readonly` property is a load error.** Make it a plain `property`.
+- **Never name a property `on<Capital>...`** (e.g. `onSpecial`). QML treats `on<Capital>` as a signal-handler prefix: it loads without a warning, but in the Omarchy shell bindings to it never updated, even though Caelestia's `Workspaces.qml` uses that name. Rename it (`inSpecial`).
 - Row/Column with a child whose width depends on the parent's `implicitWidth` causes `polish() loop` warnings; give the child its natural width.
 - A Repeater whose `model` array is rebuilt on every state change destroys its delegates (lost presses, lost expanded state). Keep models static and look state up from the delegate, or store UI state in a singleton (see `NotifService.expandedApps`).
 - `omacale` IPC calls **toggle**; a second call closes the drawer.
