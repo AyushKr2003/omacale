@@ -79,16 +79,15 @@ Item {
     anchors.topMargin: Tk.spacing.extraSmall
     anchors.horizontalCenter: parent.horizontalCenter
 
-    // Undo the item's shrink for the name: 12pt native text scaled to 0.8
-    // is small and blurry. It stays full size and crisp, and elides to the
-    // shrunken thumbnail's visual width.
-    transformOrigin: Item.Top
-    scale: root.scale > 0 ? 1 / root.scale : 1
-    width: (image.width - Tk.padding.medium * 2) * root.scale
+    width: image.width - Tk.padding.medium * 2
     horizontalAlignment: Text.AlignHCenter
     elide: Text.ElideRight
+    // As Caelestia: outline rendering stays crisp when the item is scaled to
+    // 0.8, where MText's native glyphs would be resampled and blur.
+    renderType: Text.QtRendering
     text: root.modelData.label
     font.pointSize: Tk.label.medium
+    weight: Font.Medium
   }
 
   Behavior on scale { Anim {} }
