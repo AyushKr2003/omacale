@@ -16,8 +16,28 @@ QtObject {
   property string currentTheme: ""
 
   // Re-read on every open; an unchanged list is not reassigned, so the
-  // carousel is not re-centred under the cursor.
-  function reload() { wallProc.running = true; themeProc.running = true }
+  // carousel is not re-centred under the cursor. A reload asked for while one
+  // is running runs again after it, so a theme switch is never missed.
+  property bool reloadPending: false
+  function reload() {
+    if (wallProc.running || themeProc.running) { reloadPending = true; return }
+    wallProc.running = true
+    themeProc.running = true
+  }
+  function reloadDone() {
+    if (reloadPending && !wallProc.running && !themeProc.running) { reloadPending = false; reload() }
+  }
+
+  // The backgrounds belong to the current Omarchy theme: re-list them when it
+  // changes, even with the carousel open. Debounced, as omarchy-theme-set
+  // writes theme.name before it has finished swapping the theme directory.
+  property FileView themeWatcher: FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: { root.reload(); root.themeTimer.restart() }
+  }
+  property Timer themeTimer: Timer { interval: 800; onTriggered: root.reload() }
   function url(path) { return path ? "file://" + path.split("/").map(encodeURIComponent).join("/") : "" }
   // Thumbnail of the current background (videos have no image of their own).
   readonly property string currentThumb: {
@@ -60,6 +80,7 @@ QtObject {
 
   property Process wallProc: Process {
     command: ["bash", root.script, "walls"]
+    onExited: root.reloadDone()
     stdout: StdioCollector {
       onStreamFinished: {
         const out = []
@@ -74,6 +95,7 @@ QtObject {
   }
   property Process themeProc: Process {
     command: ["bash", root.script, "themes"]
+    onExited: root.reloadDone()
     stdout: StdioCollector {
       onStreamFinished: {
         const out = []

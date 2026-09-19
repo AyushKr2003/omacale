@@ -88,7 +88,9 @@ Item {
   }
 
   onActiveChanged: {
-    if (active) { search.text = pendingText; pendingText = ""; list.currentIndex = 0; search.forceActiveFocus() }
+    // Wallpapers.reload(): a reopened carousel keeps its old list otherwise,
+    // since it is not recreated when the search text is unchanged.
+    if (active) { search.text = pendingText; pendingText = ""; list.currentIndex = 0; search.forceActiveFocus(); Wallpapers.reload() }
     else Wallpapers.stopPreview()
     disarmPointer()
   }
