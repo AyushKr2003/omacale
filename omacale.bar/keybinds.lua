@@ -26,6 +26,9 @@ o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboar
 
 -- ── Optional: make Omacale the main launcher ────────────────────────────────
 -- These replace Omarchy defaults, so they are commented out. Remove the
--- leading "--" to use them.
+-- leading "--" to use them. The picker binds open the launcher's carousel, or
+-- Omarchy's own menu when Settings › Keybinds › Picker says "Omarchy default".
 -- o.rebind("SUPER + SPACE", "Omacale launcher", "omarchy-shell omacale launcher")           -- was: Omarchy menu
 -- o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
+-- o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
+-- o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu

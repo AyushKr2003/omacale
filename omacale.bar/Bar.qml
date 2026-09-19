@@ -54,8 +54,16 @@ Item {
     function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
     // Caelestia's launcher carousels: ">wallpaper " and ">theme ".
-    function wallpapers(): void { root.toggle("launcher", "wallpaper") }
-    function themes(): void { root.toggle("launcher", "theme") }
+    // Settings › Keybinds › Picker picks the launcher carousel or Omarchy's
+    // own menu, so one bind follows the setting without being rewritten.
+    function wallpapers(): void {
+      if (Config.o.launcher.wallpaperPicker === "omarchy") Sys.run("omarchy-menu toggle background")
+      else root.toggle("launcher", "wallpaper")
+    }
+    function themes(): void {
+      if (Config.o.launcher.themePicker === "omarchy") Sys.run("omarchy-menu toggle theme")
+      else root.toggle("launcher", "theme")
+    }
   }
 
   // Created at startup so an old menu-route block gets cleaned up.

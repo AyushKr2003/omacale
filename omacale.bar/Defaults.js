@@ -32,7 +32,7 @@ var values = {
     tabs: { dashboard: true, media: true, performance: true, weather: true },
     performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
-  launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, favouriteApps: [], hiddenApps: [] },
+  launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, wallpaperPicker: "omacale", themePicker: "omacale", favouriteApps: [], hiddenApps: [] },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
   sidebar: { enabled: true, width: 430 },
   utilities: {

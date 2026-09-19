@@ -20,6 +20,7 @@ ColumnLayout {
   property var binds: []        // { keys, desc, cmd, line, optional, note }
   property var active: ({})     // description -> true when bound in Hyprland
   property var tried: []        // keys bound by "Try" in this session
+  property real keysWidth: 230  // widest key combo, so every label lines up
   property string toast: ""
 
   FileView {
@@ -153,9 +154,45 @@ ColumnLayout {
     color: Colours.m3onSurfaceVariant
     font.pointSize: Tk.label.medium
   }
+  // A picker bind is followed by its choice of picker, in the same group.
+  readonly property var pickers: ({
+    "omarchy-shell omacale wallpapers": { key: "launcher.wallpaperPicker", what: "wallpaper", menu: "Background switcher" },
+    "omarchy-shell omacale themes": { key: "launcher.themePicker", what: "theme", menu: "Theme menu" }
+  })
+  readonly property var optionalRows: {
+    const out = []
+    binds.filter(b => b.optional).forEach(b => {
+      out.push({ bind: b })
+      const p = pickers[b.cmd]
+      if (p) out.push({
+        type: "select", key: p.key, label: "Picker",
+        subtext: "Omacale's " + p.what + " carousel, or Omarchy's " + p.menu,
+        options: [
+          { value: "omacale", label: "Omacale launcher", icon: "view_carousel" },
+          { value: "omarchy", label: "Omarchy default", icon: "menu" }
+        ]
+      })
+    })
+    return out
+  }
   Repeater {
-    model: root.binds.filter(b => b.optional)
-    BindRow { required property var modelData; required property int index; bind: modelData; first: index === 0; last: index === root.binds.filter(b => b.optional).length - 1 }
+    model: root.optionalRows
+    Loader {
+      required property var modelData
+      required property int index
+      readonly property bool isFirst: index === 0
+      readonly property bool isLast: index === root.optionalRows.length - 1
+      Layout.fillWidth: true
+      sourceComponent: modelData.bind ? bindRow : pickerRow
+      Component {
+        id: bindRow
+        BindRow { bind: modelData.bind; first: isFirst; last: isLast }
+      }
+      Component {
+        id: pickerRow
+        RowSelect { row: modelData; settings: root.settings; first: isFirst; last: isLast }
+      }
+    }
   }
 
   MText {
@@ -209,8 +246,9 @@ ColumnLayout {
       anchors.rightMargin: Tk.padding.medium
       spacing: Tk.spacing.medium
       Row {
-        Layout.preferredWidth: 230
+        Layout.preferredWidth: root.keysWidth
         spacing: Tk.spacing.extraSmall
+        onImplicitWidthChanged: root.keysWidth = Math.max(root.keysWidth, implicitWidth + Tk.spacing.large)
         Repeater {
           model: br.bind.keys.split("+").map(k => k.trim())
           Rectangle {

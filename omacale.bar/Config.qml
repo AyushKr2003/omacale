@@ -165,6 +165,10 @@ QtObject {
         property bool vimKeybinds: false
         property bool dangerousActions: true
         property int dragThreshold: 50
+        // What `omacale wallpapers` / `themes` (the optional picker binds) open:
+        // "omacale" (the launcher carousel) or "omarchy" (Omarchy's own menu).
+        property string wallpaperPicker: "omacale"
+        property string themePicker: "omacale"
         property list<string> favouriteApps: []
         property list<string> hiddenApps: []
       }

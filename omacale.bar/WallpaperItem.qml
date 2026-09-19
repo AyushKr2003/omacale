@@ -79,7 +79,12 @@ Item {
     anchors.topMargin: Tk.spacing.extraSmall
     anchors.horizontalCenter: parent.horizontalCenter
 
-    width: image.width - Tk.padding.medium * 2
+    // Undo the item's shrink for the name: 12pt native text scaled to 0.8
+    // is small and blurry. It stays full size and crisp, and elides to the
+    // shrunken thumbnail's visual width.
+    transformOrigin: Item.Top
+    scale: root.scale > 0 ? 1 / root.scale : 1
+    width: (image.width - Tk.padding.medium * 2) * root.scale
     horizontalAlignment: Text.AlignHCenter
     elide: Text.ElideRight
     text: root.modelData.label

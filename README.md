@@ -55,8 +55,10 @@ It is a port of Caelestia's actual design, not an approximation:
   (`omarchy-theme-bg-set` / `omarchy-theme-set`). Scrolling wallpapers
   previews each one live on the desktop; Escape puts the old one back. Open it
   with `omarchy-shell omacale wallpapers` / `themes`, or the launcher's
-  Theme/Background actions. Omarchy's own pickers and menu are left as they
-  are.
+  Theme/Wallpaper actions. Omarchy's own pickers and menu are left as they
+  are. Settings › Keybinds offers optional rebinds of Omarchy's picker keys
+  (SUPER + CTRL + SPACE, SUPER + SHIFT + CTRL + SPACE) to these commands, with
+  a Picker choice for each: the launcher carousel, or Omarchy's default menu.
 - **Session.** Right drawer: logout, shutdown, kurukuru, hibernate, reboot.
   Opens from the power button or by dragging in from the right edge.
 - **Sidebar & Quick Toggles (Utilities).** Right-edge control center:
@@ -207,7 +209,7 @@ Drive the drawers from a Hyprland binding:
 
 ```
 omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | toggles | close
-omarchy-shell omacale wallpapers | themes     # the launcher's carousels
+omarchy-shell omacale wallpapers | themes     # the launcher's carousels (or Omarchy's menu, per Settings › Keybinds › Picker)
 ```
 
 ## What it changes — and how it is undone
