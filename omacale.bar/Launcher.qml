@@ -46,8 +46,8 @@ Item {
     // These autocomplete into the carousel, as Caelestia's Wallpaper/Scheme
     // actions; `cmd` (Omarchy's own pickers) is kept for reference only.
     { name: "Theme", comment: "Change the Omarchy theme", icon: "palette", autocomplete: "theme", cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' },
-    { name: "Background", comment: "Change the wallpaper", icon: "wallpaper", autocomplete: "wallpaper", cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' },
-    { name: "Wallpaper", comment: "Next background", icon: "wallpaper", cmd: "omarchy theme bg next" },
+    { name: "Wallpaper", comment: "Change the wallpaper", icon: "wallpaper", autocomplete: "wallpaper", cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' },
+    { name: "Random", comment: "Next background", icon: "wallpaper", cmd: "omarchy theme bg next" },
     { name: "Nightlight", comment: "Toggle night light", icon: "nightlight", cmd: "omarchy toggle nightlight" },
     { name: "Screenshot", comment: "Capture a region", icon: "screenshot_region", cmd: "omarchy capture screenshot" },
     { name: "Menu", comment: "Open the Omarchy menu", icon: "menu", cmd: "omarchy-menu" },

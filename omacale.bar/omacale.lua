@@ -160,3 +160,8 @@ hl.layer_rule({ match = { namespace = "^(omacale|omarchy-background)$" }, animat
 -- them back up. Keep them on Omarchy's stock fade; layers Omarchy marks
 -- no_anim (bar, menu, pickers) stay instant.
 hl.layer_rule({ match = { namespace = "^(omarchy-.*|quickshell:overview.*)$" }, animation = "fade" })
+
+-- Screenshot, OCR and the colour picker all run hyprpicker (the screen freeze
+-- or the picker itself), which would otherwise take the slide too. Keep it
+-- instant, as Omarchy already does for slurp's "selection" layer.
+hl.layer_rule({ match = { namespace = "^(hyprpicker|selection)$" }, no_anim = true, animation = "none" })
