@@ -22,7 +22,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 |---|---|
 | `Sidebar.qml` (+ inline `NotifDock`) | `modules/sidebar/Content.qml`, `NotifDock.qml` |
 | `NotifGroup.qml`, `NotifItem.qml` | `modules/sidebar/NotifGroup.qml`, `Notif.qml`, `NotifActionList.qml` |
-| `Utilities.qml` | `modules/utilities/Content.qml`, `Wrapper.qml` |
+| `Utilities.qml` (+ inline delete dialog) | `modules/utilities/Content.qml`, `Wrapper.qml`, `RecordingDeleteModal.qml` |
 | `QuickToggles.qml` | `modules/utilities/cards/Toggles.qml` |
 | `IdleInhibitCard.qml` | `modules/utilities/cards/IdleInhibit.qml` |
 | `RecordCard.qml`, `RecordingList.qml` | `modules/utilities/cards/Record.qml`, `RecordingList.qml` |
@@ -35,6 +35,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
 | `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent; or, with Settings › Style › Palette › Omarchy, the theme's own colours on the M3 roles) |
+| `WallLuminance.qml` | Caelestia's `ImageAnalyser` (`plugin/src/Caelestia/Images/imageanalyser.cpp`), feeding `Colours.wallLuminance` |
 | `ScreenScope.qml` + `shaders/blob.frag` | `modules/drawers/` (`Panels.qml`, `Backgrounds`) and its `blob.frag` |
 | `Dashboard.qml`, `Launcher.qml`, `Session.qml`, `Settings.qml` (Nexus) | `modules/dashboard`, `launcher`, `session`, `nexus` |
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
@@ -51,7 +52,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 Conventions that keep the port faithful:
 
 - **Use `Tk.*` tokens for every size, gap, radius, font and duration.** Never hardcode a pixel value that Caelestia gets from `Tokens` (`Tk.padding.large`, `Tk.rounding.medium`, `Tk.spacing.small`, `Tk.body.medium`, ...).
-- **Use `Colours.m3*` for colours** (`m3surfaceContainer`, `m3onSurfaceVariant`, ...). Never hardcode colours.
+- **Use `Colours.m3*` for colours** (`m3surfaceContainer`, `m3onSurfaceVariant`, ...). Never hardcode colours. The `m3surface*` roles are Caelestia's `tPalette` (transparency applied). Where Caelestia writes `Colours.palette.m3surfaceX`, use Omacale's opaque `Colours.palette.m3surfaceX`, and port `Colours.layer(Colours.palette.m3surfaceX, n)` as is; `Colours.layer(c)` of any opaque role gives its `tPalette` value.
 - **Use the ported primitives**, not raw Qt ones: `MText` (sets Caelestia's `opsz` axis; give title/headline/label.large/medium text `weight: Font.Medium` as Caelestia's font tokens do), `MTextField` for any text input, `MFlickable`/`MListView`/`FadeFlickable` for scroll views (no `StopAtBounds`), `MScrollBar` where Caelestia has `StyledScrollBar`.
 - **Motion goes through `Anim { type: ... }` / `CAnim`**, using Caelestia's curves and durations. Don't use raw `NumberAnimation` unless porting a specific Caelestia animation that does.
 - **Keep Caelestia's structure**: same card order, same nesting, same margins (`Tokens.padding.large` insets, `Layout.topMargin` tricks, `nonAnimHeight` / animated `implicitHeight`). Copy the arithmetic, including odd bits like `padding.extraLargeIncreased`.

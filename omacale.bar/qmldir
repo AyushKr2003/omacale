@@ -81,6 +81,7 @@ LogoPicker 1.0 LogoPicker.qml
 WallpaperItem 1.0 WallpaperItem.qml
 WallpaperList 1.0 WallpaperList.qml
 singleton Wallpapers 1.0 Wallpapers.qml
+WallLuminance 1.0 WallLuminance.qml
 AppVolumes 1.0 AppVolumes.qml
 AudioDeviceList 1.0 AudioDeviceList.qml
 AudioPage 1.0 AudioPage.qml

@@ -243,6 +243,10 @@ OSD styling, lock screen, wallpaper-derived colours (the seed here is the theme
 accent), and the "jelly" deformation drawers show while they move. Omarchy's
 own OSD and lock screen keep working underneath.
 
+Left out because Omarchy can't back them: the recorder's pause button,
+notification actions other than the default one (Omarchy only records
+`execArgv`), and the VPN quick toggle.
+
 ## Credits and licences
 
 Design, shader and assets from [caelestia-dots/shell](https://github.com/caelestia-dots/shell)

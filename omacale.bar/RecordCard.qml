@@ -7,6 +7,9 @@ import QtQuick.Layouts
 Rectangle {
   id: root
 
+  property var host
+  property var scope
+
   readonly property string modeValue: (RecordService.mode === "region" ? "region" : "fullscreen") + (RecordService.withAudio ? "-audio" : "")
 
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
@@ -85,14 +88,41 @@ Rectangle {
       }
     }
 
+    // Caelestia fades the old content out, swaps it, then animates the
+    // height for a moment while the new content fades in.
     Loader {
       id: listOrControls
+      property bool running: RecordService.running
+
       Layout.fillWidth: true
-      sourceComponent: RecordService.running ? controls : recordings
+      Layout.preferredHeight: implicitHeight
+      sourceComponent: running ? controls : recordings
+      clip: Layout.preferredHeight < implicitHeight
+
+      Behavior on Layout.preferredHeight {
+        id: locHeightAnim
+        enabled: false
+        Anim {}
+      }
+
+      Behavior on running {
+        SequentialAnimation {
+          Anim { target: listOrControls; property: "opacity"; to: 0; type: "effects" }
+          PropertyAction { target: locHeightAnim; property: "enabled"; value: true }
+          PropertyAction {}
+          ParallelAnimation {
+            SequentialAnimation {
+              PauseAnimation { duration: 100 }
+              PropertyAction { target: locHeightAnim; property: "enabled"; value: false }
+            }
+            Anim { target: listOrControls; property: "opacity"; to: 1; type: "slowEffects" }
+          }
+        }
+      }
     }
   }
 
-  Component { id: recordings; RecordingList {} }
+  Component { id: recordings; RecordingList { scope: root.scope } }
 
   Component {
     id: controls
@@ -109,6 +139,7 @@ Rectangle {
         MText {
           id: recText
           anchors.centerIn: parent
+          animate: true
           text: "REC"
           color: Colours.m3onError
           font.family: Tk.mono
@@ -118,8 +149,8 @@ Rectangle {
         SequentialAnimation on opacity {
           running: true
           loops: Animation.Infinite
-          NumberAnimation { from: 1; to: 0; duration: Tk.durations.large; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.emphasizedAccel }
-          NumberAnimation { from: 0; to: 1; duration: Tk.durations.extraLarge; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.emphasizedDecel }
+          Anim { from: 1; to: 0; duration: Tk.durations.large; easing.bezierCurve: Tk.curves.emphasizedAccel }
+          Anim { from: 0; to: 1; duration: Tk.durations.extraLarge; easing.bezierCurve: Tk.curves.emphasizedDecel }
         }
       }
 

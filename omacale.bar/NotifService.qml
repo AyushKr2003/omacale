@@ -43,6 +43,29 @@ QtObject {
 
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
 
+  // Omarchy's records store numbers as strings.
+  function urgencyOf(n) { return n ? Number(n.urgency) || 0 : 0 } // 0 low, 1 normal, 2 critical
+  function timestampOf(n) { return n ? Number(n.timestamp) || 0 : 0 }
+
+  // Caelestia NotifData.timeStr: the notification's age, "now", "5m", "2h", "1d".
+  property real now: Date.now()
+  property Timer nowTimer: Timer {
+    interval: 5000
+    running: true
+    repeat: true
+    onTriggered: root.now = Date.now()
+  }
+  function timeStr(n) {
+    const t = timestampOf(n)
+    if (!t) return ""
+    const ageMins = Math.floor(Math.max(0, now - t) / 60000)
+    if (ageMins < 1) return "now"
+    const h = Math.floor(ageMins / 60), d = Math.floor(h / 24)
+    if (d > 0) return d + "d"
+    if (h > 0) return h + "h"
+    return ageMins + "m"
+  }
+
   function reload() {
     if (probe.running) return
     loading = true
@@ -76,7 +99,7 @@ QtObject {
     const toDelete = []
     const next = []
     for (let i = 0; i < notifications.length; i++) {
-      if (notifications[i].app === appName) {
+      if ((notifications[i].app || "System") === appName) {
         if (notifications[i]._file) toDelete.push(JSON.stringify(notifications[i]._file))
       } else {
         next.push(notifications[i])

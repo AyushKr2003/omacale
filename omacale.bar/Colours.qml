@@ -27,9 +27,15 @@ QtObject {
   readonly property bool light: omarchy ? themeLight : mode === "light" || (mode !== "dark" && themeLight)
   readonly property string variant: Config.o.appearance.variant
 
+  // Caelestia's Colours.transparency: light schemes get 0.1 less base alpha.
   readonly property bool transparent: Config.o.appearance.transparency.enabled
-  readonly property real baseAlpha: transparent ? Config.o.appearance.transparency.base : 1
-  readonly property real layerAlpha: transparent ? Config.o.appearance.transparency.layers : 1
+  readonly property real trBase: Math.max(0, Math.min(1, Config.o.appearance.transparency.base - (light ? 0.1 : 0)))
+  readonly property real trLayers: Math.max(0, Math.min(1, Config.o.appearance.transparency.layers))
+  readonly property real baseAlpha: transparent ? trBase : 1
+  readonly property real layerAlpha: transparent ? trLayers : 1
+  // Mean luminance of the wallpaper (Caelestia's ImageAnalyser), set by
+  // WallLuminance; brightens stacked surfaces under transparency.
+  property real wallLuminance: 0
 
   // Colours of the active Omarchy theme, offered as seed swatches.
   property var themeSwatches: []
@@ -198,16 +204,51 @@ QtObject {
   readonly property color m3errorContainer: role("errorContainer", pE, 30, 90)
   readonly property color m3onErrorContainer: role("onErrorContainer", pE, 90, 10)
 
-  // Surfaces honour transparency (Caelestia's base/layer alphas).
-  function layer(c) { return layerAlpha < 1 ? Qt.rgba(c.r, c.g, c.b, layerAlpha) : c }
-  readonly property color m3surface: Qt.alpha(role("surface", pN, 6, 98), baseAlpha)
+  // ------------------------------------------------------- transparency
+  // Caelestia services/Colours.qml. With transparency off every colour is
+  // returned as is. On, layer 0 (the drawer surface) only takes the base
+  // alpha; higher layers take the layer alpha and are pushed lighter (darker
+  // for stacked layers in light mode), more so over a bright wallpaper, so a
+  // card stacked on a card still reads as a separate surface.
+  function getLuminance(c) {
+    if (c.r == 0 && c.g == 0 && c.b == 0) return 0
+    return Math.sqrt(0.299 * (c.r ** 2) + 0.587 * (c.g ** 2) + 0.114 * (c.b ** 2))
+  }
+  function alterColour(c, a, layer) {
+    const luminance = getLuminance(c)
+    const offset = (!light || layer == 1 ? 1 : -layer / 2) * (light ? 0.2 : 0.3) * (1 - trBase) * (1 + wallLuminance * (light ? (layer == 1 ? 3 : 1) : 2.5))
+    // Caelestia divides by zero for pure black; lift it to grey instead.
+    if (luminance === 0) { const v = Math.max(0, Math.min(1, offset)); return Qt.rgba(v, v, v, a) }
+    const scale = (luminance + offset) / luminance
+    const cl = x => Math.max(0, Math.min(1, x))
+    return Qt.rgba(cl(c.r * scale), cl(c.g * scale), cl(c.b * scale), a)
+  }
+  // Colours.layer(c, n): pass an opaque colour (see `palette`). Layer 1 is
+  // Caelestia's tPalette, which the m3surface* roles below already are.
+  function layer(c, n) {
+    if (!transparent) return c
+    return n === 0 ? Qt.alpha(c, trBase) : alterColour(c, trLayers, n === undefined ? 1 : n)
+  }
+
+  // Opaque surface roles (Caelestia's Colours.palette), for Colours.layer.
+  readonly property QtObject palette: QtObject {
+    readonly property color m3surface: root.role("surface", root.pN, 6, 98)
+    readonly property color m3surfaceContainerLowest: root.role("surfaceContainerLowest", root.pN, 4, 100)
+    readonly property color m3surfaceContainerLow: root.role("surfaceContainerLow", root.pN, 10, 96)
+    readonly property color m3surfaceContainer: root.role("surfaceContainer", root.pN, 12, 94)
+    readonly property color m3surfaceContainerHigh: root.role("surfaceContainerHigh", root.pN, 17, 92)
+    readonly property color m3surfaceContainerHighest: root.role("surfaceContainerHighest", root.pN, 22, 90)
+  }
+
+  // Surfaces honour transparency, as Caelestia's tPalette.
+  readonly property color m3surface: layer(palette.m3surface, 0)
   readonly property color m3surfaceDim: role("surfaceDim", pN, 6, 87)
   readonly property color m3surfaceBright: role("surfaceBright", pN, 24, 98)
-  readonly property color m3surfaceContainerLowest: layer(role("surfaceContainerLowest", pN, 4, 100))
-  readonly property color m3surfaceContainerLow: layer(role("surfaceContainerLow", pN, 10, 96))
-  readonly property color m3surfaceContainer: layer(role("surfaceContainer", pN, 12, 94))
-  readonly property color m3surfaceContainerHigh: layer(role("surfaceContainerHigh", pN, 17, 92))
-  readonly property color m3surfaceContainerHighest: layer(role("surfaceContainerHighest", pN, 22, 90))
+  readonly property color m3surfaceContainerLowest: layer(palette.m3surfaceContainerLowest)
+  readonly property color m3surfaceContainerLow: layer(palette.m3surfaceContainerLow)
+  readonly property color m3surfaceContainer: layer(palette.m3surfaceContainer)
+  readonly property color m3surfaceContainerHigh: layer(palette.m3surfaceContainerHigh)
+  readonly property color m3surfaceContainerHighest: layer(palette.m3surfaceContainerHighest)
   readonly property color m3onSurface: role("onSurface", pN, 90, 10)
   readonly property color m3surfaceVariant: role("surfaceVariant", pNV, 30, 90)
   readonly property color m3onSurfaceVariant: role("onSurfaceVariant", pNV, 80, 30)

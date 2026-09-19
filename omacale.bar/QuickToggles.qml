@@ -112,7 +112,7 @@ Rectangle {
         fillWidth: true
         shapeMorph: true
         round: true
-        inactiveColour: Colours.m3surfaceContainerHighest
+        inactiveColour: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
         inactiveOnColour: Colours.m3onSurfaceVariant
         onClicked: root.activate(modelData.id)
 

@@ -20,7 +20,7 @@ Item {
   property bool capsLock: false
   property bool numLock: false
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.7.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.8.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 

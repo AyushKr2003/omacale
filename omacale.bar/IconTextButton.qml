@@ -43,6 +43,8 @@ Rectangle {
     spacing: Tk.spacing.small
     MIcon {
       Layout.alignment: Qt.AlignVCenter
+      // No icon: Caelestia's TextButton.
+      visible: root.icon !== ""
       text: root.icon
       size: Math.round(root.fontSize * 1.2)
       color: root.onColour

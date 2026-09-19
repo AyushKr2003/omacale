@@ -2,10 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 
-// One app's notifications (Caelestia sidebar/NotifGroup.qml): a round app
-// image on the left; on the right the app name, time and a count/expand pill,
-// then the notifications (the newest few, or all when expanded).
-// Right-click or drag vertically to expand, middle-click or swipe to dismiss.
+// One app's notifications (Caelestia sidebar/NotifGroup.qml + NotifGroupList):
+// a round app image on the left; on the right the app name, age and a
+// count/expand pill, then the notifications (the newest few, or all when
+// expanded). Group gestures (right-click, vertical drag, swipe) live on the
+// dock's delegate; each notification swipes or middle-clicks away on its own.
 Rectangle {
   id: root
 
@@ -16,39 +17,43 @@ Rectangle {
   readonly property string appIcon: groupData ? String(groupData.appIcon || "") : ""
   readonly property string image: groupData ? String(groupData.image || "") : ""
   readonly property bool expanded: NotifService.isExpanded(appName)
-  readonly property int previewNum: Config.o.notifs.groupPreviewNum
-  readonly property var shown: expanded ? items : items.slice(0, previewNum)
+  readonly property var shown: expanded ? items : items.slice(0, Config.o.notifs.groupPreviewNum)
   readonly property int urgency: {
     let u = 0
-    for (const n of items) u = Math.max(u, n.urgency || 0)
+    for (const n of items) u = Math.max(u, NotifService.urgencyOf(n))
     return u // 0 low, 1 normal, 2 critical
   }
   readonly property bool critical: urgency === 2
   readonly property bool low: urgency === 0
   readonly property color onIcon: critical ? Colours.m3onError : low ? Colours.m3onSurface : Colours.m3onSecondaryContainer
-  readonly property real imageSize: 42
+  readonly property real imageSize: Tk.sizes.notifImage
+
+  // Height the card settles at; the dock sizes its slot from this so both
+  // animate together instead of chasing each other.
+  property int listRev: 0
+  readonly property real listHeight: {
+    listRev
+    let h = 0, n = 0
+    for (let i = 0; i < repeater.count; i++) {
+      const it = repeater.itemAt(i)
+      if (it) { h += it.nonAnimHeight; n++ }
+    }
+    return h + Math.max(0, n - 1) * list.spacing
+  }
+  readonly property real nonAnimHeight: {
+    const headerHeight = header.implicitHeight + (expanded ? Math.round(Tk.spacing.extraSmall) : 0)
+    return Math.round(Math.max(imageSize, headerHeight + listHeight) + Tk.padding.medium * 2)
+  }
 
   function toggleExpand(expand) { NotifService.setExpanded(appName, expand) }
   function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p }
-  function timeOf(n) {
-    return n && n.timestamp ? Sys.time(new Date(n.timestamp)) : ""
-  }
+  function iconUrl(p) { return p.indexOf("/") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
 
   radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
+  color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
   clip: true
-  implicitHeight: Math.round(Math.max(imageSize, column.implicitHeight) + Tk.padding.medium * 2)
+  implicitHeight: nonAnimHeight
   Behavior on implicitHeight { Anim {} }
-
-  // Group-level gestures live under the notifications so their own win.
-  MouseArea {
-    anchors.fill: parent
-    acceptedButtons: Qt.RightButton | Qt.MiddleButton
-    onPressed: e => {
-      if (e.button === Qt.RightButton) root.toggleExpand(!root.expanded)
-      else NotifService.dismissGroup(root.appName)
-    }
-  }
 
   RowLayout {
     anchors.left: parent.left
@@ -66,7 +71,7 @@ Rectangle {
         id: circle
         anchors.fill: parent
         radius: Tk.rounding.full
-        color: root.critical ? Colours.m3error : root.low ? Colours.m3surfaceContainerHigh : Colours.m3secondaryContainer
+        color: root.critical ? Colours.m3error : root.low ? Colours.layer(Colours.palette.m3surfaceContainerHigh, 3) : Colours.m3secondaryContainer
         clip: true
 
         // Photo, else the app's icon, else a glyph picked from the summary.
@@ -79,15 +84,10 @@ Rectangle {
           asynchronous: true
           cache: false
         }
-        Image {
+        AppIcon {
           anchors.centerIn: parent
-          width: Math.round(root.imageSize * 0.6)
-          height: width
           visible: root.image === "" && root.appIcon !== ""
-          source: visible ? (root.appIcon.indexOf("/") === -1 ? Quickshell.iconPath(root.appIcon, true) : root.fileUrl(root.appIcon)) : ""
-          sourceSize: Qt.size(width * 2, height * 2)
-          fillMode: Image.PreserveAspectFit
-          asynchronous: true
+          size: Math.round(root.imageSize * 0.6)
         }
         MIcon {
           anchors.centerIn: parent
@@ -104,17 +104,13 @@ Rectangle {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         visible: root.appIcon !== "" && root.image !== ""
-        implicitWidth: 20
-        implicitHeight: 20
+        implicitWidth: Tk.sizes.notifBadge
+        implicitHeight: Tk.sizes.notifBadge
         radius: Tk.rounding.full
-        color: root.critical ? Colours.m3error : root.low ? Colours.m3surfaceContainerHigh : Colours.m3secondaryContainer
-        Image {
+        color: root.critical ? Colours.m3error : root.low ? Colours.palette.m3surfaceContainerHigh : Colours.m3secondaryContainer
+        AppIcon {
           anchors.centerIn: parent
-          width: 12
-          height: 12
-          source: root.appIcon.indexOf("/") === -1 ? Quickshell.iconPath(root.appIcon, true) : root.fileUrl(root.appIcon)
-          sourceSize: Qt.size(24, 24)
-          fillMode: Image.PreserveAspectFit
+          size: Math.round(Tk.sizes.notifBadge * 0.6)
         }
       }
     }
@@ -122,7 +118,7 @@ Rectangle {
     Column {
       id: column
       Layout.fillWidth: true
-      spacing: root.expanded ? Tk.spacing.extraSmall : 0
+      spacing: root.expanded ? Math.round(Tk.spacing.extraSmall) : 0
       Behavior on spacing { Anim {} }
 
       RowLayout {
@@ -140,7 +136,7 @@ Rectangle {
         }
         MText {
           animate: true
-          text: root.timeOf(root.items.length ? root.items[0] : null)
+          text: NotifService.timeStr(root.items[0])
           color: Colours.m3outline
           font.pointSize: Tk.body.small
         }
@@ -149,7 +145,7 @@ Rectangle {
           implicitWidth: expandBtn.implicitWidth + Tk.padding.large
           implicitHeight: groupCount.implicitHeight + Tk.padding.extraSmall
           radius: Tk.rounding.full
-          color: root.critical ? Colours.m3error : Colours.m3surfaceContainerHigh
+          color: root.critical ? Colours.m3error : Colours.layer(Colours.palette.m3surfaceContainerHigh, 3)
 
           StateLayer {
             color: root.critical ? Colours.m3onError : Colours.m3onSurface
@@ -186,39 +182,59 @@ Rectangle {
         id: list
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: Tk.spacing.extraSmall
+        spacing: Math.round(Tk.spacing.extraSmall)
 
         Repeater {
+          id: repeater
           model: root.shown
+          onItemAdded: root.listRev++
+          onItemRemoved: root.listRev++
 
+          // Caelestia NotifGroupList's delegate.
           delegate: MouseArea {
             id: row
             required property var modelData
+            readonly property real nonAnimHeight: notif.nonAnimHeight
             property int startY
+            property bool closing: false
+
+            function close() {
+              if (closing) return
+              closing = true
+              closeAnim.start()
+            }
 
             width: list.width
             implicitHeight: notif.implicitHeight
             height: notif.implicitHeight
             hoverEnabled: true
+            cursorShape: pressed ? Qt.ClosedHandCursor : undefined
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             preventStealing: !root.expanded
+            enabled: !closing
             drag.target: this
             drag.axis: Drag.XAxis
-
-            opacity: 1 - Math.min(1, Math.abs(x) / width)
-            Behavior on x { Anim {} }
+            Behavior on x { enabled: !row.closing; Anim {} }
 
             onPressed: e => {
               startY = e.y
               if (e.button === Qt.RightButton) root.toggleExpand(!root.expanded)
-              else if (e.button === Qt.MiddleButton) NotifService.dismiss(modelData)
+              else if (e.button === Qt.MiddleButton) close()
             }
             onPositionChanged: e => {
               if (pressed && !root.expanded && Math.abs(e.y - startY) > 20) root.toggleExpand(e.y - startY > 0)
             }
             onReleased: {
               if (Math.abs(x) < width * 0.3) x = 0
-              else NotifService.dismiss(modelData)
+              else close()
+            }
+
+            // Slide out, then drop the record.
+            ParallelAnimation {
+              id: closeAnim
+              Anim { target: row; property: "opacity"; to: 0; type: "effects" }
+              Anim { target: row; property: "x"; to: row.x >= 0 ? row.width : -row.width }
+              onFinished: NotifService.dismiss(row.modelData)
             }
 
             NotifItem {
@@ -226,11 +242,36 @@ Rectangle {
               width: parent.width
               modelData: row.modelData
               expanded: root.expanded
-              onDismissRequested: NotifService.dismiss(row.modelData)
+              onDismissRequested: row.close()
             }
           }
         }
       }
+    }
+  }
+
+  // Caelestia tints only symbolic icons; coloured app icons keep their colours.
+  component AppIcon: Item {
+    id: ai
+    property real size
+    readonly property bool symbolic: root.appIcon.endsWith("symbolic")
+    implicitWidth: size
+    implicitHeight: size
+
+    ColouredIcon {
+      anchors.fill: parent
+      visible: ai.symbolic
+      implicitSize: ai.size
+      source: ai.symbolic && ai.size > 0 ? root.iconUrl(root.appIcon) : ""
+      colour: root.onIcon
+    }
+    Image {
+      anchors.fill: parent
+      visible: !ai.symbolic
+      source: !ai.symbolic && root.appIcon !== "" && ai.size > 0 ? root.iconUrl(root.appIcon) : ""
+      sourceSize: Qt.size(ai.size * 2, ai.size * 2)
+      fillMode: Image.PreserveAspectFit
+      asynchronous: true
     }
   }
 }

@@ -33,6 +33,7 @@ QtObject {
     readonly property int largeIncreased: 20
     readonly property int extraLarge: 28
     readonly property int extraLargeIncreased: 32
+    readonly property int extraExtraLarge: 48
   }
 
   // Families (bundled fonts are loaded by Bar.qml).
@@ -86,6 +87,8 @@ QtObject {
     readonly property int utilitiesWidth: (Config.o.utilities && Config.o.utilities.width) ? Config.o.utilities.width : 430
     readonly property int tabIndicatorHeight: 3
     readonly property int tabIndicatorSpacing: 5
+    readonly property int notifImage: 42
+    readonly property int notifBadge: 20
   }
 
   // Motion

@@ -139,6 +139,12 @@ Scope {
     // Fullscreen collapses the frame into the screen edges.
     property real fs: scope.hasFullscreen ? 1 : 0
     Behavior on fs { Anim {} }
+
+    // Wallpaper luminance for Colours.layer; one sampler serves every screen.
+    Loader {
+      active: scope.screen === Quickshell.screens[0]
+      sourceComponent: WallLuminance {}
+    }
     // Auto-hiding bar (Caelestia's non-persistent bar).
     property real barProg: scope.cfg.bar.persistent || scope.barHover ? 1 : 0
     Behavior on barProg { Anim {} }
