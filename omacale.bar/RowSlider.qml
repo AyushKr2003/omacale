@@ -30,7 +30,7 @@ ConnectedRect {
     anchors.topMargin: Tk.padding.large
     anchors.bottomMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
-    MIcon { Layout.alignment: Qt.AlignTop; text: root.row.icon || "tune"; size: Tk.iconSize.medium; color: Colours.m3onSurfaceVariant }
+    MIcon { text: root.row.icon || "tune"; size: Tk.iconSize.medium; color: Colours.m3onSurfaceVariant }
     ColumnLayout {
       id: col
       Layout.fillWidth: true

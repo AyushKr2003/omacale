@@ -35,13 +35,12 @@ ConnectedRect {
           anchors.leftMargin: Tk.padding.medium
           spacing: Tk.spacing.small
           MIcon { anchors.verticalCenter: parent.verticalCenter; text: "tag"; size: Tk.iconSize.small; color: Colours.m3onSurfaceVariant }
-          TextInput {
+          MTextField {
             id: hex
             anchors.verticalCenter: parent.verticalCenter
             width: 80
             text: root.seed.replace("#", "")
             maximumLength: 6
-            color: Colours.m3onSurface
             font.family: Tk.mono; font.pointSize: Tk.body.small
             validator: RegularExpressionValidator { regularExpression: /[0-9a-fA-F]{0,6}/ }
             onEditingFinished: Config.set("appearance.seed", text.length === 6 ? "#" + text.toLowerCase() : "")

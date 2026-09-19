@@ -26,7 +26,7 @@ Item {
 
   Timer {
     running: root.active && root.playing
-    interval: 500
+    interval: Config.o.services.mediaUpdateInterval
     repeat: true
     triggeredOnStart: true
     onTriggered: if (root.player) root.player.positionChanged()
@@ -198,6 +198,7 @@ Item {
               value: root.player && !details.unknownLen ? root.player.position / details.len : 0
               interactive: root.player ? root.player.canSeek && !details.unknownLen : false
               fgColour: interactive ? Colours.m3primary : Qt.alpha(Colours.m3onSurface, 0.38)
+              interactionOnMove: false
               onMoved: v => { if (root.player && root.player.canSeek) root.player.position = v * details.len }
             }
             MText {
@@ -209,21 +210,28 @@ Item {
             }
           }
 
-          RowLayout {
+          // Caelestia media/Details.qml: a ButtonRow, so a pressed button
+          // bulges while its neighbours give way.
+          ButtonRow {
             Layout.topMargin: Tk.spacing.largeIncreased
             Layout.fillWidth: true
+            implicitHeight: playBtn.implicitHeight
             spacing: Tk.spacing.extraSmall
             IconButton {
               type: "tonal"; icon: "shuffle"; toggle: true
               checked: root.player ? root.player.shuffle : false
               iconSize: Tk.iconSize.medium
+              iconWeight: Font.Medium
+              shapeMorph: true
               implicitWidth: Math.round(implicitHeight * 0.9)
               disabled: !root.player || !root.player.shuffleSupported
               onClicked: root.player.shuffle = !root.player.shuffle
             }
-            IconButton { type: "tonal"; icon: "skip_previous"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
+            IconButton { type: "tonal"; icon: "skip_previous"; iconSize: Tk.iconSize.large; shapeMorph: true; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
             IconButton {
-              Layout.fillWidth: true
+              id: playBtn
+              fillWidth: true
+              shapeMorph: true
               icon: root.playing ? "pause" : "play_arrow"
               iconSize: Tk.iconSize.large
               toggle: true; checked: root.playing
@@ -231,12 +239,14 @@ Item {
               disabled: !root.player || !root.player.canTogglePlaying
               onClicked: root.player.togglePlaying()
             }
-            IconButton { type: "tonal"; icon: "skip_next"; iconSize: Tk.iconSize.large; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
+            IconButton { type: "tonal"; icon: "skip_next"; iconSize: Tk.iconSize.large; shapeMorph: true; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
             IconButton {
               type: "tonal"; toggle: true
               icon: root.player && root.player.loopState === MprisLoopState.Track ? "repeat_one" : "repeat"
               checked: root.player ? root.player.loopState !== MprisLoopState.None : false
               iconSize: Tk.iconSize.medium
+              iconWeight: Font.Medium
+              shapeMorph: true
               implicitWidth: Math.round(implicitHeight * 0.9)
               disabled: !root.player || !root.player.loopSupported
               onClicked: {

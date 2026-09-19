@@ -86,3 +86,15 @@ AudioDeviceList 1.0 AudioDeviceList.qml
 AudioPage 1.0 AudioPage.qml
 singleton AudioService 1.0 AudioService.qml
 AudioSlider 1.0 AudioSlider.qml
+AllApps 1.0 AllApps.qml
+AppInfo 1.0 AppInfo.qml
+AppsPage 1.0 AppsPage.qml
+IconTextButton 1.0 IconTextButton.qml
+WallpaperGrid 1.0 WallpaperGrid.qml
+FadeFlickable 1.0 FadeFlickable.qml
+MFlickable 1.0 MFlickable.qml
+MListView 1.0 MListView.qml
+MTextField 1.0 MTextField.qml
+Elevation 1.0 Elevation.qml
+OutlinedField 1.0 OutlinedField.qml
+MScrollBar 1.0 MScrollBar.qml

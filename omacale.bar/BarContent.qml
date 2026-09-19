@@ -47,9 +47,11 @@ Item {
   function handleWheel(y, dy) {
     const ws = mapToItem(workspaces, 0, y)
     if (ws.y >= 0 && ws.y <= workspaces.height) { workspaces.scroll(dy); return }
-    if (y < height / 2) { if (cfg.scroll.volume) Sys.run(dy > 0 ? "swayosd-client --output-volume raise || wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"
-                                       : "swayosd-client --output-volume lower || wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-") }
-    else if (cfg.scroll.brightness) Sys.run(dy > 0 ? "swayosd-client --brightness raise || brightnessctl set 5%+" : "swayosd-client --brightness lower || brightnessctl set 5%-")
+    // Omarchy's volume/brightness keys: they resolve the real sink behind a
+    // speaker tuning and show Omarchy's OSD.
+    const svc = Config.o.services
+    if (y < height / 2) { if (cfg.scroll.volume) Quickshell.execDetached(["omarchy-audio-output-volume", (dy > 0 ? "+" : "-") + svc.volumeStep]) }
+    else if (cfg.scroll.brightness) Quickshell.execDetached(["omarchy-brightness-display", dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-"])
   }
 
   SystemClock { id: clock; precision: root.cfg.clock.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }
@@ -126,6 +128,8 @@ Item {
           text: Sys.appIcon(activeWin.tl && activeWin.tl.wayland ? activeWin.tl.wayland.appId : "", "desktop_windows")
           color: Colours.m3primary
         }
+        // Caelestia ActiveWindow: two titles cross-fade when the text changes.
+        property Item current: title1
         TextMetrics {
           id: metrics
           text: activeWin.title
@@ -134,20 +138,28 @@ Item {
           font.letterSpacing: 1.4
           elide: Qt.ElideRight
           elideWidth: Math.max(0, activeWin.maxLen)
+          onElidedTextChanged: {
+            if (!title1 || !title2) return
+            const next = activeWin.current === title1 ? title2 : title1
+            next.text = elidedText
+            activeWin.current = next
+          }
         }
-        MText {
-          id: titleText
-          animate: true
+        component Title: MText {
+          id: t
           anchors.top: winIcon.bottom
           anchors.topMargin: Tk.spacing.small
           anchors.horizontalCenter: winIcon.horizontalCenter
           width: implicitHeight
           height: implicitWidth
-          text: metrics.elidedText
           font.letterSpacing: 1.4
           color: Colours.m3primary
-          transform: Rotation { angle: 90; origin.x: titleText.implicitHeight / 2; origin.y: titleText.implicitHeight / 2 }
+          opacity: activeWin.current === t ? 1 : 0
+          Behavior on opacity { Anim { type: "effects" } }
+          transform: Rotation { angle: 90; origin.x: t.implicitHeight / 2; origin.y: t.implicitHeight / 2 }
         }
+        Title { id: title1; Component.onCompleted: text = metrics.elidedText }
+        Title { id: title2 }
       }
     }
 
@@ -223,50 +235,57 @@ Item {
           else root.host.toggle("dashboard")
         }
       }
-      Column {
+      // Caelestia bar/components/Clock.qml: body.small x1.1 digits, squeezed
+      // or stretched on the width axis so hours and minutes line up.
+      ColumnLayout {
         id: clockCol
         anchors.centerIn: parent
-        spacing: 0
+        spacing: Tk.spacing.extraSmall
+        readonly property real size: Tk.body.small * 1.1
+        function fit(text, metricWidth) {
+          return text === "11" ? 1.15 : Math.min(1.05, Math.max(hourMetrics.width, minMetrics.width) / Math.max(1, metricWidth))
+        }
+        TextMetrics { id: hourMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Sys.hour(clock.date) }
+        TextMetrics { id: minMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Qt.formatTime(clock.date, "mm") }
+        TextMetrics { id: secMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Qt.formatTime(clock.date, "ss") }
+        component Digits: MText {
+          property real metricWidth
+          readonly property real fitScale: clockCol.fit(text, metricWidth)
+          Layout.alignment: Qt.AlignHCenter
+          font.pointSize: clockCol.size
+          font.letterSpacing: fitScale
+          axes: ({ "ROND": 25, "wdth": fitScale * 100 })
+          color: Colours.m3tertiary
+        }
         MIcon {
           visible: root.cfg.clock.showIcon
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignHCenter
           text: "calendar_month"
           color: Colours.m3tertiary
-          bottomPadding: Tk.spacing.extraSmall
         }
-        Column {
+        ColumnLayout {
           visible: root.cfg.clock.showDate
-          anchors.horizontalCenter: parent.horizontalCenter
-          bottomPadding: Tk.spacing.extraSmall
-          MText { anchors.horizontalCenter: parent.horizontalCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small * 0.9; color: Colours.m3tertiary }
-          MText { anchors.horizontalCenter: parent.horizontalCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: Tk.body.small * 1.2; color: Colours.m3tertiary }
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 22; height: 1; color: Colours.m3outlineVariant }
+          Layout.alignment: Qt.AlignHCenter
+          spacing: clockCol.spacing - 4
+          MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small * 0.9; color: Colours.m3tertiary }
+          MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: clockCol.size * 1.1; color: Colours.m3tertiary }
+          Rectangle {
+            Layout.fillWidth: true
+            Layout.leftMargin: -Tk.padding.extraSmall
+            Layout.rightMargin: -Tk.padding.extraSmall
+            Layout.topMargin: 4
+            Layout.bottomMargin: Tk.padding.extraSmall / 2
+            implicitHeight: 1
+            color: Colours.m3outlineVariant
+          }
         }
-        MText {
-          anchors.horizontalCenter: parent.horizontalCenter
-          text: Sys.hour(clock.date)
-          font.pointSize: Tk.body.small * 1.1
-          color: Colours.m3tertiary
-        }
-        MText {
-          anchors.horizontalCenter: parent.horizontalCenter
-          topPadding: -4
-          text: Qt.formatTime(clock.date, "mm")
-          font.pointSize: Tk.body.small * 1.1
-          color: Colours.m3tertiary
-        }
-        MText {
-          visible: root.cfg.clock.showSeconds
-          anchors.horizontalCenter: parent.horizontalCenter
-          topPadding: -4
-          text: Qt.formatTime(clock.date, "ss")
-          font.pointSize: Tk.body.small * 1.1
-          color: Colours.m3tertiary
-        }
+        Digits { text: Sys.hour(clock.date); metricWidth: hourMetrics.width }
+        Digits { Layout.topMargin: -clockCol.spacing - 4; text: Qt.formatTime(clock.date, "mm"); metricWidth: minMetrics.width }
+        Digits { visible: root.cfg.clock.showSeconds; Layout.topMargin: -clockCol.spacing - 4; text: Qt.formatTime(clock.date, "ss"); metricWidth: secMetrics.width }
         MText {
           visible: parent.parent.h12
-          anchors.horizontalCenter: parent.horizontalCenter
-          topPadding: -4
+          Layout.alignment: Qt.AlignHCenter
+          Layout.topMargin: -clockCol.spacing - 4
           text: Qt.formatTime(clock.date, "AP").toLowerCase()
           font.pointSize: Tk.body.small * 0.9
           color: Colours.m3tertiary
@@ -283,7 +302,7 @@ Item {
       // stay invisible for good, so the pill never came back.
       readonly property var st: root.cfg.status
       visible: (st.keepAwake && IdleService.enabled) || RecordService.running || st.notifications
-        || (st.lockStatus && (root.host.capsLock || root.host.numLock))
+        || (st.lockStatus && (root.host.capsLock || root.host.numLock || lockStatus.visible))
         || st.audio || st.microphone || st.network || st.bluetooth || st.battery
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Tk.barInner
@@ -350,13 +369,54 @@ Item {
           }
         }
 
-        // caps/num lock
-        MIcon {
+        // caps/num lock (Caelestia status/LockStatus.qml): each grows in
+        // and fades/scales its own icon.
+        Column {
+          id: lockStatus
           readonly property string popout: "lockstatus"
+          readonly property bool caps: root.host.capsLock
+          readonly property bool num: root.host.numLock
+          property real gap: caps && num ? statusCol.spacing : 0
+          property real capsHeight: caps ? capsIcon.implicitHeight : 0
+          property real numHeight: num ? numIcon.implicitHeight : 0
           anchors.horizontalCenter: parent.horizontalCenter
-          visible: root.cfg.status.lockStatus && (root.host.capsLock || root.host.numLock)
-          text: root.host.capsLock ? "keyboard_capslock_badge" : "looks_one"
-          color: Colours.m3secondary
+          visible: root.cfg.status.lockStatus && (capsHeight > 0.5 || numHeight > 0.5)
+          spacing: Math.round(gap)
+          Behavior on gap { Anim { type: "slowEffects" } }
+          Behavior on capsHeight { Anim { type: "slowEffects" } }
+          Behavior on numHeight { Anim { type: "slowEffects" } }
+          Item {
+            implicitWidth: capsIcon.implicitWidth
+            implicitHeight: Math.round(lockStatus.capsHeight)
+            MIcon {
+              id: capsIcon
+              anchors.centerIn: parent
+              scale: lockStatus.caps ? 1 : 0.5
+              opacity: lockStatus.caps ? 1 : 0
+              text: "keyboard_capslock_badge"
+              color: Colours.m3secondary
+              fill: 1
+              grade: 25
+              Behavior on opacity { Anim { type: "effects" } }
+              Behavior on scale { Anim {} }
+            }
+          }
+          Item {
+            implicitWidth: numIcon.implicitWidth
+            implicitHeight: Math.round(lockStatus.numHeight)
+            MIcon {
+              id: numIcon
+              anchors.centerIn: parent
+              scale: lockStatus.num ? 1 : 0.5
+              opacity: lockStatus.num ? 1 : 0
+              text: "looks_one"
+              color: Colours.m3secondary
+              fill: 1
+              grade: 25
+              Behavior on opacity { Anim { type: "effects" } }
+              Behavior on scale { Anim {} }
+            }
+          }
         }
         MIcon {
           readonly property string popout: "audio"
@@ -368,6 +428,7 @@ Item {
           animate: true
           text: muted ? "no_sound" : vol >= 0.5 ? "volume_up" : vol > 0 ? "volume_down" : "volume_mute"
           color: Colours.m3secondary
+          size: Tk.iconSize.medium
           fill: 1
         }
         MIcon {
@@ -379,6 +440,7 @@ Item {
           animate: true
           text: muted ? "mic_off" : "mic"
           color: Colours.m3secondary
+          size: Tk.iconSize.medium
           fill: 1
         }
         MIcon {

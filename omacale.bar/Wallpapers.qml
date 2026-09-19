@@ -18,6 +18,12 @@ QtObject {
   // Re-read on every open; an unchanged list is not reassigned, so the
   // carousel is not re-centred under the cursor.
   function reload() { wallProc.running = true; themeProc.running = true }
+  function url(path) { return path ? "file://" + path.split("/").map(encodeURIComponent).join("/") : "" }
+  // Thumbnail of the current background (videos have no image of their own).
+  readonly property string currentThumb: {
+    const w = walls.find(x => x.key === currentWall)
+    return w ? w.thumb : isVideo(currentWall) ? "" : currentWall
+  }
   function isVideo(path) { return /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(path) }
   function label(path) { return path.split("/").pop().replace(/\.[^.]+$/, "").replace(/^\d+-/, "").replace(/[-_]/g, " ") }
 

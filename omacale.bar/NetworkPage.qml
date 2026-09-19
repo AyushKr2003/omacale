@@ -223,7 +223,7 @@ ColumnLayout {
     border.width: input.activeFocus ? 2 : 0
     border.color: Colours.m3primary
 
-    TextInput {
+    MTextField {
       id: input
       anchors.left: parent.left
       anchors.right: eye.left
@@ -231,13 +231,8 @@ ColumnLayout {
       anchors.leftMargin: Tk.padding.large
       anchors.rightMargin: Tk.spacing.small
       echoMode: field.secret && !field.reveal ? TextInput.Password : TextInput.Normal
-      color: Colours.m3onSurface
-      selectionColor: Colours.m3secondary
-      selectedTextColor: Colours.m3onSecondary
-      font.family: Tk.sans
       font.pointSize: Tk.body.small
       clip: true
-      selectByMouse: true
       onAccepted: field.accepted()
       Keys.onEscapePressed: NetService.passwordSsid = ""
       MText { anchors.verticalCenter: parent.verticalCenter; visible: !input.text; text: field.placeholder; color: Colours.m3outline }

@@ -28,6 +28,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `RecordCard.qml`, `RecordingList.qml` | `modules/utilities/cards/Record.qml`, `RecordingList.qml` |
 | `ButtonRow.qml`, `IconButton.qml` | `plugin/src/Caelestia/Components/buttonrow.cpp`, `components/controls/ButtonBase.qml`, `IconButton.qml` |
 | `SplitSelect.qml` | `components/controls/SplitButton.qml` |
+| `MSwitch.qml`, `MSlider.qml`, `CircularProgress.qml`, `MTextField.qml`, `OutlinedField.qml` | `components/controls/StyledSwitch.qml`, `StyledSlider.qml`, `CircularProgress.qml`, `TextFieldBase.qml`, `StyledTextField.qml` (outlined) |
+| `MFlickable.qml`, `MListView.qml`, `FadeFlickable.qml`, `MScrollBar.qml` | `components/containers/StyledFlickable.qml`, `StyledListView.qml`, `VerticalFadeFlickable.qml`, `components/controls/StyledScrollBar.qml` |
+| `Elevation.qml` | `components/effects/Elevation.qml` |
 | `StateLayer.qml`, `Anim.qml`, `CAnim.qml` | `components/StateLayer.qml`, `Anim.qml`, `CAnim.qml` |
 | `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
@@ -37,6 +40,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
 | `BluetoothPage.qml`, `BtPairing.qml`, `BtDevice.qml`, `BtDeviceRow.qml` | `modules/nexus/pages/BluetoothPage.qml`, `bluetooth/BluetoothPairing.qml`, `BtDeviceInfo.qml` |
 | `AudioPage.qml`, `AppVolumes.qml`, `AudioDeviceList.qml`, `AudioSlider.qml`, `AudioService.qml` | `modules/nexus/pages/AudioPage.qml`, `audio/AppVolumes.qml`, `common/AudioDeviceList.qml`, `SliderRow.qml`, `services/Audio.qml` |
+| `WallpaperGrid.qml` (Settings `wallpapers` / `themes` sub-pages; Settings › Wallpaper & style itself is the colours page from `SettingsModel.js`) | `modules/nexus/pages/WallpaperAndStyle.qml`, `wallandstyle/WallpaperSelect.qml`, `common/WallItem.qml` |
+| `AppsPage.qml`, `AllApps.qml`, `AppInfo.qml` | `modules/nexus/pages/AppsPage.qml`, `apps/AllApps.qml`, `apps/AppInfo.qml` |
+| `IconTextButton.qml` | `components/controls/IconTextButton.qml` |
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
@@ -46,6 +52,7 @@ Conventions that keep the port faithful:
 
 - **Use `Tk.*` tokens for every size, gap, radius, font and duration.** Never hardcode a pixel value that Caelestia gets from `Tokens` (`Tk.padding.large`, `Tk.rounding.medium`, `Tk.spacing.small`, `Tk.body.medium`, ...).
 - **Use `Colours.m3*` for colours** (`m3surfaceContainer`, `m3onSurfaceVariant`, ...). Never hardcode colours.
+- **Use the ported primitives**, not raw Qt ones: `MText` (sets Caelestia's `opsz` axis; give title/headline/label.large/medium text `weight: Font.Medium` as Caelestia's font tokens do), `MTextField` for any text input, `MFlickable`/`MListView`/`FadeFlickable` for scroll views (no `StopAtBounds`), `MScrollBar` where Caelestia has `StyledScrollBar`.
 - **Motion goes through `Anim { type: ... }` / `CAnim`**, using Caelestia's curves and durations. Don't use raw `NumberAnimation` unless porting a specific Caelestia animation that does.
 - **Keep Caelestia's structure**: same card order, same nesting, same margins (`Tokens.padding.large` insets, `Layout.topMargin` tricks, `nonAnimHeight` / animated `implicitHeight`). Copy the arithmetic, including odd bits like `padding.extraLargeIncreased`.
 - **Drawers are shader shapes.** A drawer's background is not a QML item. It is a rect (`r0`..`r6`) fed to `blob.frag` in `ScreenScope.qml`, with an attach-edge bitmask. The drawer's QML (`Sidebar`, `Utilities`, ...) draws only its content, inset by `padding.large` (minus the frame border on the frame side).
@@ -68,6 +75,8 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Wi-Fi / ethernet (`NetService`) | `Quickshell.Networking` (NetworkManager) as Omarchy's `plugins/panels/network`; `omarchy-network-status --verbose` for link details; `omarchy-shell shell summon omarchy.wifiqr` to share |
 | Bluetooth (`BtService`) | `Quickshell.Bluetooth` as Omarchy's `plugins/panels/bluetooth`; `omarchy-bluetooth-power on/off`, `omarchy-bluetooth-device pair/connect/disconnect/forget` |
 | Audio (`AudioService`) | `Quickshell.Services.Pipewire` as Omarchy's `plugins/panels/audio`; `omarchy-audio-sink-availability`, `omarchy-audio-output-sink` (volume on the sink behind a tuning), `omarchy-audio-{output,input}-set-default` |
+| Default apps (Settings › Apps) | `omarchy-default-{terminal,browser,editor}` (no arg prints the current one) |
+| Bar scroll volume / brightness | `omarchy-audio-output-volume +N`, `omarchy-brightness-display +N%` (Omarchy's OSD and sink resolution) |
 | Keep awake | `~/.local/state/omarchy/indicators/stay-awake`, `omarchy-shell idle enable/disable` |
 | Screen recording | `omarchy capture screenrecording [--stop-recording]` |
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |

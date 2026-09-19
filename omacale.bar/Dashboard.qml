@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell.Widgets
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.Mpris
@@ -117,23 +118,46 @@ Item {
   }
 
   // -------------------------------------------------------------- pages
-  Item {
-    id: view
+  // Caelestia dashboard/Content.qml: pages sit side by side in a rounded
+  // clip and can be dragged sideways; past a tenth of a page it snaps on.
+  ClippingRectangle {
+    id: viewWrapper
     x: root.margins
     y: tabBar.y + tabBar.implicitHeight + root.margins
     width: root.width - root.margins * 2
     height: root.height - y - root.margins
-    clip: true
+    radius: Tk.rounding.large
+    color: "transparent"
 
-    Row {
-      id: strip
-      x: -root.page.x
-      spacing: 0
-      Behavior on x { Anim {} }
-      Dash { id: dash; visible: root.cfg.tabs.dashboard || root.tabs[0].id === "dashboard" }
-      MediaTab { id: media; visible: root.cfg.tabs.media; active: root.active && root.page === media }
-      PerfTab { id: perf; visible: root.cfg.tabs.performance; active: root.active && root.page === perf }
-      WeatherTab { id: weather; visible: root.cfg.tabs.weather; active: root.active && root.page === weather }
+    Flickable {
+      id: view
+      anchors.fill: parent
+      flickableDirection: Flickable.HorizontalFlick
+      contentWidth: strip.implicitWidth
+      contentHeight: strip.implicitHeight
+      contentX: root.page.x
+      Behavior on contentX { Anim {} }
+      onContentXChanged: {
+        if (!moving) return
+        const dx = contentX - root.page.x
+        if (dx > root.page.implicitWidth / 2) root.tab = Math.min(root.tab + 1, root.tabs.length - 1)
+        else if (dx < -root.page.implicitWidth / 2) root.tab = Math.max(root.tab - 1, 0)
+      }
+      onDragEnded: {
+        const dx = contentX - root.page.x
+        if (dx > root.page.implicitWidth / 10) root.tab = Math.min(root.tab + 1, root.tabs.length - 1)
+        else if (dx < -root.page.implicitWidth / 10) root.tab = Math.max(root.tab - 1, 0)
+        else contentX = Qt.binding(() => root.page.x)
+      }
+
+      Row {
+        id: strip
+        spacing: 0
+        Dash { id: dash; visible: root.cfg.tabs.dashboard || root.tabs[0].id === "dashboard" }
+        MediaTab { id: media; visible: root.cfg.tabs.media; active: root.active && root.page === media }
+        PerfTab { id: perf; visible: root.cfg.tabs.performance; active: root.active && root.page === perf }
+        WeatherTab { id: weather; visible: root.cfg.tabs.weather; active: root.active && root.page === weather }
+      }
     }
   }
 
@@ -159,7 +183,7 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Tk.spacing.extraSmall
           MText { anchors.horizontalCenter: parent.horizontalCenter; animate: true; text: Sys.temp; color: Colours.m3primary; font.pointSize: Tk.headline.medium; weight: Font.DemiBold; axes: ({ "ROND": 25, "wdth": 110 }) }
-          MText { anchors.horizontalCenter: parent.horizontalCenter; animate: true; text: Sys.weatherDesc; width: Math.min(implicitWidth, 150); elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter }
+          MText { anchors.horizontalCenter: parent.horizontalCenter; animate: true; text: Sys.weatherDesc; width: Math.min(implicitWidth, Tk.sizes.weatherWidth - Tk.iconSize.extraLarge * 1.6 - Tk.spacing.largeIncreased - Tk.padding.extraLargeIncreased); elide: Text.ElideRight; wrapMode: Text.WordWrap; maximumLineCount: 2; horizontalAlignment: Text.AlignHCenter }
         }
       }
     }
@@ -346,13 +370,35 @@ Item {
     readonly property int year: shown.getFullYear()
     readonly property bool isCurrent: month === clock.date.getMonth() && year === clock.date.getFullYear()
     spacing: Tk.spacing.extraSmall
-    function step(n) { shown = new Date(year, month + n, 1) }
+    // Caelestia dash/Calendar.qml: the month slides out one way and the new
+    // one slides in from the other.
+    property date target: shown
+    readonly property int animDirection: target > shown ? -1 : 1
+    property real animTranslate
+    property real animOpacity: 1
+    function step(n) { shown = new Date(target.getFullYear(), target.getMonth() + n, 1) }
+    onShownChanged: target = shown
+    Anim { id: trOutAnim; running: false; target: calRoot; property: "animTranslate"; to: Tk.padding.extraLarge * calRoot.animDirection; type: "fastSpatial" }
+    Behavior on shown {
+      SequentialAnimation {
+        ParallelAnimation {
+          ScriptAction { script: Qt.callLater(() => trOutAnim.start()) }
+          Anim { target: calRoot; property: "animOpacity"; to: 0; type: "fastEffects" }
+        }
+        ScriptAction { script: { trOutAnim.complete(); calRoot.animTranslate = Tk.padding.extraLarge * -calRoot.animDirection } }
+        PropertyAction {}
+        ParallelAnimation {
+          Anim { target: calRoot; property: "animTranslate"; to: 0; type: "spatial" }
+          Anim { target: calRoot; property: "animOpacity"; to: 1; type: "effects" }
+        }
+      }
+    }
     Connections { target: root; function onActiveChanged() { if (root.active) calRoot.shown = new Date(clock.date.getFullYear(), clock.date.getMonth(), 1) } }
 
     RowLayout {
       Layout.fillWidth: true
       spacing: Tk.spacing.extraSmall
-      IconButton { type: "text"; icon: "chevron_left"; iconSize: Tk.iconSize.small; padding: Tk.padding.small; onClicked: calRoot.step(-1) }
+      IconButton { type: "text"; icon: "chevron_left"; iconSize: Tk.iconSize.small; iconWeight: Font.Bold; padding: Tk.padding.small; onClicked: calRoot.step(-1) }
       Item {
         Layout.fillWidth: true
         implicitHeight: monthLabel.implicitHeight + Tk.padding.extraSmall * 2
@@ -360,6 +406,8 @@ Item {
         StateLayer { color: Colours.m3primary; disabled: calRoot.isCurrent; onClicked: calRoot.shown = new Date(clock.date.getFullYear(), clock.date.getMonth(), 1) }
         MText {
           id: monthLabel
+          opacity: calRoot.animOpacity
+          transform: Translate { x: calRoot.animTranslate }
           anchors.centerIn: parent
           text: Qt.formatDate(calRoot.shown, "MMMM yyyy")
           color: Colours.m3primary
@@ -367,11 +415,13 @@ Item {
           weight: Font.Medium
         }
       }
-      IconButton { type: "text"; icon: "chevron_right"; iconSize: Tk.iconSize.small; padding: Tk.padding.small; onClicked: calRoot.step(1) }
+      IconButton { type: "text"; icon: "chevron_right"; iconSize: Tk.iconSize.small; iconWeight: Font.Bold; padding: Tk.padding.small; onClicked: calRoot.step(1) }
     }
     Grid {
       id: grid
       Layout.fillWidth: true
+      opacity: calRoot.animOpacity
+      transform: Translate { x: calRoot.animTranslate }
       columns: 7
       columnSpacing: 3
       rowSpacing: 3
@@ -426,10 +476,12 @@ Item {
   // Media card: cover art inside a 180° progress arc, then titles, controls, bongo cat.
   component MediaCard: Item {
     id: mc
-    readonly property real progress: root.player && root.player.length > 0 ? (root.player.position % root.player.length) / root.player.length : 0
-    Timer { running: root.active && root.player && root.player.isPlaying; interval: 500; repeat: true; triggeredOnStart: true; onTriggered: root.player.positionChanged() }
+    property real progress: root.player && root.player.length > 0 ? (root.player.position % root.player.length) / root.player.length : 0
+    Behavior on progress { Anim { type: "standardLarge" } }
+    Timer { running: root.active && root.player && root.player.isPlaying; interval: Config.o.services.mediaUpdateInterval; repeat: true; triggeredOnStart: true; onTriggered: root.player.positionChanged() }
 
     CircularProgress {
+      id: prog
       anchors.centerIn: cover
       implicitSize: cover.width + Tk.spacing.extraSmall + thickness * 2
       width: implicitSize; height: implicitSize
@@ -437,11 +489,15 @@ Item {
       sweepAngle: Tk.sizes.mediaProgressSweep
       startAngle: -90 - sweepAngle / 2
       value: mc.progress
+      wavy: true
+      waveFrequency: 8
+      waveDuration: 2000
+      wavePaused: !(root.player && root.player.isPlaying)
     }
     Rectangle {
       id: cover
       anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
-      anchors.margins: Tk.padding.medium + Tk.spacing.extraSmall + Tk.sizes.mediaProgressThickness
+      anchors.margins: Tk.padding.medium + Tk.spacing.extraSmall + prog.thickness
       height: width
       radius: width / 2
       color: Colours.m3surfaceContainerHigh
@@ -459,6 +515,7 @@ Item {
       Rectangle { id: coverMask; anchors.fill: parent; radius: width / 2; visible: false }
     }
     Column {
+      id: info
       anchors.top: cover.bottom
       anchors.topMargin: Tk.spacing.medium
       anchors.left: parent.left; anchors.right: parent.right
@@ -469,29 +526,34 @@ Item {
         text: root.player ? (root.player.trackAlbum || "Unknown album") : "No media"; color: Colours.m3outline }
       MText { width: parent.width - Tk.padding.extraLargeIncreased; anchors.horizontalCenter: parent.horizontalCenter; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; animate: true
         text: root.player ? (root.player.trackArtist || "Unknown artist") : "No media"; color: Colours.m3secondary }
-      RowLayout {
+      // Caelestia dash/Media.qml: a ButtonRow, so a pressed button bulges.
+      Item { width: 1; height: Tk.spacing.medium - Tk.spacing.small }
+      ButtonRow {
         width: parent.width - Tk.padding.large * 2
+        implicitHeight: playBtn.implicitHeight
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: Tk.spacing.extraSmall
-        IconButton { type: "tonal"; icon: "skip_previous"; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
+        IconButton { type: "tonal"; icon: "skip_previous"; shapeMorph: true; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
         IconButton {
-          Layout.fillWidth: true
+          id: playBtn
+          fillWidth: true
+          shapeMorph: true
           icon: root.player && root.player.isPlaying ? "pause" : "play_arrow"
           toggle: true; checked: root.player ? root.player.isPlaying : false
-          round: !checked
           disabled: !root.player || !root.player.canTogglePlaying
           onClicked: root.player.togglePlaying()
         }
-        IconButton { type: "tonal"; icon: "skip_next"; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
+        IconButton { type: "tonal"; icon: "skip_next"; shapeMorph: true; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
       }
     }
     AnimatedImage {
       visible: root.cfg.mediaGif
+      anchors.top: info.bottom
       anchors.bottom: parent.bottom
       anchors.left: parent.left; anchors.right: parent.right
       anchors.margins: Tk.padding.extraLargeIncreased
+      anchors.topMargin: Tk.spacing.small
       anchors.bottomMargin: Tk.padding.large
-      height: 60
       source: Qt.resolvedUrl("assets/bongocat.gif")
       playing: root.active && root.player && root.player.isPlaying
       fillMode: AnimatedImage.PreserveAspectFit

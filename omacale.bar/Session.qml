@@ -43,7 +43,7 @@ Column {
     height: Tk.sizes.sessionButton
     radius: state.pressed ? Tk.rounding.medium : activeFocus ? Tk.rounding.extraLarge : Tk.rounding.largeIncreased
     color: activeFocus ? Colours.m3secondaryContainer : Colours.m3surfaceContainer
-    Behavior on radius { Anim { type: "fastSpatial" } }
+    Behavior on radius { Anim { type: "effects" } }
     Behavior on color { CAnim {} }
 
     Keys.onReturnPressed: exec()

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Effects
 
@@ -149,14 +150,14 @@ Item {
         }
       }
 
-      Flickable {
+      MFlickable {
         id: view
         anchors.fill: parent
         flickableDirection: Flickable.VerticalFlick
         contentWidth: width
         contentHeight: listCol.implicitHeight
-        boundsBehavior: Flickable.StopAtBounds
         clip: true
+        ScrollBar.vertical: MScrollBar { flickable: view }
 
         ColumnLayout {
           id: listCol

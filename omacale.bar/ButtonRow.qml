@@ -16,6 +16,16 @@ Item {
   }
 
   onWidthChanged: invalidate()
+  // Children outlive the row by a moment when a page is torn down; their
+  // size signals must not reach a row that is already gone.
+  Component.onDestruction: {
+    for (const c of _hooked) {
+      c.implicitWidthChanged.disconnect(invalidate)
+      c.implicitHeightChanged.disconnect(invalidate)
+      c.visibleChanged.disconnect(invalidate)
+      if (c.shapeMorphExpansion !== undefined) c.shapeMorphExpansionChanged.disconnect(invalidate)
+    }
+  }
   onChildrenChanged: {
     for (const c of children) {
       if (_hooked.indexOf(c) !== -1) continue

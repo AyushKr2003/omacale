@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import "SettingsModel.js" as Model
 
 // Omacale settings, modelled on Caelestia's Nexus: a navigation pane with
@@ -21,6 +20,7 @@ Item {
   // ------------------------------------------------------------- state
   property string pageId: "style"
   property var stack: []
+  property var selectedApp: null   // Apps › All apps › <app>
   property string search: ""
   readonly property string viewId: search.trim() !== "" ? "__search" : (stack.length ? stack[stack.length - 1] : pageId)
   readonly property var view: viewId === "__search"
@@ -134,8 +134,13 @@ Item {
       radius: height / 2
       color: Colours.m3surfaceContainerLowest
       border.width: 1
-      border.color: searchField.activeFocus ? Colours.m3primary : Colours.m3outlineVariant
-      Behavior on border.color { CAnim {} }
+      border.color: Colours.m3outlineVariant
+      // Caelestia SearchBar: the field is one big hover/press target.
+      StateLayer {
+        cursorShape: Qt.IBeamCursor
+        disabled: searchField.activeFocus
+        onClicked: searchField.forceActiveFocus()
+      }
       MIcon {
         id: sIcon
         anchors.left: parent.left
@@ -145,19 +150,14 @@ Item {
         size: Tk.iconSize.medium
         color: Colours.m3onSurfaceVariant
       }
-      TextInput {
+      MTextField {
         id: searchField
         anchors.left: sIcon.right
         anchors.leftMargin: Tk.spacing.medium
         anchors.right: clearBtn.left
         anchors.rightMargin: Tk.spacing.small
         anchors.verticalCenter: parent.verticalCenter
-        color: Colours.m3onSurface
-        selectionColor: Colours.m3secondary
-        selectedTextColor: Colours.m3onSecondary
-        font.family: Tk.sans
         font.pointSize: Tk.body.large
-        font.variableAxes: ({ "ROND": 25, "wght": 400 })
         clip: true
         onTextChanged: root.search = text
         Keys.onEscapePressed: text ? text = "" : root.closeRequested()
@@ -185,16 +185,19 @@ Item {
       }
     }
 
-    // Pages
-    Flickable {
+    // Pages (Caelestia navpane/NavLocations.qml)
+    FadeFlickable {
+      id: navFlick
       Layout.fillWidth: true
       Layout.fillHeight: true
+      Layout.topMargin: -topMargin
+      Layout.bottomMargin: -bottomMargin
+      topMargin: Tk.padding.large
+      bottomMargin: Tk.padding.large
       contentHeight: navCol.implicitHeight
-      boundsBehavior: Flickable.StopAtBounds
-      clip: true
       ColumnLayout {
         id: navCol
-        width: parent.width
+        width: navFlick.width
         spacing: Tk.spacing.extraSmall
         Repeater {
           model: Model.pages
@@ -259,7 +262,8 @@ Item {
   // ------------------------------------------------------------- pages
   Item {
     id: pagesArea
-    x: root.holeX + Tk.padding.extraLarge - Tk.padding.large
+    // Caelestia Pages: navPane margin + padding.extraLarge past the nav pane.
+    x: root.holeX + Tk.padding.extraLarge
     y: Tk.padding.extraLarge
     width: root.width - x - Tk.padding.extraLarge
     height: root.height - Tk.padding.extraLarge * 2
@@ -268,6 +272,7 @@ Item {
     property var shownView: null
     property bool shownSub: false
     property int depth: 0
+    property int lastIdx: 0
 
     Item {
       id: container
@@ -294,7 +299,11 @@ Item {
         const newDepth = root.stack.length
         const horizontal = newDepth !== pagesArea.depth && root.viewId !== "__search"
         swap.dirX = horizontal ? (newDepth > pagesArea.depth ? 1 : -1) * Tk.padding.extraExtraLarge * 2 : 0
-        swap.dirY = horizontal ? 0 : Tk.padding.extraLarge
+        // Caelestia Pages: a new page rises from below when it is further
+        // down the nav list, and drops from above when it is further up.
+        const idx = id => Model.pages.findIndex(p => p.id === id)
+        swap.dirY = horizontal ? 0 : Tk.padding.extraLarge * (idx(root.pageId) >= pagesArea.lastIdx ? 1 : -1)
+        pagesArea.lastIdx = idx(root.pageId)
         pagesArea.depth = newDepth
         root.closeMenu()
         swap.restart()
@@ -317,58 +326,80 @@ Item {
   }
 
   // ------------------------------------------------------ dropdown menu
+  // Caelestia components/controls/Menu.qml: right-aligned under the split
+  // button's chevron, it grows from 10% height while fading in.
   MouseArea {
     anchors.fill: parent
-    visible: root.menuOwner !== null
+    enabled: menu.open
+    hoverEnabled: menu.open
     onClicked: root.closeMenu()
     onWheel: root.closeMenu()
   }
-  Rectangle {
+  Elevation {
     id: menu
     readonly property bool open: root.menuOwner !== null
     readonly property point anchorPos: root.menuAnchor ? root.menuAnchor.mapToItem(root, root.menuAnchor.width, root.menuAnchor.height) : Qt.point(0, 0)
-    readonly property real fullHeight: menuCol.implicitHeight + Tk.padding.small * 2
-    readonly property bool above: anchorPos.y + fullHeight + 8 > root.height - Tk.padding.large
-    width: 220
+    readonly property bool above: anchorPos.y + implicitHeight + Tk.spacing.small > root.height - Tk.padding.large
     x: Math.max(Tk.padding.large, anchorPos.x - width)
-    y: above ? anchorPos.y - (root.menuAnchor ? root.menuAnchor.height : 0) - height - 6 : anchorPos.y + 6
-    height: open ? fullHeight : 0
-    opacity: open ? 1 : 0
-    visible: height > 1
+    y: above ? anchorPos.y - (root.menuAnchor ? root.menuAnchor.height : 0) - height - Tk.spacing.small : anchorPos.y + Tk.spacing.small
+    implicitWidth: Math.max(200, menuCol.implicitWidth + menuCol.anchors.margins * 2)
+    implicitHeight: menuCol.implicitHeight + menuCol.anchors.margins * 2
+    width: implicitWidth
+    height: implicitHeight
     radius: Tk.rounding.large
-    color: Colours.m3surfaceContainerHigh
-    clip: true
-    Behavior on height { Anim { type: "fastSpatial" } }
+    level: 2
+    opacity: open ? 1 : 0
+    visible: opacity > 0
+    layer.enabled: opacity < 1
     Behavior on opacity { Anim { type: "effects" } }
-    layer.enabled: visible
-    layer.effect: MultiEffect { shadowEnabled: true; blurMax: 12; shadowColor: Qt.alpha("black", 0.4) }
+    transform: Scale {
+      yScale: menu.open ? 1 : 0.1
+      origin.y: menu.above ? menu.height : 0
+      Behavior on yScale { Anim {} }
+    }
 
-    Column {
-      id: menuCol
-      x: Tk.padding.small
-      y: Tk.padding.small
-      width: parent.width - Tk.padding.small * 2
-      spacing: 2
-      Repeater {
-        model: root.menuOptions
-        Rectangle {
-          id: mi
-          required property var modelData
-          readonly property bool sel: modelData.value === root.menuValue
-          width: menuCol.width
-          height: 44
-          radius: height / 2
-          color: sel ? Colours.m3secondaryContainer : "transparent"
-          StateLayer { color: mi.sel ? Colours.m3onSecondaryContainer : Colours.m3onSurface; onClicked: { if (root.menuPick) root.menuPick(mi.modelData.value); root.closeMenu() } }
-          Row {
-            anchors.left: parent.left
-            anchors.leftMargin: Tk.padding.medium
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Tk.spacing.medium
-            MIcon { anchors.verticalCenter: parent.verticalCenter; text: mi.modelData.icon; fill: mi.sel ? 1 : 0; color: mi.sel ? Colours.m3onSecondaryContainer : Colours.m3onSurfaceVariant }
-            MText { anchors.verticalCenter: parent.verticalCenter; text: mi.modelData.label; color: mi.sel ? Colours.m3onSecondaryContainer : Colours.m3onSurface; weight: mi.sel ? Font.Medium : Font.Normal }
+    MouseArea { anchors.fill: parent; hoverEnabled: true; onWheel: e => e.accepted = true }
+    Rectangle {
+      anchors.fill: parent
+      radius: parent.radius
+      color: Colours.m3surfaceContainerLow
+      ColumnLayout {
+        id: menuCol
+        anchors.fill: parent
+        anchors.margins: Tk.padding.extraSmall
+        spacing: 0
+        Repeater {
+          id: menuRep
+          model: root.menuOptions
+          Rectangle {
+            id: mi
+            required property var modelData
+            required property int index
+            readonly property bool sel: modelData.value === root.menuValue
+            Layout.fillWidth: true
+            implicitWidth: miRow.implicitWidth + Tk.padding.medium * 2
+            implicitHeight: miRow.implicitHeight + Tk.padding.medium * 2
+            radius: sel ? Tk.rounding.medium : Tk.rounding.extraSmall
+            topLeftRadius: index === 0 ? Tk.rounding.medium : radius
+            topRightRadius: index === 0 ? Tk.rounding.medium : radius
+            bottomLeftRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
+            bottomRightRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
+            color: Qt.alpha(Colours.m3tertiaryContainer, sel ? 1 : 0)
+            Behavior on radius { Anim {} }
+            StateLayer {
+              color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface
+              disabled: !menu.open
+              onClicked: { if (root.menuPick) root.menuPick(mi.modelData.value); root.closeMenu() }
+            }
+            RowLayout {
+              id: miRow
+              anchors.fill: parent
+              anchors.margins: Tk.padding.medium
+              spacing: Tk.spacing.small
+              MIcon { Layout.alignment: Qt.AlignVCenter; text: mi.modelData.icon || ""; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurfaceVariant }
+              MText { Layout.alignment: Qt.AlignVCenter; Layout.fillWidth: true; text: mi.modelData.label; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface }
+            }
           }
-          MIcon { anchors.right: parent.right; anchors.rightMargin: Tk.padding.medium; anchors.verticalCenter: parent.verticalCenter; visible: mi.sel; text: "check"; color: Colours.m3onSecondaryContainer }
         }
       }
     }

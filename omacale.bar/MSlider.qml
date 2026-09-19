@@ -7,20 +7,22 @@ Item {
   property real value: 0
   property int radius: Tk.rounding.medium
   property bool interactive: true
-  property color fgColour: Colours.m3primary
-  property color bgColour: Colours.m3secondaryContainer
+  // false: only report the value on release (Caelestia seek bar)
+  property bool interactionOnMove: true
+  property color fgColour: enabled ? Colours.m3primary : Qt.alpha(Colours.m3onSurface, 0.38)
+  property color bgColour: enabled ? Colours.m3secondaryContainer : Qt.alpha(Colours.m3onSurface, 0.1)
   property bool wavy: false
   property bool animateWave: true
   property real waveFrequency: 5
   readonly property bool dragging: mouse.pressed
-  property real pos: dragging ? mouse.dragPos : Math.max(0, Math.min(1, value))
+  property real pos: dragging ? Math.max(0, Math.min(1, mouse.pressStartPos + mouse.dragMovement)) : Math.max(0, Math.min(1, value))
   signal moved(real value)
 
   implicitWidth: 200
   implicitHeight: 12
 
   property real filledWidth: (width - handle.width - Tk.spacing.extraSmall) * pos
-  Behavior on filledWidth { enabled: !root.dragging; Anim {} }
+  Behavior on filledWidth { id: widthBehavior; Anim {} }
 
   WavyLine {
     visible: root.wavy
@@ -81,9 +83,13 @@ Item {
     opacity: remaining.opacity
     color: root.fgColour
   }
+  // Caelestia StyledSlider: dragging moves the value relative to where it
+  // was grabbed; a click without a drag jumps there on release.
   MouseArea {
     id: mouse
-    property real dragPos: 0
+    property real pressStartX
+    property real pressStartPos
+    property real dragMovement
     enabled: root.interactive
     anchors.left: parent.left
     anchors.right: parent.right
@@ -91,8 +97,22 @@ Item {
     height: Math.max(root.height, handle.height)
     preventStealing: true
     cursorShape: root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
-    function at(x) { return Math.max(0, Math.min(1, x / width)) }
-    onPressed: function(e) { dragPos = at(e.x); root.moved(dragPos) }
-    onPositionChanged: function(e) { if (pressed) { dragPos = at(e.x); root.moved(dragPos) } }
+    onPressed: e => {
+      widthBehavior.enabled = false
+      pressStartX = e.x
+      pressStartPos = Math.max(0, Math.min(1, root.value))
+      dragMovement = 0
+    }
+    onPositionChanged: e => {
+      if (!pressed) return
+      dragMovement = (e.x - pressStartX) / width
+      if (root.interactionOnMove) root.moved(root.pos)
+    }
+    onReleased: e => {
+      const finalPos = dragMovement !== 0 ? root.pos : Math.max(0, Math.min(1, e.x / width))
+      widthBehavior.enabled = true
+      dragMovement = 0
+      root.moved(finalPos)
+    }
   }
 }

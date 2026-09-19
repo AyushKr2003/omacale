@@ -22,10 +22,9 @@ ConnectedRect {
   }
 
   implicitHeight: Math.max(lbl.implicitHeight, sw.implicitHeight) + Tk.padding.medium * 2
-  opacity: disabled ? 0.5 : 1
-  Behavior on opacity { Anim {} }
 
   StateLayer {
+    id: rowState
     disabled: root.disabled
     onClicked: root.flip(!root.checked)
   }
@@ -35,6 +34,6 @@ ConnectedRect {
     anchors.rightMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
     RowLabel { id: lbl; Layout.fillWidth: true; text: root.text; subtext: root.subtext; textSize: root.labelSize }
-    MSwitch { id: sw; checked: root.checked; enabled: !root.disabled; onToggled: c => root.flip(c) }
+    MSwitch { id: sw; checked: root.checked; disabled: root.disabled; pressOverride: rowState.pressed; hoverOverride: rowState.containsMouse; onToggled: c => root.flip(c) }
   }
 }

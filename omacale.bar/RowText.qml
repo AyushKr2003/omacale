@@ -7,7 +7,7 @@ ConnectedRect {
   property var settings
   readonly property string value: String(Config.get(row.key))
 
-  implicitHeight: Math.max(lbl.implicitHeight, field.height) + Tk.padding.medium * 2
+  implicitHeight: Math.max(lbl.implicitHeight, field.implicitHeight) + Tk.padding.medium + Math.max(0, Tk.padding.large - field.verticalPadding) * 2
 
   RowLayout {
     anchors.fill: parent
@@ -15,29 +15,16 @@ ConnectedRect {
     anchors.rightMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
     RowLabel { id: lbl; Layout.fillWidth: true; text: root.row.label; subtext: root.row.where ? root.row.where + (root.row.subtext ? " · " + root.row.subtext : "") : (root.row.subtext || "") }
-    Rectangle {
+    // Caelestia TextFieldRow: an outlined field, 250 wide, capped at half the row.
+    OutlinedField {
       id: field
-      width: 220; height: 40
-      radius: height / 2
-      color: Colours.m3surfaceContainerHighest
-      border.width: input.activeFocus ? 2 : 0
-      border.color: Colours.m3primary
-      TextInput {
-        id: input
-        anchors.fill: parent
-        anchors.leftMargin: Tk.padding.large
-        anchors.rightMargin: Tk.padding.large
-        verticalAlignment: TextInput.AlignVCenter
-        text: root.value
-        color: Colours.m3onSurface
-        selectionColor: Colours.m3secondary
-        selectedTextColor: Colours.m3onSecondary
-        font.family: Tk.sans; font.pointSize: Tk.body.small
-        clip: true
-        selectByMouse: true
-        onEditingFinished: Config.set(root.row.key, text.trim() || (root.row.key === "launcher.actionPrefix" ? ">" : ""))
-        MText { anchors.verticalCenter: parent.verticalCenter; visible: !input.text; text: root.row.placeholder || ""; color: Colours.m3outline }
-      }
+      Layout.preferredWidth: 250
+      Layout.maximumWidth: root.width / 2
+      Layout.alignment: Qt.AlignVCenter
+      verticalPadding: Tk.padding.small
+      text: root.value
+      placeholderText: root.row.placeholder || ""
+      onEditingFinished: Config.set(root.row.key, text.trim() || (root.row.key === "launcher.actionPrefix" ? ">" : ""))
     }
   }
 }

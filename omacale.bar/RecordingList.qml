@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // Recordings list (Caelestia utilities/cards/RecordingList.qml): a header with
@@ -35,14 +36,14 @@ ColumnLayout {
     }
   }
 
-  ListView {
+  MListView {
     id: list
     Layout.fillWidth: true
     Layout.rightMargin: -Tk.spacing.small
     implicitHeight: (Tk.body.large + Tk.padding.small) * (RecordService.listExpanded ? 10 : 3)
     Behavior on implicitHeight { Anim {} }
     clip: true
-    boundsBehavior: Flickable.StopAtBounds
+    ScrollBar.vertical: MScrollBar { flickable: list }
     model: RecordService.recentRecordings
 
     delegate: RowLayout {

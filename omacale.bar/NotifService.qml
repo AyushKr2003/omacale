@@ -19,11 +19,12 @@ QtObject {
 
   // Which app groups are expanded. Lives here (not in the delegates) because
   // the group list is rebuilt whenever the history changes.
+  // Unset apps follow notifs.openExpanded.
   property var expandedApps: ({})
-  function isExpanded(app) { return !!expandedApps[app] }
+  function isExpanded(app) { return app in expandedApps ? expandedApps[app] : Config.o.notifs.openExpanded }
   function setExpanded(app, on) {
     const next = Object.assign({}, expandedApps)
-    if (on) next[app] = true; else delete next[app]
+    next[app] = on
     expandedApps = next
   }
 

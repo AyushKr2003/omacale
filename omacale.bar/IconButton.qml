@@ -16,6 +16,7 @@ Rectangle {
   property bool disabled: false
   property bool round: true
   property real iconSize: Tk.iconSize.medium
+  property int iconWeight: Font.Normal
   property int padding: type === "text" ? Tk.padding.extraSmall / 2 : Tk.padding.small
   property color activeColour: type === "filled" ? Colours.m3primary : Colours.m3secondary
   property color inactiveColour: type === "filled" && !toggle ? Colours.m3primary
@@ -40,6 +41,7 @@ Rectangle {
   StateLayer {
     id: state
     color: root.onColour
+    shapeMorph: root.shapeMorph
     disabled: root.disabled
     onClicked: { if (root.toggle) root.internalChecked = !root.internalChecked; root.clicked() }
   }
@@ -49,6 +51,7 @@ Rectangle {
     anchors.verticalCenterOffset: 1
     text: root.icon
     size: root.iconSize
+    weight: root.iconWeight
     color: root.onColour
     fill: !root.toggle || root.on ? 1 : 0
     Behavior on fill { Anim { type: "effects" } }

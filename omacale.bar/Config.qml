@@ -36,7 +36,7 @@ QtObject {
     const walk = (defs, prefix) => {
       for (const k in defs) {
         const key = prefix ? prefix + "." + k : k
-        if (typeof defs[k] === "object") walk(defs[k], key)
+        if (typeof defs[k] === "object" && !Array.isArray(defs[k])) walk(defs[k], key)
         else set(key, defs[k])
       }
     }
@@ -165,6 +165,8 @@ QtObject {
         property bool vimKeybinds: false
         property bool dangerousActions: true
         property int dragThreshold: 50
+        property list<string> favouriteApps: []
+        property list<string> hiddenApps: []
       }
       property JsonObject session: JsonObject {
         property bool enabled: true
@@ -194,6 +196,17 @@ QtObject {
         property bool clock24: true
         property string weatherLocation: ""
         property string units: "metric"
+      }
+      property JsonObject notifs: JsonObject {
+        property int groupPreviewNum: 3
+        property bool openExpanded: false
+      }
+      property JsonObject services: JsonObject {
+        property int mediaUpdateInterval: 500
+        property int resourceUpdateInterval: 1000
+        property int volumeStep: 5
+        property int brightnessStep: 5
+        property int visualiserBars: 60
       }
     }
   }

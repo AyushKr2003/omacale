@@ -17,8 +17,8 @@
 
 var pages = [
   {
-    id: "style", label: "Style", icon: "palette", category: "appearance",
-    description: "Colours, scheme, transparency",
+    id: "style", label: "Wallpaper & style", icon: "palette", category: "appearance",
+    description: "Palette, scheme, transparency",
     rows: [
       { type: "custom", comp: "preview" },
       { type: "section", text: "Colours" },
@@ -79,14 +79,35 @@ var pages = [
   },
   {
     id: "panels", label: "Panels", icon: "dock_to_bottom", category: "shell",
-    description: "Taskbar, dashboard, launcher, session, sidebar, utilities",
+    description: "Dashboard, taskbar, launcher, sidebar",
     rows: [
-      { type: "nav", icon: "dock_to_right", label: "Taskbar", page: "taskbar", status: "bar" },
       { type: "nav", icon: "dashboard", label: "Dashboard", page: "dashboard", status: "dashboard.enabled" },
+      { type: "nav", icon: "dock_to_bottom", label: "Taskbar", page: "taskbar", status: "bar" },
       { type: "nav", icon: "apps", label: "Launcher", page: "launcher", status: "launcher.enabled" },
-      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
-      { type: "nav", icon: "notifications", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
-      { type: "nav", icon: "tune", label: "Utilities", page: "utilities", status: "utilities.enabled" }
+      { type: "nav", icon: "dock_to_right", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
+      { type: "nav", icon: "construction", label: "Utilities", page: "utilities", status: "utilities.enabled" },
+      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" }
+    ]
+  },
+  {
+    id: "apps", label: "Apps", icon: "apps", category: "shell",
+    description: "Default apps, favourites, hidden apps",
+    rows: [ { type: "custom", comp: "apps" } ]
+  },
+  {
+    id: "services", label: "Services", icon: "settings_suggest", category: "shell",
+    description: "Notifications, poll intervals, scroll steps",
+    rows: [
+      { type: "section", text: "Notifications" },
+      { type: "nav", icon: "notifications", label: "Notifications", subtext: "Grouping in the sidebar", page: "notifications" },
+      { type: "section", text: "Polling" },
+      { type: "stepper", key: "services.mediaUpdateInterval", label: "Media refresh", subtext: "How often the media position updates (ms)", from: 100, to: 2000, step: 50 },
+      { type: "stepper", key: "services.resourceUpdateInterval", label: "System stats refresh", subtext: "CPU, memory and GPU update interval (ms)", from: 500, to: 10000, step: 500 },
+      { type: "section", text: "Input increments" },
+      { type: "stepper", key: "services.volumeStep", label: "Volume step", subtext: "Amount the volume changes per scroll (%)", from: 1, to: 50, step: 1 },
+      { type: "stepper", key: "services.brightnessStep", label: "Brightness step", subtext: "Amount the brightness changes per scroll (%)", from: 1, to: 50, step: 1 },
+      { type: "section", text: "Service tuning" },
+      { type: "stepper", key: "services.visualiserBars", label: "Visualiser bars", subtext: "Number of bars in the audio visualisers", from: 10, to: 120, step: 2 }
     ]
   },
   {
@@ -96,7 +117,7 @@ var pages = [
       { type: "section", text: "Clock" },
       { type: "toggle", key: "general.clock24", invert: true, label: "12-hour clock", subtext: "AM/PM everywhere: bar, dashboard, weather, notifications, keep awake, recordings" },
       { type: "section", text: "Weather" },
-      { type: "text", key: "general.weatherLocation", label: "Location", subtext: "City name; empty detects it from your IP", placeholder: "Auto" },
+      { type: "text", key: "general.weatherLocation", label: "Location", subtext: "City name; empty detects it from your IP", placeholder: "City" },
       { type: "select", key: "general.units", label: "Units", subtext: "Temperature units", options: [
         { value: "metric", label: "Celsius", icon: "thermometer" },
         { value: "imperial", label: "Fahrenheit", icon: "thermostat" }
@@ -121,6 +142,18 @@ var pages = [
 ]
 
 var subpages = {
+  wallpapers: { title: "Wallpapers", rows: [ { type: "custom", comp: "wallpapers" } ] },
+  themes: { title: "Themes", rows: [ { type: "custom", comp: "wallpapers", themes: true } ] },
+  allApps: { title: "All apps", rows: [ { type: "custom", comp: "allApps" } ] },
+  appInfo: { title: "App info", rows: [ { type: "custom", comp: "appInfo" } ] },
+  notifications: {
+    title: "Notifications",
+    rows: [
+      { type: "section", text: "Notifications" },
+      { type: "toggle", key: "notifs.openExpanded", label: "Open expanded", subtext: "Show notification groups in the sidebar expanded by default" },
+      { type: "stepper", key: "notifs.groupPreviewNum", label: "Group preview count", subtext: "Notifications shown per group before collapsing", from: 1, to: 10, step: 1 }
+    ]
+  },
   networkDetail: { title: "Network details", rows: [ { type: "custom", comp: "networkDetail" } ] },
   btPair: { title: "Pair new device", rows: [ { type: "custom", comp: "btPair" } ] },
   btDevice: { title: "Device", rows: [ { type: "custom", comp: "btDevice" } ] },
@@ -241,7 +274,7 @@ var subpages = {
     rows: [
       { type: "section", text: "General" },
       { type: "toggle", key: "launcher.enabled", label: "Enabled" },
-      { type: "text", key: "launcher.actionPrefix", label: "Action prefix", subtext: "Prefix used to run actions in the launcher", placeholder: ">" },
+      { type: "text", key: "launcher.actionPrefix", label: "Action prefix", subtext: "Prefix used to run actions in the launcher", placeholder: "Prefix" },
       { type: "section", text: "Display" },
       { type: "stepper", key: "launcher.maxShown", label: "Max items shown", from: 3, to: 12, step: 1 },
       { type: "stepper", key: "launcher.maxWallpapers", label: "Max wallpapers shown", subtext: "Carousel size for \">wallpaper\" and \">theme\"", from: 1, to: 15, step: 2 },

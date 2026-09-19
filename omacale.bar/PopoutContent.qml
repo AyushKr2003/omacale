@@ -53,23 +53,26 @@ Item {
     StateLayer { color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface; disabled: ra.busy; onClicked: ra.clicked() }
     MIcon { id: raIcon; anchors.centerIn: parent; animate: true; text: ra.icon; color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface }
   }
+  // Caelestia's popout footer: a full-width IconTextButton in primaryContainer
+  // with extraSmall vertical padding.
   component WideButton: Rectangle {
     id: wb
     property string icon
     property string label
     signal clicked()
     Layout.fillWidth: true
-    Layout.topMargin: Tk.spacing.small
-    implicitHeight: wbRow.implicitHeight + Tk.padding.small
-    radius: height / 2
+    Layout.topMargin: Tk.spacing.medium
+    implicitHeight: wbRow.implicitHeight + Tk.padding.extraSmall * 2
+    radius: wbState.pressed ? Tk.rounding.small : height / 2
     color: Colours.m3primaryContainer
-    StateLayer { color: Colours.m3onPrimaryContainer; onClicked: wb.clicked() }
+    Behavior on radius { Anim { type: "effects" } }
+    StateLayer { id: wbState; color: Colours.m3onPrimaryContainer; onClicked: wb.clicked() }
     RowLayout {
       id: wbRow
       anchors.centerIn: parent
       spacing: Tk.spacing.small
-      MIcon { text: wb.icon; color: Colours.m3onPrimaryContainer }
-      MText { text: wb.label; color: Colours.m3onPrimaryContainer }
+      MIcon { text: wb.icon; size: Math.round(Tk.body.small * 1.2); color: Colours.m3onPrimaryContainer }
+      MText { Layout.topMargin: 1; text: wb.label; color: Colours.m3onPrimaryContainer }
     }
   }
 
@@ -180,7 +183,7 @@ Item {
         value: sink && sink.audio ? sink.audio.volume : 0
         onMoved: v => { if (sink && sink.audio) { sink.audio.muted = false; sink.audio.volume = v } }
       }
-      WideButton { Layout.bottomMargin: Tk.padding.small; icon: "settings"; label: "Open mixer"; onClicked: { Sys.run("omarchy-launch-audio || wiremix || pavucontrol"); root.closeRequested() } }
+      WideButton { Layout.bottomMargin: Tk.padding.small; icon: "settings"; label: "Open settings"; onClicked: { root.host.toggle("settings", "audio"); root.closeRequested() } }
     }
   }
 
@@ -262,45 +265,52 @@ Item {
           return Math.round(dev.percentage * 100) === 100 ? "Fully charged!" : "Calculating time until charged..."
         }
       }
+      // Caelestia popouts/Battery.qml: three icon-sized profile targets with
+      // a pill that slides to fill the current one.
       Rectangle {
         id: profiles
         readonly property var icons: ["energy_savings_leaf", "balance", "rocket_launch"]
+        readonly property var values: [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance]
         readonly property int current: PowerProfiles.profile === PowerProfile.PowerSaver ? 0 : PowerProfiles.profile === PowerProfile.Performance ? 2 : 1
+        readonly property real cell: pRep.count ? pRep.itemAt(0).implicitWidth : 0
         Layout.alignment: Qt.AlignHCenter
         Layout.bottomMargin: Tk.padding.small
-        implicitWidth: row.implicitWidth + Tk.padding.medium * 2
-        implicitHeight: row.implicitHeight + Tk.padding.small
+        implicitWidth: cell * 3 - Tk.padding.small * 3 + Tk.padding.medium * 2 + Tk.spacing.largeIncreased * 2
+        implicitHeight: cell
         radius: height / 2
         color: Colours.m3surfaceContainer
         Rectangle {
           readonly property var cur: pRep.count > profiles.current ? pRep.itemAt(profiles.current) : null
-          x: cur ? row.x + cur.x - Tk.padding.small : 0
-          y: cur ? row.y + cur.y - Tk.padding.small : 0
-          width: cur ? cur.width + Tk.padding.small * 2 : 0
-          height: cur ? cur.height + Tk.padding.small * 2 : 0
+          x: cur ? cur.x : 0
+          width: profiles.cell
+          height: profiles.cell
           radius: height / 2
           color: Colours.m3primary
           Behavior on x { Anim {} }
         }
-        Row {
-          id: row
-          anchors.centerIn: parent
-          spacing: Tk.spacing.largeIncreased
-          Repeater {
-            id: pRep
-            model: profiles.icons
+        Repeater {
+          id: pRep
+          model: profiles.icons
+          Item {
+            required property string modelData
+            required property int index
+            readonly property bool on: index === profiles.current
+            implicitWidth: pIcon.implicitHeight + Tk.padding.small
+            implicitHeight: implicitWidth
+            anchors.verticalCenter: parent.verticalCenter
+            x: index === 0 ? Tk.padding.extraSmall
+              : index === 2 ? profiles.width - width - Tk.padding.extraSmall
+              : (profiles.width - width) / 2
+            property real radius: width / 2
+            StateLayer { color: parent.on ? Colours.m3onPrimary : Colours.m3onSurface; onClicked: PowerProfiles.profile = profiles.values[parent.index] }
             MIcon {
-              required property string modelData
-              required property int index
-              text: modelData
+              id: pIcon
+              anchors.centerIn: parent
+              text: parent.modelData
               size: Tk.iconSize.large
-              fill: index === profiles.current ? 1 : 0
-              color: index === profiles.current ? Colours.m3onPrimary : Colours.m3onSurface
-              MouseArea {
-                anchors.fill: parent; anchors.margins: -Tk.padding.small
-                cursorShape: Qt.PointingHandCursor
-                onClicked: PowerProfiles.profile = [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance][parent.index]
-              }
+              fill: parent.on ? 1 : 0
+              color: parent.on ? Colours.m3onPrimary : Colours.m3onSurfaceVariant
+              Behavior on fill { Anim { type: "effects" } }
             }
           }
         }

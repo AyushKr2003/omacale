@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
@@ -55,9 +56,11 @@ Item {
 
   readonly property var results: {
     const q = (actionMode ? search.text.slice(prefix.length) : search.text).trim().toLowerCase()
-    if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0)).map(a => ({ action: a }))
-    const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay)
-    if (!q) return apps.slice().sort((a, b) => a.name.localeCompare(b.name)).map(e => ({ app: e }))
+    if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0))
+    const hidden = Config.o.launcher.hiddenApps, favs = Config.o.launcher.favouriteApps
+    const fav = e => favs.indexOf(e.id) >= 0 ? 0 : 1
+    const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay && hidden.indexOf(e.id) < 0)
+    if (!q) return apps.slice().sort((a, b) => fav(a) - fav(b) || a.name.localeCompare(b.name))
     const scored = []
     for (let i = 0; i < apps.length; i++) {
       const e = apps[i], n = e.name.toLowerCase()
@@ -70,15 +73,17 @@ Item {
       else if ((e.keywords || []).join(" ").toLowerCase().indexOf(q) >= 0) s = 5
       if (s >= 0) scored.push({ e: e, s: s })
     }
-    scored.sort((a, b) => a.s - b.s || a.e.name.localeCompare(b.e.name))
-    return scored.map(x => ({ app: x.e }))
+    scored.sort((a, b) => a.s - b.s || fav(a.e) - fav(b.e) || a.e.name.localeCompare(b.e.name))
+    return scored.map(x => x.e)
   }
 
+  // Results are DesktopEntry objects or entries of `actions`.
+  function isApp(r) { return !!r && typeof r.execute === "function" }
   function activate(r) {
     if (!r) return
-    if (r.action && r.action.settings) { root.openSettings(); return }
-    if (r.action && r.action.autocomplete) { search.text = prefix + r.action.autocomplete + " "; return }
-    if (r.app) r.app.execute(); else Sys.run(r.action.cmd)
+    if (!isApp(r) && r.settings) { root.openSettings(); return }
+    if (!isApp(r) && r.autocomplete) { search.text = prefix + r.autocomplete + " "; return }
+    if (isApp(r)) r.execute(); else Sys.run(r.cmd)
     root.dismissed()
   }
 
@@ -119,16 +124,34 @@ Item {
     height: root.contentH
     clip: true
 
-    ListView {
+    // Caelestia launcher/AppList.qml
+    MListView {
       id: list
       visible: root.animState === "apps"
       width: Tk.sizes.launcherItemWidth
       height: root.listH
       clip: true
-      model: root.results
+      model: ScriptModel {
+        values: root.results
+        onValuesChanged: list.currentIndex = 0
+      }
       spacing: Tk.spacing.small
       currentIndex: 0
-      boundsBehavior: Flickable.StopAtBounds
+      ScrollBar.vertical: MScrollBar { flickable: list }
+      add: Transition { Anim { type: "effects"; property: "opacity"; from: 0; to: 1 } }
+      remove: Transition { Anim { type: "effects"; property: "opacity"; from: 1; to: 0 } }
+      move: Transition {
+        Anim { property: "y" }
+        Anim { type: "effects"; property: "opacity"; to: 1 }
+      }
+      addDisplaced: Transition {
+        Anim { property: "y"; type: "standardSmall" }
+        Anim { type: "effects"; property: "opacity"; to: 1 }
+      }
+      displaced: Transition {
+        Anim { property: "y" }
+        Anim { type: "effects"; property: "opacity"; to: 1 }
+      }
       highlightFollowsCurrentItem: false
       preferredHighlightBegin: 0
       preferredHighlightEnd: height
@@ -147,8 +170,8 @@ Item {
         id: item
         required property var modelData
         required property int index
-        readonly property var app: modelData.app || null
-        readonly property var action: modelData.action || null
+        readonly property var app: root.isApp(modelData) ? modelData : null
+        readonly property var action: root.isApp(modelData) ? null : modelData
         width: list.width
         height: root.itemH
 
@@ -176,13 +199,23 @@ Item {
             visible: item.action !== null
             anchors.centerIn: icon
             text: item.action ? item.action.icon : ""
-            size: Tk.iconSize.large
+            size: Tk.iconSize.large * 1.3
             color: Colours.m3onSurfaceVariant
+          }
+          // Caelestia items/AppItem.qml: a heart for favourites.
+          MIcon {
+            id: favIcon
+            visible: !!item.app && Config.o.launcher.favouriteApps.indexOf(item.app.id) >= 0
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: "favorite"
+            fill: 1
+            color: Colours.m3primary
           }
           Column {
             anchors.left: icon.right
             anchors.leftMargin: Tk.spacing.medium
-            anchors.right: parent.right
+            anchors.right: favIcon.visible ? favIcon.left : parent.right
             anchors.verticalCenter: icon.verticalCenter
             MText {
               text: item.app ? item.app.name : item.action ? item.action.name : ""
@@ -264,27 +297,15 @@ Item {
       size: Tk.iconSize.medium * 0.9
       color: Colours.m3onSurfaceVariant
     }
-    TextInput {
+    MTextField {
       id: search
       anchors.left: searchIcon.right
       anchors.leftMargin: Tk.spacing.medium
       anchors.right: clearBtn.left
       anchors.rightMargin: Tk.spacing.medium
       anchors.verticalCenter: parent.verticalCenter
-      color: Colours.m3onSurface
-      selectionColor: Colours.m3secondary
-      selectedTextColor: Colours.m3onSecondary
-      font.family: Tk.sans
       font.pointSize: Tk.body.medium
-      font.variableAxes: ({ "ROND": 25, "wght": 400 })
       clip: true
-      cursorDelegate: Rectangle {
-        width: 2; radius: 1
-        color: Colours.m3primary
-        visible: search.activeFocus
-        SequentialAnimation on opacity { loops: Animation.Infinite; running: search.activeFocus
-          NumberAnimation { to: 0; duration: 500 } NumberAnimation { to: 1; duration: 500 } }
-      }
       onTextChanged: list.currentIndex = 0
       Keys.onPressed: function(e) {
         if (e.key === Qt.Key_Escape) { root.dismissed(); e.accepted = true }
@@ -293,7 +314,7 @@ Item {
         else if (e.key === Qt.Key_Up || e.key === Qt.Key_Backtab
                  || (root.cfg.vimKeybinds && (e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_K || e.key === Qt.Key_P))) { const l = root.currentList(); if (l) l.decrementCurrentIndex(); e.accepted = true }
         else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-          if (root.animState === "apps") root.activate(root.results[list.currentIndex])
+          if (root.animState === "apps") root.activate(list.currentItem ? list.currentItem.modelData : null)
           else if (root.carouselView && root.carouselView.currentItem) root.carouselView.activate(root.carouselView.currentItem.modelData)
           e.accepted = true
         }

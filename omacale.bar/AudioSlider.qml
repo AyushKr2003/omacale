@@ -12,7 +12,7 @@ ConnectedRect {
   signal moved(real value)
 
   // Caelestia services.audioIncrement
-  readonly property real step: 0.1
+  readonly property real step: Config.o.services.volumeStep / 100
 
   Layout.fillWidth: true
   implicitHeight: rl.implicitHeight + Tk.padding.largeIncreased + Tk.padding.large

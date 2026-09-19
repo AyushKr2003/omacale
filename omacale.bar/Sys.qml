@@ -191,7 +191,7 @@ QtObject {
   }
 
   property Timer resTimer: Timer {
-    interval: 1000; repeat: true; triggeredOnStart: true
+    interval: Config.o.services.resourceUpdateInterval; repeat: true; triggeredOnStart: true
     running: root.resourcesWanted > 0
     // A stale baseline would turn the whole time the dashboard was closed
     // into one giant first sample.
@@ -357,7 +357,9 @@ QtObject {
 
   // ---------------------------------------------------------- visualiser
   // cava via scripts/cava.sh, only while something shows it.
-  readonly property int visBars: 60
+  readonly property int visBars: Math.max(10, Config.o.services.visualiserBars)
+  onVisBarsChanged: if (cava.running) { cava.running = false; cavaRestart.restart() }
+  property Timer cavaRestart: Timer { interval: 50; onTriggered: root.cava.running = Qt.binding(() => root.visualiserWanted > 0 && !root.cavaMissing && Config.o.dashboard.visualiser) }
   property int visualiserWanted: 0
   property var visValues: []
   property bool cavaMissing: false

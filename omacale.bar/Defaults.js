@@ -32,7 +32,7 @@ var values = {
     tabs: { dashboard: true, media: true, performance: true, weather: true },
     performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
-  launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50 },
+  launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, favouriteApps: [], hiddenApps: [] },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
   sidebar: { enabled: true, width: 430 },
   utilities: {
@@ -41,7 +41,11 @@ var values = {
     // night light, off by default so the card keeps Caelestia's single row.
     toggles: { wifi: true, bluetooth: true, mic: true, settings: true, gameMode: true, dnd: true, nightlight: false }
   },
-  general: { clock24: true, weatherLocation: "", units: "metric" }
+  general: { clock24: true, weatherLocation: "", units: "metric" },
+  notifs: { groupPreviewNum: 3, openExpanded: false },
+  // Caelestia services / dashboard polling. Steps are Omarchy's 5%, not
+  // Caelestia's 10%, so the bar scrolls like Omarchy's volume keys.
+  services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 }
 }
 
 function get(obj, key) {

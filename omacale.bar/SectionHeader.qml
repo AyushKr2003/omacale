@@ -12,5 +12,6 @@ MText {
   leftPadding: Tk.padding.small
   color: Colours.m3onSurfaceVariant
   font.pointSize: Tk.label.medium
+  weight: Font.Medium
   elide: Text.ElideRight
 }

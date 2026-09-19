@@ -16,7 +16,7 @@ Rectangle {
   readonly property string appIcon: groupData ? String(groupData.appIcon || "") : ""
   readonly property string image: groupData ? String(groupData.image || "") : ""
   readonly property bool expanded: NotifService.isExpanded(appName)
-  readonly property int previewNum: 3
+  readonly property int previewNum: Config.o.notifs.groupPreviewNum
   readonly property var shown: expanded ? items : items.slice(0, previewNum)
   readonly property int urgency: {
     let u = 0
