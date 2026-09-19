@@ -22,8 +22,8 @@ layout(std140, binding = 0) uniform buf {
     vec4 r3;
     vec4 r4;
     vec4 r5;
-    vec4 attachA;     // edge each rect is attached to (r0..r3):
-    vec4 attachB;     // 0 none, 1 top, 2 right, 3 bottom, 4 left (r4, r5 in .xy)
+    vec4 attachA;     // edges each rect grows out of, as a bitmask (r0..r3):
+    vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4, r5 in .xy)
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -66,17 +66,24 @@ float attachAt(int i) {
     return attachB.y;
 }
 
-// A drawer's corners on the side it grows out of are square: the frame's
+// A drawer's corners on the side(s) it grows out of are square: the frame's
 // fillet then meets a straight edge and forms one clean concave flare,
 // instead of fighting a convex corner and pinching the join.
+// attach is a bitmask: 1 top, 2 right, 4 bottom, 8 left (a popout pressed
+// against a screen edge grows out of two sides at once). Floats only, so it
+// compiles for the GLSL ES 100 / 120 targets too.
 vec4 cornerRadii(int i, vec2 hs) {
     float r = min(panelRadius, min(hs.x, hs.y));
     vec4 c = vec4(r); // tr, br, bl, tl
-    int a = int(attachAt(i) + 0.5);
-    if (a == 1) { c.x = 0.0; c.w = 0.0; }
-    else if (a == 2) { c.x = 0.0; c.y = 0.0; }
-    else if (a == 3) { c.y = 0.0; c.z = 0.0; }
-    else if (a == 4) { c.z = 0.0; c.w = 0.0; }
+    float f = floor(attachAt(i) + 0.5);
+    bool top = mod(f, 2.0) >= 1.0;
+    bool right = mod(floor(f / 2.0), 2.0) >= 1.0;
+    bool bottom = mod(floor(f / 4.0), 2.0) >= 1.0;
+    bool left = mod(floor(f / 8.0), 2.0) >= 1.0;
+    if (top) { c.x = 0.0; c.w = 0.0; }
+    if (right) { c.x = 0.0; c.y = 0.0; }
+    if (bottom) { c.y = 0.0; c.z = 0.0; }
+    if (left) { c.z = 0.0; c.w = 0.0; }
     return c;
 }
 

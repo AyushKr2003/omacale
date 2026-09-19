@@ -163,6 +163,11 @@ Scope {
       return ay + Math.max(0, Math.min(off, ah - ph))
     }
     Behavior on py { enabled: win.pOff < 1; Anim {} }
+    // A popout pressed against the top or bottom of the panel area grows out of
+    // that frame edge too: it reaches into the frame so its corner there is
+    // square and the frame flares into it, as the dashboard and launcher do.
+    readonly property bool pTouchTop: py <= ay + 0.5
+    readonly property bool pTouchBottom: py + ph >= ay + ah - 0.5
     readonly property real px: ax + (-pw - 5) * Math.max(0, pOff)
     // Settings (floating, centred) — grows out of a small pill.
     readonly property real nfw: nexus.implicitWidth
@@ -230,11 +235,11 @@ Scope {
         property rect r1: win.lVis ? Qt.rect(win.lx, win.ly, win.lw, win.lh) : Qt.rect(0, 0, 0, 0)
         property rect r2: win.sVis ? Qt.rect(win.sx, win.sy, win.sw, win.sh) : Qt.rect(0, 0, 0, 0)
         // Popout background reaches 20% behind the bar so it never detaches.
-        property rect r3: win.pVis ? Qt.rect(win.px - win.pw * 0.2, win.py, win.pw * 1.2, win.ph) : Qt.rect(0, 0, 0, 0)
+        property rect r3: win.pVis ? Qt.rect(win.px - win.pw * 0.2, win.py - (win.pTouchTop ? win.bt : 0), win.pw * 1.2, win.ph + (win.pTouchTop ? win.bt : 0) + (win.pTouchBottom ? win.bt : 0)) : Qt.rect(0, 0, 0, 0)
         property rect r4: win.nVis ? Qt.rect(win.nx, win.ny, win.nw, win.nh) : Qt.rect(0, 0, 0, 0)
         property rect r5: Qt.rect(0, 0, 0, 0)
-        // Edge each drawer grows out of (0 none, 1 top, 2 right, 3 bottom, 4 left).
-        property vector4d attachA: Qt.vector4d(1, 3, 2, 4)
+        // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
+        property vector4d attachA: Qt.vector4d(1, 4, 2, 8 + (win.pTouchTop ? 1 : 0) + (win.pTouchBottom ? 4 : 0))
         property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
 
         Behavior on color { CAnim {} }
