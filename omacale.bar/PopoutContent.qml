@@ -421,7 +421,7 @@ Item {
   Component {
     id: activewindow
     ColumnLayout {
-      readonly property var tl: Hyprland.activeToplevel
+      readonly property var tl: Sys.activeToplevel
       spacing: Tk.spacing.medium
       Rectangle {
         Layout.alignment: Qt.AlignHCenter

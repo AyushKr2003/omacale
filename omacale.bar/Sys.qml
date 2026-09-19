@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 import Quickshell.Services.Mpris
 
 // System probes shared by the bar and drawers (network, resources, uptime,
@@ -25,6 +26,21 @@ QtObject {
   function hypr(dispatcher) { Quickshell.execDetached(["hyprctl", "dispatch", dispatcher]) }
   function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }
   function toggleSpecial(name) { hypr('hl.dsp.workspace.toggle_special("' + name + '")') }
+
+  // Port of Caelestia's Hypr.activeToplevel (services/Hypr.qml): Hyprland
+  // keeps reporting the last focused window after switching to an empty
+  // workspace, so only trust it while the focused workspace has windows (or
+  // the window sits on a special workspace).
+  readonly property var activeToplevel: {
+    const t = Hyprland.activeToplevel
+    const ws = Hyprland.focusedWorkspace
+    return t && (t.workspace?.name.startsWith("special:") || ws?.toplevels.values.length > 0) ? t : null
+  }
+  // Bar label for an empty workspace: "Desktop <n>".
+  readonly property string desktopName: {
+    const ws = Hyprland.focusedWorkspace
+    return ws ? "Desktop " + (ws.id > 0 ? ws.id : ws.name) : "Desktop"
+  }
 
   // ------------------------------------------------------------ network
   property bool ethernet: false

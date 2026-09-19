@@ -39,7 +39,7 @@ Item {
       }
     }
     const w = mapToItem(activeWin, 0, y)
-    if (cfg.popouts.activeWindow && activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Hyprland.activeToplevel)
+    if (cfg.popouts.activeWindow && activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Sys.activeToplevel)
       return { name: "activewindow", center: activeWin.mapToItem(root, 0, activeWin.height / 2).y }
     return null
   }
@@ -100,9 +100,9 @@ Item {
       Item {
         id: activeWin
         visible: root.cfg.activeWindow.enabled
-        readonly property var tl: Hyprland.activeToplevel
+        readonly property var tl: Sys.activeToplevel
         readonly property string title: {
-          const t = tl && tl.title ? tl.title : "Desktop"
+          const t = tl && tl.title ? tl.title : Sys.desktopName
           if (!root.cfg.activeWindow.compact) return t
           const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
           return parts.length > 1 ? parts[parts.length - 1].trim() : t
