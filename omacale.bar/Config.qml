@@ -204,6 +204,10 @@ QtObject {
       property JsonObject notifs: JsonObject {
         property int groupPreviewNum: 3
         property bool openExpanded: false
+        property JsonObject popups: JsonObject {
+          property bool enabled: true
+          property int width: 430
+        }
       }
       property JsonObject services: JsonObject {
         property int mediaUpdateInterval: 500

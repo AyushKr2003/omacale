@@ -151,5 +151,36 @@ check "created file removed again" test "$before" = "$(snapshot_tree)"
 echo "O. look'n'feel file is valid Lua"
 check "omacale.lua parses"         luac -p "$here/../omacale.bar/omacale.lua"
 
+echo "P. the notification daemon patch"
+# scripts/notif-popups edits a clone of Omarchy's notification plugin. It must
+# do exactly one thing to a file it recognises, nothing at all to one it does
+# not, and nothing a second time.
+stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/notifications/Service.qml"
+patch_copy() { python3 -c "
+from importlib.machinery import SourceFileLoader
+SourceFileLoader('np', '$here/../scripts/notif-popups').load_module().patch_service('$1')"; }
+if [[ -f $stock ]]; then
+  work="$(mktemp -d)"; cp "$stock" "$work/Service.qml"
+  patch_copy "$work/Service.qml" >/dev/null 2>&1
+  # The toast window goes; `reloadableId: "omarchy-notifications"` stays --
+  # that is the DND state's key, not the surface.
+  check "popup window removed"     bash -c "! grep -qE 'PanelWindow|WlrLayershell|NotificationCard' '$work/Service.qml'"
+  check "lifetime timer kept"      grep -q 'sweepPopupLifetimes' "$work/Service.qml"
+  check "IPC added"                grep -q 'function invokeKey' "$work/Service.qml"
+  check "daemon left intact"       grep -q 'NotificationServer' "$work/Service.qml"
+  check "original backed up"       test -f "$work/Service.qml.omacale-orig"
+  check "braces still balanced"    bash -c "test \$(tr -cd '{' < '$work/Service.qml' | wc -c) -eq \$(tr -cd '}' < '$work/Service.qml' | wc -c)"
+  cp "$work/Service.qml" "$work/again.qml"
+  patch_copy "$work/again.qml" >/dev/null 2>&1
+  check "patching twice is a no-op" cmp -s "$work/Service.qml" "$work/again.qml"
+  # An Omarchy update that reshapes the popup UI must stop the patch dead
+  # rather than leave a half-edited notification daemon behind.
+  sed 's/omarchy-notifications/something-else/' "$stock" > "$work/changed.qml"
+  check "refuses an unfamiliar file" bash -c "! patch_copy '$work/changed.qml' 2>/dev/null"
+  rm -rf "$work"
+else
+  echo "  - skipped (no Omarchy notification plugin on this machine)"
+fi
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

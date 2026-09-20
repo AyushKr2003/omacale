@@ -9,6 +9,10 @@
 #                                                a full bar plugin)
 #   3. ~/.config/omacale/                       (its settings, created on first change)
 #   4. ~/.local/state/omacale/                  (its own state + snapshots)
+#   5. ~/.config/omarchy/plugins/<user>.notifications/ and the plugin keys in
+#      shell.json that go with it -- only when you accept the notification
+#      popups, and only through `omarchy plugin clone` / `remove`
+#      (see scripts/notif-popups)
 #   (older versions also wrote a marked block to
 #   ~/.config/omarchy/extensions/omarchy-menu.jsonc; nothing writes it now,
 #   and both the plugin and uninstall remove a leftover one)
@@ -18,7 +22,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.8.0"
+VERSION="0.9.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -46,6 +50,7 @@ keep_state=0
 keep_settings=0
 no_restart=0
 cava_choice=""        # "", yes, no
+notif_choice=""       # "", yes, no
 bind_mode="print"
 cmd=""
 
@@ -88,6 +93,8 @@ Options:
   --no-restart (install) do not restart the Omarchy shell afterwards
   --with-cava  (install) also install cava for the media visualiser
   --no-cava    (install) skip the cava question
+  --notif-popups    (install) draw notification popups as Caelestia toasts
+  --no-notif-popups (install) leave Omarchy's own toasts alone
   --help, -h   Show this help
 
 Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
@@ -172,6 +179,13 @@ cmd_status() {
   local cur="unset"
   [[ -f $shell_json ]] && cur="$(jq -r '.bar.id // "unset (built-in omarchy.bar)"' "$shell_json" 2>/dev/null || echo unreadable)"
   say "  bar.id     : $cur"
+  if (( ! offline )); then
+    if "$script_dir/notif-popups" status 2>/dev/null | grep -q "^daemon:    headless"; then
+      say "  popups     : drawn by Omacale$(installed_state && [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]] && echo " (put back on uninstall)")"
+    else
+      say "  popups     : drawn by Omarchy's own daemon"
+    fi
+  fi
   if installed_state; then
     say "  on uninstall → bar.id : $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
     say "  pre-install shell.json : $(jq -r 'if .pre.shellJsonExisted then "snapshot kept (" + .pre.shellJsonSha + ")" else "did not exist" end' "$state_file")"
@@ -203,6 +217,10 @@ cmd_doctor() {
     if (( ! offline )); then
       chk "plugin is discovered by the shell" "plugin_listed"
       chk "bar layer is mapped" "bar_layer_present"
+      if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
+        chk "notification daemon still headless (Omacale draws the popups)" \
+          "'$script_dir/notif-popups' status | grep -q '^daemon:    headless'"
+      fi
     fi
   else
     say "  not installed"
@@ -359,6 +377,42 @@ cmd_install() {
     ok "shell discovered $PLUGIN_ID"
   fi
 
+  step "Optional: notification popups"
+  # Omarchy's notification daemon draws its own toasts. Omacale can only draw
+  # Caelestia-style ones if that daemon gives its toast window up, which is
+  # what scripts/notif-popups does (clone the plugin, patch the clone).
+  # Recorded so uninstall puts the stock daemon back -- and only if we were
+  # the ones who took it away.
+  local notif_clone=false
+  if (( offline || dry_run )); then
+    say "  ${d}skipped (notification popups are optional)${z}"
+  elif "$script_dir/notif-popups" status 2>/dev/null | grep -q "^patched:   yes"; then
+    ok "notification popups already handed over to Omacale"
+    notif_clone=true
+  else
+    local want="$notif_choice"
+    if [[ -z $want ]]; then
+      if (( assume_yes )) || [[ ! -t 0 ]]; then want=yes
+      else
+        local reply
+        read -r -p "  Draw notification popups as Caelestia toasts? Omarchy's daemon keeps running; only its toast window moves to Omacale, and uninstall puts it back. [Y/n] " reply
+        [[ $reply =~ ^[nN] ]] && want=no || want=yes
+      fi
+    fi
+    if [[ $want == yes ]]; then
+      if "$script_dir/notif-popups" install --no-restart; then
+        notif_clone=true; ok "Omacale draws the notification popups"
+      else
+        warn "could not hand the popups over; Omarchy keeps drawing its own toasts"
+      fi
+    else
+      say "  skipped — Omarchy keeps its own toasts (enable later with: $script_dir/notif-popups install)"
+    fi
+  fi
+  if (( ! dry_run )); then
+    jq --argjson c "$notif_clone" '.installedNotifClone = $c' "$state_file" | write_atomic "$state_file"
+  fi
+
   step "Optional: music visualiser"
   local cava_installed_by_us=false
   if command -v cava >/dev/null 2>&1; then
@@ -459,6 +513,14 @@ cmd_uninstall() {
 
   if (( dry_run )); then
     say "  ${d}[dry-run]${z} nothing changed"; return
+  fi
+
+  if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]] && (( ! offline )); then
+    step "Give the notification popups back"
+    # Before the restore below: `omarchy plugin remove` writes shell.json too,
+    # and the snapshot has to be the last word on that file.
+    if "$script_dir/notif-popups" remove --no-restart; then ok "Omarchy draws its own toasts again"
+    else warn "could not remove the notification clone; run: $script_dir/notif-popups remove"; fi
   fi
 
   step "Restore shell.json"
@@ -577,6 +639,8 @@ while (( $# )); do
     --keep-settings) keep_settings=1 ;;
     --with-cava) cava_choice=yes ;;
     --no-cava) cava_choice=no ;;
+    --notif-popups) notif_choice=yes ;;
+    --no-notif-popups) notif_choice=no ;;
     --dry-run) dry_run=1 ;;
     --yes|-y) assume_yes=1 ;;
     --dev) dev_link=1 ;;

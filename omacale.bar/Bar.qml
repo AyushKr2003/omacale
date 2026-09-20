@@ -20,7 +20,7 @@ Item {
   property bool capsLock: false
   property bool numLock: false
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.8.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.9.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -74,9 +74,12 @@ Item {
   // ~/.config/hypr, and it disappears on the next Hyprland reload.
   readonly property bool blur: Config.o.appearance.transparency.enabled
   readonly property real ignoreAlpha: Math.max(0, Config.o.appearance.transparency.layers - 0.05)
+  // The toasts are a second surface (overlay layer, so a fullscreen window
+  // can't cover them), and they take the same translucent surface colours as
+  // the frame -- so they need the same blur behind them.
   function applyBlur() {
     Quickshell.execDetached(["hyprctl", "eval",
-      'hl.layer_rule({ match = { namespace = "omacale" }, blur = ' + (blur ? "true" : "false") +
+      'hl.layer_rule({ match = { namespace = "^omacale(-notifications)?$" }, blur = ' + (blur ? "true" : "false") +
       ', ignore_alpha = ' + ignoreAlpha.toFixed(2) + ' })'])
   }
   onBlurChanged: applyBlur()

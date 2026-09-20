@@ -99,6 +99,59 @@ Scope {
   Reserve { anchors.right: true; exclusiveZone: Tk.border }
   Reserve { anchors.bottom: true; exclusiveZone: Tk.border }
 
+  // ----------------------------------------------- notification toasts
+  //
+  // Deliberately NOT part of the frame window below. That one sits on
+  // Hyprland's `top` layer, which a fullscreen window draws over, and it goes
+  // away with the bar -- a notification a video can hide is not a
+  // notification. The toasts get their own `overlay` surface (where Omarchy's
+  // stock toasts live too) and stay up over anything.
+  //
+  // Which means they can't be a shape in the frame's blob shader the way the
+  // other drawers are, so each toast is a card of its own with an elevation
+  // shadow, sitting where the frame's top-right inner corner is.
+  readonly property real toastInset: Tk.border + Math.max(0, Math.min(Tk.padding.large - Tk.border, Tk.padding.large))
+
+  PanelWindow {
+    id: toastWin
+
+    screen: scope.screen
+    // Kept up through the outro so the last toast can finish leaving. The
+    // first half of the test is deliberately computed outside this window, so
+    // a surface that was taken down can always bring itself back.
+    visible: NotifService.popupsEnabled
+      && ((NotifService.popups.length > 0 && !toastStack.suppressed) || toastStack.implicitHeight > 0)
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.namespace: "omacale-notifications"
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    // One fixed, full-screen surface, as Omarchy's own popup window uses: a
+    // surface that resizes as toasts come and go lets the compositor scale a
+    // stale buffer for a frame, which squashes the cards.
+    anchors { top: true; bottom: true; left: true; right: true }
+
+    // Only the cards themselves take input; everything else on this surface
+    // is click-through, so the overlay never eats a press.
+    mask: Region { item: toastStack }
+
+    NotifPopups {
+      id: toastStack
+
+      anchors.top: parent.top
+      anchors.right: parent.right
+      anchors.topMargin: scope.toastInset
+      anchors.rightMargin: scope.toastInset
+
+      width: implicitWidth
+      height: implicitHeight
+      maxHeight: Math.max(0, scope.screen.height - scope.toastInset * 2)
+      // The notification centre shows the same notifications in full, so the
+      // toasts get out of its way (Caelestia's Notifs.shouldShowPopup).
+      suppressed: scope.sidebar
+    }
+  }
+
   // Settings popped out into a real window.
   property bool settingsWindow: false
   LazyLoader {

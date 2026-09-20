@@ -1,0 +1,430 @@
+#!/usr/bin/env python3
+"""Hand the notification toasts over to Omacale (and give them back).
+
+Omarchy's notification daemon (`omarchy.notifications`) owns
+org.freedesktop.Notifications, DND, history and the per-popup state files --
+and it also draws the toast itself, in one Overlay PanelWindow per output.
+Two D-Bus notification servers are not allowed to run side by side, and
+Hyprland has no layer rule that can hide a layer surface, so the only way for
+Omacale to draw the toast is to take that one window out of the daemon.
+
+Omarchy documents the route: `omarchy plugin clone` copies a built-in plugin
+into ~/.config/omarchy/plugins/, disables the built-in and routes its IPC to
+the clone. This script clones the daemon once and applies a small, idempotent
+patch to the clone:
+
+  * the popup window is replaced by a headless lifetime manager -- the expiry
+    timer used to live inside the toast delegate, so deleting the window
+    without it would leave popups on screen forever;
+  * each live popup file gains a `deadline`, so Omacale can draw the timeout
+    ring off the same clock the daemon expires on;
+  * IPC is added for what a drawn-elsewhere stack needs: pause/resume for
+    hover, and dismiss/invoke addressed by popup rather than by index.
+
+Everything else -- the server, DND, history, persistence, and the existing
+`dismissAll` / `invokeLast` / `dismiss` IPC -- stays upstream code.
+
+  notif-popups install    clone + patch + restart the shell
+  notif-popups remove     put the stock daemon (and its toasts) back
+  notif-popups status     report what is in place
+"""
+
+import getpass
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+MARKER = "omacale:headless-popups v1"
+
+HOME = os.path.expanduser("~")
+PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
+SOURCE_ID = "omarchy.notifications"
+STOCK_DIR = os.path.join(
+    os.environ.get("OMARCHY_PATH", "/usr/share/omarchy"),
+    "shell", "plugins", "notifications",
+)
+
+# The upstream popup UI starts at this line and runs to the end of the file.
+POPUP_UI_ANCHOR = "  // -------------------------------------------------------------- popup UI"
+# Fingerprints of the block we expect to be removing. If upstream reshapes the
+# popup UI these stop matching and we refuse rather than corrupt the daemon.
+POPUP_UI_FINGERPRINTS = ('WlrLayershell.namespace: "omarchy-notifications"', "Variants {", "NotificationCard {")
+IPC_ANCHOR = '    function ping(): string { return "ok" }'
+
+HEADLESS_BLOCK = '''  // -------------------------------------------------------------- popup UI
+  //
+  // {marker} -- patched by Omacale (scripts/notif-popups).
+  //
+  // Upstream drew the toasts here, in one overlay surface per output.
+  // Omacale draws them instead, from the live files this service writes under
+  // popupStateDir, so they can look like Caelestia's and sit on their own
+  // overlay layer. `omarchy plugin remove` puts the stock plugin -- and its
+  // toasts -- back.
+  //
+  // The toast UI owned one thing the daemon still needs: the per-popup
+  // lifetime timer, which lived in the card delegate. It lives here now, as a
+  // single sweep over popupModel.
+
+  // Hover-pause. Omacale stops the countdown while the pointer is over the
+  // toast column, as Caelestia's notifications do.
+  property bool popupsPaused: false
+  property real popupPausedAt: 0
+
+  // Deadline and content signature per popup, keyed by the popup's file stem.
+  // Keyed rather than indexed because a replaces_id update rewrites the row in
+  // place and reorders nothing, and the stem survives that (and a restart).
+  property var popupClocks: ({{}})
+
+  // The three roles upstream restarted the countdown on: new text deserves a
+  // full look rather than the remains of the superseded text's clock.
+  function popupSignature(row) {{
+    return [row.summary, row.body, row.image].join("\\u0000")
+  }}
+
+  // The popup's expiry deadline, computed once and then written into its file
+  // so Omacale draws the timeout ring off this clock instead of guessing at
+  // one of its own. 0 means it never expires (critical urgency).
+  function popupDeadline(row, key) {{
+    var clock = service.popupClocks[key]
+    var signature = service.popupSignature(row)
+    if (clock && clock.signature === signature) return clock.deadline
+
+    var duration = service.durationFor(row.urgency, row.expireTimeout)
+    var deadline = 0
+    if (duration > 0) {{
+      // A popup restored from a previous shell process carries the deadline
+      // the restore reset it to; a fresh one starts counting now.
+      var restored = clock ? 0 : Number(row.deadline || 0)
+      deadline = (isFinite(restored) && restored > 0) ? restored : Date.now() + duration
+    }}
+    service.popupClocks[key] = {{ signature: signature, deadline: deadline }}
+    if (deadline > 0) service.writePopupDeadline(row, deadline)
+    return deadline
+  }}
+
+  // Re-persist a live popup with its deadline. The file name comes from the
+  // timestamp and id, so this lands on the popup's own file; the image values
+  // are already redirected into imagesDir and map onto themselves, so no copy
+  // is made. Goes through the same serialized queue as every other write.
+  function writePopupDeadline(row, deadline) {{
+    var entry = {{
+      id: row.id,
+      originalId: row.originalId,
+      timestamp: row.timestamp,
+      deadline: deadline
+    }}
+    var roles = NotificationLogic.popupRoles()
+    for (var i = 0; i < roles.length; i++) entry[roles[i]] = row[roles[i]]
+    service.persistPopupFile(entry)
+  }}
+
+  function popupIndexOfKey(key) {{
+    var needle = String(key || "")
+    if (!needle) return -1
+    for (var i = 0; i < popupModel.count; i++) {{
+      var row = popupModel.get(i)
+      if (row && NotificationLogic.imageStem(row) === needle) return i
+    }}
+    return -1
+  }}
+
+  function setPopupsPaused(paused) {{
+    var want = !!paused
+    if (want === service.popupsPaused) return
+    if (want) {{
+      service.popupsPaused = true
+      service.popupPausedAt = Date.now()
+      return
+    }}
+
+    // Give back exactly the time the stack spent paused, and write the new
+    // deadlines out so Omacale's rings pick the same moment back up.
+    var elapsed = Math.max(0, Date.now() - service.popupPausedAt)
+    service.popupsPaused = false
+    if (elapsed <= 0) return
+    for (var i = 0; i < popupModel.count; i++) {{
+      var row = popupModel.get(i)
+      if (!row) continue
+      var clock = service.popupClocks[NotificationLogic.imageStem(row)]
+      if (!clock || clock.deadline <= 0) continue
+      clock.deadline += elapsed
+      service.writePopupDeadline(row, clock.deadline)
+    }}
+  }}
+
+  function sweepPopupLifetimes() {{
+    var now = Date.now()
+    var seen = {{}}
+    for (var i = popupModel.count - 1; i >= 0; i--) {{
+      var row = popupModel.get(i)
+      if (!row) continue
+      var key = NotificationLogic.imageStem(row)
+      seen[key] = true
+      var deadline = service.popupDeadline(row, key)
+      if (deadline > 0 && now >= deadline) {{
+        delete service.popupClocks[key]
+        service.expirePopup(i)
+      }}
+    }}
+    // Clocks of popups that left the screen by any other route.
+    for (var key in service.popupClocks) {{
+      if (!seen[key]) delete service.popupClocks[key]
+    }}
+  }}
+
+  Timer {{
+    interval: 200
+    repeat: true
+    running: popupModel.count > 0 && !service.popupsPaused
+    triggeredOnStart: true
+    onTriggered: service.sweepPopupLifetimes()
+  }}
+
+  // A paused stack is paused by something outside this process. If Omacale
+  // goes away mid-hover -- a crash, a shell restart, an unplugged monitor --
+  // nothing would ever resume it and the toasts would sit there forever.
+  Timer {{
+    interval: 60000
+    running: service.popupsPaused
+    onTriggered: service.setPopupsPaused(false)
+  }}
+}}
+'''
+
+IPC_BLOCK = '''    // ---------------------------------------------------- Omacale
+    //
+    // {marker}
+    //
+    // The toast window is gone from this plugin (see the popup UI section)
+    // and Omacale draws the stack instead, so it needs to address a single
+    // popup rather than "the most recent one". The key is the popup's
+    // file stem, `<timestamp>-<originalId>`, which is the basename of its file
+    // under ~/.local/state/omarchy/notifications/ -- stable across a
+    // replaces_id update and across a shell restart.
+
+    // Omacale only draws toasts when this answers, so an unpatched daemon
+    // keeps its own and the two can never both be on screen.
+    function popupsHidden(): string {{
+      return "yes"
+    }}
+
+    function pause(): string {{
+      service.setPopupsPaused(true)
+      return "ok"
+    }}
+
+    function resume(): string {{
+      service.setPopupsPaused(false)
+      return "ok"
+    }}
+
+    function dismissKey(key: string): string {{
+      var index = service.popupIndexOfKey(key)
+      if (index < 0) return "none"
+      service.dismissPopup(index)
+      return "ok"
+    }}
+
+    // Run the popup's click action (execArgv, a live "default" libnotify
+    // action, or focusing the sending app), then dismiss it.
+    function invokeKey(key: string): string {{
+      var index = service.popupIndexOfKey(key)
+      if (index < 0) return "none"
+      service.invokePopupDefault(index)
+      return "ok"
+    }}
+
+{anchor}
+'''
+
+
+def fail(msg):
+    print("notif-popups: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def run(cmd, check=True, capture=False):
+    try:
+        result = subprocess.run(
+            cmd, check=False,
+            stdout=subprocess.PIPE if capture else None,
+            stderr=subprocess.PIPE if capture else None,
+            text=True,
+        )
+    except FileNotFoundError:
+        fail("'%s' is not installed" % cmd[0])
+    if check and result.returncode != 0:
+        detail = (result.stderr or "").strip() if capture else ""
+        fail("`%s` failed%s" % (" ".join(cmd), ": " + detail if detail else ""))
+    return result
+
+
+def clone_id():
+    return "%s.notifications" % (os.environ.get("USER") or getpass.getuser())
+
+
+def clone_dir():
+    return os.path.join(PLUGINS_DIR, clone_id())
+
+
+def read(path):
+    with open(path, "r", encoding="utf-8") as fp:
+        return fp.read()
+
+
+def write_atomic(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fp:
+        fp.write(text)
+    os.replace(tmp, path)
+
+
+def patch_service(path):
+    """Apply the headless patch to a cloned Service.qml. Returns True if it changed."""
+    text = read(path)
+    if MARKER in text:
+        return False
+
+    index = text.find(POPUP_UI_ANCHOR)
+    if index == -1:
+        fail(
+            "the cloned daemon does not look like the one this patch was written for "
+            "(no popup UI section in %s).\nOmarchy's notification plugin has probably "
+            "changed shape; re-clone it and update scripts/notif-popups." % path
+        )
+
+    removed = text[index:]
+    missing = [f for f in POPUP_UI_FINGERPRINTS if f not in removed]
+    if missing:
+        fail(
+            "the popup UI in %s is not the block this patch removes (missing: %s).\n"
+            "Re-clone the plugin and update scripts/notif-popups." % (path, ", ".join(missing))
+        )
+    if removed.rstrip().rsplit("\n", 1)[-1].strip() != "}":
+        fail("unexpected end of %s; refusing to patch" % path)
+
+    patched = text[:index] + HEADLESS_BLOCK.format(marker=MARKER)
+
+    if IPC_ANCHOR not in patched:
+        fail("no IpcHandler anchor in %s; refusing to patch" % path)
+    patched = patched.replace(
+        IPC_ANCHOR, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR).rstrip("\n"), 1
+    )
+
+    backup = path + ".omacale-orig"
+    if not os.path.exists(backup):
+        shutil.copy2(path, backup)
+    write_atomic(path, patched)
+    return True
+
+
+def ipc(target, fn, *args):
+    result = run(["omarchy-shell", target, fn, *args], check=False, capture=True)
+    return (result.stdout or "").strip()
+
+
+def popups_hidden():
+    return ipc("notifications", "popupsHidden") == "yes"
+
+
+def cmd_status():
+    directory = clone_dir()
+    service = os.path.join(directory, "Service.qml")
+    print("clone:     %s" % (directory if os.path.isdir(directory) else "(none)"))
+    if os.path.isfile(service):
+        print("patched:   %s" % ("yes" if MARKER in read(service) else "NO"))
+    print("daemon:    %s" % ("headless (Omacale draws the toasts)"
+                             if popups_hidden() else "stock (draws its own toasts)"))
+    return 0
+
+
+def cmd_install(restart=True):
+    directory = clone_dir()
+    service = os.path.join(directory, "Service.qml")
+
+    if not os.path.isdir(directory):
+        if not os.path.isdir(STOCK_DIR):
+            fail("Omarchy's notification plugin is not installed at %s" % STOCK_DIR)
+        print("==> Cloning %s" % SOURCE_ID)
+        run(["omarchy", "plugin", "clone", SOURCE_ID])
+    else:
+        print("==> Using the existing clone at %s" % directory)
+
+    if not os.path.isfile(service):
+        fail("%s has no Service.qml" % directory)
+
+    # A clone someone else made, for their own edits, is not ours to rewrite.
+    manifest_path = os.path.join(directory, "manifest.json")
+    try:
+        manifest = json.loads(read(manifest_path))
+    except (OSError, ValueError):
+        fail("cannot read %s" % manifest_path)
+    if (manifest.get("omarchy") or {}).get("clonedFrom") != SOURCE_ID:
+        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+
+    if patch_service(service):
+        print("  ✓ patched Service.qml (backup: Service.qml.omacale-orig)")
+    else:
+        print("  ✓ Service.qml already patched")
+
+    if restart:
+        print("==> Restarting the shell")
+        run(["omarchy-restart-shell"], check=False)
+    return 0
+
+
+def cmd_remove(restart=True):
+    directory = clone_dir()
+    if not os.path.isdir(directory):
+        print("No notification clone to remove; the stock daemon is already in use.")
+        return 0
+
+    service = os.path.join(directory, "Service.qml")
+    if os.path.isfile(service) and MARKER not in read(service):
+        fail(
+            "%s exists but was not patched by Omacale -- it is your own clone.\n"
+            "Remove it yourself with: omarchy plugin remove %s" % (directory, clone_id())
+        )
+
+    # `omarchy plugin remove` is what re-enables the stock plugin and clears
+    # the clone out of shell.json. Deleting the directory ourselves would
+    # leave omarchy.notifications in disabledPlugins[] with nothing to take
+    # its place -- that is no notification daemon at all, so a failure here
+    # has to stop rather than fall back to rm.
+    print("==> Removing %s" % clone_id())
+    run(["omarchy", "plugin", "remove", clone_id(), "--yes"])
+    if os.path.isdir(directory):
+        fail("%s is still there after `omarchy plugin remove`" % directory)
+
+    # `omarchy plugin remove` keeps a dated copy of what it removed. Ours is
+    # a patched clone of a plugin that is back in place, so the copy is only
+    # clutter in a directory that had none of it before Omacale.
+    prefix = ".%s.bak." % clone_id()
+    for name in os.listdir(PLUGINS_DIR):
+        if name.startswith(prefix):
+            shutil.rmtree(os.path.join(PLUGINS_DIR, name), ignore_errors=True)
+    if restart:
+        print("==> Restarting the shell")
+        run(["omarchy-restart-shell"], check=False)
+    return 0
+
+
+def main(argv):
+    command = argv[0] if argv else "status"
+    restart = "--no-restart" not in argv
+    if command in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
+    if command == "install":
+        return cmd_install(restart)
+    if command == "remove":
+        return cmd_remove(restart)
+    if command == "status":
+        return cmd_status()
+    fail("unknown command '%s' (install | remove | status)" % command)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

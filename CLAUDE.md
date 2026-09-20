@@ -22,6 +22,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 |---|---|
 | `Sidebar.qml` (+ inline `NotifDock`) | `modules/sidebar/Content.qml`, `NotifDock.qml` |
 | `NotifGroup.qml`, `NotifItem.qml` | `modules/sidebar/NotifGroup.qml`, `Notif.qml`, `NotifActionList.qml` |
+| `NotifPopups.qml` (stack + `ExtraIndicator`), `NotifToast.qml` | `modules/notifications/Content.qml`, `Wrapper.qml`, `Notification.qml`, `components/widgets/ExtraIndicator.qml` |
 | `Utilities.qml` (+ inline delete dialog) | `modules/utilities/Content.qml`, `Wrapper.qml`, `RecordingDeleteModal.qml` |
 | `QuickToggles.qml` | `modules/utilities/cards/Toggles.qml` |
 | `IdleInhibitCard.qml` | `modules/utilities/cards/IdleInhibit.qml` |
@@ -73,6 +74,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Feature | Omarchy hook |
 |---|---|
 | Notifications | reads `~/.local/state/omarchy/notifications/` (+ `history/`), DND in `notifications.json`; `omarchy toggle notification silencing`; `omarchy-shell notifications dismiss/clear` |
+| Notification popups | the live files above are the toast stack, one per toast on screen, each carrying the `deadline` the daemon expires it on; `omarchy-shell notifications popupsHidden/pause/resume/dismissKey/invokeKey/dismissAll` (the last four keyed by the file stem). All of it needs the headless daemon clone -- see below |
 | Wi-Fi / ethernet (`NetService`) | `Quickshell.Networking` (NetworkManager) as Omarchy's `plugins/panels/network`; `omarchy-network-status --verbose` for link details; `omarchy-shell shell summon omarchy.wifiqr` to share |
 | Bluetooth (`BtService`) | `Quickshell.Bluetooth` as Omarchy's `plugins/panels/bluetooth`; `omarchy-bluetooth-power on/off`, `omarchy-bluetooth-device pair/connect/disconnect/forget` |
 | Audio (`AudioService`) | `Quickshell.Services.Pipewire` as Omarchy's `plugins/panels/audio`; `omarchy-audio-sink-availability`, `omarchy-audio-output-sink` (volume on the sink behind a tuning), `omarchy-audio-{output,input}-set-default` |
@@ -97,13 +99,15 @@ Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.p
 shell/omacale/
   omacale.bar/        the plugin (this is what gets installed)
     Bar.qml             plugin entry: IpcHandler "omacale", per-screen ScreenScope, fonts
-    ScreenScope.qml     per-monitor: frame + drawers geometry, input mask, gestures
+    ScreenScope.qml     per-monitor: frame + drawers geometry, input mask, gestures,
+                        plus the separate overlay-layer window the toasts live in
     shaders/blob.frag   SDF frame/drawer background; blob.frag.qsb is the compiled output
     Tk.qml Colours.qml Config.qml Defaults.js   tokens, palette, live settings
     *Service.qml / GameMode.qml / Sys.qml       singletons wrapping Omarchy data
     scripts/            our own helper scripts (last resort)
     assets/  keybinds.lua  omacale.lua  manifest.json  qmldir
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
+  scripts/notif-popups  clones Omarchy's notification daemon and patches the clone headless
   scripts/gen-logos.py  dev-only: regenerates omacale.bar/Logos.js (needs fontTools)
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
@@ -144,6 +148,20 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - Hyprland animation leaves set explicitly by Omarchy's `looknfeel.lua` (`fadeIn`, `fadeLayersIn`, ...) don't inherit a parent leaf you set later; override them by name (see `omacale.lua`).
 - Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
 - **Don't write to Omarchy's menu extension (`omarchy-menu.jsonc`).** The user doesn't want Omacale inserting anything there; the old Style › Switcher block was removed for this reason.
+- **The toasts are not a drawer.** Every other panel is a rect in `blob.frag` inside `win`, which is on Hyprland's `top` layer — a fullscreen window covers it and it hides with the bar. Notifications must never be hidden, so `ScreenScope` gives them a second `PanelWindow` on `WlrLayer.Overlay` (namespace `omacale-notifications`), with each toast a card of its own. Anything that must outlive fullscreen belongs there, not in the frame — and remember to add the namespace to a rule that matches `omacale` (the blur rule in `Bar.qml` does).
+
+## The notification daemon clone
+
+Omarchy's `omarchy.notifications` service owns the D-Bus name *and* draws the toasts, a second notification server is not allowed beside it, and Hyprland 0.56 has no layer rule that can hide a surface. So Omacale can only draw toasts if that daemon gives its window up.
+
+`scripts/notif-popups install` does it the supported way: `omarchy plugin clone omarchy.notifications` (which disables the stock plugin, enables the clone and routes IPC to it), then a small idempotent patch of the clone.
+
+- The patch replaces the popup-UI block with a headless lifetime manager and adds IPC. **The expiry timer used to live inside the toast delegate**, so deleting the window without replacing that timer leaves every popup on screen forever.
+- The clone writes `deadline` into each live popup file, so the daemon's timer and Omacale's countdown ring run off one clock. Omacale never invents a deadline when one is there.
+- `scripts/notif-popups` refuses to patch a `Service.qml` it doesn't recognise rather than half-edit the notification daemon; `tests/test-restore.sh` case P covers that. If `omarchy update` reshapes the popup UI, update the anchors in that script.
+- `NotifService.popupsSupported` comes from the clone's `popupsHidden` IPC, and Omacale draws nothing without it — that is what stops two toasts appearing at once. Don't bypass the gate.
+- Install records `installedNotifClone`; uninstall runs `notif-popups remove` **before** `restore_shell_json`, because `omarchy plugin remove` writes `shell.json` too and the snapshot has to be the last word on it.
+- Don't hand-delete the clone directory: `omarchy plugin remove` is what takes `omarchy.notifications` back out of `disabledPlugins[]`. Removing the directory alone leaves no notification daemon at all.
 
 ## Style for new code
 

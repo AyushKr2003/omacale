@@ -28,7 +28,9 @@ MText 1.0 MText.qml
 MediaTab 1.0 MediaTab.qml
 NotifGroup 1.0 NotifGroup.qml
 NotifItem 1.0 NotifItem.qml
+NotifPopups 1.0 NotifPopups.qml
 singleton NotifService 1.0 NotifService.qml
+NotifToast 1.0 NotifToast.qml
 PerfTab 1.0 PerfTab.qml
 Pill 1.0 Pill.qml
 PopoutContent 1.0 PopoutContent.qml

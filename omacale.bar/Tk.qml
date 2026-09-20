@@ -89,6 +89,7 @@ QtObject {
     readonly property int tabIndicatorSpacing: 5
     readonly property int notifImage: 42
     readonly property int notifBadge: 20
+    readonly property int notifsWidth: (Config.o.notifs && Config.o.notifs.popups) ? Config.o.notifs.popups.width : 430
   }
 
   // Motion

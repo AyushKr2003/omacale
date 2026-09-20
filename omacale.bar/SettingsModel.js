@@ -149,8 +149,11 @@ var subpages = {
   notifications: {
     title: "Notifications",
     rows: [
+      { type: "section", text: "Popups" },
+      { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows" },
+      { type: "slider", key: "notifs.popups.width", label: "Popup width", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Notifications" },
-      { type: "toggle", key: "notifs.openExpanded", label: "Open expanded", subtext: "Show notification groups in the sidebar expanded by default" },
+      { type: "toggle", key: "notifs.openExpanded", label: "Open expanded", subtext: "Show notification groups and popups expanded by default" },
       { type: "stepper", key: "notifs.groupPreviewNum", label: "Group preview count", subtext: "Notifications shown per group before collapsing", from: 1, to: 10, step: 1 }
     ]
   },

@@ -11,6 +11,7 @@ Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs 
 - **Bar**: workspaces as shapes, window title, tray, clock, status icons, and hover popouts for Wi-Fi, Bluetooth and battery
 - **Dashboard**: weather, calendar, system stats, and a media player with synced lyrics and an audio visualiser
 - **Launcher**: app search, Omarchy actions, and wallpaper and theme carousels (`>wallpaper`, `>theme`)
+- **Notification popups**: Caelestia-style toasts — hover to pause, swipe to dismiss, drag to expand — on their own overlay layer, so they stay visible over fullscreen windows and video
 - **Sidebar**: grouped notifications, quick toggles, keep-awake, and a screen recorder
 - **Session menu**: logout, reboot, shutdown and more
 - **Settings**: a port of Caelestia's Nexus app covering style, panels, network, Bluetooth, keybinds and more. Changes apply live.
@@ -42,7 +43,21 @@ scripts/omacale install --dry-run
 scripts/omacale install --dev    # symlink for live editing
 ```
 
-Uninstall restores your previous state exactly. Install only touches the plugin directory, `bar.id` in `~/.config/omarchy/shell.json`, and Omacale's own settings and state directories. It never edits `~/.config/hypr` or anything under `/usr`.
+### Notification popups
+
+Omarchy's notification daemon draws its own toasts, and two notification servers can't run side by side. So the installer offers to clone the daemon (`omarchy plugin clone`, the supported route) and patch the clone to give its toast window up — the daemon itself, DND and history keep running as before. Uninstall puts the stock daemon back.
+
+```bash
+scripts/notif-popups status      # who draws the toasts
+scripts/notif-popups install     # hand them to Omacale
+scripts/notif-popups remove      # give them back to Omarchy
+```
+
+Omacale only draws toasts once the daemon has stood down, so the two can never both be on screen. Turn them off without undoing the clone in Settings › Panels › Notifications.
+
+If `omarchy update` reshapes the notification plugin, the clone keeps running the older copy; `scripts/omacale doctor` flags it, and `scripts/notif-popups remove && scripts/notif-popups install` re-clones from the new one.
+
+Uninstall restores your previous state exactly. Install touches the plugin directory, `bar.id` in `~/.config/omarchy/shell.json`, Omacale's own settings and state directories, and — if you accept the popups — the notification clone above. It never edits `~/.config/hypr` or anything under `/usr`.
 
 ## Usage
 
@@ -84,6 +99,8 @@ See [`CLAUDE.md`](CLAUDE.md) for the architecture, conventions and debugging got
 ## Not yet ported
 
 OSD styling, the lock screen, wallpaper-derived colours and drawer "jelly" deformation. Omarchy's own OSD and lock screen keep working underneath.
+
+Toasts carry Caelestia's close/open/copy row but not a sender's own action buttons or inline reply: Omarchy's notification records keep only the one default action (`execArgv`), so there is nothing to draw the rest from.
 
 ## Credits
 

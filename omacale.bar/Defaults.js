@@ -42,7 +42,9 @@ var values = {
     toggles: { wifi: true, bluetooth: true, mic: true, settings: true, gameMode: true, dnd: true, nightlight: false }
   },
   general: { clock24: true, weatherLocation: "", units: "metric" },
-  notifs: { groupPreviewNum: 3, openExpanded: false },
+  // popups.enabled only takes effect once the notification daemon has handed
+  // its own toasts over (shell/omacale/scripts/notif-popups).
+  notifs: { groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 } },
   // Caelestia services / dashboard polling. Steps are Omarchy's 5%, not
   // Caelestia's 10%, so the bar scrolls like Omarchy's volume keys.
   services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 }
