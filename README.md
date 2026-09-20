@@ -92,9 +92,14 @@ Suggested keybinds live in [`omacale.bar/keybinds.lua`](omacale.bar/keybinds.lua
 |---|---|
 | `SUPER + A` | Launcher |
 | `SUPER + D` | Dashboard |
-| `SUPER + TAB` | Workspace overview |
 | `SUPER + SHIFT + I` | Settings |
 | `SUPER + SHIFT + ESCAPE` | Session menu |
+
+`SUPER + TAB` is Omarchy's own "Next workspace", so the overview's bind sits commented out at the bottom of `keybinds.lua` with the other replacements -- uncomment it, or bind the overview wherever you like:
+
+```bash
+omarchy-shell omacale overview
+```
 
 Settings are saved to `~/.config/omacale/settings.json`.
 

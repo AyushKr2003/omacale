@@ -12,7 +12,6 @@ o.bind("SUPER + A", "Omacale launcher", "omarchy-shell omacale launcher")
 o.bind("SUPER + D", "Omacale dashboard", "omarchy-shell omacale dashboard")
 o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale sidebar")
 o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
-o.bind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")
 o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
 o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
 
@@ -33,3 +32,4 @@ o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboar
 -- o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
 -- o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
 -- o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
+-- o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace

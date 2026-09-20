@@ -210,7 +210,7 @@ var subpages = {
   overview: {
     title: "Overview",
     rows: [
-      { type: "toggle", key: "overview.enabled", label: "Enabled", subtext: "A grid of the workspaces on this monitor, with live window previews. Bind it to SUPER + TAB (Settings \u203a Keybinds)" },
+      { type: "toggle", key: "overview.enabled", label: "Enabled", subtext: "A grid of the workspaces on this monitor, with live window previews. Bind it from Settings \u203a Keybinds" },
       { type: "section", text: "Grid" },
       { type: "stepper", key: "overview.rows", label: "Rows", from: 1, to: 6, step: 1 },
       { type: "stepper", key: "overview.columns", label: "Columns", from: 1, to: 10, step: 1 },
