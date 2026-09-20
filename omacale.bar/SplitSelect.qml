@@ -21,6 +21,11 @@ Item {
   property bool mainClickable: false
   readonly property color colour: filled ? Colours.m3primary : Colours.m3secondaryContainer
   readonly property color textColour: filled ? Colours.m3onPrimary : Colours.m3onSecondaryContainer
+  // Caelestia SplitButton disabledColour/disabledTextColour: the content has to
+  // dim with the container, or an onPrimary label is left on a bare surface.
+  readonly property color disabledColour: Qt.alpha(Colours.m3onSurface, 0.1)
+  readonly property color disabledTextColour: Qt.alpha(Colours.m3onSurface, 0.38)
+  readonly property color contentColour: disabled ? disabledTextColour : textColour
   signal selected(var value)
   signal mainClicked()
 
@@ -35,7 +40,7 @@ Item {
       id: main
       height: 40
       width: Math.max(root.minLeftWidth, mainRow.implicitWidth + root.horizontalPadding * 2)
-      color: root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : root.colour
+      color: root.disabled ? root.disabledColour : root.colour
       Behavior on color { CAnim {} }
       topLeftRadius: height / 2; bottomLeftRadius: height / 2
       topRightRadius: Tk.rounding.extraSmall; bottomRightRadius: Tk.rounding.extraSmall
@@ -49,12 +54,12 @@ Item {
         id: mainRow
         anchors.centerIn: parent
         spacing: Tk.spacing.small
-        MIcon { anchors.verticalCenter: parent.verticalCenter; text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon; fill: 1; color: root.textColour }
+        MIcon { anchors.verticalCenter: parent.verticalCenter; text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon; fill: 1; color: root.contentColour }
         MText {
           anchors.verticalCenter: parent.verticalCenter
           text: root.active ? (root.active.activeText || root.active.text) : root.fallbackText
           weight: Font.Medium
-          color: root.textColour
+          color: root.contentColour
           animate: true
         }
       }
@@ -62,7 +67,7 @@ Item {
     Rectangle {
       id: chev
       height: 40; width: 36
-      color: root.disabled ? Qt.alpha(Colours.m3onSurface, 0.1) : (root.expanded && !root.filled ? Colours.m3secondary : root.colour)
+      color: root.disabled ? root.disabledColour : (root.expanded && !root.filled ? Colours.m3secondary : root.colour)
       topRightRadius: height / 2; bottomRightRadius: height / 2
       topLeftRadius: root.expanded ? height / 2 : Tk.rounding.extraSmall; bottomLeftRadius: topLeftRadius
       Behavior on topLeftRadius { Anim { type: "effects" } }
@@ -72,7 +77,7 @@ Item {
         anchors.centerIn: parent
         text: "expand_more"
         size: Tk.iconSize.medium
-        color: root.expanded && !root.filled ? Colours.m3onSecondary : root.textColour
+        color: root.disabled ? root.disabledTextColour : (root.expanded && !root.filled ? Colours.m3onSecondary : root.textColour)
         rotation: (root.expanded ? 180 : 0) + (root.menuOnTop ? 180 : 0)
         Behavior on rotation { Anim {} }
       }

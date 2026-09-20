@@ -21,7 +21,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.10.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.10.2"
 
   signal toggleRequested(string name, string screenName, string arg)
 
