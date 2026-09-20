@@ -349,9 +349,25 @@ Scope {
       Region { intersection: Intersection.Subtract; x: win.sbx; y: win.sby; width: win.sbVis && !win.modal ? Math.max(0, win.ax + win.aw - win.sbx) : 0; height: win.sbVis ? win.sbh : 0 }
     }
 
+    // Hyprland hands the keyboard to a window on the workspace you switch to,
+    // and to *nothing at all* when that workspace is empty -- an OnDemand
+    // layer surface is not offered it back, so the panel that asked for the
+    // switch stops receiving keys. Taking the grab again puts the keyboard
+    // back on this window; the overview asks for that after every switch.
+    function regrab() {
+      grab.active = false
+      regrabTimer.restart()
+    }
+    Timer {
+      id: regrabTimer
+      interval: 60
+      onTriggered: grab.active = Qt.binding(() => win.grabWanted)
+    }
+    readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
     HyprlandFocusGrab {
+      id: grab
       windows: [win]
-      active: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
+      active: win.grabWanted
       onCleared: scope.closeAll()
     }
 
@@ -628,6 +644,7 @@ Scope {
           focus: scope.overview
           screen: scope.screen
           onDismissed: scope.overview = false
+          onRefocus: win.regrab()
         }
       }
 

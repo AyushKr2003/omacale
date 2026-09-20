@@ -16,6 +16,8 @@ Item {
   required property var screen
   property bool active: false
   signal dismissed
+  // Asks the frame to take Hyprland's focus grab again; see ScreenScope.regrab.
+  signal refocus
 
   readonly property var cfg: Config.o.overview
   readonly property var monitor: Hyprland.monitorFor(screen)
@@ -71,7 +73,7 @@ Item {
   function rowHasContent(r) {
     for (let c = 0; c < cols; c++) {
       const id = wsId(r, c)
-      if (id === activeId || id === selected || wsWindows(id) > 0) return true
+      if (id === activeId || wsWindows(id) > 0) return true
     }
     return false
   }
@@ -112,14 +114,6 @@ Item {
   }
 
   property int dropTarget: -1
-  // The keyboard cursor. Arrows move it and Enter commits, rather than
-  // switching workspace on every press: a switch hands Hyprland's keyboard
-  // focus to a window on the new workspace, which takes it off this panel
-  // (and clears the frame's focus grab) after the first key.
-  property int selected: activeId
-  // Follows the real workspace while the panel is away, so it always opens on
-  // the one you are on.
-  onActiveIdChanged: if (!active) selected = activeId
 
   // Hyprland only reports window geometry on demand, and the overview is the
   // one place that needs all of it at once.
@@ -130,7 +124,6 @@ Item {
   }
   onActiveChanged: {
     if (active) {
-      selected = activeId
       refresh()
       // The frame window holds several focusable panels; take the keys while
       // this one is up.
@@ -153,23 +146,25 @@ Item {
   }
 
   // ------------------------------------------------------------ keys
+  // Switch and stay: the arrows walk the grid workspace by workspace, as the
+  // overview plugin's do. Each switch costs the panel Hyprland's keyboard, so
+  // every one is followed by a `refocus` (see ScreenScope.regrab).
+  function walk(id) {
+    Sys.workspace(id)
+    refocus()
+  }
   function go(id) {
     Sys.workspace(id)
     dismissed()
   }
   Keys.onPressed: e => {
-    if (e.key === Qt.Key_Escape) {
+    if (e.key === Qt.Key_Escape || e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) {
       root.dismissed()
       e.accepted = true
       return
     }
-    if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) {
-      root.go(root.selected)
-      e.accepted = true
-      return
-    }
 
-    let r = rowOf(selected), c = colOf(selected), moved = false
+    let r = rowOf(activeId), c = colOf(activeId), moved = false
     if (e.key === Qt.Key_Left || e.key === Qt.Key_H) { c = (c - 1 + cols) % cols; moved = true }
     else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) { c = (c + 1) % cols; moved = true }
     else if (e.key === Qt.Key_Up || e.key === Qt.Key_K) { r = (r - 1 + rows) % rows; moved = true }
@@ -185,7 +180,7 @@ Item {
     }
 
     if (moved) {
-      root.selected = wsId(r, c)
+      root.walk(wsId(r, c))
       e.accepted = true
     }
   }
@@ -215,7 +210,6 @@ Item {
           readonly property int wsId: root.group * root.perGroup + index + 1
           readonly property bool shown: root.shownRows.indexOf(root.rowOf(wsId)) >= 0
           readonly property bool focused: wsId === root.activeId
-          readonly property bool cursor: wsId === root.selected
           readonly property bool dropping: root.dropTarget === wsId
 
           x: root.cellX(wsId)
@@ -227,9 +221,8 @@ Item {
           color: dropping ? Qt.alpha(Colours.m3tertiary, 0.18)
                : focused ? Qt.alpha(Colours.m3primary, 0.12)
                : Colours.m3surfaceContainer
-          border.width: dropping || focused || cursor ? 2 : 0
-          border.color: dropping ? Colours.m3tertiary
-                      : cursor && !focused ? Colours.m3onSurfaceVariant : Colours.m3primary
+          border.width: dropping || focused ? 2 : 0
+          border.color: dropping ? Colours.m3tertiary : Colours.m3primary
           Behavior on x { Anim { type: "fastSpatial" } }
           Behavior on y { Anim { type: "fastSpatial" } }
           Behavior on color { CAnim {} }

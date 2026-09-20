@@ -15,7 +15,7 @@ Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs 
 - **Launcher**: app search, Omarchy actions, and wallpaper and theme carousels (`>wallpaper`, `>theme`)
 - **Notification popups**: Caelestia-style toasts — hover to pause, swipe to dismiss, drag to expand — on their own overlay layer, so they stay visible over fullscreen windows and video
 - **Sidebar**: grouped notifications, quick toggles, keep-awake, and a screen recorder
-- **Workspace overview**: the monitor's workspaces as a grid of live window previews, in a panel that grows out of the frame like Settings -- click a workspace to switch, click a window to focus it, drag a window onto another workspace, middle click to close it, or move the cursor with the arrow keys and commit with Enter (a number key jumps straight there)
+- **Workspace overview**: the monitor's workspaces as a grid of live window previews, in a panel that grows out of the frame like Settings -- click a workspace to switch, click a window to focus it, drag a window onto another workspace, middle click to close it, or walk the grid with the arrow keys, which switch as you go (Enter or Escape puts the panel away, a number key jumps straight to that workspace)
 - **Lock screen**: Caelestia's lock card — split clock, profile picture, shape-per-character password field, weather, fetch, media, resources and notifications — drawn inside Omarchy's own lock plugin, which keeps the session lock and the password check
 - **Session menu**: logout, reboot, shutdown and more
 - **Settings**: a port of Caelestia's Nexus app covering style, panels, network, Bluetooth, keybinds and more. Changes apply live.
