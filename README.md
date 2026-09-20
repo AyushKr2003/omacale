@@ -119,6 +119,10 @@ The lock screen shows the wallpaper rather than Caelestia's blurred screenshot o
 
 Toasts carry Caelestia's close/open/copy row but not a sender's own action buttons or inline reply: Omarchy's notification records keep only the one default action (`execArgv`), so there is nothing to draw the rest from.
 
+## License
+
+Omacale is licensed under the [GNU General Public License v3.0](LICENSE). It is a derivative work of [caelestia-dots/shell](https://github.com/caelestia-dots/shell), which is also GPL-3.0.
+
 ## Credits
 
 Design, shader and assets come from [caelestia-dots/shell](https://github.com/caelestia-dots/shell) (GPL-3.0). Google Sans Flex and Rubik are under the SIL Open Font License.
