@@ -148,6 +148,7 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - **Never name a property `on<Capital>...`** (e.g. `onSpecial`). QML treats `on<Capital>` as a signal-handler prefix: it loads without a warning, but in the Omarchy shell bindings to it never updated, even though Caelestia's `Workspaces.qml` uses that name. Rename it (`inSpecial`).
 - Row/Column with a child whose width depends on the parent's `implicitWidth` causes `polish() loop` warnings; give the child its natural width.
 - A Repeater whose `model` array is rebuilt on every state change destroys its delegates (lost presses, lost expanded state). Keep models static and look state up from the delegate, or store UI state in a singleton (see `NotifService.expandedApps`).
+- **`Repeater.itemAt()` is not a binding dependency, and `count` is the model size before the delegates exist.** A binding that resolves a delegate (`rep.itemAt(activeIndex)`) gets `null` on its first evaluation and then never re-runs unless one of its *other* dependencies changes. At login the workspaces active pill was invisible for that reason -- nothing moved `activeId`, so the binding stayed null until the first workspace switch. Have the delegates bump a counter in `Component.onCompleted` and read it in the binding (`Workspaces.listGen`, `SpecialWorkspaces.listGen`).
 - `omacale` IPC calls **toggle**; a second call closes the drawer.
 - `'r6' / 'join' does not have a matching property` in the log is harmless: `Settings.qml` and `StylePreview.qml` reuse `blob.frag.qsb` without those uniforms, which then default to zero.
 - **Qt's `hh` is only 12-hour when the same format string has `AP`.** `Qt.formatTime(d, "hh")` alone is 24-hour. Use `Sys.hour(d)` / `Sys.time(d)`, never a bare `"hh"`.
@@ -194,8 +195,12 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 
 The version lives in `omacale.bar/manifest.json`, `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all three together (minor for features, patch for fixes).
 
+**Bump it on every change that reaches the user, without being asked** -- a fix, a feature, anything that changes what the shell does. A docs-only or comment-only change doesn't need one.
+
 ## Git
 
 Omacale is its own repo (`AyushKr2003/omacale`), checked out as the `shell/omacale` submodule of omarchy-dotfiles, which fetches it on `install.sh`. Commit and push inside `shell/omacale`, then commit the moved submodule pointer in omarchy-dotfiles.
 
-Commit only when asked. Commit messages follow the repo's style (`fix: ...`, `feat: ...`). Don't commit `shell/caelestia_shell` changes; it's a reference checkout.
+**Commit finished work without being asked**: once a change is done and verified, bump the version and commit it, in `shell/omacale` first and then the submodule pointer in omarchy-dotfiles. Don't push unless asked.
+
+Commit messages follow the repo's style (`fix: ...`, `feat: ...`), with the version bump in the same commit as the change it belongs to. Don't commit `shell/caelestia_shell` changes; it's a reference checkout.

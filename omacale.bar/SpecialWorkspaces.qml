@@ -44,8 +44,12 @@ Item {
     .map(w => w.id)
   readonly property int activeIdx: wsIds.indexOf(activeSpecialId)
   readonly property real maxViewY: Math.max(0, view.height - height)
+  // See Workspaces.qml `listGen`: `rep.count` is the model size before the
+  // delegates exist and `rep.itemAt()` is not a dependency, so without this the
+  // tertiary pill and the scroll-into-view resolve to null once and stay there.
+  property int listGen: 0
   readonly property Item activeWs: {
-    rep.count
+    root.listGen
     return activeIdx >= 0 ? rep.itemAt(activeIdx) : null
   }
 
@@ -170,7 +174,7 @@ Item {
         height: col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0)
         Behavior on height { Anim {} }
         opacity: 0
-        Component.onCompleted: { opacity = 1; pickShape() }
+        Component.onCompleted: { opacity = 1; pickShape(); root.listGen++ }
         Behavior on opacity { Anim { type: "effects" } }
 
         Column {

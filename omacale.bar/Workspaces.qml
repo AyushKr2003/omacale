@@ -30,6 +30,14 @@ Rectangle {
   property real blur: inSpecial ? 1 : 0
   Behavior on blur { Anim { type: "standardSmall" } }
 
+  // `rep.itemAt()` is not a binding dependency, and `rep.count` is already the
+  // model size while the delegates are still being built: at login a binding
+  // that reaches for a delegate resolves to null and, with nothing to depend
+  // on, never runs again -- the active pill stayed invisible until switching
+  // workspace changed activeId. Delegates bump this on completion so anything
+  // resolving one re-evaluates once it exists.
+  property int listGen: 0
+
   implicitWidth: Tk.barInner
   implicitHeight: list.implicitHeight + Tk.padding.extraSmall * 2
   radius: width / 2
@@ -119,7 +127,10 @@ Rectangle {
           }
           onFocusedChanged: pickShape()
           onOccupiedChanged: if (!focused) pickShape()
-          Component.onCompleted: pickShape()
+          Component.onCompleted: {
+            pickShape()
+            root.listGen++
+          }
 
           Column {
             id: col
@@ -169,6 +180,7 @@ Rectangle {
     Repeater {
       model: {
         if (!root.cfg.occupiedBg) return []
+        root.listGen  // re-run once the delegates exist
         const runs = []
         let start = -1
         for (let i = 0; i <= root.shown; i++) {
@@ -196,7 +208,10 @@ Rectangle {
     ActiveIndicator {
       visible: root.cfg.activeIndicator
       list: list
-      target: rep.count ? rep.itemAt(Math.max(0, Math.min(root.shown - 1, root.activeId - 1 - root.groupOffset))) : null
+      target: {
+        root.listGen  // re-run once the delegates exist
+        return rep.count ? rep.itemAt(Math.max(0, Math.min(root.shown - 1, root.activeId - 1 - root.groupOffset))) : null
+      }
     }
 
     // Caelestia: clicking the focused workspace toggles the default special
