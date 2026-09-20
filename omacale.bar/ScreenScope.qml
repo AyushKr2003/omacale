@@ -87,7 +87,15 @@ Scope {
     target: Hyprland
     function onRawEvent(e) { if (e.name === "fullscreen" || e.name === "workspace" || e.name === "closewindow") Hyprland.refreshWorkspaces() }
   }
-  onHasFullscreenChanged: closeAll()
+  onHasFullscreenChanged: {
+    launcher = false
+    session = false
+    dashboard = false
+    dashShortcut = false
+    popout = ""
+    sidebar = false
+    utilities = false
+  }
 
   // --------------------------------------------- reserved screen edges
   component Reserve: PanelWindow {
@@ -190,7 +198,7 @@ Scope {
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omacale"
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.layer: win.modal ? WlrLayer.Overlay : WlrLayer.Top
     WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings || scope.overview ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
@@ -354,21 +362,34 @@ Scope {
     // layer surface is not offered it back, so the panel that asked for the
     // switch stops receiving keys. Taking the grab again puts the keyboard
     // back on this window; the overview asks for that after every switch.
+    property bool regrabbing: false
     function regrab() {
-      grab.active = false
       regrabTimer.restart()
     }
     Timer {
       id: regrabTimer
-      interval: 60
-      onTriggered: grab.active = Qt.binding(() => win.grabWanted)
+      interval: 50
+      onTriggered: {
+        win.regrabbing = true
+        grab.active = false
+        grab.active = Qt.binding(() => win.grabWanted)
+        win.regrabbing = false
+        if (scope.overview) overviewContent.forceActiveFocus()
+      }
     }
     readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
     HyprlandFocusGrab {
       id: grab
       windows: [win]
       active: win.grabWanted
-      onCleared: scope.closeAll()
+      onCleared: {
+        if (win.regrabbing) return
+        if (scope.overview) {
+          regrabTimer.restart()
+        } else {
+          scope.closeAll()
+        }
+      }
     }
 
     // ---------------------------------------------------- scrim
