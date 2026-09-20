@@ -18,6 +18,7 @@ IdleInhibitCard 1.0 IdleInhibitCard.qml
 singleton IdleService 1.0 IdleService.qml
 KeybindsCard 1.0 KeybindsCard.qml
 Launcher 1.0 Launcher.qml
+singleton MenuService 1.0 MenuService.qml
 LookNFeelCard 1.0 LookNFeelCard.qml
 MIcon 1.0 MIcon.qml
 MProgress 1.0 MProgress.qml

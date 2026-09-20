@@ -162,6 +162,8 @@ QtObject {
         property int maxShown: 7
         property int maxWallpapers: 9
         property string actionPrefix: ">"
+        // Typing this walks the Omarchy menu inside the launcher.
+        property string menuPrefix: ":"
         property bool vimKeybinds: false
         property bool dangerousActions: true
         property int dragThreshold: 50

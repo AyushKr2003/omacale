@@ -24,7 +24,7 @@ ConnectedRect {
       verticalPadding: Tk.padding.small
       text: root.value
       placeholderText: root.row.placeholder || ""
-      onEditingFinished: Config.set(root.row.key, text.trim() || (root.row.key === "launcher.actionPrefix" ? ">" : ""))
+      onEditingFinished: Config.set(root.row.key, text.trim() || (root.row.key === "launcher.actionPrefix" ? ">" : root.row.key === "launcher.menuPrefix" ? ":" : ""))
     }
   }
 }

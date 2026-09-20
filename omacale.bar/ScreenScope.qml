@@ -47,7 +47,7 @@ Scope {
       if (name === "launcher" && scope.cfg.launcher.enabled) {
         // With a carousel ("wallpaper" / "theme") it opens onto it, and only
         // closes if that carousel is already showing.
-        const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : ""
+        const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : arg === "menu" ? "menu" : ""
         if (mode && !(scope.launcher && launch.mode === mode)) { launch.openMode(arg); scope.launcher = true }
         else scope.launcher = !scope.launcher
       }

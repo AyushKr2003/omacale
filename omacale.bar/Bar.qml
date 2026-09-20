@@ -21,7 +21,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.11.3"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -66,6 +66,8 @@ Item {
       if (Config.o.launcher.themePicker === "omarchy") Sys.run("omarchy-menu toggle theme")
       else root.toggle("launcher", "theme")
     }
+    // The Omarchy menu, walked inside the launcher (the ":" prefix).
+    function menu(): void { root.toggle("launcher", "menu") }
   }
 
   // Created at startup so an old menu-route block gets cleaned up.

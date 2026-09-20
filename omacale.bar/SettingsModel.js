@@ -294,6 +294,7 @@ var subpages = {
       { type: "section", text: "General" },
       { type: "toggle", key: "launcher.enabled", label: "Enabled" },
       { type: "text", key: "launcher.actionPrefix", label: "Action prefix", subtext: "Prefix used to run actions in the launcher", placeholder: "Prefix" },
+      { type: "text", key: "launcher.menuPrefix", label: "Menu prefix", subtext: "Prefix that opens the Omarchy menu in the launcher", placeholder: "Prefix" },
       { type: "section", text: "Display" },
       { type: "stepper", key: "launcher.maxShown", label: "Max items shown", from: 3, to: 12, step: 1 },
       { type: "stepper", key: "launcher.maxWallpapers", label: "Max wallpapers shown", subtext: "Carousel size for \">wallpaper\" and \">theme\"", from: 1, to: 15, step: 2 },

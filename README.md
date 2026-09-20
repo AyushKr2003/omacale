@@ -12,7 +12,7 @@ Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs 
 - **Material 3 colours**: generated from your Omarchy theme accent, so `omarchy theme set` recolours the whole shell
 - **Bar**: workspaces as shapes, window title, tray, clock, status icons, and hover popouts for Wi-Fi, Bluetooth and battery
 - **Dashboard**: weather, calendar, system stats, and a media player with synced lyrics and an audio visualiser
-- **Launcher**: app search, Omarchy actions, and wallpaper and theme carousels (`>wallpaper`, `>theme`)
+- **Launcher**: app search, Omarchy actions, wallpaper and theme carousels (`>wallpaper`, `>theme`), and the whole Omarchy menu under `:` -- the same rows, guards and search as `omarchy menu`, drawn as launcher rows
 - **Notification popups**: Caelestia-style toasts — hover to pause, swipe to dismiss, drag to expand — on their own overlay layer, so they stay visible over fullscreen windows and video
 - **Sidebar**: grouped notifications, quick toggles, keep-awake, and a screen recorder
 - **Workspace overview**: the monitor's workspaces as a grid of live window previews, in a panel that grows out of the frame like Settings -- click a workspace to switch, click a window to focus it, drag a window onto another workspace, middle click to close it, or walk the grid with the arrow keys, which switch as you go (Enter or Escape puts the panel away, a number key jumps straight to that workspace)
@@ -83,7 +83,7 @@ Drive it from Hyprland bindings or the command line:
 
 ```bash
 omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | overview | settings | close
-omarchy-shell omacale wallpapers | themes
+omarchy-shell omacale wallpapers | themes | menu
 ```
 
 Suggested keybinds live in [`omacale.bar/keybinds.lua`](omacale.bar/keybinds.lua). Print them with `scripts/omacale binds`, or copy them from Settings › Keybinds.
@@ -100,6 +100,23 @@ Suggested keybinds live in [`omacale.bar/keybinds.lua`](omacale.bar/keybinds.lua
 ```bash
 omarchy-shell omacale overview
 ```
+
+### The Omarchy menu in the launcher
+
+Typing `:` in the launcher walks the Omarchy menu itself: the rows from
+`omarchy-menu.jsonc` (both the shipped one and your
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`), with Omarchy's own search,
+its `when:` / `checked:` / `disabled:` guards, and its `provider:` lists.
+
+| Key | Action |
+|---|---|
+| type | search everything below where you are |
+| `Enter` / `→` | open a submenu, or run the row |
+| `Backspace` / `←` | back out one level (and, at the top, out of the menu) |
+| `Escape` | close the launcher |
+
+`omarchy-shell omacale menu` opens the launcher straight into it. The prefix is
+Settings › Launcher › Menu prefix.
 
 Settings are saved to `~/.config/omacale/settings.json`.
 
