@@ -2,6 +2,8 @@
 
 A [Caelestia](https://github.com/caelestia-dots/shell)-style desktop shell for [Omarchy](https://omarchy.org).
 
+![Omacale preview](preview.png)
+
 Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs inside the Omarchy shell you already have: no second Quickshell process, no C++ build, and no edits to your Hyprland config.
 
 ## Features
