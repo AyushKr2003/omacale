@@ -183,6 +183,17 @@ QtObject {
         property bool enabled: true
         property int width: 430
       }
+      property JsonObject lock: JsonObject {
+        property bool enabled: false
+        property bool weather: true
+        property bool fetch: true
+        property bool media: true
+        property bool resources: true
+        property bool notifs: true
+        property bool hideNotifs: false
+        property bool recolourLogo: true
+        property bool blur: true
+      }
       property JsonObject utilities: JsonObject {
         property bool enabled: true
         property int width: 430

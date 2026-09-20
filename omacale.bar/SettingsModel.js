@@ -86,7 +86,8 @@ var pages = [
       { type: "nav", icon: "apps", label: "Launcher", page: "launcher", status: "launcher.enabled" },
       { type: "nav", icon: "dock_to_right", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
       { type: "nav", icon: "construction", label: "Utilities", page: "utilities", status: "utilities.enabled" },
-      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" }
+      { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
+      { type: "nav", icon: "lock", label: "Lock screen", page: "lock", status: "lock.enabled" }
     ]
   },
   {
@@ -298,6 +299,24 @@ var subpages = {
         { value: "hibernate", label: "Hibernate", icon: "downloading" },
         { value: "suspend", label: "Suspend", icon: "bedtime" }
       ] }
+    ]
+  },
+  lock: {
+    title: "Lock screen",
+    rows: [
+      { type: "toggle", key: "lock.enabled", label: "Omacale lock screen", subtext: "Draw Omarchy's lock screen the way Caelestia does; Omarchy keeps the session lock and the password check" },
+      { type: "custom", comp: "lock" },
+      { type: "section", text: "Cards" },
+      { type: "toggle", key: "lock.weather", when: { key: "lock.enabled", value: true }, label: "Weather", subtext: "Conditions, temperature and today's high and low" },
+      { type: "toggle", key: "lock.fetch", when: { key: "lock.enabled", value: true }, label: "Fetch", subtext: "Uptime, session and battery beside the logo" },
+      { type: "toggle", key: "lock.media", when: { key: "lock.enabled", value: true }, label: "Media", subtext: "What is playing, with skip and pause" },
+      { type: "toggle", key: "lock.resources", when: { key: "lock.enabled", value: true }, label: "Resources", subtext: "CPU, memory and disk" },
+      { type: "toggle", key: "lock.notifs", when: { key: "lock.enabled", value: true }, label: "Notifications", subtext: "The notification dock, grouped as in the sidebar" },
+      { type: "section", text: "Privacy" },
+      { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
+      { type: "section", text: "Appearance" },
+      { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur what is behind the lock card" },
+      { type: "toggle", key: "lock.recolourLogo", when: { key: "lock.enabled", value: true }, label: "Recolour the logo", subtext: "Tint the fetch card's logo with the scheme" }
     ]
   },
   sidebar: {

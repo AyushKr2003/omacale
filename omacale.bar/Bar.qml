@@ -17,10 +17,11 @@ Item {
 
   // Mirrors `omarchy toggle bar` so the frame hides like the stock bar.
   property bool barHidden: false
-  property bool capsLock: false
-  property bool numLock: false
+  // Polled by Sys, which the lock screen shares.
+  readonly property bool capsLock: Sys.capsLock
+  readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.9.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.10.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -69,6 +70,10 @@ Item {
   // Created at startup so an old menu-route block gets cleaned up.
   readonly property string wallpapersScript: Wallpapers.script
 
+  // Likewise: LockService checks the lock-screen handover at startup, and
+  // installs it if the setting is on and it is missing.
+  readonly property bool lockHandover: LockService.installed
+
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to
   // ~/.config/hypr, and it disappears on the next Hyprland reload.
@@ -108,19 +113,4 @@ Item {
     onFileChanged: hiddenProbe.running = true
   }
 
-  // Caps / num lock (Hyprland has no event for these).
-  Process {
-    id: lockProbe
-    command: ["hyprctl", "devices", "-j"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try {
-          const k = JSON.parse(text).keyboards.find(k => k.main) || {}
-          root.capsLock = !!k.capsLock
-          root.numLock = !!k.numLock
-        } catch (e) {}
-      }
-    }
-  }
-  Timer { interval: 1500; running: true; repeat: true; onTriggered: lockProbe.running = true }
 }

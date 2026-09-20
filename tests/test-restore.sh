@@ -182,5 +182,41 @@ else
   echo "  - skipped (no Omarchy notification plugin on this machine)"
 fi
 
+echo "Q. the lock screen handover"
+# omacale.bar/scripts/lock-screen swaps the view of a clone of Omarchy's lock
+# plugin and leaves its service alone. The contract it checks before writing
+# anything is what keeps an Omarchy update from leaving the machine with a
+# lock screen that cannot load, so that check is what is tested here.
+lock_stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/lock/Service.qml"
+wrapper="$here/../omacale.bar/assets/lock/LockView.qml"
+if [[ -f $lock_stock ]]; then
+  # missing: what the service drives its view with that the wrapper lacks.
+  # added: the same after pretending an Omarchy update grew a property.
+  # none: what a service with no LockView block at all yields.
+  read -r -d '' lock_probe <<PY || true
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader('lk', '$here/../omacale.bar/scripts/lock-screen').load_module()
+svc = open('$lock_stock').read()
+tpl = open('$wrapper').read()
+grown = svc.replace('inputEnabled: root.lockRequested', 'inputEnabled: root.lockRequested\n        brandNew: 1')
+gone = svc.replace('LockView {', 'SomethingElse {')
+print('missing=' + ','.join(sorted(m.view_usage(svc) - m.view_provides(tpl))))
+print('added=' + ','.join(sorted(m.view_usage(grown) - m.view_provides(tpl))))
+print('none=' + ','.join(sorted(m.view_usage(gone))))
+PY
+  lock_out="$(python3 -c "$lock_probe" 2>/dev/null)"
+  check "the contract probe ran"               test -n "$lock_out"
+  check "wrapper meets the service's contract" grep -qx 'missing=' <<<"$lock_out"
+  check "a new upstream property is caught"    grep -qx 'added=brandNew' <<<"$lock_out"
+  check "a service with no LockView is caught" grep -qx 'none=' <<<"$lock_out"
+  check "wrapper keeps Omarchy's view as the fallback" grep -q 'StockLockView' "$wrapper"
+  # A relative directory import of omacale.bar would make a removed or broken
+  # Omacale a lock screen that cannot load; the wrapper loads it by URL.
+  check "wrapper imports nothing from Omacale" bash -c "! grep -q '^import \"' '$wrapper'"
+  check "wrapper carries its version marker"   grep -q 'omacale:lock-view v' "$wrapper"
+else
+  echo "  - skipped (no Omarchy lock plugin on this machine)"
+fi
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

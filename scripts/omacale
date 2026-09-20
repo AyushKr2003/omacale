@@ -13,6 +13,10 @@
 #      shell.json that go with it -- only when you accept the notification
 #      popups, and only through `omarchy plugin clone` / `remove`
 #      (see scripts/notif-popups)
+#   6. ~/.config/omarchy/plugins/<user>.lock/ and the plugin keys in
+#      shell.json that go with it -- only when you accept the lock screen,
+#      and only through `omarchy plugin clone` / `remove`
+#      (see omacale.bar/scripts/lock-screen)
 #   (older versions also wrote a marked block to
 #   ~/.config/omarchy/extensions/omarchy-menu.jsonc; nothing writes it now,
 #   and both the plugin and uninstall remove a leftover one)
@@ -22,7 +26,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.9.0"
+VERSION="0.10.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -51,6 +55,7 @@ keep_settings=0
 no_restart=0
 cava_choice=""        # "", yes, no
 notif_choice=""       # "", yes, no
+lock_choice=""        # "", yes, no
 bind_mode="print"
 cmd=""
 
@@ -95,6 +100,8 @@ Options:
   --no-cava    (install) skip the cava question
   --notif-popups    (install) draw notification popups as Caelestia toasts
   --no-notif-popups (install) leave Omarchy's own toasts alone
+  --lock-screen     (install) draw the lock screen as Caelestia's
+  --no-lock-screen  (install) leave Omarchy's own lock screen alone
   --help, -h   Show this help
 
 Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
@@ -137,6 +144,28 @@ wait_for() {
 }
 
 plugin_listed() { omarchy plugin list --json 2>/dev/null | jq -e --arg id "$PLUGIN_ID" 'any(.[]; .id == $id)' >/dev/null; }
+
+# The lock-screen handover lives in the plugin (Settings runs it too), so it
+# is read from the installed copy when there is one and from this checkout
+# otherwise -- the same script either way.
+lock_script() {
+  local script="$src_plugin/scripts/lock-screen"
+  [[ -x $dest_plugin/scripts/lock-screen ]] && script="$dest_plugin/scripts/lock-screen"
+  python3 "$script" "$@"
+}
+lock_handover_on() { lock_script status 2>/dev/null | grep -q "^view:      omacale"; }
+
+# Turning the handover on without turning the setting on would install it and
+# still draw Omarchy's view, so the two go together.
+set_lock_setting() {
+  local on="$1" file="$settings_dir/settings.json"
+  mkdir -p -- "$settings_dir"
+  if [[ -f $file ]]; then
+    jq --argjson on "$on" '.lock = ((.lock // {}) + { enabled: $on })' "$file" | write_atomic "$file"
+  else
+    jq -n --argjson on "$on" '{ lock: { enabled: $on } }' | write_atomic "$file"
+  fi
+}
 
 bar_layer_present() { hyprctl layers -j 2>/dev/null | grep -q '"namespace": *"omacale"'; }
 
@@ -185,6 +214,11 @@ cmd_status() {
     else
       say "  popups     : drawn by Omarchy's own daemon"
     fi
+    if lock_handover_on; then
+      say "  lock       : drawn by Omacale$(installed_state && [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] && echo " (given back on uninstall)")"
+    else
+      say "  lock       : drawn by Omarchy's own lock screen"
+    fi
   fi
   if installed_state; then
     say "  on uninstall → bar.id : $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
@@ -220,6 +254,13 @@ cmd_doctor() {
       if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
         chk "notification daemon still headless (Omacale draws the popups)" \
           "'$script_dir/notif-popups' status | grep -q '^daemon:    headless'"
+      fi
+      if [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]]; then
+        chk "lock screen still handed over (Omacale draws it)" "lock_handover_on"
+        # The clone carries a copy of Omarchy's lock service; an `omarchy
+        # update` that changes it wants a reinstall to pick the new one up.
+        chk "lock clone runs the current Omarchy lock service" \
+          "lock_script status | grep -q '^stale:     no'"
       fi
     fi
   else
@@ -413,6 +454,40 @@ cmd_install() {
     jq --argjson c "$notif_clone" '.installedNotifClone = $c' "$state_file" | write_atomic "$state_file"
   fi
 
+  step "Optional: lock screen"
+  # Omarchy's lock plugin keeps the session lock, PAM and the `lock` IPC;
+  # the handover swaps only the view it draws (omacale.bar/scripts/lock-screen).
+  # Recorded so uninstall gives it back -- and only if we took it.
+  local lock_clone=false
+  if (( offline || dry_run )); then
+    say "  ${d}skipped (the lock screen is optional)${z}"
+  elif lock_handover_on; then
+    ok "lock screen already handed over to Omacale"
+    lock_clone=true
+  else
+    local want_lock="$lock_choice"
+    if [[ -z $want_lock ]]; then
+      if (( assume_yes )) || [[ ! -t 0 ]]; then want_lock=yes
+      else
+        local reply
+        read -r -p "  Draw the lock screen as Caelestia's? Omarchy's lock plugin keeps the session lock and the password check; only the view moves to Omacale, and uninstall puts it back. [Y/n] " reply
+        [[ $reply =~ ^[nN] ]] && want_lock=no || want_lock=yes
+      fi
+    fi
+    if [[ $want_lock == yes ]]; then
+      if lock_script install; then
+        lock_clone=true; set_lock_setting true; ok "Omacale draws the lock screen"
+      else
+        warn "could not hand the lock screen over; Omarchy keeps drawing its own"
+      fi
+    else
+      say "  skipped — Omarchy keeps its own lock screen (enable later in Settings › Panels › Lock screen)"
+    fi
+  fi
+  if (( ! dry_run )); then
+    jq --argjson c "$lock_clone" '.installedLockClone = $c' "$state_file" | write_atomic "$state_file"
+  fi
+
   step "Optional: music visualiser"
   local cava_installed_by_us=false
   if command -v cava >/dev/null 2>&1; then
@@ -506,6 +581,7 @@ cmd_uninstall() {
   say "  bar.id     → $(jq -r 'if .pre.barId == null then "unset (built-in omarchy.bar)" else .pre.barId end' "$state_file")"
   say "  shell.json → $(jq -r 'if .pre.shellJsonExisted then "restored from snapshot" else "removed if it only holds defaults" end' "$state_file")"
   say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
+  { [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] || lock_handover_on; } && say "  lock       → given back to Omarchy"
   [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
   else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
@@ -521,6 +597,16 @@ cmd_uninstall() {
     # and the snapshot has to be the last word on that file.
     if "$script_dir/notif-popups" remove --no-restart; then ok "Omarchy draws its own toasts again"
     else warn "could not remove the notification clone; run: $script_dir/notif-popups remove"; fi
+  fi
+
+  # Recorded, or simply found drawing Omacale's view: either way the clone is
+  # running a view that is about to be removed, so it goes back to Omarchy's.
+  if (( ! offline )) && { [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] || lock_handover_on; }; then
+    step "Give the lock screen back"
+    # Same reason as the popups: `omarchy plugin remove` writes shell.json,
+    # so it has to happen before the snapshot is restored.
+    if lock_script remove; then ok "Omarchy draws its own lock screen again"
+    else warn "could not remove the lock clone; run: $dest_plugin/scripts/lock-screen remove"; fi
   fi
 
   step "Restore shell.json"
@@ -641,6 +727,8 @@ while (( $# )); do
     --no-cava) cava_choice=no ;;
     --notif-popups) notif_choice=yes ;;
     --no-notif-popups) notif_choice=no ;;
+    --lock-screen) lock_choice=yes ;;
+    --no-lock-screen) lock_choice=no ;;
     --dry-run) dry_run=1 ;;
     --yes|-y) assume_yes=1 ;;
     --dev) dev_link=1 ;;

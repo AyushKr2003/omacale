@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+"""Hand Omarchy's lock screen over to Omacale (and give it back).
+
+Omarchy's lock is a first-party shell plugin (`omarchy.lock`): a
+`WlSessionLock` whose service owns PAM, the stranded-lock recovery, the
+blank-on-idle timers and the `lock` IPC that `omarchy system lock`,
+`omarchy-system-sleep-lock` and the lid binding all call. None of that is
+worth reimplementing, and a second session lock is not allowed beside it, so
+Omacale takes the one part it wants -- the view -- and leaves the rest.
+
+Omarchy documents the route: `omarchy plugin clone` copies a built-in plugin
+into ~/.config/omarchy/plugins/, disables the built-in and routes its IPC to
+the clone. This script clones the lock plugin once and then, on every run:
+
+  * copies the stock `Service.qml` into the clone untouched, so the clone
+    picks up Omarchy's lock fixes instead of freezing at clone time;
+  * keeps the stock view beside it as `StockLockView.qml`;
+  * writes `LockView.qml` from assets/lock/LockView.qml -- a wrapper that
+    loads Omacale's LockUi.qml by URL and falls back to the stock view when
+    Omacale is off, missing or broken.
+
+Before writing anything it checks that every property and signal the stock
+`Service.qml` drives its view with exists on the wrapper. If `omarchy update`
+reshapes that contract the script refuses rather than leave the machine with
+a lock screen that cannot load.
+
+  lock-screen install    clone (if needed) + refresh; the shell picks the
+                         clone up live, so --restart is only for installers
+  lock-screen remove     give the lock back to Omarchy
+  lock-screen status     report what is in place (parsable, key: value)
+"""
+
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+
+MARKER = "omacale:lock-view v1"
+
+HOME = os.path.expanduser("~")
+PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
+SOURCE_ID = "omarchy.lock"
+STOCK_DIR = os.path.join(
+    os.environ.get("OMARCHY_PATH", "/usr/share/omarchy"),
+    "shell", "plugins", "lock",
+)
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN_DIR = os.path.dirname(HERE)
+TEMPLATE = os.path.join(PLUGIN_DIR, "assets", "lock", "LockView.qml")
+SETTINGS = os.path.join(HOME, ".config", "omacale", "settings.json")
+
+
+def fail(msg):
+    print(f"lock-screen: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def run(cmd, **kwargs):
+    return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
+
+
+def sha(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except OSError:
+        return ""
+
+
+def clone_dir():
+    """The lock clone, whatever it is called: `omarchy plugin clone` names it
+    after the user, and a machine may have been set up under another name."""
+    if not os.path.isdir(PLUGINS_DIR):
+        return None
+    for name in sorted(os.listdir(PLUGINS_DIR)):
+        if name.startswith("."):
+            continue
+        manifest = os.path.join(PLUGINS_DIR, name, "manifest.json")
+        try:
+            with open(manifest) as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        if data.get("omarchy", {}).get("clonedFrom") == SOURCE_ID:
+            return os.path.join(PLUGINS_DIR, name)
+    return None
+
+
+def plugin_enabled(plugin_id):
+    proc = run(["omarchy-shell", "shell", "listPlugins"])
+    try:
+        for row in json.loads(proc.stdout):
+            if row.get("id") == plugin_id:
+                return bool(row.get("enabled"))
+    except ValueError:
+        pass
+    return False
+
+
+def view_state(target):
+    """Which view the clone draws with: ours (and its version), or Omarchy's."""
+    path = os.path.join(target, "LockView.qml")
+    try:
+        with open(path) as f:
+            head = f.read(4096)
+    except OSError:
+        return "missing"
+    match = re.search(r"omacale:lock-view v(\d+)", head)
+    if match:
+        return f"omacale v{match.group(1)}"
+    return "omarchy"
+
+
+# --------------------------------------------------------------- the contract
+#
+# Service.qml drives its view through property assignments and signal
+# handlers inside `LockView { ... }`. The wrapper has to accept every one of
+# them, or the whole lock plugin fails to load.
+
+def view_usage(service_qml):
+    """Every property and signal handler Service.qml sets on its LockView."""
+    names = set()
+    for match in re.finditer(r"\bLockView\s*\{", service_qml):
+        depth = 0
+        i = match.end() - 1
+        for j in range(i, len(service_qml)):
+            char = service_qml[j]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    block = service_qml[i + 1:j]
+                    break
+        else:
+            fail("could not read a LockView block in Service.qml")
+        # Only the block's own top-level assignments; nested items bring
+        # their own properties and are not ours to satisfy.
+        inner = 0
+        for line in block.splitlines():
+            stripped = line.strip()
+            if inner == 0:
+                found = re.match(r"^(on)?([A-Za-z_][A-Za-z0-9_]*)\s*:", stripped)
+                if found and found.group(0) != "id:":
+                    name = found.group(2)
+                    names.add(name[0].lower() + name[1:] if found.group(1) else name)
+            inner += line.count("{") - line.count("}")
+    return names
+
+
+def view_provides(template_qml):
+    """Every property and signal the wrapper declares."""
+    names = set(re.findall(r"^\s*(?:readonly\s+)?property\s+\S+\s+([A-Za-z_]\w*)", template_qml, re.M))
+    names |= set(re.findall(r"^\s*signal\s+([A-Za-z_]\w*)", template_qml, re.M))
+    return names
+
+
+def check_contract(service_qml, template_qml):
+    used = view_usage(service_qml)
+    if not used:
+        fail(f"{STOCK_DIR}/Service.qml has no LockView block; refusing to patch a lock plugin this script does not recognise")
+    missing = sorted(used - view_provides(template_qml))
+    if missing:
+        fail(
+            "Omarchy's lock service now drives its view with "
+            + ", ".join(missing)
+            + ".\nUpdate assets/lock/LockView.qml (and LockUi.qml) to match before installing."
+        )
+
+
+# ----------------------------------------------------------------- the actions
+
+def restart_shell():
+    run(["omarchy-restart-shell"])
+
+
+def install(restart=False):
+    for name in ("Service.qml", "LockView.qml"):
+        if not os.path.isfile(os.path.join(STOCK_DIR, name)):
+            fail(f"{STOCK_DIR}/{name} is missing; is this Omarchy?")
+    if not os.path.isfile(TEMPLATE):
+        fail(f"{TEMPLATE} is missing")
+
+    with open(os.path.join(STOCK_DIR, "Service.qml")) as f:
+        service_qml = f.read()
+    with open(os.path.join(STOCK_DIR, "LockView.qml")) as f:
+        stock_view = f.read()
+    with open(TEMPLATE) as f:
+        template_qml = f.read()
+
+    check_contract(service_qml, template_qml)
+
+    target = clone_dir()
+    if target is None:
+        proc = run(["omarchy-plugin-clone", SOURCE_ID])
+        if proc.returncode != 0:
+            fail(proc.stderr.strip() or "omarchy plugin clone failed")
+        target = clone_dir()
+        if target is None:
+            fail("the cloned lock plugin was not found after cloning")
+        print(f"cloned {SOURCE_ID} to {target}")
+
+    # Omarchy's service, verbatim: re-copied every run so the clone follows
+    # `omarchy update` instead of freezing at the version it was cloned from.
+    changed = write(os.path.join(target, "Service.qml"), service_qml)
+    changed |= write(os.path.join(target, "StockLockView.qml"), stock_view)
+    changed |= write(os.path.join(target, "LockView.qml"), template_qml)
+
+    plugin_id = os.path.basename(target)
+    if not plugin_enabled(plugin_id):
+        proc = run(["omarchy-plugin-enable", plugin_id])
+        if proc.returncode != 0:
+            fail(proc.stderr.strip() or f"could not enable {plugin_id}")
+
+    print(f"lock view: {view_state(target)} ({plugin_id})" + ("" if changed else " (already in place)"))
+    if restart:
+        restart_shell()
+    return 0
+
+
+def write(path, text):
+    """Only when it differs: the shell watches plugin directories and reloads
+    the plugin on any write, and a reload takes the lock service with it."""
+    try:
+        with open(path) as f:
+            if f.read() == text:
+                return False
+    except OSError:
+        pass
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        f.write(text)
+    os.replace(tmp, path)
+    return True
+
+
+def remove(restart=False):
+    target = clone_dir()
+    if target is None:
+        print("nothing to remove: Omarchy already draws the lock screen")
+        return 0
+
+    plugin_id = os.path.basename(target)
+    proc = run(["omarchy-plugin-remove", plugin_id, "--yes"])
+    if proc.returncode != 0:
+        fail(proc.stderr.strip() or f"could not remove {plugin_id}")
+    print(f"removed {plugin_id}; {SOURCE_ID} draws the lock screen again")
+    if restart:
+        restart_shell()
+    return 0
+
+
+def omacale_enabled():
+    try:
+        with open(SETTINGS) as f:
+            lock = json.load(f).get("lock") or {}
+    except (OSError, ValueError):
+        return True
+    return lock.get("enabled", False) is not False
+
+
+def status():
+    target = clone_dir()
+    if target is None:
+        print("clone:     none")
+        print("view:      omarchy")
+        print("stale:     no")
+    else:
+        plugin_id = os.path.basename(target)
+        print(f"clone:     {plugin_id} ({'enabled' if plugin_enabled(plugin_id) else 'disabled'})")
+        print(f"view:      {view_state(target)}")
+        same = sha(os.path.join(target, "Service.qml")) == sha(os.path.join(STOCK_DIR, "Service.qml"))
+        print(f"stale:     {'no' if same else 'yes'}")
+    print(f"setting:   {'on' if omacale_enabled() else 'off'}")
+    return 0
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+
+    action, *rest = argv
+    # The shell enables the clone and reloads its files live, so a restart is
+    # never needed here; installers that want a clean slate can ask for one.
+    restart = "--restart" in rest
+    if action == "install":
+        return install(restart)
+    if action == "remove":
+        return remove(restart)
+    if action == "status":
+        return status()
+    fail(f"unknown action: {action}")
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

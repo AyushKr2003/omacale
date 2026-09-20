@@ -39,6 +39,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `WallLuminance.qml` | Caelestia's `ImageAnalyser` (`plugin/src/Caelestia/Images/imageanalyser.cpp`), feeding `Colours.wallLuminance` |
 | `ScreenScope.qml` + `shaders/blob.frag` | `modules/drawers/` (`Panels.qml`, `Backgrounds`) and its `blob.frag` |
 | `Dashboard.qml`, `Launcher.qml`, `Session.qml`, `Settings.qml` (Nexus) | `modules/dashboard`, `launcher`, `session`, `nexus` |
+| `LockUi.qml`, `LockContent.qml` | `modules/lock/LockSurface.qml`, `Content.qml` |
+| `LockCenter.qml`, `LockPassword.qml`, `LockMessage.qml` | `modules/lock/Center.qml`, `center/Clock.qml`, `ProfilePic.qml`, `PasswordInput.qml`, `InputField.qml`, `StateMessage.qml` |
+| `LockWeather.qml`, `LockFetch.qml`, `LockMedia.qml`, `LockResources.qml`, `LockNotifs.qml` | `modules/lock/WeatherInfo.qml` (+ `weather/`), `Fetch.qml`, `Media.qml`, `Resources.qml`, `NotifDock.qml` |
 | `NetworkPage.qml`, `NetworkDetail.qml` | `modules/nexus/pages/NetworkPage.qml`, `common/NetworkList.qml`, `network/NetworkDetailPage.qml` |
 | `BluetoothPage.qml`, `BtPairing.qml`, `BtDevice.qml`, `BtDeviceRow.qml` | `modules/nexus/pages/BluetoothPage.qml`, `bluetooth/BluetoothPairing.qml`, `BtDeviceInfo.qml` |
 | `AudioPage.qml`, `AppVolumes.qml`, `AudioDeviceList.qml`, `AudioSlider.qml`, `AudioService.qml` | `modules/nexus/pages/AudioPage.qml`, `audio/AppVolumes.qml`, `common/AudioDeviceList.qml`, `SliderRow.qml`, `services/Audio.qml` |
@@ -84,6 +87,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Screen recording | `omarchy capture screenrecording [--stop-recording]` |
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |
 | Power / session | `omarchy system lock/logout/reboot/shutdown` |
+| Lock screen (`LockService`) | Omarchy's `omarchy.lock` plugin, cloned and given Omacale's view by `omacale.bar/scripts/lock-screen`; its service keeps the `WlSessionLock`, PAM, the blank timers and the `lock` IPC. `omarchy-shell lock preview` / `hidePreview` is the dev loop |
 | Theme | `omarchy theme set`, `omarchy-theme-*` (Colours re-seed from the theme accent) |
 | Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`) |
 | Bar hide | `omarchy toggle bar`; `omarchy.bar` IPC `syncHidden` |
@@ -104,7 +108,10 @@ shell/omacale/
     shaders/blob.frag   SDF frame/drawer background; blob.frag.qsb is the compiled output
     Tk.qml Colours.qml Config.qml Defaults.js   tokens, palette, live settings
     *Service.qml / GameMode.qml / Sys.qml       singletons wrapping Omarchy data
+    Lock*.qml           the lock screen drawn inside Omarchy's lock plugin
     scripts/            our own helper scripts (last resort)
+    scripts/lock-screen   hands Omarchy's lock plugin its Caelestia view (Settings runs it)
+    assets/lock/LockView.qml  the wrapper written into the lock clone
     assets/  keybinds.lua  omacale.lua  manifest.json  qmldir
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
   scripts/notif-popups  clones Omarchy's notification daemon and patches the clone headless
@@ -148,6 +155,7 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - Hyprland animation leaves set explicitly by Omarchy's `looknfeel.lua` (`fadeIn`, `fadeLayersIn`, ...) don't inherit a parent leaf you set later; override them by name (see `omacale.lua`).
 - Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
 - **Don't write to Omarchy's menu extension (`omarchy-menu.jsonc`).** The user doesn't want Omacale inserting anything there; the old Style › Switcher block was removed for this reason.
+- **The lock plugin caches `LockUi.qml`.** Editing it and rsyncing does nothing until the shell restarts (the lock clone's Loader holds the compiled component). `omarchy-restart-shell`, then `omarchy-shell lock preview` — which is also the only safe way to look at the lock, since nothing but the real password can dismiss a real one. Preview passes `inputEnabled: false` and an empty `passwordText`, so the field cannot be typed into there.
 - **The toasts are not a drawer.** Every other panel is a rect in `blob.frag` inside `win`, which is on Hyprland's `top` layer — a fullscreen window covers it and it hides with the bar. Notifications must never be hidden, so `ScreenScope` gives them a second `PanelWindow` on `WlrLayer.Overlay` (namespace `omacale-notifications`), with each toast a card of its own. Anything that must outlive fullscreen belongs there, not in the frame — and remember to add the namespace to a rule that matches `omacale` (the blur rule in `Bar.qml` does).
 
 ## The notification daemon clone
@@ -162,6 +170,19 @@ Omarchy's `omarchy.notifications` service owns the D-Bus name *and* draws the to
 - `NotifService.popupsSupported` comes from the clone's `popupsHidden` IPC, and Omacale draws nothing without it — that is what stops two toasts appearing at once. Don't bypass the gate.
 - Install records `installedNotifClone`; uninstall runs `notif-popups remove` **before** `restore_shell_json`, because `omarchy plugin remove` writes `shell.json` too and the snapshot has to be the last word on it.
 - Don't hand-delete the clone directory: `omarchy plugin remove` is what takes `omarchy.notifications` back out of `disabledPlugins[]`. Removing the directory alone leaves no notification daemon at all.
+
+## The lock screen handover
+
+Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock recovery, the blank-on-idle timers and the `lock` IPC that `omarchy system lock`, `omarchy-system-sleep-lock` and the lid binding call. A second `WlSessionLock` is not allowed beside it, and none of that is worth reimplementing, so Omacale takes only the view.
+
+`omacale.bar/scripts/lock-screen install` does it the supported way: `omarchy plugin clone omarchy.lock`, then, in the clone, Omarchy's `Service.qml` copied in verbatim, its view kept as `StockLockView.qml`, and `LockView.qml` replaced by `assets/lock/LockView.qml`.
+
+- **`Service.qml` is never patched**, only copied, so every `install` re-syncs the clone with the installed Omarchy. `status` reports `stale: yes` when they differ, and `scripts/omacale doctor` checks it.
+- **The wrapper imports nothing from Omacale.** It loads `LockUi.qml` by URL and falls back to `StockLockView` when the setting is off, Omacale is gone, or the UI fails to load. A relative import would turn a broken Omacale into a machine with no lock screen. Keep it that way.
+- **The contract is checked before any write**: every property and signal handler the stock `Service.qml` sets on its `LockView` must exist on the wrapper, or the script refuses (`tests/test-restore.sh` case Q covers both directions). Adding a property upstream means updating `assets/lock/LockView.qml`, and `LockUi.qml` if it wants it.
+- **`LockUi.qml` reaches everything through `view`** (the wrapper) and never assumes it is set: the Loader assigns it a frame late.
+- The install and the removal both apply live — the shell enables the clone and reloads plugin files itself — so neither restarts the shell. `LockService` runs them and is what Settings › Panels › Lock screen drives; `Config.o.lock.enabled` alone decides which view draws, so turning Omacale off never tears anything down mid-lock.
+- Uninstall runs `lock-screen remove` **before** `restore_shell_json`, for the same reason as the notification clone: `omarchy plugin remove` writes `shell.json` too.
 
 ## Style for new code
 

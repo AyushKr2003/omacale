@@ -13,6 +13,7 @@ Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs 
 - **Launcher**: app search, Omarchy actions, and wallpaper and theme carousels (`>wallpaper`, `>theme`)
 - **Notification popups**: Caelestia-style toasts — hover to pause, swipe to dismiss, drag to expand — on their own overlay layer, so they stay visible over fullscreen windows and video
 - **Sidebar**: grouped notifications, quick toggles, keep-awake, and a screen recorder
+- **Lock screen**: Caelestia's lock card — split clock, profile picture, shape-per-character password field, weather, fetch, media, resources and notifications — drawn inside Omarchy's own lock plugin, which keeps the session lock and the password check
 - **Session menu**: logout, reboot, shutdown and more
 - **Settings**: a port of Caelestia's Nexus app covering style, panels, network, Bluetooth, keybinds and more. Changes apply live.
 
@@ -57,7 +58,21 @@ Omacale only draws toasts once the daemon has stood down, so the two can never b
 
 If `omarchy update` reshapes the notification plugin, the clone keeps running the older copy; `scripts/omacale doctor` flags it, and `scripts/notif-popups remove && scripts/notif-popups install` re-clones from the new one.
 
-Uninstall restores your previous state exactly. Install touches the plugin directory, `bar.id` in `~/.config/omarchy/shell.json`, Omacale's own settings and state directories, and — if you accept the popups — the notification clone above. It never edits `~/.config/hypr` or anything under `/usr`.
+### Lock screen
+
+Omarchy's lock screen is a shell plugin (`omarchy.lock`) whose service owns the session lock, PAM, the stranded-lock recovery, the blank-on-idle timers and the `lock` IPC that `omarchy system lock`, the sleep lock and the lid binding call. None of that changes. The installer offers to clone that plugin (`omarchy plugin clone`, the same supported route as the popups) and swap **only the view** it draws for Caelestia's.
+
+```bash
+omacale.bar/scripts/lock-screen status    # who draws the lock screen
+omacale.bar/scripts/lock-screen install   # hand it to Omacale
+omacale.bar/scripts/lock-screen remove    # give it back to Omarchy
+```
+
+Settings › Panels › Lock screen is the switch, and it does the handover itself: turning it on installs the clone if it is missing, turning it off draws Omarchy's own view again immediately (no restart, and the session lock is never torn down). The card there also previews the lock, and each card on it — weather, fetch, media, resources, notifications — can be turned off. "Hide notification contents" shows *Unlock for notifications* instead of the notifications themselves.
+
+The clone carries a verbatim copy of Omarchy's lock service, re-copied on every `lock-screen install`, so `omarchy update` fixes reach it after a reinstall; `scripts/omacale doctor` flags a clone that has fallen behind. Before writing anything the script checks that every property Omarchy's service drives its view with exists on Omacale's wrapper, and refuses if an update has changed that contract. If Omacale is turned off, missing or fails to load, the wrapper falls back to the view Omarchy shipped — the machine is never left without a lock screen.
+
+Uninstall restores your previous state exactly. Install touches the plugin directory, `bar.id` in `~/.config/omarchy/shell.json`, Omacale's own settings and state directories, and — if you accept them — the notification and lock clones above. It never edits `~/.config/hypr` or anything under `/usr`.
 
 ## Usage
 
@@ -98,7 +113,9 @@ See [`CLAUDE.md`](CLAUDE.md) for the architecture, conventions and debugging got
 
 ## Not yet ported
 
-OSD styling, the lock screen, wallpaper-derived colours and drawer "jelly" deformation. Omarchy's own OSD and lock screen keep working underneath.
+OSD styling, wallpaper-derived colours and drawer "jelly" deformation. Omarchy's own OSD keeps working underneath.
+
+The lock screen shows the wallpaper rather than Caelestia's blurred screenshot of the desktop (a screencopy taken after the compositor is locked needs a capture warmed up beforehand), and has no fingerprint or face-unlock state of its own beyond the sensor hint: Omarchy's lock service runs those PAM flows itself. Caelestia's hourly forecast is Omacale's daily one, and its terminal-palette swatch row is drawn from the scheme's accents, since Omacale has no terminal palette.
 
 Toasts carry Caelestia's close/open/copy row but not a sender's own action buttons or inline reply: Omarchy's notification records keep only the one default action (`execArgv`), so there is nothing to draw the rest from.
 

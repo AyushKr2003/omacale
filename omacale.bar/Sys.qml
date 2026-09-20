@@ -304,6 +304,41 @@ QtObject {
     onTriggered: root.weatherProbe.running = true
   }
 
+  // ------------------------------------------------------------ sysinfo
+  // What Caelestia's SysInfo feeds its fetch card with (lock/Fetch.qml).
+  readonly property string user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "user"
+  readonly property string wm: Quickshell.env("XDG_CURRENT_DESKTOP") || "Hyprland"
+  property string osName: "Linux"
+  property FileView osRelease: FileView {
+    path: "/etc/os-release"
+    printErrors: false
+    onLoaded: {
+      const m = /^PRETTY_NAME="?([^"\n]+)"?/m.exec(text())
+      if (m) root.osName = m[1]
+    }
+  }
+
+  // Caps / num lock (Hyprland has no event for these). Polled here rather
+  // than in Bar.qml so the lock screen can show them too.
+  property bool capsLock: false
+  property bool numLock: false
+  property Process lockKeysProbe: Process {
+    command: ["hyprctl", "devices", "-j"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          const k = JSON.parse(text).keyboards.find(k => k.main) || {}
+          root.capsLock = !!k.capsLock
+          root.numLock = !!k.numLock
+        } catch (e) {}
+      }
+    }
+  }
+  property Timer lockKeysTimer: Timer {
+    interval: 1500; running: true; repeat: true
+    onTriggered: root.lockKeysProbe.running = true
+  }
+
   // ------------------------------------------------------------- players
   property var manualPlayer: null
   readonly property var players: Mpris.players.values

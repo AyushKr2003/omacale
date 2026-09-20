@@ -35,6 +35,14 @@ var values = {
   launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, wallpaperPicker: "omacale", themePicker: "omacale", favouriteApps: [], hiddenApps: [] },
   session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
   sidebar: { enabled: true, width: 430 },
+  // Off until the user turns it on: switching it on hands Omarchy's lock
+  // plugin over to Omacale (omacale.bar/scripts/lock-screen), and switching
+  // it off gives Omarchy's own lock view straight back.
+  lock: {
+    enabled: false,
+    weather: true, fetch: true, media: true, resources: true, notifs: true,
+    hideNotifs: false, recolourLogo: true, blur: true
+  },
   utilities: {
     enabled: true, width: 430,
     // Caelestia's default quick toggles (utilitiesconfig.hpp), plus Omarchy's

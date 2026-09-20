@@ -90,6 +90,20 @@ QtObject {
     readonly property int notifImage: 42
     readonly property int notifBadge: 20
     readonly property int notifsWidth: (Config.o.notifs && Config.o.notifs.popups) ? Config.o.notifs.popups.width : 430
+    // Lock screen (Caelestia LockTokens in tokens.hpp). The card is a 16:9
+    // rect 70% of the screen height; the rest are the heights and widths its
+    // cards drop detail at, so a 1080p screen shows less than a 1440p one.
+    readonly property real lockHeightMult: 0.7
+    readonly property real lockRatio: 16 / 9
+    readonly property int lockCenterWidth: 600
+    readonly property int lockWeatherDetailsHeight: 550
+    readonly property int lockForecastHeight: 975
+    readonly property int lockForecastItemWidth: 51
+    readonly property int lockLargeLogoWidth: 320
+    readonly property int lockLargeFontWidth: 400
+    readonly property int lockFetch4LinesHeight: 600
+    readonly property int lockFetch3LinesHeight: 500
+    readonly property int lockColourRowHeight: 570
   }
 
   // Motion

@@ -101,3 +101,15 @@ MTextField 1.0 MTextField.qml
 Elevation 1.0 Elevation.qml
 OutlinedField 1.0 OutlinedField.qml
 MScrollBar 1.0 MScrollBar.qml
+LockUi 1.0 LockUi.qml
+LockContent 1.0 LockContent.qml
+LockCenter 1.0 LockCenter.qml
+LockPassword 1.0 LockPassword.qml
+LockMessage 1.0 LockMessage.qml
+LockWeather 1.0 LockWeather.qml
+LockFetch 1.0 LockFetch.qml
+LockMedia 1.0 LockMedia.qml
+LockResources 1.0 LockResources.qml
+LockNotifs 1.0 LockNotifs.qml
+LockCard 1.0 LockCard.qml
+singleton LockService 1.0 LockService.qml
