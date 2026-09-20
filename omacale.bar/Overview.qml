@@ -71,7 +71,7 @@ Item {
   function rowHasContent(r) {
     for (let c = 0; c < cols; c++) {
       const id = wsId(r, c)
-      if (id === activeId || wsWindows(id) > 0) return true
+      if (id === activeId || id === selected || wsWindows(id) > 0) return true
     }
     return false
   }
@@ -112,6 +112,14 @@ Item {
   }
 
   property int dropTarget: -1
+  // The keyboard cursor. Arrows move it and Enter commits, rather than
+  // switching workspace on every press: a switch hands Hyprland's keyboard
+  // focus to a window on the new workspace, which takes it off this panel
+  // (and clears the frame's focus grab) after the first key.
+  property int selected: activeId
+  // Follows the real workspace while the panel is away, so it always opens on
+  // the one you are on.
+  onActiveIdChanged: if (!active) selected = activeId
 
   // Hyprland only reports window geometry on demand, and the overview is the
   // one place that needs all of it at once.
@@ -121,8 +129,15 @@ Item {
     Hyprland.refreshMonitors()
   }
   onActiveChanged: {
-    if (active) refresh()
-    else dropTarget = -1
+    if (active) {
+      selected = activeId
+      refresh()
+      // The frame window holds several focusable panels; take the keys while
+      // this one is up.
+      forceActiveFocus()
+    } else {
+      dropTarget = -1
+    }
   }
   // Only the events that move a window or change what is on a workspace; the
   // raw stream also carries volume, screencast and focus chatter.
@@ -138,61 +153,56 @@ Item {
   }
 
   // ------------------------------------------------------------ keys
+  function go(id) {
+    Sys.workspace(id)
+    dismissed()
+  }
   Keys.onPressed: e => {
-    if (e.key === Qt.Key_Escape || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+    if (e.key === Qt.Key_Escape) {
       root.dismissed()
       e.accepted = true
       return
     }
+    if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Space) {
+      root.go(root.selected)
+      e.accepted = true
+      return
+    }
 
-    let r = rowOf(activeId), c = colOf(activeId), moved = false, target = -1
+    let r = rowOf(selected), c = colOf(selected), moved = false
     if (e.key === Qt.Key_Left || e.key === Qt.Key_H) { c = (c - 1 + cols) % cols; moved = true }
     else if (e.key === Qt.Key_Right || e.key === Qt.Key_L) { c = (c + 1) % cols; moved = true }
     else if (e.key === Qt.Key_Up || e.key === Qt.Key_K) { r = (r - 1 + rows) % rows; moved = true }
     else if (e.key === Qt.Key_Down || e.key === Qt.Key_J) { r = (r + 1) % rows; moved = true }
     else if (e.key >= Qt.Key_1 && e.key <= Qt.Key_9) {
       const n = e.key - Qt.Key_0
-      if (n <= perGroup) target = group * perGroup + n
-    } else if (e.key === Qt.Key_0 && perGroup >= 10) target = group * perGroup + 10
+      if (n <= perGroup) { root.go(group * perGroup + n); e.accepted = true }
+      return
+    } else if (e.key === Qt.Key_0 && perGroup >= 10) {
+      root.go(group * perGroup + 10)
+      e.accepted = true
+      return
+    }
 
-    if (moved) target = wsId(r, c)
-    if (target > 0) {
-      Sys.workspace(target)
+    if (moved) {
+      root.selected = wsId(r, c)
       e.accepted = true
     }
   }
 
-  implicitWidth: card.implicitWidth
-  implicitHeight: card.implicitHeight
+  // The panel's background is the frame shader's r7, not an item here, so this
+  // only draws the grid -- inset by `pad`, as every other drawer is.
+  implicitWidth: root.gridW + root.pad * 2
+  implicitHeight: root.gridH + root.pad * 2
+  Behavior on implicitWidth { Anim {} }
+  Behavior on implicitHeight { Anim {} }
 
-  Rectangle {
-    id: card
+  Item {
+    id: grid
 
     anchors.centerIn: parent
-    implicitWidth: grid.width + root.pad * 2
-    implicitHeight: grid.height + root.pad * 2
-    // The frame's own corner and surface, so the overview reads as the bar
-    // and its drawers do.
-    radius: Tk.borderRounding
-    color: Colours.m3surface
-    Behavior on implicitWidth { Anim {} }
-    Behavior on implicitHeight { Anim {} }
-
-    Elevation {
-      anchors.fill: parent
-      radius: parent.radius
-      level: 3
-      z: -1
-    }
-
-    Item {
-      id: grid
-
-      anchors.centerIn: parent
-      width: root.gridW
-      height: root.gridH
-      Behavior on width { Anim {} }
-      Behavior on height { Anim {} }
+    width: root.gridW
+    height: root.gridH
 
       // ---- workspaces
       Repeater {
@@ -205,6 +215,7 @@ Item {
           readonly property int wsId: root.group * root.perGroup + index + 1
           readonly property bool shown: root.shownRows.indexOf(root.rowOf(wsId)) >= 0
           readonly property bool focused: wsId === root.activeId
+          readonly property bool cursor: wsId === root.selected
           readonly property bool dropping: root.dropTarget === wsId
 
           x: root.cellX(wsId)
@@ -216,8 +227,9 @@ Item {
           color: dropping ? Qt.alpha(Colours.m3tertiary, 0.18)
                : focused ? Qt.alpha(Colours.m3primary, 0.12)
                : Colours.m3surfaceContainer
-          border.width: dropping || focused ? 2 : 0
-          border.color: dropping ? Colours.m3tertiary : Colours.m3primary
+          border.width: dropping || focused || cursor ? 2 : 0
+          border.color: dropping ? Colours.m3tertiary
+                      : cursor && !focused ? Colours.m3onSurfaceVariant : Colours.m3primary
           Behavior on x { Anim { type: "fastSpatial" } }
           Behavior on y { Anim { type: "fastSpatial" } }
           Behavior on color { CAnim {} }
@@ -236,10 +248,7 @@ Item {
           StateLayer {
             radius: tile.radius
             color: Colours.m3onSurface
-            onClicked: {
-              Sys.workspace(tile.wsId)
-              root.dismissed()
-            }
+            onClicked: root.go(tile.wsId)
           }
 
           DropArea {
@@ -284,7 +293,6 @@ Item {
             if (target > 0 && target !== wsId) Sys.moveWindow(address, target)
           }
         }
-      }
     }
   }
 }

@@ -51,6 +51,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
+| `Overview.qml`, `OverviewWindow.qml` | no Caelestia original: the workspace overview is ported from the `omarchy-overview` plugin and redrawn in Caelestia's tokens. Its live preview follows Caelestia's `modules/windowinfo/Preview.qml` (a `ScreencopyView` inside a clipping rect) |
 | `omacale.bar/omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
@@ -60,7 +61,7 @@ Conventions that keep the port faithful:
 - **Use the ported primitives**, not raw Qt ones: `MText` (sets Caelestia's `opsz` axis; give title/headline/label.large/medium text `weight: Font.Medium` as Caelestia's font tokens do), `MTextField` for any text input, `MFlickable`/`MListView`/`FadeFlickable` for scroll views (no `StopAtBounds`), `MScrollBar` where Caelestia has `StyledScrollBar`.
 - **Motion goes through `Anim { type: ... }` / `CAnim`**, using Caelestia's curves and durations. Don't use raw `NumberAnimation` unless porting a specific Caelestia animation that does.
 - **Keep Caelestia's structure**: same card order, same nesting, same margins (`Tokens.padding.large` insets, `Layout.topMargin` tricks, `nonAnimHeight` / animated `implicitHeight`). Copy the arithmetic, including odd bits like `padding.extraLargeIncreased`.
-- **Drawers are shader shapes.** A drawer's background is not a QML item. It is a rect (`r0`..`r6`) fed to `blob.frag` in `ScreenScope.qml`, with an attach-edge bitmask. The drawer's QML (`Sidebar`, `Utilities`, ...) draws only its content, inset by `padding.large` (minus the frame border on the frame side).
+- **Drawers are shader shapes.** A drawer's background is not a QML item. It is a rect (`r0`..`r7`) fed to `blob.frag` in `ScreenScope.qml`, with an attach-edge bitmask (`attachA` for `r0`..`r3`, `attachB` for `r4`..`r7`). Adding a drawer means adding a rect to the shader and recompiling the `.qsb`; `r4` (Settings) and `r7` (the overview) are the floating, centred ones, with an attach of 0 and the frame's scrim behind them. The drawer's QML (`Sidebar`, `Utilities`, ...) draws only its content, inset by `padding.large` (minus the frame border on the frame side).
 - If Caelestia has a feature Omarchy can't back (e.g. recorder pause), **omit it** rather than faking it, and note it in the README/PR.
 
 ### 2. Omarchy is the engine; write our own script only when Omarchy has nothing
@@ -120,7 +121,7 @@ shell/omacale/
 ```
 
 - **Every QML type must be registered in `omacale.bar/qmldir`** (`Name 1.0 Name.qml`; singletons as `singleton Name 1.0 Name.qml`), or it will be "unavailable".
-- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
+- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `overview`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
 - **`Logos.js` is generated.** To add or change a bar logo, edit `OPTIONS` in `scripts/gen-logos.py` and rerun it (`pip install fonttools` in a venv). It stores trimmed outlines that `LogoIcon` rasterises as SVG at whole-pixel sizes; don't draw logos as font glyphs or scaled Shapes, which pad, fringe and blur at bar size.
 - Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`
@@ -157,6 +158,7 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
 - **Don't write to Omarchy's menu extension (`omarchy-menu.jsonc`).** The user doesn't want Omacale inserting anything there; the old Style › Switcher block was removed for this reason.
 - **The lock plugin caches `LockUi.qml`.** Editing it and rsyncing does nothing until the shell restarts (the lock clone's Loader holds the compiled component). `omarchy-restart-shell`, then `omarchy-shell lock preview` — which is also the only safe way to look at the lock, since nothing but the real password can dismiss a real one. Preview passes `inputEnabled: false` and an empty `passwordText`, so the field cannot be typed into there.
+- **A workspace switch takes the keyboard off the panel.** Hyprland focuses a window on the workspace you switch to, which takes keyboard focus from the frame's layer surface *and* clears its `HyprlandFocusGrab` (so `onCleared` closes everything). A panel that switches workspaces therefore cannot also keep receiving keys: the overview moves a local `selected` cursor with the arrows and only dispatches on Enter, a digit or a click, all of which close it anyway.
 - **The toasts are not a drawer.** Every other panel is a rect in `blob.frag` inside `win`, which is on Hyprland's `top` layer — a fullscreen window covers it and it hides with the bar. Notifications must never be hidden, so `ScreenScope` gives them a second `PanelWindow` on `WlrLayer.Overlay` (namespace `omacale-notifications`), with each toast a card of its own. Anything that must outlive fullscreen belongs there, not in the frame — and remember to add the namespace to a rule that matches `omacale` (the blur rule in `Bar.qml` does).
 
 ## The notification daemon clone

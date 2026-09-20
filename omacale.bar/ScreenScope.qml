@@ -157,64 +157,6 @@ Scope {
     }
   }
 
-  // ---------------------------------------------------- workspace overview
-  //
-  // Like the toasts, and for the same reason, this is not part of the frame
-  // window: the overview has to cover a fullscreen window, and it is the one
-  // panel that takes the keyboard on its own (there is no text field to hand
-  // focus to), so it needs a surface with exclusive keyboard focus.
-  PanelWindow {
-    id: overviewWin
-
-    screen: scope.screen
-    visible: scope.overview || overviewContent.opacity > 0
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omacale-overview"
-    WlrLayershell.layer: WlrLayer.Overlay
-    // Not Exclusive: Hyprland restores focus to the last window when an
-    // exclusive surface unmaps, which dragged the workspace back with it the
-    // moment a click switched away.
-    WlrLayershell.keyboardFocus: scope.overview ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-    anchors { top: true; bottom: true; left: true; right: true }
-
-    // Hyprland hands the keyboard back to a window on every workspace switch,
-    // so an OnDemand surface would only ever get the first key. A focus grab
-    // keeps it here, and reports the click that lands outside the overview.
-    HyprlandFocusGrab {
-      windows: [overviewWin]
-      active: scope.overview
-      onCleared: scope.overview = false
-    }
-
-    // A press anywhere outside the card puts it away, as clicking the scrim
-    // closes Settings.
-    MouseArea {
-      anchors.fill: parent
-      onPressed: scope.overview = false
-    }
-
-    Rectangle {
-      anchors.fill: parent
-      color: Qt.alpha(Colours.m3scrim, 0.45)
-      opacity: overviewContent.opacity
-    }
-
-    Overview {
-      id: overviewContent
-
-      anchors.fill: parent
-      screen: scope.screen
-      active: scope.overview
-      focus: scope.overview
-      opacity: scope.overview ? 1 : 0
-      scale: scope.overview ? 1 : 0.92
-      Behavior on opacity { Anim { type: "effects" } }
-      Behavior on scale { Anim {} }
-      onDismissed: scope.overview = false
-    }
-  }
-
   // Settings popped out into a real window.
   property bool settingsWindow: false
   LazyLoader {
@@ -249,7 +191,7 @@ Scope {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omacale"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings || scope.overview ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
     // Fullscreen collapses the frame into the screen edges.
@@ -279,6 +221,7 @@ Scope {
     property real sOff: scope.session ? 0 : 1
     property real pOff: scope.popout !== "" ? 0 : 1
     property real nOff: scope.settings ? 0 : 1
+    property real oOff: scope.overview ? 0 : 1
     property real sbOff: scope.sidebar ? 0 : 1
     property real uOff: (scope.utilities || scope.sidebar) ? 0 : 1
     Behavior on dOff { Anim {} }
@@ -286,6 +229,7 @@ Scope {
     Behavior on sOff { Anim {} }
     Behavior on pOff { Anim {} }
     Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "emphasized" } }
+    Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "emphasized" } }
     Behavior on sbOff { Anim {} }
     Behavior on uOff { Anim {} }
 
@@ -295,6 +239,10 @@ Scope {
     readonly property bool sVis: sOff < 1
     readonly property bool pVis: pOff < 1
     readonly property bool nVis: nOff < 0.999
+    readonly property bool oVis: oOff < 0.999
+    // Settings and the overview are modal: the whole screen takes input so a
+    // press outside them closes, and the other drawers stop carving the mask.
+    readonly property bool modal: nVis || oVis
     readonly property bool uVis: uOff < 1
     readonly property bool sbVis: sbOff < 1
 
@@ -353,6 +301,13 @@ Scope {
     readonly property real nh: nfh * (1 - 0.8 * nOff)
     readonly property real nx: ax + (aw - nw) / 2
     readonly property real ny: ay + (ah - nh) / 2
+    // Overview (floating, centred) — the same grow as Settings.
+    readonly property real ofw: overviewContent.implicitWidth
+    readonly property real ofh: overviewContent.implicitHeight
+    readonly property real ow: ofw * (1 - 0.55 * oOff)
+    readonly property real oh: ofh * (1 - 0.8 * oOff)
+    readonly property real ox: ax + (aw - ow) / 2
+    readonly property real oy: ay + (ah - oh) / 2
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: ax + aw - sbw + (sbw + 5) * sbOff
@@ -381,22 +336,22 @@ Scope {
 
     mask: Region {
       // While settings are open the whole screen takes input (click outside closes).
-      x: win.fs >= 1 || win.nVis ? 0 : win.ax
-      y: win.fs >= 1 || win.nVis ? 0 : win.ay
-      width: win.fs >= 1 || win.nVis ? win.width : win.aw
-      height: win.fs >= 1 || win.nVis ? win.height : win.ah
-      intersection: win.nVis ? Intersection.Combine : Intersection.Xor
-      Region { intersection: Intersection.Subtract; x: win.dx; y: win.ay; width: win.dVis && !win.nVis ? win.dw : 0; height: win.dVis ? Math.max(0, win.dy + win.dh - win.ay) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.nVis ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.sx; y: win.sy; width: win.sVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.sx) : 0; height: win.sVis ? win.sh : 0 }
-      Region { intersection: Intersection.Subtract; x: win.ax; y: win.py; width: win.pVis && !win.nVis ? Math.max(0, win.px + win.pw - win.ax) : 0; height: win.pVis ? win.ph : 0 }
-      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.ux) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.sbx; y: win.sby; width: win.sbVis && !win.nVis ? Math.max(0, win.ax + win.aw - win.sbx) : 0; height: win.sbVis ? win.sbh : 0 }
+      x: win.fs >= 1 || win.modal ? 0 : win.ax
+      y: win.fs >= 1 || win.modal ? 0 : win.ay
+      width: win.fs >= 1 || win.modal ? win.width : win.aw
+      height: win.fs >= 1 || win.modal ? win.height : win.ah
+      intersection: win.modal ? Intersection.Combine : Intersection.Xor
+      Region { intersection: Intersection.Subtract; x: win.dx; y: win.ay; width: win.dVis && !win.modal ? win.dw : 0; height: win.dVis ? Math.max(0, win.dy + win.dh - win.ay) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.modal ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sx; y: win.sy; width: win.sVis && !win.modal ? Math.max(0, win.ax + win.aw - win.sx) : 0; height: win.sVis ? win.sh : 0 }
+      Region { intersection: Intersection.Subtract; x: win.ax; y: win.py; width: win.pVis && !win.modal ? Math.max(0, win.px + win.pw - win.ax) : 0; height: win.pVis ? win.ph : 0 }
+      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.modal ? Math.max(0, win.ax + win.aw - win.ux) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sbx; y: win.sby; width: win.sbVis && !win.modal ? Math.max(0, win.ax + win.aw - win.sbx) : 0; height: win.sbVis ? win.sbh : 0 }
     }
 
     HyprlandFocusGrab {
       windows: [win]
-      active: scope.launcher || scope.session || scope.settings || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
+      active: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
       onCleared: scope.closeAll()
     }
 
@@ -404,7 +359,7 @@ Scope {
     Rectangle {
       anchors.fill: parent
       color: Colours.m3scrim
-      opacity: 0.5 * (1 - win.nOff)
+      opacity: 0.5 * Math.max(1 - win.nOff, 1 - win.oOff)
       visible: opacity > 0
     }
 
@@ -439,6 +394,8 @@ Scope {
         // utilities by 2px so the join never shows a seam.
         property rect r5: win.uVis ? Qt.rect(win.ux, win.uy, win.uw, Math.max(win.uh, win.ay + win.ah - win.uy)) : Qt.rect(0, 0, 0, 0)
         property rect r6: win.sbVis ? Qt.rect(win.sbx, win.sby, Math.max(win.sbw, win.ax + win.aw - win.sbx), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
+        // The overview floats like Settings, so its attach bitmask is 0 too.
+        property rect r7: win.oVis ? Qt.rect(win.ox, win.oy, win.ow, win.oh) : Qt.rect(0, 0, 0, 0)
         // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
         property vector4d attachA: Qt.vector4d(1, 4, 2, 8 + (win.pTouchTop ? 1 : 0) + (win.pTouchBottom ? 4 : 0))
         property vector4d attachB: Qt.vector4d(0, 6, 3, 0)
@@ -473,6 +430,7 @@ Scope {
         dragStart = Qt.point(e.x, e.y)
         // A click on the scrim (outside the settings panel) closes it.
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
+        if (scope.overview && !(e.x >= win.ox && e.x <= win.ox + win.ow && e.y >= win.oy && e.y <= win.oy + win.oh)) scope.overview = false
         if (scope.sidebar && e.x < win.sbx) scope.sidebar = false
         if (scope.utilities && !scope.sidebar && (e.x < win.ux || e.y < win.uy)) scope.utilities = false
       }
@@ -646,6 +604,31 @@ Scope {
         host: scope.host
         scope: scope
         active: scope.utilities || scope.sidebar
+      }
+
+      // ---- overview
+      Item {
+        x: win.ox
+        y: win.oy
+        width: win.ow
+        height: win.oh
+        visible: win.oVis
+        // Clipped like Settings: the grid animates to its own size, and a row
+        // that has just appeared stays hidden until the panel holds it.
+        clip: true
+        Overview {
+          id: overviewContent
+          x: (parent.width - width) / 2
+          y: (parent.height - height) / 2
+          width: implicitWidth
+          height: implicitHeight
+          opacity: Math.max(0, 1 - win.oOff * 2.5)
+          scale: 0.94 + 0.06 * (1 - win.oOff)
+          active: scope.overview
+          focus: scope.overview
+          screen: scope.screen
+          onDismissed: scope.overview = false
+        }
       }
 
       // ---- settings

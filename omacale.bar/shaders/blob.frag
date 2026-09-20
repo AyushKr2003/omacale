@@ -23,8 +23,9 @@ layout(std140, binding = 0) uniform buf {
     vec4 r4;
     vec4 r5;
     vec4 r6;
+    vec4 r7;
     vec4 attachA;     // edges each rect grows out of, as a bitmask (r0..r3):
-    vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4, r5, r6 in .xyz)
+    vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4..r7)
     vec2 join;        // sidebar (r6) over utilities (r5), as Caelestia's PanelBg:
                       // x scales the corners they share, y > 0.5 drops their fillet
 };
@@ -67,7 +68,8 @@ float attachAt(int i) {
     if (i == 3) return attachA.w;
     if (i == 4) return attachB.x;
     if (i == 5) return attachB.y;
-    return attachB.z;
+    if (i == 6) return attachB.z;
+    return attachB.w;
 }
 
 // A drawer's corners on the side(s) it grows out of are square: the frame's
@@ -102,25 +104,26 @@ vec4 rectAt(int i) {
     if (i == 3) return r3;
     if (i == 4) return r4;
     if (i == 5) return r5;
-    return r6;
+    if (i == 6) return r6;
+    return r7;
 }
 
 void main() {
     vec2 pixel = qt_TexCoord0 * res;
     float k = smoothing;
 
-    float d[7];
-    for (int i = 0; i < 7; i++) {
+    float d[8];
+    for (int i = 0; i < 8; i++) {
         vec4 r = rectAt(i);
         if (r.z <= 0.5 || r.w <= 0.5) { d[i] = 1e10; continue; }
         d[i] = sdRoundedBox4(pixel, r.xy + r.zw * 0.5, r.zw * 0.5, cornerRadii(i, r.zw * 0.5));
     }
 
     float merged = 1e10;
-    for (int i = 0; i < 7; i++) merged = min(merged, d[i]);
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) merged = min(merged, d[i]);
+    for (int i = 0; i < 8; i++) {
         if (d[i] >= 1e9) continue;
-        for (int j = i + 1; j < 7; j++) {
+        for (int j = i + 1; j < 8; j++) {
             if (d[j] >= 1e9 || max(d[i], d[j]) >= k) continue;
             // Two flush edges smooth-min into an outward bulge; joined drawers
             // are excluded from each other, as Caelestia's PanelBg `exclude`.
@@ -147,7 +150,7 @@ void main() {
     // back so it emerges from a pocket rather than a bump.
     float sinkValue = 0.0;
     float preOff = k * (2.0 - sqrt(2.0)) * 0.5;
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
         if (d[i] >= 1e9) continue;
         vec4 r = rectAt(i);
         vec2 ctr = r.xy + r.zw * 0.5;
