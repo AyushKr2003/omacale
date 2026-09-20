@@ -179,6 +179,15 @@ QtObject {
         property int dragThreshold: 30
         property string sleepAction: "hibernate"
       }
+      property JsonObject overview: JsonObject {
+        property bool enabled: true
+        property int rows: 2
+        property int columns: 5
+        property real scale: 0.18
+        property bool hideEmptyRows: true
+        property bool previews: true
+        property bool showIcons: true
+      }
       property JsonObject sidebar: JsonObject {
         property bool enabled: true
         property int width: 430

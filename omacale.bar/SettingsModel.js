@@ -86,6 +86,7 @@ var pages = [
       { type: "nav", icon: "apps", label: "Launcher", page: "launcher", status: "launcher.enabled" },
       { type: "nav", icon: "dock_to_right", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
       { type: "nav", icon: "construction", label: "Utilities", page: "utilities", status: "utilities.enabled" },
+      { type: "nav", icon: "grid_view", label: "Overview", page: "overview", status: "overview.enabled" },
       { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
       { type: "nav", icon: "lock", label: "Lock screen", page: "lock", status: "lock.enabled" }
     ]
@@ -204,6 +205,20 @@ var subpages = {
         { value: "shapes", label: "Shapes", icon: "category" }
       ] },
       { type: "toggle", key: "bar.workspaces.specialShowWindows", label: "Show windows", subtext: "Show icons of open windows on each special workspace" }
+    ]
+  },
+  overview: {
+    title: "Overview",
+    rows: [
+      { type: "toggle", key: "overview.enabled", label: "Enabled", subtext: "A grid of the workspaces on this monitor, with live window previews. Bind it to SUPER + TAB (Settings \u203a Keybinds)" },
+      { type: "section", text: "Grid" },
+      { type: "stepper", key: "overview.rows", label: "Rows", from: 1, to: 6, step: 1 },
+      { type: "stepper", key: "overview.columns", label: "Columns", from: 1, to: 10, step: 1 },
+      { type: "toggle", key: "overview.hideEmptyRows", label: "Hide empty rows", subtext: "Only draw rows that hold a window or the active workspace" },
+      { type: "slider", key: "overview.scale", label: "Tile size", icon: "grid_view", from: 0.08, to: 0.3, step: 0.01, unit: "%" },
+      { type: "section", text: "Windows" },
+      { type: "toggle", key: "overview.previews", label: "Live previews", subtext: "Draw each window's own surface in its tile" },
+      { type: "toggle", key: "overview.showIcons", label: "App icons", subtext: "Show the app icon over each window" }
     ]
   },
   activeWindow: {

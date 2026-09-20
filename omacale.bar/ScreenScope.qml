@@ -23,6 +23,7 @@ Scope {
   property bool settings: false
   property bool sidebar: false
   property bool utilities: false
+  property bool overview: false
   property bool dashShortcut: false
   // Utilities opened by a shortcut/click stay open; opened by hovering the
   // bottom-right corner they close once the cursor leaves (Caelestia Interactions).
@@ -33,7 +34,7 @@ Scope {
   property var trayItem: null
 
   function closeAll() {
-    launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false
+    launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
   }
 
   onUtilitiesChanged: utilShortcut = utilities && !interactions.inBottomUtil(interactions.mouseX, interactions.mouseY)
@@ -63,6 +64,10 @@ Scope {
       else if (name === "utilities" && (!scope.cfg.utilities || scope.cfg.utilities.enabled)) {
         if (scope.session) scope.session = false
         scope.utilities = !scope.utilities
+      }
+      else if (name === "overview" && scope.cfg.overview.enabled) {
+        if (!scope.overview) scope.closeAll()
+        scope.overview = !scope.overview
       }
       else if (name === "dashboard" && scope.cfg.dashboard.enabled) {
         if (arg && scope.dashboard) { dash.selectTab(arg); return }
@@ -149,6 +154,64 @@ Scope {
       // The notification centre shows the same notifications in full, so the
       // toasts get out of its way (Caelestia's Notifs.shouldShowPopup).
       suppressed: scope.sidebar
+    }
+  }
+
+  // ---------------------------------------------------- workspace overview
+  //
+  // Like the toasts, and for the same reason, this is not part of the frame
+  // window: the overview has to cover a fullscreen window, and it is the one
+  // panel that takes the keyboard on its own (there is no text field to hand
+  // focus to), so it needs a surface with exclusive keyboard focus.
+  PanelWindow {
+    id: overviewWin
+
+    screen: scope.screen
+    visible: scope.overview || overviewContent.opacity > 0
+    color: "transparent"
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.namespace: "omacale-overview"
+    WlrLayershell.layer: WlrLayer.Overlay
+    // Not Exclusive: Hyprland restores focus to the last window when an
+    // exclusive surface unmaps, which dragged the workspace back with it the
+    // moment a click switched away.
+    WlrLayershell.keyboardFocus: scope.overview ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    anchors { top: true; bottom: true; left: true; right: true }
+
+    // Hyprland hands the keyboard back to a window on every workspace switch,
+    // so an OnDemand surface would only ever get the first key. A focus grab
+    // keeps it here, and reports the click that lands outside the overview.
+    HyprlandFocusGrab {
+      windows: [overviewWin]
+      active: scope.overview
+      onCleared: scope.overview = false
+    }
+
+    // A press anywhere outside the card puts it away, as clicking the scrim
+    // closes Settings.
+    MouseArea {
+      anchors.fill: parent
+      onPressed: scope.overview = false
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      color: Qt.alpha(Colours.m3scrim, 0.45)
+      opacity: overviewContent.opacity
+    }
+
+    Overview {
+      id: overviewContent
+
+      anchors.fill: parent
+      screen: scope.screen
+      active: scope.overview
+      focus: scope.overview
+      opacity: scope.overview ? 1 : 0
+      scale: scope.overview ? 1 : 0.92
+      Behavior on opacity { Anim { type: "effects" } }
+      Behavior on scale { Anim {} }
+      onDismissed: scope.overview = false
     }
   }
 

@@ -23,9 +23,16 @@ QtObject {
   // drop the AP.
   function hour(d) { return d ? (h12 ? Qt.formatTime(d, "hh AP").split(" ")[0] : Qt.formatTime(d, "HH")) : "" }
   function dateTime(d) { return d ? Qt.formatDateTime(d, "d MMM yyyy, " + timeFormat) : "" }
-  function hypr(dispatcher) { Quickshell.execDetached(["hyprctl", "dispatch", dispatcher]) }
+  // Quickshell's own Hyprland socket, not a `hyprctl` process: spawning one
+  // takes long enough that a dispatch made as a panel closes can land after
+  // the surface is gone (the overview's click-to-switch did).
+  function hypr(dispatcher) { Hyprland.dispatch(dispatcher) }
   function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }
   function toggleSpecial(name) { hypr('hl.dsp.workspace.toggle_special("' + name + '")') }
+  // Window dispatchers, by Hyprland address (the overview drives these).
+  function focusWindow(addr) { hypr('hl.dsp.focus({ window = "address:' + addr + '" })') }
+  function closeWindow(addr) { hypr('hl.dsp.window.close("address:' + addr + '")') }
+  function moveWindow(addr, ws) { hypr('hl.dsp.window.move({ workspace = "' + ws + '", follow = false, window = "address:' + addr + '" })') }
 
   // Port of Caelestia's Hypr.activeToplevel (services/Hypr.qml): Hyprland
   // keeps reporting the last focused window after switching to an empty

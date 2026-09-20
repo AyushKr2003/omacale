@@ -15,6 +15,7 @@ Omacale ships as a single Omarchy shell **bar plugin** (`omacale.bar`). It runs 
 - **Launcher**: app search, Omarchy actions, and wallpaper and theme carousels (`>wallpaper`, `>theme`)
 - **Notification popups**: Caelestia-style toasts — hover to pause, swipe to dismiss, drag to expand — on their own overlay layer, so they stay visible over fullscreen windows and video
 - **Sidebar**: grouped notifications, quick toggles, keep-awake, and a screen recorder
+- **Workspace overview**: the monitor's workspaces as a grid of live window previews -- click a workspace to switch, click a window to focus it, drag a window onto another workspace, middle click to close it, or drive the grid with the arrow keys and number keys
 - **Lock screen**: Caelestia's lock card — split clock, profile picture, shape-per-character password field, weather, fetch, media, resources and notifications — drawn inside Omarchy's own lock plugin, which keeps the session lock and the password check
 - **Session menu**: logout, reboot, shutdown and more
 - **Settings**: a port of Caelestia's Nexus app covering style, panels, network, Bluetooth, keybinds and more. Changes apply live.
@@ -81,7 +82,7 @@ Uninstall restores your previous state exactly. Install touches the plugin direc
 Drive it from Hyprland bindings or the command line:
 
 ```bash
-omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | settings | close
+omarchy-shell omacale launcher | dashboard | session | sidebar | utilities | overview | settings | close
 omarchy-shell omacale wallpapers | themes
 ```
 
@@ -91,6 +92,7 @@ Suggested keybinds live in [`omacale.bar/keybinds.lua`](omacale.bar/keybinds.lua
 |---|---|
 | `SUPER + A` | Launcher |
 | `SUPER + D` | Dashboard |
+| `SUPER + TAB` | Workspace overview |
 | `SUPER + SHIFT + I` | Settings |
 | `SUPER + SHIFT + ESCAPE` | Session menu |
 
@@ -128,3 +130,5 @@ Omacale is licensed under the [GNU General Public License v3.0](LICENSE). It is 
 ## Credits
 
 Design, shader and assets come from [caelestia-dots/shell](https://github.com/caelestia-dots/shell) (GPL-3.0). Google Sans Flex and Rubik are under the SIL Open Font License.
+
+The workspace overview follows [omarchy-overview](https://github.com/AyushKr2003/omarchy-overview) (MIT), itself adapted from [Shanu-Kumawat/quickshell-overview](https://github.com/Shanu-Kumawat/quickshell-overview); Omacale's is a rewrite in Caelestia's tokens on Quickshell's Hyprland IPC.
