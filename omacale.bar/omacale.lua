@@ -40,7 +40,7 @@ local vars = {
   -- Window styling
   windowOpacity = 0.95,
   windowRounding = 15,
-  windowBorderSize = 1,
+  windowBorderSize = 3,
 }
 
 -- Caelestia tints the shadow with its scheme's inversePrimary at 0x10 alpha.
