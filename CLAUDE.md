@@ -157,4 +157,6 @@ The version lives in `omacale.bar/manifest.json`, `scripts/omacale` (`VERSION`) 
 
 ## Git
 
+Omacale is its own repo (`AyushKr2003/omacale`), checked out as the `shell/omacale` submodule of omarchy-dotfiles, which fetches it on `install.sh`. Commit and push inside `shell/omacale`, then commit the moved submodule pointer in omarchy-dotfiles.
+
 Commit only when asked. Commit messages follow the repo's style (`fix: ...`, `feat: ...`). Don't commit `shell/caelestia_shell` changes; it's a reference checkout.
