@@ -48,6 +48,8 @@ Item {
   // The card's inset is the tile gap, so the outer border reads as one more
   // gutter (the bar pads its workspace pill the same way).
   readonly property int pad: Tk.padding.medium
+  // Concentric with the outer panel (panelRadius 28px - pad 12px = 16px).
+  readonly property int cardRadius: Tk.rounding.large
   readonly property real fitW: (screen.width * 0.94 - pad * 2 - (cols - 1) * gap) / cols / usableW
   readonly property real fitH: (screen.height * 0.86 - pad * 2 - (shownRows.length - 1) * gap) / shownRows.length / usableH
   readonly property real tileScale: Math.max(0.02, Math.min(cfg.scale, fitW, fitH))
@@ -217,7 +219,7 @@ Item {
           width: root.tileW
           height: root.tileH
           visible: shown
-          radius: Tk.rounding.medium
+          radius: root.cardRadius
           color: dropping ? Qt.alpha(Colours.m3tertiary, 0.18)
                : focused ? Qt.alpha(Colours.m3primary, 0.12)
                : Colours.m3surfaceContainer
@@ -266,6 +268,7 @@ Item {
           readonly property real relY: Math.max(0, (d.at[1] - (root.mon ? root.mon.y : 0) - root.res(1)) * root.tileScale)
 
           toplevel: modelData
+          radius: root.cardRadius
           showIcon: root.cfg.showIcons
           live: root.active && root.cfg.previews
           width: Math.max(8, Math.min(d.size[0] * root.tileScale, root.tileW))

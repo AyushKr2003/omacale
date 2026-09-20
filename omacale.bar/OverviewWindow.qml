@@ -17,6 +17,8 @@ Item {
   readonly property var d: toplevel && toplevel.lastIpcObject ? toplevel.lastIpcObject : ({})
   property bool showIcon: true
   property bool live: true
+  property int radius: Tk.rounding.large
+  readonly property real effectiveRadius: Math.min(radius, Math.min(width, height) / 2)
   // Where the tile sits when it is not being dragged; the drag handler puts it
   // back here when the drop goes nowhere.
   property real homeX: 0
@@ -63,7 +65,7 @@ Item {
   // Caelestia clips its own previews the same way (windowinfo/Preview.qml).
   ClippingRectangle {
     anchors.fill: parent
-    radius: Tk.rounding.small
+    radius: root.effectiveRadius
     color: Colours.m3surfaceContainerHigh
 
     ScreencopyView {
@@ -89,7 +91,7 @@ Item {
   // Hover veil and outline, as an M3 state layer on a surface this size does.
   Rectangle {
     anchors.fill: parent
-    radius: Tk.rounding.small
+    radius: root.effectiveRadius
     color: mouse.pressed ? Qt.alpha(Colours.m3onSurface, 0.12)
          : root.hovered ? Qt.alpha(Colours.m3onSurface, 0.08) : "transparent"
     border.width: root.hovered || root.dragging ? 2 : 1
