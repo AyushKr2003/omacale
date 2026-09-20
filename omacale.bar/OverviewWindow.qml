@@ -64,7 +64,7 @@ Item {
   ClippingRectangle {
     anchors.fill: parent
     radius: Tk.rounding.small
-    color: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+    color: Colours.m3surfaceContainerHigh
 
     ScreencopyView {
       id: preview

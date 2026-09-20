@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 
@@ -44,8 +43,11 @@ Item {
 
   // The configured scale is a ceiling: the grid always has to fit the screen,
   // however many rows and columns are asked for.
-  readonly property real fitW: (screen.width * 0.94 - Tk.padding.extraExtraLarge * 2 - (cols - 1) * gap) / cols / usableW
-  readonly property real fitH: (screen.height * 0.86 - Tk.padding.extraExtraLarge * 2 - head.implicitHeight - Tk.spacing.large - (shownRows.length - 1) * gap) / shownRows.length / usableH
+  // The card's inset is the tile gap, so the outer border reads as one more
+  // gutter (the bar pads its workspace pill the same way).
+  readonly property int pad: Tk.padding.medium
+  readonly property real fitW: (screen.width * 0.94 - pad * 2 - (cols - 1) * gap) / cols / usableW
+  readonly property real fitH: (screen.height * 0.86 - pad * 2 - (shownRows.length - 1) * gap) / shownRows.length / usableH
   readonly property real tileScale: Math.max(0.02, Math.min(cfg.scale, fitW, fitH))
   readonly property real tileW: Math.round(usableW * tileScale)
   readonly property real tileH: Math.round(usableH * tileScale)
@@ -110,8 +112,6 @@ Item {
   }
 
   property int dropTarget: -1
-  property string hoveredTitle: ""
-  property string hoveredApp: ""
 
   // Hyprland only reports window geometry on demand, and the overview is the
   // one place that needs all of it at once.
@@ -122,7 +122,7 @@ Item {
   }
   onActiveChanged: {
     if (active) refresh()
-    else { dropTarget = -1; hoveredTitle = ""; hoveredApp = "" }
+    else dropTarget = -1
   }
   // Only the events that move a window or change what is on a workspace; the
   // raw stream also carries volume, screencast and focus chatter.
@@ -169,10 +169,12 @@ Item {
     id: card
 
     anchors.centerIn: parent
-    implicitWidth: Math.max(grid.width, head.implicitWidth) + Tk.padding.extraExtraLarge * 2
-    implicitHeight: head.implicitHeight + Tk.spacing.large + grid.height + Tk.padding.extraExtraLarge * 2
-    radius: Tk.rounding.extraLarge
-    color: Colours.m3surfaceContainer
+    implicitWidth: grid.width + root.pad * 2
+    implicitHeight: grid.height + root.pad * 2
+    // The frame's own corner and surface, so the overview reads as the bar
+    // and its drawers do.
+    radius: Tk.borderRounding
+    color: Colours.m3surface
     Behavior on implicitWidth { Anim {} }
     Behavior on implicitHeight { Anim {} }
 
@@ -183,42 +185,10 @@ Item {
       z: -1
     }
 
-    RowLayout {
-      id: head
-
-      anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.margins: Tk.padding.extraExtraLarge
-      spacing: Tk.spacing.medium
-
-      MIcon {
-        text: "grid_view"
-        size: Tk.iconSize.medium
-        color: Colours.m3primary
-      }
-      MText {
-        text: "Workspaces"
-        font.pointSize: Tk.title.medium
-        weight: Font.Medium
-      }
-      MText {
-        Layout.fillWidth: true
-        horizontalAlignment: Text.AlignRight
-        elide: Text.ElideMiddle
-        animate: true
-        color: Colours.m3onSurfaceVariant
-        text: root.hoveredTitle !== "" ? root.hoveredTitle
-            : "Click to switch · drag to move · middle click to close"
-      }
-    }
-
     Item {
       id: grid
 
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.top: head.bottom
-      anchors.topMargin: Tk.spacing.large
+      anchors.centerIn: parent
       width: root.gridW
       height: root.gridH
       Behavior on width { Anim {} }
@@ -245,7 +215,7 @@ Item {
           radius: Tk.rounding.medium
           color: dropping ? Qt.alpha(Colours.m3tertiary, 0.18)
                : focused ? Qt.alpha(Colours.m3primary, 0.12)
-               : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
+               : Colours.m3surfaceContainer
           border.width: dropping || focused ? 2 : 0
           border.color: dropping ? Colours.m3tertiary : Colours.m3primary
           Behavior on x { Anim { type: "fastSpatial" } }
@@ -258,7 +228,9 @@ Item {
             font.family: Tk.clock
             font.pointSize: Math.max(Tk.body.small, Math.round(tile.height / 4))
             weight: Font.DemiBold
-            color: Qt.alpha(tile.focused ? Colours.m3primary : Colours.m3onSurface, 0.25)
+            // Workspaces.qml `fg`: lit for the focused workspace, outline for
+            // one with nothing on it.
+            color: tile.focused ? Colours.m3onSurface : Colours.m3outlineVariant
           }
 
           StateLayer {
@@ -300,15 +272,6 @@ Item {
           homeY: root.cellY(wsId) + Math.min(relY, root.tileH - height)
           visible: root.shownRows.indexOf(root.rowOf(wsId)) >= 0
 
-          onHoveredChanged: {
-            if (hovered) {
-              root.hoveredTitle = title
-              root.hoveredApp = appId
-            } else if (root.hoveredApp === appId && root.hoveredTitle === title) {
-              root.hoveredTitle = ""
-              root.hoveredApp = ""
-            }
-          }
           onActivated: {
             Sys.focusWindow(address)
             root.dismissed()
