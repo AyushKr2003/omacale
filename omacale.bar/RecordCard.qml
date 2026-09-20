@@ -28,6 +28,9 @@ Rectangle {
     RowLayout {
       id: btnLayout
       spacing: Tk.spacing.medium
+      // This card's mode menu is the one SplitSelect that opens downwards, so
+      // the row has to paint over the recordings list it drops onto.
+      z: 1
 
       Rectangle {
         implicitWidth: implicitHeight

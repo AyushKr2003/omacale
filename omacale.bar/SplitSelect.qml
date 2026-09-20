@@ -95,7 +95,10 @@ Item {
     opacity: root.expanded ? 1 : 0
     visible: height > 1
     radius: Tk.rounding.large
-    color: Colours.m3surfaceContainerHigh
+    // Opaque, as Caelestia's Menu (components/controls/Menu.qml) is: the
+    // m3surface* roles are the tPalette, and a see-through popup leaves the
+    // card's own text legible through the items.
+    color: Colours.palette.m3surfaceContainerHigh
     clip: true
     Behavior on height { Anim { type: "fastSpatial" } }
     Behavior on opacity { Anim { type: "effects" } }
