@@ -193,7 +193,7 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 
 ## Versioning
 
-The version lives in `omacale.bar/manifest.json`, `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all three together (minor for features, patch for fixes).
+The version lives in `omacale.bar/manifest.json`, the root `manifest.json` (a copy for the plugin marketplace, whose `entryPoints.bar` is `omacale.bar/Bar.qml`), `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all four together (minor for features, patch for fixes).
 
 **Bump it on every change that reaches the user, without being asked** -- a fix, a feature, anything that changes what the shell does. A docs-only or comment-only change doesn't need one.
 
