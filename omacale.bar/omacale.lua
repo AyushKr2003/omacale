@@ -104,22 +104,28 @@ hl.config({
 })
 
 -- ── Animations (animations.lua) ─────────────────────────────────────────────
--- Material 3 curves, the same ones Omacale's drawers use (Tk.curves).
+-- Material 3 & Caelestia expressive spatial curves (the same ones Omacale's
+-- SDF drawer shader and QML modals use in Tk.curves / Anim.qml).
 
 hl.curve("specialWorkSwitch", { type = "bezier", points = { { 0.05, 0.7 }, { 0.1, 1 } } })
 hl.curve("emphasizedAccel", { type = "bezier", points = { { 0.3, 0 }, { 0.8, 0.15 } } })
 hl.curve("emphasizedDecel", { type = "bezier", points = { { 0.05, 0.7 }, { 0.1, 1 } } })
 hl.curve("standard", { type = "bezier", points = { { 0.2, 0 }, { 0, 1 } } })
 
+-- Expressive spatial curves (overshoot spring physics matching blob.frag drawers & modals)
+hl.curve("spatial", { type = "bezier", points = { { 0.38, 1.21 }, { 0.22, 1 } } })
+hl.curve("slowSpatial", { type = "bezier", points = { { 0.39, 1.29 }, { 0.35, 0.98 } } })
+hl.curve("fastSpatial", { type = "bezier", points = { { 0.42, 1.67 }, { 0.21, 0.9 } } })
+
 hl.animation({ leaf = "layersIn", enabled = true, speed = 5, bezier = "emphasizedDecel", style = "slide" })
 hl.animation({ leaf = "layersOut", enabled = true, speed = 4, bezier = "emphasizedAccel", style = "slide" })
 hl.animation({ leaf = "fadeLayers", enabled = true, speed = 5, bezier = "standard" })
 
--- Open/close run a touch quicker than Caelestia's 5 / 3 (speed is in 100ms
--- units, so lower is faster).
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 4, bezier = "emphasizedDecel" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel" })
-hl.animation({ leaf = "windowsMove", enabled = true, speed = 6, bezier = "standard" })
+-- Window animations: open blooms with spatial spring popin matching SDF modals (450ms),
+-- and close collapses swiftly with emphasizedAccel (250ms).
+hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.5, bezier = "spatial", style = "popin 65%" })
+hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel", style = "popin 75%" })
+hl.animation({ leaf = "windowsMove", enabled = true, speed = 5, bezier = "spatial" })
 hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "standard" })
 hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
 
@@ -129,8 +135,9 @@ hl.animation({ leaf = "border", enabled = true, speed = 6, bezier = "standard" }
 
 -- Omarchy's looknfeel sets these child leaves explicitly, so they would not
 -- inherit the parents above. Pin them to what Caelestia gets by inheritance.
-hl.animation({ leaf = "fadeIn", enabled = true, speed = 6, bezier = "standard" })
-hl.animation({ leaf = "fadeOut", enabled = true, speed = 6, bezier = "standard" })
+-- Synchronize fadeIn and fadeOut with windowsIn and windowsOut.
+hl.animation({ leaf = "fadeIn", enabled = true, speed = 4.5, bezier = "spatial" })
+hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel" })
 hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 6, bezier = "standard" })
 hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 5, bezier = "standard" })
 hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 5, bezier = "standard" })
