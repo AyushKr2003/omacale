@@ -21,7 +21,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.7"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.8"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -82,6 +82,41 @@ Item {
       }
     }
     return pluginFacades[key]
+  }
+
+  // Service cache for hosted 3rd-party plugins that require a companion service.
+  // Avoid reassigning the property to prevent declarative binding loops in hosted panels.
+  QtObject {
+    id: serviceStore
+    property var instances: ({})
+  }
+
+  function hostedServiceFor(pluginId) {
+    var key = String(pluginId || "")
+    if (!key) return null
+    if (serviceStore.instances[key]) return serviceStore.instances[key]
+
+    var reg = root.barWidgetRegistry
+    var meta = reg && typeof reg.metadataFor === "function" ? reg.metadataFor(key) : null
+    var sourceDir = meta && meta.sourceDir ? meta.sourceDir : ""
+    if (!sourceDir) {
+      sourceDir = Quickshell.env("HOME") + "/.config/omarchy/plugins/" + key
+    }
+    var serviceUrl = "file://" + sourceDir + "/Service.qml"
+    var comp = Qt.createComponent(serviceUrl)
+    if (comp.status === Component.Ready) {
+      var inst = comp.createObject(root, {
+        shell: root.shell,
+        manifest: meta
+      })
+      if (inst) {
+        serviceStore.instances[key] = inst
+        return inst
+      }
+    } else if (comp.status === Component.Error) {
+      console.warn("omacale: failed to create hosted service for", key, comp.errorString())
+    }
+    return null
   }
 
   // Popout coordination

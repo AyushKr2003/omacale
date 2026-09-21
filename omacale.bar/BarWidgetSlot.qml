@@ -121,13 +121,15 @@ Item {
     return Math.round(Math.max(Tk.padding.medium, Math.min(targetY, scrH - cardH - Tk.padding.medium)))
   }
 
+  readonly property bool cardSurfaceActive: compatibilityPanel !== null && compatibilityCard !== null && (compatibilityPanel.open || compatibilityCard.opacity > 0)
+
   // Anchor the popup card directly next to Omacale's vertical bar
   Binding {
     target: root.compatibilityCard
     property: "x"
     value: Tk.barWidth + (root.compatibilityPanel && root.compatibilityPanel.gap !== undefined ? root.compatibilityPanel.gap : Tk.spacing.medium)
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   // Align the popup card vertically with the widget icon
@@ -135,8 +137,8 @@ Item {
     target: root.compatibilityCard
     property: "y"
     value: root.hostedCardY
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   // Prevent KeyboardPanel from crushing width to 120px
@@ -144,8 +146,8 @@ Item {
     target: root.compatibilityCard
     property: "width"
     value: Math.max(340, root.compatibilityPanel ? Number(root.compatibilityPanel.contentWidth) || 340 : 340)
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   // Caelestia M3 Surface Container styling
@@ -153,8 +155,8 @@ Item {
     target: root.compatibilityCard
     property: "color"
     value: Colours.m3surfaceContainer
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   // Caelestia 24px container radius
@@ -162,8 +164,8 @@ Item {
     target: root.compatibilityCard
     property: "radius"
     value: Tk.rounding.large
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   // Caelestia M3 outline
@@ -175,8 +177,8 @@ Item {
       widths: { top: 1, right: 1, bottom: 1, left: 1 },
       gradient: { colors: [], angle: 0, enabled: false }
     })
-    when: root.compatibilityCard !== null && root.compatibilityPanel !== null && root.compatibilityPanel.open
-    restoreMode: Binding.RestoreBindingOrValue
+    when: root.cardSurfaceActive
+    restoreMode: Binding.RestoreNone
   }
 
   Loader {

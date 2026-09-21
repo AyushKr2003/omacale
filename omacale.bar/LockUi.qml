@@ -113,7 +113,7 @@ Item {
       target: media.item
       property: "playbackEnabled"
       value: root.view ? root.view.loadBackground && !root.view.displaysBlank && !root.view.powerSaverActive : false
-      when: media.item !== null
+      when: media.item !== null && "playbackEnabled" in media.item
       restoreMode: Binding.RestoreNone
     }
   }

@@ -59,7 +59,28 @@ QtObject {
   }
 
   readonly property var shell: QtObject {
-    function serviceFor(id) { return null }
+    function serviceFor(id) {
+      var targetId = String(id || "")
+      if (!targetId) return null
+      if (host.shell && typeof host.shell.scopedPluginShellForId === "function") {
+        var scoped = host.shell.scopedPluginShellForId(facade.moduleName)
+        if (scoped && typeof scoped.serviceFor === "function") {
+          var s = scoped.serviceFor(targetId)
+          if (s) return s
+        }
+      }
+      if (host.shell && typeof host.shell.serviceFor === "function") {
+        if (targetId === facade.moduleName || !host.shell.pluginRegistry || host.shell.pluginRegistry.resolveEnabledId(targetId) === facade.moduleName) {
+          var s2 = host.shell.serviceFor(targetId)
+          if (s2) return s2
+        }
+      }
+      if (typeof host.hostedServiceFor === "function") {
+        var s3 = host.hostedServiceFor(targetId)
+        if (s3) return s3
+      }
+      return null
+    }
     function firstPartyServiceFor(id) {
       return host.shell && typeof host.shell.firstPartyServiceFor === "function"
         ? host.shell.firstPartyServiceFor(id) : null

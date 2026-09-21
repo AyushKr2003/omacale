@@ -19,6 +19,7 @@ Item {
 
   // The contract Omarchy's Service.qml drives, copied from its LockView.qml.
   property string backgroundPath: ""
+  property string videoPosterPath: ""
   property int backgroundVersion: 0
   property bool fingerprintConfigured: false
   property bool authenticatingPassword: false
@@ -29,6 +30,7 @@ Item {
   property bool displaysBlank: false
   property bool powerSaverActive: false
   property string passwordText: ""
+  property bool syncingPasswordText: false
 
   signal submitPassword(string password)
   signal passwordTextEdited(string password)
