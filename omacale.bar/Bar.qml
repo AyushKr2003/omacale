@@ -21,7 +21,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.8"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.10"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -73,6 +73,74 @@ Item {
 
   // Facade cache for plugins
   property var pluginFacades: ({})
+  // Slots exist once per output. Keep a host-level list so widgets that use
+  // BarWidget.broadcast() receive every live instance, like they do on the
+  // stock Omarchy bar.
+  property var pluginSlots: []
+  property var pluginPopoutOwners: ({})
+
+  function registerPluginSlot(slot) {
+    if (!slot || pluginSlots.indexOf(slot) >= 0) return
+    pluginSlots = pluginSlots.concat([slot])
+  }
+  function unregisterPluginSlot(slot) {
+    pluginSlots = pluginSlots.filter(function(candidate) { return candidate && candidate !== slot })
+  }
+  function moduleWidgets(id) {
+    var key = String(id || "")
+    if (!key) return []
+    var widgets = []
+    for (var i = 0; i < pluginSlots.length; i++) {
+      var slot = pluginSlots[i]
+      if (slot && slot.moduleName === key && slot.activeItem) widgets.push(slot.activeItem)
+    }
+    return widgets
+  }
+  function registerPluginClickTarget(facade, target) {
+    if (!facade || !target) return
+    var targets = facade.clickTargets || []
+    if (targets.indexOf(target) < 0) facade.clickTargets = targets.concat([target])
+  }
+  function unregisterPluginClickTarget(facade, target) {
+    if (!facade) return
+    facade.clickTargets = (facade.clickTargets || []).filter(function(candidate) { return candidate && candidate !== target })
+  }
+  function requestPluginPopout(facade, owner) {
+    if (!facade || !owner) return
+    pluginPopoutOwners[facade.moduleName] = owner
+    requestPopout(owner)
+  }
+  function releasePluginPopout(facade, owner) {
+    if (!facade) return
+    if (pluginPopoutOwners[facade.moduleName] === owner) delete pluginPopoutOwners[facade.moduleName]
+    releasePopout(owner)
+  }
+  function pluginOwnsPopout(facade, owner) {
+    return !!facade && pluginPopoutOwners[facade.moduleName] === owner
+  }
+  function targetBelongsToWindow(target, window) {
+    return !!target && !!window && target.QsWindow && target.QsWindow.window === window
+  }
+  function switchPluginPanelFrom(facade, owner, direction) {
+    var ownerSlot = null
+    for (var i = 0; i < pluginSlots.length; i++) {
+      var slot = pluginSlots[i]
+      if (slot && slot.activeItem === owner) { ownerSlot = slot; break }
+    }
+    if (!ownerSlot) return false
+    var window = ownerSlot.QsWindow ? ownerSlot.QsWindow.window : null
+    var candidates = pluginSlots.filter(function(slot) {
+      return slot && slot.visible && slot.activeItem
+        && (!window || !slot.QsWindow || slot.QsWindow.window === window)
+    })
+    if (!candidates.length) return false
+    var index = candidates.indexOf(ownerSlot)
+    if (index < 0) return false
+    var next = candidates[(index + (direction < 0 ? -1 : 1) + candidates.length) % candidates.length]
+    if (!next || next === ownerSlot || !next.activeItem || typeof next.activeItem.open !== "function") return false
+    next.activeItem.open()
+    return true
+  }
   function pluginBarFacadeFor(id) {
     var key = String(id || "")
     if (!pluginFacades[key]) {

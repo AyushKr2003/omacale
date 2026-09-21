@@ -246,9 +246,13 @@ Item {
   }
 
   Component.onCompleted: {
+    host.registerPluginSlot(root)
     if (loader.item) {
       injectProps()
       syncMetrics()
     }
+  }
+  Component.onDestruction: {
+    if (host) host.unregisterPluginSlot(root)
   }
 }

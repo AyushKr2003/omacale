@@ -22,9 +22,13 @@ QtObject {
   readonly property bool foregroundAnimationEnabled: true
   readonly property bool centerHoverRevealSuppressed: false
   readonly property bool centerSectionRevealHeld: false
-  readonly property var clickTargets: []
+  // Widgets register their trigger buttons here so KeyboardPanel can forward
+  // a click through its overlay to another widget on the same bar.
+  property var clickTargets: []
   readonly property var layoutConfig: host.barConfig && host.barConfig.layout ? host.barConfig.layout : ({})
-  readonly property var activePopout: host.activePopout
+  readonly property var foreignPopoutMarker: ({ foreign: true })
+  readonly property var activePopout: host.pluginOwnsPopout(facade, host.activePopout)
+    ? host.activePopout : (host.activePopout ? foreignPopoutMarker : null)
   // Widgets (e.g. ruixen.pluginpins) read bar.barWidgetRegistry.
   readonly property var barWidgetRegistry: host.barWidgetRegistry
   // Widgets read bar.barConfig for layout introspection.
@@ -32,24 +36,16 @@ QtObject {
 
   function showTooltip(target, text) { host.showTooltip(target, text) }
   function hideTooltip(target) { host.hideTooltip(target) }
-  function requestPopout(owner) { host.requestPopout(owner) }
-  function releasePopout(owner) { host.releasePopout(owner) }
-  function registerClickTarget(target) {}
-  function unregisterClickTarget(target) {}
-  function switchPanelFrom(owner, direction) { return false }
-  function targetBelongsToWindow(target, window) { return true }
+  function requestPopout(owner) { host.requestPluginPopout(facade, owner) }
+  function releasePopout(owner) { host.releasePluginPopout(facade, owner) }
+  function registerClickTarget(target) { host.registerPluginClickTarget(facade, target) }
+  function unregisterClickTarget(target) { host.unregisterPluginClickTarget(facade, target) }
+  function switchPanelFrom(owner, direction) { return host.switchPluginPanelFrom(facade, owner, direction) }
+  function targetBelongsToWindow(target, window) { return host.targetBelongsToWindow(target, window) }
   function run(command) { Sys.run(command) }
 
-  // BarWidget.broadcast() needs this to relay IPC to every live instance
-  // of a widget across monitors.  Without it, broadcast() falls back to
-  // a single-item array, which is correct for Omacale's vertical bar
-  // (one BarContent per screen).
   function moduleWidgets(id) {
-    // Each screen has its own BarWidgetSlot instance, so collecting
-    // across screens would need a host-level registry.  Return the
-    // caller's own item for now — BarWidget.broadcast() gracefully
-    // handles a single-element array.
-    return []
+    return String(id || "") === facade.moduleName ? host.moduleWidgets(facade.moduleName) : []
   }
 
   function _scopedEntry() {
