@@ -26,6 +26,12 @@ Item {
   }
 
   readonly property Item activeItem: loader.item
+  readonly property var moduleMetadata: {
+    var reg = host.barWidgetRegistry
+    return reg && typeof reg.metadataFor === "function" ? reg.metadataFor(moduleName) : null
+  }
+  readonly property string displayName: moduleMetadata && moduleMetadata.displayName
+    ? String(moduleMetadata.displayName) : moduleName
 
   property bool activeItemVisible: false
   property real activeItemHeight: 0
@@ -47,6 +53,32 @@ Item {
   width: implicitWidth
   height: implicitHeight
   visible: loader.status === Loader.Ready && implicitHeight > 0
+  // Omarchy widgets are usually authored for a horizontal bar. A vertical
+  // Caelestia slot is intentionally icon-sized, so never let a text label
+  // paint over its neighbours or outside the pill.
+  clip: true
+  // A third-party widget's natural width is authoritative: QML anchors can
+  // shrink `width`, but not its `implicitWidth`.  Keep widgets that already
+  // adapt to a vertical bar (e.g. WARP) intact. For a horizontal, label-first
+  // widget, use a host icon while retaining the real item underneath as the
+  // popup anchor and action controller.
+  readonly property bool compactProxy: activeItem !== null
+    && Number(activeItem.implicitWidth) > Tk.barInner + 1
+
+  function triggerCompactAction(button) {
+    var targets = bar && bar.clickTargets ? bar.clickTargets : []
+    for (var i = targets.length - 1; i >= 0; i--) {
+      var target = targets[i]
+      if (target && target.visible !== false && typeof target.triggerPress === "function") {
+        target.triggerPress(button)
+        return
+      }
+    }
+    if (button === Qt.LeftButton && activeItem) {
+      if (typeof activeItem.toggle === "function") activeItem.toggle()
+      else if (typeof activeItem.open === "function") activeItem.open()
+    }
+  }
 
   // Host panel popup placement correction for screen-sized window:
   // Omarchy KeyboardPanel/PopupCard derive their perpendicular offset from
@@ -112,11 +144,16 @@ Item {
   }
 
   readonly property real hostedCardY: {
-    var pt = Qt.point(0, 0)
-    try { pt = root.mapToItem(null, 0, 0) } catch (e) {}
     var cardH = compatibilityCard ? (Number(compatibilityCard.height) || 300) : 300
-    var iconH = root.height > 0 ? root.height : 28
-    var targetY = pt.y + iconH / 2 - cardH / 2
+    // mapToItem(null) resolves in the host scene, not KeyboardPanel's
+    // screen-sized overlay. KeyboardPanel already tracks the anchor in the
+    // correct output coordinate space; use it so a widget near the bottom
+    // opens beside itself instead of at the top of the output.
+    var anchorY = compatibilityPanel ? Number(compatibilityPanel.anchorScreenPos.y) : NaN
+    var anchorH = compatibilityPanel ? Number(compatibilityPanel.anchorH) : NaN
+    if (!isFinite(anchorY)) anchorY = 0
+    if (!isFinite(anchorH) || anchorH <= 0) anchorH = root.height > 0 ? root.height : 28
+    var targetY = anchorY + anchorH / 2 - cardH / 2
     var scrH = (compatibilityPanel && compatibilityPanel.screenH) ? Number(compatibilityPanel.screenH) : 1080
     return Math.round(Math.max(Tk.padding.medium, Math.min(targetY, scrH - cardH - Tk.padding.medium)))
   }
@@ -186,12 +223,39 @@ Item {
     anchors.fill: parent
     active: root.registryComponent !== null
     sourceComponent: root.registryComponent
+    opacity: root.compactProxy ? 0 : 1
     onLoaded: {
       root.injectProps()
       root.syncMetrics()
       Qt.callLater(root.injectProps)
       Qt.callLater(root.syncMetrics)
       Qt.callLater(root.resolveCompatibilitySurface)
+    }
+  }
+
+  // The fallback is deliberately owned by Omacale rather than inferred from
+  // a plugin's text tree. That avoids hiding arbitrary plugin state or
+  // hardcoding special cases while ensuring no label can bleed outside the
+  // Caelestia pill.
+  Item {
+    id: compactButton
+    anchors.fill: parent
+    visible: root.compactProxy
+    z: 10
+
+    MIcon {
+      anchors.centerIn: parent
+      text: "extension"
+      color: Colours.m3onSurfaceVariant
+    }
+    MouseArea {
+      anchors.fill: parent
+      hoverEnabled: true
+      acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+      cursorShape: Qt.PointingHandCursor
+      onEntered: root.host.showTooltip(compactButton, root.displayName)
+      onExited: root.host.hideTooltip(compactButton)
+      onClicked: function(mouse) { root.triggerCompactAction(mouse.button) }
     }
   }
 

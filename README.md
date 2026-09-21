@@ -13,7 +13,7 @@ Omacale is a modular bar and desktop shell plugin (`omacale.bar`) built for Omar
 - **SDF Frame & Drawers**: Unified screen border and smooth slide-out drawers powered by Caelestia's `blob.frag` shader.
 - **Material 3 Palette**: Dynamically derives M3 color roles from your active Omarchy theme accent (`omarchy theme set`).
 - **Interactive Bar**: Shape-based workspace indicator, active window title, system tray, clock, and hover popouts for network, Bluetooth, and battery.
-- **Third-party Bar Widgets**: Enabled Omarchy bar widgets are hosted in a Caelestia-styled pill, with multi-monitor broadcasts, keyboard popouts, and click hand-off preserved.
+- **Third-party Bar Widgets**: Enabled Omarchy bar widgets are hosted in a Caelestia-styled pill, with multi-monitor broadcasts, keyboard popouts, and click hand-off preserved. Widgets that are too wide for a vertical icon slot automatically use a compact extension affordance while retaining their original action and popup.
 - **Dashboard**: Integrated weather, calendar, live hardware monitors, and a media player with synced lyrics and audio visualizer.
 - **Application Launcher**: Fast app search, Omarchy actions, wallpaper/theme carousels (`>wallpaper`, `>theme`), and direct access to the Omarchy menu (`:` prefix).
 - **Workspace Overview**: Concentric workspace grid with live window previews, keyboard navigation (arrow keys / HJKL), drag-and-drop window organization, and direct workspace jumping.

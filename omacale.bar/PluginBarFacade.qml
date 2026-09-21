@@ -17,7 +17,11 @@ QtObject {
   readonly property string fontFamily: Tk.mono
   readonly property string position: "left"
   readonly property bool vertical: true
-  readonly property int barSize: Tk.barWidth
+  // WidgetButton uses barSize as the extent of its icon slot. The frame is
+  // wider because it includes the Caelestia border/padding, but plugins paint
+  // inside the 40px pill; exposing the outer width makes well-behaved vertical
+  // widgets claim they are oversized and unnecessarily enter the fallback.
+  readonly property int barSize: Tk.barInner
   readonly property bool transparent: Config.o.appearance.transparency.enabled
   readonly property bool foregroundAnimationEnabled: true
   readonly property bool centerHoverRevealSuppressed: false
