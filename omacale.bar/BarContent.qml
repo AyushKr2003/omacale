@@ -163,59 +163,176 @@ Item {
       }
     }
 
-    // ---------------------------------------------------------- tray
+    // --------------------------------------------------- plugins pill
+    // Dedicated Caelestia pill for 3rd-party bar widgets (installed in
+    // ~/.config/omarchy/plugins/).  Renders each widget's icon directly,
+    // with Caelestia's standard m3surfaceContainer rounded pill styling.
     Rectangle {
+      id: pluginPill
       Layout.alignment: Qt.AlignHCenter
-      visible: root.cfg.tray.enabled && trayRep.count > 0
+      readonly property var pluginsList: root.host.thirdPartyPlugins
+      visible: (root.cfg.plugins ? root.cfg.plugins.enabled !== false : true) && pluginsList && pluginsList.length > 0
+
       implicitWidth: Tk.barInner
-      implicitHeight: trayCol.implicitHeight
+      implicitHeight: Math.min(maxHeight, pluginCol.implicitHeight + Tk.padding.extraSmall * 2)
       radius: width / 2
-      color: root.cfg.tray.background ? Colours.m3surfaceContainer : "transparent"
-    Column {
-      id: trayCol
-      anchors.horizontalCenter: parent.horizontalCenter
-      topPadding: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
-      bottomPadding: topPadding
-      spacing: root.cfg.tray.background ? Tk.spacing.medium : Tk.spacing.small
-      Repeater {
-        id: trayRep
-        model: SystemTray.items.values.filter(i => i.status !== Status.Passive)
-        MouseArea {
-          required property var modelData
-          implicitWidth: Tk.body.small * 2
-          implicitHeight: Tk.body.small * 2
-          acceptedButtons: Qt.LeftButton | Qt.RightButton
-          cursorShape: Qt.PointingHandCursor
-          onClicked: function(e) { if (e.button === Qt.LeftButton) modelData.activate(); else modelData.secondaryActivate() }
-          ColouredIcon {
-            anchors.fill: parent
-            visible: root.cfg.tray.recolour
-            colour: Colours.m3secondary
-            source: trayImg.source
+      color: Colours.m3surfaceContainer
+      clip: true
+
+      Behavior on implicitHeight { Anim {} }
+
+      readonly property real maxHeight: Math.max(120, col.height * 0.35)
+
+      Column {
+        id: pluginCol
+        anchors.horizontalCenter: parent.horizontalCenter
+        topPadding: Tk.padding.extraSmall
+        bottomPadding: topPadding
+        spacing: Tk.spacing.small
+
+        Repeater {
+          id: pluginRep
+          model: pluginPill.pluginsList
+
+          BarWidgetSlot {
+            required property var modelData
+            entry: modelData
+            host: root.host
+            bar: root.host.pluginBarFacadeFor(root.host.entryId(modelData))
           }
-          Image {
-            id: trayImg
-            anchors.fill: parent
-            visible: !root.cfg.tray.recolour
-            source: {
-              let icon = parent.modelData.icon
-              if (icon.indexOf("?path=") >= 0) {
-                const [name, path] = icon.split("?path=")
-                icon = "file://" + path + "/" + name.slice(name.lastIndexOf("/") + 1)
-              }
-              return icon
-            }
-            sourceSize.width: width * 2
-            sourceSize.height: height * 2
-            smooth: true
-            mipmap: true
-          }
-          scale: 0
-          Component.onCompleted: scale = 1
-          Behavior on scale { Anim { easing.bezierCurve: Tk.curves.standardDecel } }
         }
       }
     }
+
+    // ---------------------------------------------------------- tray
+    Rectangle {
+      id: trayPill
+      Layout.alignment: Qt.AlignHCenter
+      readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive)
+      visible: root.cfg.tray.enabled && trayItems.length > 0
+      implicitWidth: Tk.barInner
+
+      property bool compact: (root.cfg.tray && root.cfg.tray.compact) || trayItems.length > 4
+      property bool expanded: false
+
+      implicitHeight: {
+        if (!visible) return 0
+        if (!compact) return Math.min(maxHeight, trayCol.implicitHeight + (root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2)
+        if (expanded) return Math.min(maxHeight, trayCol.implicitHeight + expandTrayBtn.implicitHeight + Tk.padding.medium * 2 + Tk.spacing.small)
+        return width
+      }
+      radius: width / 2
+      color: root.cfg.tray.background ? Colours.m3surfaceContainer : "transparent"
+      clip: true
+      Behavior on implicitHeight { Anim {} }
+
+      readonly property real maxHeight: Math.max(120, col.height * 0.35)
+
+      HoverHandler {
+        id: trayHover
+        onHoveredChanged: {
+          if (hovered) {
+            collapseTrayTimer.stop()
+            if (trayPill.compact) trayPill.expanded = true
+          } else {
+            if (trayPill.compact) collapseTrayTimer.restart()
+          }
+        }
+      }
+      Timer {
+        id: collapseTrayTimer
+        interval: 400
+        repeat: false
+        onTriggered: {
+          if (!trayHover.hovered) trayPill.expanded = false
+        }
+      }
+
+      Flickable {
+        id: trayFlick
+        anchors.fill: parent
+        anchors.topMargin: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
+        anchors.bottomMargin: trayPill.compact ? (expandTrayBtn.implicitHeight + Tk.padding.small) : (root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall)
+        contentHeight: trayCol.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+
+        Column {
+          id: trayCol
+          anchors.horizontalCenter: parent.horizontalCenter
+          topPadding: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
+          bottomPadding: topPadding
+          spacing: root.cfg.tray.background ? Tk.spacing.medium : Tk.spacing.small
+          opacity: !trayPill.compact || trayPill.expanded ? 1 : 0
+          Behavior on opacity { Anim { type: "effects" } }
+
+          Repeater {
+            id: trayRep
+            model: trayPill.trayItems
+            MouseArea {
+              required property var modelData
+              implicitWidth: Tk.body.small * 2
+              implicitHeight: Tk.body.small * 2
+              acceptedButtons: Qt.LeftButton | Qt.RightButton
+              cursorShape: Qt.PointingHandCursor
+              onClicked: function(e) { if (e.button === Qt.LeftButton) modelData.activate(); else modelData.secondaryActivate() }
+              ColouredIcon {
+                anchors.fill: parent
+                visible: root.cfg.tray.recolour
+                colour: Colours.m3secondary
+                source: trayImg.source
+              }
+              Image {
+                id: trayImg
+                anchors.fill: parent
+                visible: !root.cfg.tray.recolour
+                source: {
+                  let icon = parent.modelData.icon
+                  if (icon.indexOf("?path=") >= 0) {
+                    const [name, path] = icon.split("?path=")
+                    icon = "file://" + path + "/" + name.slice(name.lastIndexOf("/") + 1)
+                  }
+                  return icon
+                }
+                sourceSize.width: width * 2
+                sourceSize.height: height * 2
+                smooth: true
+                mipmap: true
+              }
+              scale: 0
+              Component.onCompleted: scale = 1
+              Behavior on scale { Anim { easing.bezierCurve: Tk.curves.standardDecel } }
+            }
+          }
+        }
+      }
+
+      // Compact trigger icon / chevron
+      Item {
+        id: expandTrayBtn
+        visible: trayPill.compact
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        width: Tk.barInner
+        height: trayPill.expanded ? (expandTrayIcon.implicitHeight + Tk.padding.small) : parent.height
+
+        MIcon {
+          id: expandTrayIcon
+          anchors.centerIn: parent
+          text: trayPill.expanded ? "expand_less" : "expand_more"
+          color: Colours.m3onSurfaceVariant
+          rotation: trayPill.expanded ? 180 : 0
+          Behavior on rotation { Anim {} }
+        }
+        MouseArea {
+          anchors.fill: parent
+          cursorShape: Qt.PointingHandCursor
+          onClicked: {
+            collapseTrayTimer.stop()
+            trayPill.expanded = !trayPill.expanded
+          }
+        }
+      }
     }
 
     // --------------------------------------------------------- clock

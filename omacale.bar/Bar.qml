@@ -21,7 +21,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.4"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.7"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -30,6 +30,122 @@ Item {
     return m ? m.name : (Quickshell.screens.length ? Quickshell.screens[0].name : "")
   }
   function toggle(name, arg) { toggleRequested(name, focusedScreen(), arg || "") }
+
+  function entryId(entry) {
+    return typeof entry === "string" ? entry : (entry && entry.id ? entry.id : "")
+  }
+
+  function entrySettings(entry) {
+    return (entry && typeof entry === "object") ? entry : ({})
+  }
+
+  // Aggregates genuinely 3rd-party bar plugins (installed in
+  // ~/.config/omarchy/plugins/) from the shell.json layout.
+  // Uses the registry metadata's firstParty flag instead of a hardcoded
+  // exclusion list — the shell sets firstParty=true for every stock plugin
+  // under /usr/share/omarchy/shell/plugins/.
+  readonly property var thirdPartyPlugins: {
+    if (!barConfig || !barConfig.layout) return []
+    var reg = barWidgetRegistry
+    if (!reg || !reg.widgets) return []
+    // Create a binding dependency on the revision counter.
+    void(reg.revision)
+    var layout = barConfig.layout
+    var collected = []
+    var seen = {}
+    var sections = ["left", "center", "right"]
+    for (var s = 0; s < sections.length; s++) {
+      var list = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
+      for (var i = 0; i < list.length; i++) {
+        var entry = list[i]
+        var id = root.entryId(entry)
+        if (!id || seen[id]) continue
+        if (!reg.widgets[id]) continue
+        // Skip first-party (stock) widgets — only show user-installed ones.
+        var meta = reg.metadataFor(id)
+        if (meta && meta.firstParty) continue
+        seen[id] = true
+        collected.push(entry)
+      }
+    }
+    return collected
+  }
+
+  // Facade cache for plugins
+  property var pluginFacades: ({})
+  function pluginBarFacadeFor(id) {
+    var key = String(id || "")
+    if (!pluginFacades[key]) {
+      var comp = Qt.createComponent("PluginBarFacade.qml")
+      if (comp.status === Component.Ready) {
+        pluginFacades[key] = comp.createObject(root, { host: root, moduleName: key })
+      }
+    }
+    return pluginFacades[key]
+  }
+
+  // Popout coordination
+  property var activePopout: null
+  function requestPopout(owner) {
+    if (activePopout === owner) return
+    if (activePopout) {
+      if ("closeForPopoutSwitch" in activePopout) activePopout.closeForPopoutSwitch()
+      else if ("close" in activePopout) activePopout.close()
+    }
+    activePopout = owner
+  }
+  function releasePopout(owner) {
+    if (activePopout === owner) activePopout = null
+  }
+
+  // Tooltip tracking
+  property var tooltipTarget: null
+  property var pendingTooltipTarget: null
+  property string tooltipText: ""
+  property string pendingTooltipText: ""
+  property bool tooltipShown: false
+  property int tooltipRequest: 0
+
+  function clearTooltip() {
+    tooltipTimer.stop()
+    pendingTooltipTarget = null
+    pendingTooltipText = ""
+    tooltipTarget = null
+    tooltipText = ""
+    tooltipShown = false
+  }
+
+  function showTooltip(target, text) {
+    clearTooltip()
+    if (!target || !text) return
+    var req = ++tooltipRequest
+    pendingTooltipTarget = target
+    pendingTooltipText = text
+    Qt.callLater(function() {
+      if (req !== tooltipRequest) return
+      tooltipTarget = pendingTooltipTarget
+      tooltipText = pendingTooltipText
+      pendingTooltipTarget = null
+      pendingTooltipText = ""
+      tooltipTimer.restart()
+    })
+  }
+
+  function hideTooltip(target) {
+    if (tooltipTarget !== target && pendingTooltipTarget !== target) return
+    tooltipRequest++
+    clearTooltip()
+  }
+
+  Timer {
+    id: tooltipTimer
+    interval: 350
+    repeat: false
+    onTriggered: {
+      if (root.tooltipTarget && root.tooltipTarget.visible) root.tooltipShown = true
+      else root.clearTooltip()
+    }
+  }
 
   // Bundled fonts (Caelestia's Google Sans Flex and Rubik).
   FontLoader { source: Qt.resolvedUrl("assets/fonts/GoogleSansFlex.ttf") }

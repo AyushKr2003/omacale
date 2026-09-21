@@ -4,6 +4,8 @@ Anim 1.0 Anim.qml
 Bar 1.0 Bar.qml
 ButtonRow 1.0 ButtonRow.qml
 BarContent 1.0 BarContent.qml
+BarWidgetSlot 1.0 BarWidgetSlot.qml
+PluginBarFacade 1.0 PluginBarFacade.qml
 CAnim 1.0 CAnim.qml
 CircularProgress 1.0 CircularProgress.qml
 ColouredIcon 1.0 ColouredIcon.qml

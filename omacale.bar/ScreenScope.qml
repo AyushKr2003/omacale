@@ -547,6 +547,38 @@ Scope {
         scope: scope
       }
 
+      // ---- tooltip bubble for widgets
+      Rectangle {
+        id: tooltipBubble
+        visible: scope.host.tooltipShown && scope.host.tooltipText !== "" && scope.host.tooltipTarget !== null
+        readonly property point targetPt: {
+          if (!scope.host.tooltipTarget) return Qt.point(0, 0)
+          try {
+            return scope.host.tooltipTarget.mapToItem(win.contentItem, 0, 0)
+          } catch (e) {
+            return Qt.point(0, 0)
+          }
+        }
+        x: Tk.barWidth + Tk.spacing.small
+        y: Math.max(Tk.padding.medium, Math.min(targetPt.y + (scope.host.tooltipTarget ? scope.host.tooltipTarget.height / 2 : 0) - height / 2, win.height - height - Tk.padding.medium))
+        z: 999
+        implicitWidth: tipText.implicitWidth + Tk.padding.medium * 2
+        implicitHeight: tipText.implicitHeight + Tk.padding.small * 2
+        radius: Tk.rounding.small
+        color: Colours.m3surfaceContainerHigh
+        border.color: Colours.m3outlineVariant
+        border.width: 1
+        opacity: visible ? 1 : 0
+        Behavior on opacity { Anim { type: "effects" } }
+        MText {
+          id: tipText
+          anchors.centerIn: parent
+          text: scope.host.tooltipText
+          font.pointSize: Tk.body.small
+          color: Colours.m3onSurface
+        }
+      }
+
       // ---- popout
       Item {
         x: win.ax

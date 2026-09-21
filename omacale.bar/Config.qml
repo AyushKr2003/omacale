@@ -107,6 +107,11 @@ QtObject {
           property bool enabled: true
           property bool background: false
           property bool recolour: false
+          property bool compact: false
+        }
+        property JsonObject plugins: JsonObject {
+          property bool enabled: true
+          property bool compact: false
         }
         property JsonObject clock: JsonObject {
           property bool showIcon: true
