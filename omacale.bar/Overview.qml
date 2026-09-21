@@ -47,9 +47,10 @@ Item {
   // however many rows and columns are asked for.
   // The card's inset is the tile gap, so the outer border reads as one more
   // gutter (the bar pads its workspace pill the same way).
+  readonly property int outerRadius: Tk.rounding.extraLarge
   readonly property int pad: Tk.padding.medium
-  // Concentric with the outer panel (panelRadius 28px - pad 12px = 16px).
-  readonly property int cardRadius: Tk.rounding.large
+  // Concentric with the outer panel (outerRadius 28px - pad 12px = 16px).
+  readonly property int cardRadius: Math.max(0, outerRadius - pad)
   readonly property real fitW: (screen.width * 0.94 - pad * 2 - (cols - 1) * gap) / cols / usableW
   readonly property real fitH: (screen.height * 0.86 - pad * 2 - (shownRows.length - 1) * gap) / shownRows.length / usableH
   readonly property real tileScale: Math.max(0.02, Math.min(cfg.scale, fitW, fitH))
@@ -266,9 +267,17 @@ Item {
           readonly property int wsId: d && d.workspace ? d.workspace.id : 0
           readonly property real relX: Math.max(0, (d.at[0] - (root.mon ? root.mon.x : 0) - root.res(0)) * root.tileScale)
           readonly property real relY: Math.max(0, (d.at[1] - (root.mon ? root.mon.y : 0) - root.res(1)) * root.tileScale)
+          readonly property real inWsX: Math.min(relX, root.tileW - width)
+          readonly property real inWsY: Math.min(relY, root.tileH - height)
+          readonly property real distToBorder: Math.min(
+            Math.max(0, inWsX),
+            Math.max(0, inWsY),
+            Math.max(0, root.tileW - (inWsX + width)),
+            Math.max(0, root.tileH - (inWsY + height))
+          )
 
           toplevel: modelData
-          radius: root.cardRadius
+          radius: Math.max(Tk.rounding.extraSmall, Math.round(root.cardRadius - distToBorder))
           showIcon: root.cfg.showIcons
           live: root.active && root.cfg.previews
           width: Math.max(8, Math.min(d.size[0] * root.tileScale, root.tileW))
