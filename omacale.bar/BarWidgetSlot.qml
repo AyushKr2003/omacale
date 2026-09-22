@@ -92,13 +92,21 @@ Item {
     if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "rotated"
     return "proxy"
   }
-  readonly property bool compactProxy: shape === "proxy"
+  readonly property bool compactProxy: shape === "proxy" || placeholder
+
+  // Pinned, but the widget is painting nothing (an indicator waiting for its
+  // service, like the location widget with its daemon stopped). It keeps its
+  // cell and a stand-in that opens it -- otherwise a widget you pinned would
+  // be missing from the bar with no way to reach its panel. Unpinned, it
+  // collapses instead, so the pill stays clean.
+  property bool pinned: true
+  readonly property bool placeholder: pinned && buttonHidden && activeItem !== null && activeItem.visible
 
   // `visible` of the item is its effective visibility, so the slot never hides
   // itself on it (that would latch it hidden). Like the stock bar, a widget
   // with nothing to show gets a zero-height slot, which Column skips.
   readonly property bool shown: activeItem !== null && activeItem.visible
-    && !buttonHidden
+    && (!buttonHidden || pinned)
   readonly property real stageWidth: shape === "icon" ? logicalBreadth : naturalWidth
   readonly property real stageHeight: {
     if (shape !== "icon") return Math.max(1, naturalHeight)
@@ -106,7 +114,8 @@ Item {
     // uniform cell. Anything taller is a stack and keeps its own height.
     return naturalHeight > Style.bar.iconSlot + 1 ? naturalHeight : logicalCell
   }
-  readonly property real visualHeight: shape === "icon" ? stageHeight * iconScale
+  readonly property real visualHeight: placeholder ? cellHeight
+    : shape === "icon" ? stageHeight * iconScale
     : shape === "rotated" ? naturalWidth * iconScale
     : cellHeight
 
@@ -376,14 +385,16 @@ Item {
     MIcon {
       anchors.centerIn: parent
       text: root.proxyIcon
-      color: Colours.m3secondary
+      // Dimmed while the widget itself has nothing to show, as Omarchy dims
+      // an indicator that is not active.
+      color: root.placeholder ? Colours.m3outline : Colours.m3secondary
     }
     MouseArea {
       anchors.fill: parent
       hoverEnabled: true
       acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
       cursorShape: Qt.PointingHandCursor
-      onEntered: root.host.showTooltip(compactButton, root.displayName)
+      onEntered: root.host.showTooltip(compactButton, root.placeholder ? root.displayName + " · idle" : root.displayName)
       onExited: root.host.hideTooltip(compactButton)
       onClicked: function(mouse) { root.triggerCompactAction(mouse.button) }
     }

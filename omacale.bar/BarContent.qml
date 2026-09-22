@@ -731,7 +731,7 @@ Item {
 
           BarWidgetSlot {
             required property var modelData
-            readonly property bool pinned: pluginPill.unpinned.indexOf(moduleName) < 0
+            pinned: pluginPill.unpinned.indexOf(moduleName) < 0
             entry: modelData
             host: root.host
             cellHeight: cellRef.implicitHeight
