@@ -121,3 +121,4 @@ OverviewWindow 1.0 OverviewWindow.qml
 singleton PluginService 1.0 PluginService.qml
 PluginsPage 1.0 PluginsPage.qml
 PluginInfo 1.0 PluginInfo.qml
+singleton WindowIcons 1.0 WindowIcons.qml

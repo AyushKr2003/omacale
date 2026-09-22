@@ -33,7 +33,9 @@ Item {
   readonly property string appId: String(d.class || "")
   readonly property string title: String(d.title || "")
   readonly property string address: String(d.address || "")
-  readonly property var entry: appId ? DesktopEntries.heuristicLookup(appId) : null
+  // Class, then web-app / TUI / title fallbacks (WindowIcons). The title is
+  // part of the key: a terminal's icon follows the TUI running in it.
+  readonly property string iconSource: WindowIcons.source({ class: d.class, initialClass: d.initialClass, title: title, initialTitle: d.initialTitle })
   readonly property bool hovered: mouse.containsMouse
 
   // The preview keeps the window's own aspect, letterboxed inside the tile:
@@ -82,7 +84,7 @@ Item {
       asynchronous: true
       visible: root.showIcon && implicitSize >= 16
       implicitSize: Math.round(Math.min(parent.width, parent.height) * 0.4)
-      source: Quickshell.iconPath(root.entry ? root.entry.icon : "", "image-missing")
+      source: root.iconSource
       opacity: root.hovered ? 1 : 0.85
       Behavior on opacity { Anim { type: "effects" } }
     }

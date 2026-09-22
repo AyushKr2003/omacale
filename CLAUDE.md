@@ -53,7 +53,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
 | `MenuService.qml` (+ the `:` mode in `Launcher.qml`) | no Caelestia original: the Omarchy menu, drawn as launcher rows. The engine is Omarchy's own `MenuModel.js`, loaded in place -- see below |
-| `Overview.qml`, `OverviewWindow.qml` | no Caelestia original: the workspace overview is ported from the `omarchy-overview` plugin and redrawn in Caelestia's tokens. Its live preview follows Caelestia's `modules/windowinfo/Preview.qml` (a `ScreencopyView` inside a clipping rect) |
+| `Overview.qml`, `OverviewWindow.qml` | no Caelestia original: the workspace overview is ported from the `omarchy-overview` plugin and redrawn in Caelestia's tokens. Its live preview follows Caelestia's `modules/windowinfo/Preview.qml` (a `ScreencopyView` inside a clipping rect). Window icons come from `WindowIcons.qml`, the plugin's fallback chain (`services/FallbackIcon.qml`, `OverviewWindow.iconName`: TUI from the title, web-app class, class, initial class, titles, themed name, default terminal/browser) plus exact matches on Omarchy's web-app URLs and `TUI.*` commands |
 | `omacale.bar/omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
