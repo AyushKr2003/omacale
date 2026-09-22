@@ -21,10 +21,10 @@ var values = {
     power: true,
     workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5, specialDisplay: "icons", specialShowWindows: true },
     activeWindow: { enabled: true, compact: false },
-    tray: { enabled: true, background: false, recolour: false, compact: false },
-    plugins: { enabled: true, compact: false },
+    tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
+    plugins: { enabled: true, compact: false, unpinned: [] },
     clock: { showIcon: true, showDate: false, showSeconds: false, background: false },
-    status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, notifications: true },
+    status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, notifications: true, bluetoothConnectedOnly: false, microphoneInUseOnly: false },
     popouts: { statusIcons: true, tray: true, activeWindow: true },
     scroll: { workspaces: true, volume: true, brightness: true }
   },

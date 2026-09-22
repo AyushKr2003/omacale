@@ -123,3 +123,5 @@ PluginsPage 1.0 PluginsPage.qml
 PluginInfo 1.0 PluginInfo.qml
 singleton WindowIcons 1.0 WindowIcons.qml
 FadeListView 1.0 FadeListView.qml
+TrayIcons 1.0 TrayIcons.qml
+PinnedPlugins 1.0 PinnedPlugins.qml

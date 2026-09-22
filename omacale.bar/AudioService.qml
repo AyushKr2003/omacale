@@ -33,6 +33,11 @@ Singleton {
 
   readonly property bool muted: !!(volumeSink && volumeSink.audio && volumeSink.audio.muted)
   readonly property real volume: volumeSink && volumeSink.audio ? volumeSink.audio.volume : 0
+  // An app is recording: any capture stream that isn't Omacale's own
+  // visualiser (cava reads the speakers' monitor, not a microphone).
+  readonly property bool capturing: nodes.some(n => n && n.isStream && n.isSink === false
+    && String(n.name || "").toLowerCase().indexOf("cava") < 0)
+
   readonly property bool sourceMuted: !!(source && source.audio && source.audio.muted)
   readonly property real sourceVolume: source && source.audio ? source.audio.volume : 0
 

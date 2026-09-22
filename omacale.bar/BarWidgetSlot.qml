@@ -110,8 +110,12 @@ Item {
     : shape === "rotated" ? naturalWidth * iconScale
     : cellHeight
 
+  // Unpinned and the pill's overflow closed: the widget keeps running (its
+  // state, IPC and popups stay alive), it just takes no room.
+  property bool collapsed: false
+
   implicitWidth: Tk.barInner
-  implicitHeight: shown ? Math.round(visualHeight) : 0
+  implicitHeight: shown && !collapsed ? Math.round(visualHeight) : 0
   width: implicitWidth
   height: implicitHeight
   // Scaling, turning and the proxy never let a widget paint over its

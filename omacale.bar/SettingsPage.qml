@@ -22,7 +22,8 @@ ColumnLayout {
     bluetooth: "BluetoothPage.qml", btPair: "BtPairing.qml", btDevice: "BtDevice.qml",
     audio: "AudioPage.qml", appVolumes: "AppVolumes.qml",
     wallpapers: "WallpaperGrid.qml", apps: "AppsPage.qml", allApps: "AllApps.qml", appInfo: "AppInfo.qml",
-    plugins: "PluginsPage.qml", pluginInfo: "PluginInfo.qml"
+    plugins: "PluginsPage.qml", pluginInfo: "PluginInfo.qml",
+    trayIcons: "TrayIcons.qml", barPlugins: "PinnedPlugins.qml"
   })
 
   RowLayout {

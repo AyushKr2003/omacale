@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.SystemTray
 import Quickshell.Services.UPower
@@ -19,6 +20,20 @@ Item {
   readonly property int vPadding: Tk.padding.large
   readonly property var cfg: Config.o.bar
 
+  // ------------------------------------------------------ space budget
+  // The active window title is the bar's flexible space. The tray and the
+  // plugins pill share what's left above its minimum, instead of each taking
+  // a fixed share: title + tray + plugins is the same whatever they collapse
+  // to, so the budget doesn't move when they do. When the tray's full list
+  // and the plugins' pinned widgets don't fit, the tray goes compact first;
+  // the plugins pill then scrolls. Status icons and the clock never shrink.
+  readonly property real titleMin: cfg.activeWindow.enabled ? Tk.barInner * 3 : Tk.barInner
+  readonly property real budget: Math.max(0, titleArea.height
+    + (pluginPlace.visible ? pluginPlace.height : 0)
+    + (trayPill.visible ? trayPill.height : 0) - titleMin)
+  readonly property bool trayOverBudget: trayPill.visible && trayPill.fullHeight + pluginPill.collapsedHeight > budget
+  readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedHeight : trayPill.fullHeight
+
   // Popout lookup for a y coordinate on the bar (Caelestia Bar.checkPopout).
   function popoutAt(y) {
     const p = mapToItem(statusCol, 0, y)
@@ -31,7 +46,7 @@ Item {
       }
     }
     const t = mapToItem(trayCol, 0, y)
-    if (cfg.popouts.tray && trayCol.visible && t.y >= 0 && t.y <= trayCol.height) {
+    if (cfg.popouts.tray && trayPill.visible && (!trayPill.compact || trayPill.expanded) && t.y >= 0 && t.y <= trayCol.height) {
       for (let i = 0; i < trayRep.count; i++) {
         const it = trayRep.itemAt(i)
         if (t.y >= it.y - 4 && t.y <= it.y + it.height + 4)
@@ -42,6 +57,27 @@ Item {
     if (cfg.popouts.activeWindow && activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Sys.activeToplevel)
       return { name: "activewindow", center: activeWin.mapToItem(root, 0, activeWin.height / 2).y }
     return null
+  }
+
+  // Which collapsible group the pointer is over, from ScreenScope (Caelestia
+  // drives its compact tray the same way, in Bar.checkPopout). A hover
+  // handler inside the bar is no good: leaving the layer surface altogether
+  // never reaches it, and the group would stay open.
+  // Open while the pointer is on the group; ScreenScope drives this.
+  readonly property bool groupsExpanded: trayPill.expanded || pluginPill.expanded
+
+  function hoverAt(y, onBar) {
+    const t = mapToItem(trayPill, 0, y)
+    if (onBar && trayPill.visible && t.y >= 0 && t.y <= trayPill.height) {
+      collapseTrayTimer.stop()
+      if (trayPill.compact) trayPill.expanded = true
+    } else if (trayPill.expanded && !collapseTrayTimer.running) collapseTrayTimer.start()
+
+    const p = mapToItem(pluginPill, 0, y)
+    if (onBar && pluginPill.visible && p.y >= 0 && p.y <= pluginPill.height) {
+      collapsePluginsTimer.stop()
+      if (pluginPill.overflowCount > 0) pluginPill.expanded = true
+    } else if (pluginPill.expanded && !collapsePluginsTimer.running) collapsePluginsTimer.start()
   }
 
   function handleWheel(y, dy) {
@@ -99,6 +135,7 @@ Item {
 
     // ------------------------------------------ active window (centred)
     Item {
+      id: titleArea
       Layout.fillWidth: true
       Layout.fillHeight: true
       clip: true
@@ -178,64 +215,67 @@ Item {
     }
 
     // ---------------------------------------------------------- tray
+    // Caelestia bar/components/Tray.qml: compact collapses the tray behind a
+    // chevron that hovering expands (Caelestia's Bar.checkPopout), and
+    // hiddenIcons drops items for good. Compact is also switched on by the
+    // shared space budget (see "space budget" below) when the tray doesn't fit.
     Rectangle {
       id: trayPill
       Layout.alignment: Qt.AlignHCenter
-      readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive)
+      readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive
+        && root.cfg.tray.hiddenIcons.indexOf(i.id) < 0)
+      readonly property bool bg: root.cfg.tray.background
+      readonly property int padding: bg ? Tk.padding.medium : Tk.padding.extraSmall
+      readonly property int spacingN: bg ? Tk.spacing.medium : Tk.spacing.extraSmall
       visible: root.cfg.tray.enabled && trayItems.length > 0
       implicitWidth: Tk.barInner
 
-      property bool compact: (root.cfg.tray && root.cfg.tray.compact) || trayItems.length > 4
+      readonly property bool compact: root.cfg.tray.compact || root.trayOverBudget
       property bool expanded: false
+      onCompactChanged: if (!compact) expanded = false
 
+      // Caelestia's nonAnimHeight, with the expanded list capped to the budget.
+      readonly property real fullHeight: trayCol.implicitHeight + padding * 2
+      readonly property real collapsedHeight: Math.max(bg ? width : 0, expandTrayIcon.implicitHeight + (bg ? Tk.padding.extraSmall : 0) + padding)
       implicitHeight: {
         if (!visible) return 0
-        if (!compact) return Math.min(maxHeight, trayCol.implicitHeight + (root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2)
-        if (expanded) return Math.min(maxHeight, trayCol.implicitHeight + expandTrayBtn.implicitHeight + Tk.padding.medium * 2 + Tk.spacing.small)
-        return width
+        if (!compact) return fullHeight
+        if (!expanded) return collapsedHeight
+        return Math.max(collapsedHeight, Math.min(expandTrayIcon.implicitHeight + trayCol.implicitHeight + spacingN + (bg ? Tk.padding.extraSmall : 0) + padding,
+          root.budget - pluginPill.implicitHeight))
       }
-      radius: width / 2
-      color: root.cfg.tray.background ? Colours.m3surfaceContainer : "transparent"
+      radius: Tk.rounding.full
+      color: bg ? Colours.m3surfaceContainer : "transparent"
       clip: true
       Behavior on implicitHeight { Anim {} }
 
-      readonly property real maxHeight: Math.max(120, col.height * 0.35)
-
-      HoverHandler {
-        id: trayHover
-        onHoveredChanged: {
-          if (hovered) {
-            collapseTrayTimer.stop()
-            if (trayPill.compact) trayPill.expanded = true
-          } else {
-            if (trayPill.compact) collapseTrayTimer.restart()
-          }
-        }
+      // The tray menu keeps it open; closing the menu lets it fold again.
+      Connections {
+        target: root.scope
+        function onPopoutChanged() { if (root.scope.popout === "") collapseTrayTimer.restart() }
       }
       Timer {
         id: collapseTrayTimer
         interval: 400
-        repeat: false
-        onTriggered: {
-          if (!trayHover.hovered) trayPill.expanded = false
-        }
+        onTriggered: if (root.scope.popout !== "traymenu") trayPill.expanded = false
       }
 
-      Flickable {
+      // Scrolls when an expanded tray is capped by the budget.
+      MFlickable {
         id: trayFlick
-        anchors.fill: parent
-        anchors.topMargin: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
-        anchors.bottomMargin: trayPill.compact ? (expandTrayBtn.implicitHeight + Tk.padding.small) : (root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall)
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.topMargin: trayPill.padding
+        height: Math.max(0, parent.height - trayPill.padding - (trayPill.compact ? expandTrayIcon.implicitHeight + trayPill.spacingN : trayPill.padding))
         contentHeight: trayCol.implicitHeight
+        interactive: contentHeight > height + 0.5
         clip: true
-        boundsBehavior: Flickable.StopAtBounds
 
         Column {
           id: trayCol
           anchors.horizontalCenter: parent.horizontalCenter
-          topPadding: root.cfg.tray.background ? Tk.padding.medium : Tk.padding.extraSmall
-          bottomPadding: topPadding
-          spacing: root.cfg.tray.background ? Tk.spacing.medium : Tk.spacing.small
+          spacing: Tk.spacing.small
           opacity: !trayPill.compact || trayPill.expanded ? 1 : 0
           Behavior on opacity { Anim { type: "effects" } }
 
@@ -280,30 +320,22 @@ Item {
         }
       }
 
-      // Compact trigger icon / chevron
-      Item {
-        id: expandTrayBtn
+      // Caelestia's expandIcon: one glyph, turned 180° when expanded.
+      MIcon {
+        id: expandTrayIcon
         visible: trayPill.compact
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        width: Tk.barInner
-        height: trayPill.expanded ? (expandTrayIcon.implicitHeight + Tk.padding.small) : parent.height
-
-        MIcon {
-          id: expandTrayIcon
-          anchors.centerIn: parent
-          text: trayPill.expanded ? "expand_less" : "expand_more"
-          color: Colours.m3onSurfaceVariant
-          rotation: trayPill.expanded ? 180 : 0
-          Behavior on rotation { Anim {} }
-        }
+        anchors.bottomMargin: trayPill.bg ? Tk.padding.extraSmall : 0
+        text: "expand_less"
+        size: Tk.iconSize.medium
+        color: Colours.m3onSurfaceVariant
+        rotation: trayPill.expanded ? 180 : 0
+        Behavior on rotation { Anim {} }
         MouseArea {
           anchors.fill: parent
           cursorShape: Qt.PointingHandCursor
-          onClicked: {
-            collapseTrayTimer.stop()
-            trayPill.expanded = !trayPill.expanded
-          }
+          onClicked: { collapseTrayTimer.stop(); trayPill.expanded = !trayPill.expanded }
         }
       }
     }
@@ -525,7 +557,9 @@ Item {
           readonly property string popout: "audio"
           readonly property var src: Pipewire.defaultAudioSource
           readonly property bool muted: !src || !src.audio || src.audio.muted
-          visible: root.cfg.status.microphone
+          // "Only while recording" keeps it out of the way until an app
+          // actually opens the microphone.
+          visible: root.cfg.status.microphone && (!root.cfg.status.microphoneInUseOnly || AudioService.capturing)
           anchors.horizontalCenter: parent.horizontalCenter
           animate: true
           text: muted ? "mic_off" : "mic"
@@ -543,7 +577,9 @@ Item {
         }
         Column {
           readonly property string popout: "bluetooth"
-          visible: root.cfg.status.bluetooth
+          // "Only when connected" hides the idle bluetooth glyph.
+          visible: root.cfg.status.bluetooth && (!root.cfg.status.bluetoothConnectedOnly
+            || Bluetooth.devices.values.some(d => d.connected))
           anchors.horizontalCenter: parent.horizontalCenter
           spacing: Tk.spacing.medium / 2
           MIcon {
@@ -616,24 +652,61 @@ Item {
   // ~/.config/omarchy/plugins/), laid out like the status pill: same padding,
   // same spacing, one status-icon cell per widget (BarWidgetSlot scales each
   // widget's mark to the status icons' size). Sits on pluginPlace.
+  //
+  // Pinned widgets (Settings › Taskbar › Plugins) always show; the others
+  // wait behind a chevron that hovering expands, like the compact tray.
   Rectangle {
     id: pluginPill
     readonly property var pluginsList: root.host.thirdPartyPlugins || []
+    readonly property var unpinned: root.cfg.plugins.unpinned
     readonly property bool anyShown: pluginCol.implicitHeight - pluginCol.topPadding - pluginCol.bottomPadding > 0.5
-    readonly property real maxHeight: Math.max(120, col.height * 0.35)
+    property bool expanded: false
+    onOverflowCountChanged: if (overflowCount === 0) expanded = false
 
-    visible: (root.cfg.plugins ? root.cfg.plugins.enabled !== false : true) && pluginsList.length > 0
+    // Counted by hand: Repeater.itemAt is not a binding dependency, so every
+    // slot asks for a recount when its size, content or pin changes.
+    property int overflowCount: 0
+    property real pinnedHeight: 0
+    function recount() { countTimer.restart() }
+    Timer {
+      id: countTimer
+      interval: 0
+      onTriggered: {
+        let n = 0, h = 0
+        for (let i = 0; i < pluginRep.count; i++) {
+          const slot = pluginRep.itemAt(i)
+          if (!slot || !slot.shown) continue
+          if (slot.pinned) h += Math.round(slot.visualHeight) + pluginCol.spacing
+          else n++
+        }
+        pluginPill.overflowCount = n
+        pluginPill.pinnedHeight = h
+      }
+    }
+    // The pill's height with the overflow closed: what the budget plans for.
+    readonly property real collapsedHeight: overflowCount === 0 && pinnedHeight === 0 ? 0
+      : pluginCol.topPadding + pluginCol.bottomPadding + pinnedHeight
+        + (overflowCount > 0 ? overflowIcon.implicitHeight : -pluginCol.spacing)
+
+    visible: root.cfg.plugins.enabled !== false && pluginsList.length > 0
     opacity: anyShown ? 1 : 0
     x: col.x + pluginPlace.x
     y: col.y + pluginPlace.y
     width: Tk.barInner
-    implicitHeight: anyShown ? Math.min(maxHeight, pluginCol.implicitHeight) : 0
+    // Capped by the space budget, leaving the tray its (collapsed) share.
+    implicitHeight: anyShown ? Math.min(Math.max(collapsedHeight, root.budget - root.trayReserve), pluginCol.implicitHeight) : 0
     height: implicitHeight
     radius: width / 2
     color: Colours.m3surfaceContainer
     clip: true
 
     Behavior on implicitHeight { Anim {} }
+
+    Timer {
+      id: collapsePluginsTimer
+      interval: 400
+      onTriggered: pluginPill.expanded = false
+    }
 
     // A status icon's height, so a plugin cell matches the status pill's.
     MIcon { id: cellRef; visible: false; text: "extension" }
@@ -653,13 +726,43 @@ Item {
         spacing: Tk.spacing.medium / 2
 
         Repeater {
+          id: pluginRep
           model: pluginPill.pluginsList
 
           BarWidgetSlot {
             required property var modelData
+            readonly property bool pinned: pluginPill.unpinned.indexOf(moduleName) < 0
             entry: modelData
             host: root.host
             cellHeight: cellRef.implicitHeight
+            collapsed: !pinned && !pluginPill.expanded
+            onShownChanged: pluginPill.recount()
+            onPinnedChanged: pluginPill.recount()
+            onVisualHeightChanged: pluginPill.recount()
+            Component.onCompleted: pluginPill.recount()
+            Component.onDestruction: pluginPill.recount()
+          }
+        }
+
+        // Caelestia's tray chevron, for the widgets that aren't pinned.
+        Item {
+          width: parent.width
+          height: pluginPill.overflowCount > 0 ? overflowIcon.implicitHeight : 0
+          MIcon {
+            id: overflowIcon
+            anchors.centerIn: parent
+            visible: pluginPill.overflowCount > 0
+            text: "expand_less"
+            size: Tk.iconSize.medium
+            color: Colours.m3onSurfaceVariant
+            rotation: pluginPill.expanded ? 180 : 0
+            Behavior on rotation { Anim {} }
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: pluginPill.overflowCount > 0
+            cursorShape: Qt.PointingHandCursor
+            onClicked: { collapsePluginsTimer.stop(); pluginPill.expanded = !pluginPill.expanded }
           }
         }
       }

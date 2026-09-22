@@ -179,6 +179,7 @@ var subpages = {
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
       { type: "nav", icon: "web_asset", label: "Active window", subtext: "Title display, popout", page: "activeWindow" },
       { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
+      { type: "nav", icon: "extension", label: "Plugins", subtext: "Which third-party widgets stay in the bar", page: "barPlugins" },
       { type: "nav", icon: "signal_cellular_alt", label: "Status icons", subtext: "Visible indicators", page: "status" },
       { type: "nav", icon: "schedule", label: "Clock", subtext: "Date, icon, background", page: "clock" },
       { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the top; click opens the launcher" },
@@ -241,8 +242,15 @@ var subpages = {
       { type: "toggle", key: "bar.tray.enabled", label: "Show tray" },
       { type: "toggle", key: "bar.tray.background", label: "Background", subtext: "Draw a pill behind the tray" },
       { type: "toggle", key: "bar.tray.recolour", label: "Recolour icons", subtext: "Tint tray icons with the scheme" },
-      { type: "toggle", key: "bar.popouts.tray", label: "Popout on hover", subtext: "Show the tray menu when hovering an icon" }
+      { type: "toggle", key: "bar.tray.compact", label: "Always compact", subtext: "Keep the tray behind a chevron that hovering opens. Off, it still collapses on its own when the bar runs out of room" },
+      { type: "toggle", key: "bar.popouts.tray", label: "Popout on hover", subtext: "Show the tray menu when hovering an icon" },
+      { type: "section", text: "Icons" },
+      { type: "custom", comp: "trayIcons" }
     ]
+  },
+  barPlugins: {
+    title: "Bar plugins",
+    rows: [ { type: "custom", comp: "barPlugins" } ]
   },
   status: {
     title: "Status icons",
@@ -251,8 +259,10 @@ var subpages = {
       { type: "toggle", key: "bar.status.lockStatus", label: "Caps / num lock", subtext: "Only shown while a lock key is on" },
       { type: "toggle", key: "bar.status.audio", label: "Audio" },
       { type: "toggle", key: "bar.status.microphone", label: "Microphone" },
+      { type: "toggle", key: "bar.status.microphoneInUseOnly", label: "Microphone only while recording", subtext: "Hide it until an app opens the microphone" },
       { type: "toggle", key: "bar.status.network", label: "Network" },
       { type: "toggle", key: "bar.status.bluetooth", label: "Bluetooth" },
+      { type: "toggle", key: "bar.status.bluetoothConnectedOnly", label: "Bluetooth only when connected", subtext: "Hide the idle bluetooth icon" },
       { type: "toggle", key: "bar.status.battery", label: "Battery / power profile" },
       { type: "toggle", key: "bar.status.keepAwake", label: "Keep awake", subtext: "Coffee icon while keep awake is on" },
       { type: "toggle", key: "bar.status.notifications", label: "Notifications", subtext: "Unread count and do-not-disturb state; click opens the sidebar" },

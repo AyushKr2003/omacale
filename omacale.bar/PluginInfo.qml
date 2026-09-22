@@ -78,6 +78,22 @@ ColumnLayout {
     onToggled: c => PluginService.setEnabled(root.plugin.id, c)
   }
 
+  // Bar widgets: pinned, or behind the plugin pill's chevron.
+  RowToggle {
+    Layout.fillWidth: true
+    Layout.topMargin: Tk.spacing.small
+    first: true
+    last: true
+    visible: !!root.plugin && root.plugin.enabled && root.plugin.kinds.indexOf("bar-widget") >= 0
+    text: "Pinned to the bar"
+    subtext: "Off, it waits behind the plugin pill's chevron"
+    checked: !!root.plugin && Config.o.bar.plugins.unpinned.indexOf(root.plugin.id) < 0
+    onToggled: c => {
+      const l = Array.from(Config.o.bar.plugins.unpinned).filter(i => i !== root.plugin.id)
+      Config.set("bar.plugins.unpinned", c ? l : l.concat([root.plugin.id]))
+    }
+  }
+
   // Third-party only: update from git / remove (confirmed inline).
   SectionHeader { visible: !!root.plugin && !root.plugin.firstParty; row: ({ text: "Manage" }) }
   ConnectedRect {

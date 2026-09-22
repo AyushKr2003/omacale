@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 
@@ -473,6 +474,7 @@ Scope {
       }
       onContainsMouseChanged: {
         if (containsMouse) return
+        bar.hoverAt(-1, false)
         if (!scope.dashShortcut) scope.dashboard = false
         if (!scope.utilShortcut) scope.utilities = false
         if (scope.popout !== "traymenu") scope.popout = ""
@@ -521,8 +523,16 @@ Scope {
           else if (showUtil) scope.utilShortcut = false
         }
 
-        // Popouts: hover bar entries.
-        if (x < win.bw && win.barProg > 0.5) {
+        updatePointer(x, y)
+      }
+
+      // Bar popouts and the collapsible groups (compact tray, plugin
+      // overflow), for a pointer at window coordinates x, y.
+      function updatePointer(x, y) {
+        const onBar = x < win.bw && win.barProg > 0.5
+        bar.hoverAt(y, onBar)
+
+        if (onBar) {
           const p = bar.popoutAt(y)
           if (p) {
             if (p.name === "traymenu") {
@@ -530,8 +540,35 @@ Scope {
             } else scope.popout = p.name
             scope.popoutCenter = p.center
           } else if (scope.popout !== "traymenu") scope.popout = ""
-        } else if (scope.popout !== "traymenu" && !inPopout(x, y)) {
+        } else if (!inPopout(x, y)) {
+          // Off the bar and out of the popout: the tray menu goes too, so a
+          // compact tray doesn't stay open behind it.
           scope.popout = ""
+        }
+      }
+
+      // The pointer leaving the bar is invisible here: the window's input
+      // mask means no event arrives, and Qt keeps hover state (containsMouse
+      // never goes false). While a group is open -- and only then -- ask
+      // Hyprland where the cursor is; Quickshell has no cursor API.
+      Timer {
+        id: pointerPoll
+        interval: 350
+        repeat: true
+        running: bar.groupsExpanded
+        onTriggered: if (!cursorProc.running) cursorProc.running = true
+      }
+      Process {
+        id: cursorProc
+        command: ["hyprctl", "cursorpos"]
+        stdout: StdioCollector {
+          onStreamFinished: {
+            const p = String(text).split(",")
+            if (p.length < 2 || !scope.screen) return
+            const gx = Number(p[0]), gy = Number(p[1])
+            if (!isFinite(gx) || !isFinite(gy)) return
+            interactions.updatePointer(gx - scope.screen.x, gy - scope.screen.y)
+          }
         }
       }
 

@@ -108,10 +108,17 @@ QtObject {
           property bool background: false
           property bool recolour: false
           property bool compact: false
+          // Caelestia bar.tray.hiddenIcons: tray item ids never shown.
+          property list<string> hiddenIcons: []
         }
         property JsonObject plugins: JsonObject {
           property bool enabled: true
           property bool compact: false
+          // Widgets kept behind the pill's chevron. Empty (the default) means
+          // every widget is pinned, so nothing has to be seeded at startup --
+          // a list of pinned ids would have to be written before the plugin
+          // registry has finished loading, and would miss the late ones.
+          property list<string> unpinned: []
         }
         property JsonObject clock: JsonObject {
           property bool showIcon: true
@@ -128,6 +135,8 @@ QtObject {
           property bool battery: true
           property bool keepAwake: true
           property bool notifications: true
+          property bool bluetoothConnectedOnly: false
+          property bool microphoneInUseOnly: false
         }
         property JsonObject popouts: JsonObject {
           property bool statusIcons: true
