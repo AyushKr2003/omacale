@@ -21,6 +21,7 @@ Item {
   property string pageId: "style"
   property var stack: []
   property var selectedApp: null   // Apps › All apps › <app>
+  property string selectedPlugin: ""  // Plugins › <plugin id>
   property string search: ""
   readonly property string viewId: search.trim() !== "" ? "__search" : (stack.length ? stack[stack.length - 1] : pageId)
   readonly property var view: viewId === "__search"

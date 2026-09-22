@@ -47,6 +47,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `AudioPage.qml`, `AppVolumes.qml`, `AudioDeviceList.qml`, `AudioSlider.qml`, `AudioService.qml` | `modules/nexus/pages/AudioPage.qml`, `audio/AppVolumes.qml`, `common/AudioDeviceList.qml`, `SliderRow.qml`, `services/Audio.qml` |
 | `WallpaperGrid.qml` (Settings `wallpapers` / `themes` sub-pages; Settings › Wallpaper & style itself is the colours page from `SettingsModel.js`) | `modules/nexus/pages/WallpaperAndStyle.qml`, `wallandstyle/WallpaperSelect.qml`, `common/WallItem.qml` |
 | `AppsPage.qml`, `AllApps.qml`, `AppInfo.qml` | `modules/nexus/pages/AppsPage.qml`, `apps/AllApps.qml`, `apps/AppInfo.qml` |
+| `PluginsPage.qml`, `PluginInfo.qml`, `PluginService.qml` | no Caelestia original: Settings › Plugins follows Shibumi's plugin catalog (`hancore.shibumi.control-center/PluginCatalogPage.qml`), drawn with Nexus rows like `AllApps` / `AppInfo` |
 | `IconTextButton.qml` | `components/controls/IconTextButton.qml` |
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
@@ -93,6 +94,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Theme | `omarchy theme set`, `omarchy-theme-*` (Colours re-seed from the theme accent) |
 | Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`) |
 | Omarchy menu (`MenuService`) | `$OMARCHY_PATH/default/omarchy/omarchy-menu.jsonc` + `~/.config/omarchy/extensions/omarchy-menu.jsonc`, parsed, searched and guarded by Omarchy's own `shell/plugins/menu/MenuModel.js`, which is loaded in place (never copied) |
+| Plugins (`PluginService`, Settings › Plugins) | `omarchy plugin list --json` (enabled, canDisable, clonedFrom) + `omarchy-plugin-catalog` (manifests); `omarchy plugin enable/disable/add/update/remove`. Enable/disable only rewrite `shell.json`; add/update/remove write into the plugins folder, which reloads Omacale, so they run detached and reopen `settingsPage plugins`. Omacale's own lock/notification clones are shown but locked |
 | Bar hide | `omarchy toggle bar`; `omarchy.bar` IPC `syncHidden` |
 | Launching UIs | `omarchy-launch-editor`, `omarchy-launch-browser`, ... (there is no `omarchy-launch-wifi`/`-bluetooth`; use the settings pages above) |
 | Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `omacale.bar/keybinds.lua`) |

@@ -97,6 +97,11 @@ var pages = [
     rows: [ { type: "custom", comp: "apps" } ]
   },
   {
+    id: "plugins", label: "Plugins", icon: "extension", category: "shell",
+    description: "Built-in and third-party Omarchy plugins",
+    rows: [ { type: "custom", comp: "plugins" } ]
+  },
+  {
     id: "services", label: "Services", icon: "settings_suggest", category: "shell",
     description: "Notifications, poll intervals, scroll steps",
     rows: [
@@ -148,6 +153,7 @@ var subpages = {
   themes: { title: "Themes", rows: [ { type: "custom", comp: "wallpapers", themes: true } ] },
   allApps: { title: "All apps", rows: [ { type: "custom", comp: "allApps" } ] },
   appInfo: { title: "App info", rows: [ { type: "custom", comp: "appInfo" } ] },
+  pluginInfo: { title: "Plugin", rows: [ { type: "custom", comp: "pluginInfo" } ] },
   notifications: {
     title: "Notifications",
     rows: [

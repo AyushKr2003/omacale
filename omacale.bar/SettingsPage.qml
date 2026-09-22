@@ -21,7 +21,8 @@ ColumnLayout {
     network: "NetworkPage.qml", networkDetail: "NetworkDetail.qml",
     bluetooth: "BluetoothPage.qml", btPair: "BtPairing.qml", btDevice: "BtDevice.qml",
     audio: "AudioPage.qml", appVolumes: "AppVolumes.qml",
-    wallpapers: "WallpaperGrid.qml", apps: "AppsPage.qml", allApps: "AllApps.qml", appInfo: "AppInfo.qml"
+    wallpapers: "WallpaperGrid.qml", apps: "AppsPage.qml", allApps: "AllApps.qml", appInfo: "AppInfo.qml",
+    plugins: "PluginsPage.qml", pluginInfo: "PluginInfo.qml"
   })
 
   RowLayout {
