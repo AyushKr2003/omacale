@@ -11,17 +11,17 @@ QtObject {
   required property string moduleName
 
   readonly property color foreground: Colours.m3onSurface
-  readonly property color barForeground: Colours.m3onSurface
+  // Bar marks take the status icons' colour; popups keep `foreground`.
+  readonly property color barForeground: Colours.m3secondary
   readonly property color background: Colours.m3surfaceContainer
   readonly property color urgent: Colours.m3error
   readonly property string fontFamily: Tk.mono
   readonly property string position: "left"
   readonly property bool vertical: true
-  // WidgetButton uses barSize as the extent of its icon slot. The frame is
-  // wider because it includes the Caelestia border/padding, but plugins paint
-  // inside the 40px pill; exposing the outer width makes well-behaved vertical
-  // widgets claim they are oversized and unnecessarily enter the fallback.
-  readonly property int barSize: Tk.barInner
+  // WidgetButton uses barSize as the extent of its icon slot. Widgets are
+  // laid out in Omarchy's units and scaled up to Omacale's icon size (see
+  // Bar.pluginIconScale), so this is the 40px pill measured in those units.
+  readonly property int barSize: host.pluginBarSize
   readonly property bool transparent: Config.o.appearance.transparency.enabled
   readonly property bool foregroundAnimationEnabled: true
   readonly property bool centerHoverRevealSuppressed: false

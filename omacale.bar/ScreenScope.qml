@@ -551,16 +551,19 @@ Scope {
       Rectangle {
         id: tooltipBubble
         visible: scope.host.tooltipShown && scope.host.tooltipText !== "" && scope.host.tooltipTarget !== null
+        // The target's centre, mapped: hosted widgets are scaled and may be
+        // turned, so its (0,0) plus half its height is not its middle.
         readonly property point targetPt: {
-          if (!scope.host.tooltipTarget) return Qt.point(0, 0)
+          var t = scope.host.tooltipTarget
+          if (!t) return Qt.point(0, 0)
           try {
-            return scope.host.tooltipTarget.mapToItem(win.contentItem, 0, 0)
+            return t.mapToItem(win.contentItem, t.width / 2, t.height / 2)
           } catch (e) {
             return Qt.point(0, 0)
           }
         }
         x: Tk.barWidth + Tk.spacing.small
-        y: Math.max(Tk.padding.medium, Math.min(targetPt.y + (scope.host.tooltipTarget ? scope.host.tooltipTarget.height / 2 : 0) - height / 2, win.height - height - Tk.padding.medium))
+        y: Math.max(Tk.padding.medium, Math.min(targetPt.y - height / 2, win.height - height - Tk.padding.medium))
         z: 999
         implicitWidth: tipText.implicitWidth + Tk.padding.medium * 2
         implicitHeight: tipText.implicitHeight + Tk.padding.small * 2

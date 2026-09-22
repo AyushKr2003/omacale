@@ -164,44 +164,17 @@ Item {
     }
 
     // --------------------------------------------------- plugins pill
-    // Dedicated Caelestia pill for 3rd-party bar widgets (installed in
-    // ~/.config/omarchy/plugins/).  Renders each widget's icon directly,
-    // with Caelestia's standard m3surfaceContainer rounded pill styling.
-    Rectangle {
-      id: pluginPill
+    // Holds the plugins pill's place in the column; the pill is drawn outside
+    // the layout (see pluginPill below). Hiding a parent of a widget makes the
+    // widget itself report visible=false, so a pill hidden because every
+    // widget had hidden itself could never come back. Hiding this empty
+    // placeholder instead also lets the layout drop its spacing.
+    Item {
+      id: pluginPlace
       Layout.alignment: Qt.AlignHCenter
-      readonly property var pluginsList: root.host.thirdPartyPlugins
-      visible: (root.cfg.plugins ? root.cfg.plugins.enabled !== false : true) && pluginsList && pluginsList.length > 0
-
       implicitWidth: Tk.barInner
-      implicitHeight: Math.min(maxHeight, pluginCol.implicitHeight + Tk.padding.extraSmall * 2)
-      radius: width / 2
-      color: Colours.m3surfaceContainer
-      clip: true
-
-      Behavior on implicitHeight { Anim {} }
-
-      readonly property real maxHeight: Math.max(120, col.height * 0.35)
-
-      Column {
-        id: pluginCol
-        anchors.horizontalCenter: parent.horizontalCenter
-        topPadding: Tk.padding.extraSmall
-        bottomPadding: topPadding
-        spacing: Tk.spacing.small
-
-        Repeater {
-          id: pluginRep
-          model: pluginPill.pluginsList
-
-          BarWidgetSlot {
-            required property var modelData
-            entry: modelData
-            host: root.host
-            bar: root.host.pluginBarFacadeFor(root.host.entryId(modelData))
-          }
-        }
-      }
+      implicitHeight: pluginPill.implicitHeight
+      visible: pluginPill.visible && pluginPill.anyShown
     }
 
     // ---------------------------------------------------------- tray
@@ -635,6 +608,61 @@ Item {
         text: "power_settings_new"
         color: Colours.m3error
         weight: 700
+      }
+    }
+  }
+
+  // Dedicated Caelestia pill for 3rd-party bar widgets (installed in
+  // ~/.config/omarchy/plugins/), laid out like the status pill: same padding,
+  // same spacing, one status-icon cell per widget (BarWidgetSlot scales each
+  // widget's mark to the status icons' size). Sits on pluginPlace.
+  Rectangle {
+    id: pluginPill
+    readonly property var pluginsList: root.host.thirdPartyPlugins || []
+    readonly property bool anyShown: pluginCol.implicitHeight - pluginCol.topPadding - pluginCol.bottomPadding > 0.5
+    readonly property real maxHeight: Math.max(120, col.height * 0.35)
+
+    visible: (root.cfg.plugins ? root.cfg.plugins.enabled !== false : true) && pluginsList.length > 0
+    opacity: anyShown ? 1 : 0
+    x: col.x + pluginPlace.x
+    y: col.y + pluginPlace.y
+    width: Tk.barInner
+    implicitHeight: anyShown ? Math.min(maxHeight, pluginCol.implicitHeight) : 0
+    height: implicitHeight
+    radius: width / 2
+    color: Colours.m3surfaceContainer
+    clip: true
+
+    Behavior on implicitHeight { Anim {} }
+
+    // A status icon's height, so a plugin cell matches the status pill's.
+    MIcon { id: cellRef; visible: false; text: "extension" }
+
+    // More widgets than fit scroll rather than being cut off.
+    MFlickable {
+      anchors.fill: parent
+      contentWidth: width
+      contentHeight: pluginCol.implicitHeight
+      interactive: contentHeight > height + 0.5
+
+      Column {
+        id: pluginCol
+        width: parent.width
+        topPadding: Tk.padding.medium
+        bottomPadding: Tk.padding.medium
+        spacing: Tk.spacing.medium / 2
+
+        Repeater {
+          model: pluginPill.pluginsList
+
+          BarWidgetSlot {
+            required property var modelData
+            entry: modelData
+            host: root.host
+            cellHeight: cellRef.implicitHeight
+            bar: root.host.pluginBarFacadeFor(root.host.entryId(modelData))
+          }
+        }
       }
     }
   }

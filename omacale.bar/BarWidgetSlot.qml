@@ -1,17 +1,30 @@
 import QtQuick
 import Quickshell
+import qs.Commons
 
 // Slot that loads and hosts a single 3rd-party bar widget from the
 // barWidgetRegistry, injecting the PluginBarFacade as `bar`.
 // Includes a compatibility adapter that repairs positioning and geometry for
 // widgets using Omarchy's KeyboardPanel or PopupCard, ensuring the popup opens
 // directly next to Omacale's vertical bar and matches Caelestia M3 styling.
+//
+// Sizing. The widget is laid out in Omarchy's own units (barSize, iconSlot,
+// iconCanvas) and scaled by host.pluginIconScale, so its mark is drawn at the
+// size of Omacale's status icons whatever the plugin hardcodes. Three shapes:
+//   icon    - fits the bar's breadth: one status-icon cell (cellHeight), or
+//             its own height when it is a taller vertical stack.
+//   rotated - a short horizontal label (e.g. "ELIZA ▮"): drawn whole and
+//             turned 90°, as Caelestia turns the active window title.
+//   proxy   - too long to read turned: a host icon stands in, and the real
+//             item stays underneath as the popup anchor and click target.
 Item {
   id: root
 
   required property var entry
   required property var host
   property var bar: null
+  // Height of one status icon (an MIcon at the default size), from the pill.
+  property real cellHeight: Tk.body.small * 2
 
   readonly property string moduleName: host.entryId(entry)
   readonly property var moduleSettings: host.entrySettings(entry)
@@ -33,37 +46,77 @@ Item {
   readonly property string displayName: moduleMetadata && moduleMetadata.displayName
     ? String(moduleMetadata.displayName) : moduleName
 
-  property bool activeItemVisible: false
-  property real activeItemHeight: 0
+  readonly property real iconScale: host.pluginIconScale
+  readonly property real logicalBreadth: host.pluginBarSize
+  readonly property real logicalCell: cellHeight / iconScale
+  // Longest label that is still turned rather than replaced, in bar widths.
+  readonly property real maxRotatedSpan: 3
 
-  function syncMetrics() {
-    var it = activeItem
-    if (it) {
-      activeItemVisible = (it.visible !== false)
-      var h = Number(it.implicitHeight) || Number(it.height) || 0
-      activeItemHeight = Math.max(Tk.body.small * 2, h > 0 ? h : 28)
-    } else {
-      activeItemVisible = false
-      activeItemHeight = 0
-    }
+  readonly property real naturalWidth: activeItem ? Math.max(0, Number(activeItem.implicitWidth) || 0) : 0
+  readonly property real naturalHeight: activeItem ? Math.max(0, Number(activeItem.implicitHeight) || 0) : 0
+
+  readonly property string shape: {
+    if (naturalWidth <= logicalBreadth + 0.5) return "icon"
+    if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "rotated"
+    return "proxy"
   }
+  readonly property bool compactProxy: shape === "proxy"
+
+  // `visible` of the item is its effective visibility, so the slot never hides
+  // itself on it (that would latch it hidden). Like the stock bar, a widget
+  // with nothing to show gets a zero-height slot, which Column skips.
+  readonly property bool shown: loader.status === Loader.Ready && activeItem !== null && activeItem.visible
+  readonly property real stageWidth: shape === "icon" ? logicalBreadth : naturalWidth
+  readonly property real stageHeight: {
+    if (shape !== "icon") return Math.max(1, naturalHeight)
+    // An icon button is iconSlot tall on a vertical Omarchy bar: give it one
+    // uniform cell. Anything taller is a stack and keeps its own height.
+    return naturalHeight > Style.bar.iconSlot + 1 ? naturalHeight : logicalCell
+  }
+  readonly property real visualHeight: shape === "icon" ? stageHeight * iconScale
+    : shape === "rotated" ? naturalWidth * iconScale
+    : cellHeight
 
   implicitWidth: Tk.barInner
-  implicitHeight: activeItem ? Math.max(Tk.body.small * 2, Number(activeItem.implicitHeight) || Number(activeItem.height) || 28) : 0
+  implicitHeight: shown ? Math.round(visualHeight) : 0
   width: implicitWidth
   height: implicitHeight
-  visible: loader.status === Loader.Ready && implicitHeight > 0
-  // Omarchy widgets are usually authored for a horizontal bar. A vertical
-  // Caelestia slot is intentionally icon-sized, so never let a text label
-  // paint over its neighbours or outside the pill.
+  // Scaling, turning and the proxy never let a widget paint over its
+  // neighbours or outside the pill; Qt Quick also drops input outside a clip.
   clip: true
-  // A third-party widget's natural width is authoritative: QML anchors can
-  // shrink `width`, but not its `implicitWidth`.  Keep widgets that already
-  // adapt to a vertical bar (e.g. WARP) intact. For a horizontal, label-first
-  // widget, use a host icon while retaining the real item underneath as the
-  // popup anchor and action controller.
-  readonly property bool compactProxy: activeItem !== null
-    && Number(activeItem.implicitWidth) > Tk.barInner + 1
+
+  // Category → stand-in icon for the proxy, so two wide plugins don't look
+  // alike. Unknown categories get the generic extension icon.
+  readonly property var categoryIcons: ({
+    "network": "lan", "fun": "mood", "media": "music_note", "system": "memory",
+    "productivity": "task_alt", "developer": "code", "development": "code",
+    "utilities": "build", "communication": "chat", "weather": "partly_cloudy_day",
+    "time": "schedule", "ai": "smart_toy"
+  })
+  readonly property string proxyIcon: {
+    var cat = moduleMetadata && moduleMetadata.category ? String(moduleMetadata.category).toLowerCase() : ""
+    return categoryIcons[cat] || "extension"
+  }
+
+  // Hosted text is drawn as curves. Omarchy widgets use Native or
+  // distance-field text, both hinted for one pixel size (scaled, they blur)
+  // and both take GTK's subpixel (RGB) AA, which fringes red and blue once a
+  // label is turned. Curve text has no subpixel pass and is exact at any scale
+  // or angle. Only how the bar mark is drawn changes, never what it shows;
+  // popups are separate windows and are not visual children.
+  function adoptTextRendering(item, depth) {
+    if (!item || depth > 16) return
+    try {
+      if ("renderType" in item && item.renderType !== Text.CurveRendering) item.renderType = Text.CurveRendering
+    } catch (e) {}
+    var kids = item.children
+    if (!kids) return
+    for (var i = 0; i < kids.length; i++) adoptTextRendering(kids[i], depth + 1)
+  }
+  function refreshRendering() { adoptTextRendering(activeItem, 0) }
+  // Content that appears later (a label turned on, a Loader) changes the size.
+  onNaturalWidthChanged: Qt.callLater(refreshRendering)
+  onNaturalHeightChanged: Qt.callLater(refreshRendering)
 
   function triggerCompactAction(button) {
     var targets = bar && bar.clickTargets ? bar.clickTargets : []
@@ -144,18 +197,16 @@ Item {
   }
 
   readonly property real hostedCardY: {
-    var cardH = compatibilityCard ? (Number(compatibilityCard.height) || 300) : 300
-    // mapToItem(null) resolves in the host scene, not KeyboardPanel's
-    // screen-sized overlay. KeyboardPanel already tracks the anchor in the
-    // correct output coordinate space; use it so a widget near the bottom
-    // opens beside itself instead of at the top of the output.
-    var anchorY = compatibilityPanel ? Number(compatibilityPanel.anchorScreenPos.y) : NaN
-    var anchorH = compatibilityPanel ? Number(compatibilityPanel.anchorH) : NaN
-    if (!isFinite(anchorY)) anchorY = 0
-    if (!isFinite(anchorH) || anchorH <= 0) anchorH = root.height > 0 ? root.height : 28
-    var targetY = anchorY + anchorH / 2 - cardH / 2
-    var scrH = (compatibilityPanel && compatibilityPanel.screenH) ? Number(compatibilityPanel.screenH) : 1080
-    return Math.round(Math.max(Tk.padding.medium, Math.min(targetY, scrH - cardH - Tk.padding.medium)))
+    if (!cardSurfaceActive) return 0
+    var cardH = Number(compatibilityCard.height) || 300
+    // Map the slot's own centre, not KeyboardPanel's anchorScreenPos: that is
+    // the widget's (0,0), which a scaled or turned widget moves to a corner.
+    // Same space KeyboardPanel uses (the bar window's content item).
+    var win = compatibilityPanel.anchorWindow
+    var space = win && win.contentItem ? win.contentItem : null
+    var centre = root.mapToItem(space, 0, root.height / 2).y
+    var scrH = Number(compatibilityPanel.screenH) || (win ? Number(win.height) : 0) || 1080
+    return Math.round(Math.max(Tk.padding.medium, Math.min(centre - cardH / 2, scrH - cardH - Tk.padding.medium)))
   }
 
   readonly property bool cardSurfaceActive: compatibilityPanel !== null && compatibilityCard !== null && (compatibilityPanel.open || compatibilityCard.opacity > 0)
@@ -218,18 +269,27 @@ Item {
     restoreMode: Binding.RestoreNone
   }
 
-  Loader {
-    id: loader
-    anchors.fill: parent
-    active: root.registryComponent !== null
-    sourceComponent: root.registryComponent
+  // Omarchy-unit stage, scaled (and for a label, turned) about its centre.
+  Item {
+    id: stage
+    anchors.centerIn: parent
+    width: root.stageWidth
+    height: root.stageHeight
+    scale: root.iconScale
+    rotation: root.shape === "rotated" ? 90 : 0
     opacity: root.compactProxy ? 0 : 1
-    onLoaded: {
-      root.injectProps()
-      root.syncMetrics()
-      Qt.callLater(root.injectProps)
-      Qt.callLater(root.syncMetrics)
-      Qt.callLater(root.resolveCompatibilitySurface)
+
+    Loader {
+      id: loader
+      anchors.fill: parent
+      active: root.registryComponent !== null
+      sourceComponent: root.registryComponent
+      onLoaded: {
+        root.injectProps()
+        Qt.callLater(root.injectProps)
+        Qt.callLater(root.refreshRendering)
+        Qt.callLater(root.resolveCompatibilitySurface)
+      }
     }
   }
 
@@ -245,8 +305,8 @@ Item {
 
     MIcon {
       anchors.centerIn: parent
-      text: "extension"
-      color: Colours.m3onSurfaceVariant
+      text: root.proxyIcon
+      color: Colours.m3secondary
     }
     MouseArea {
       anchors.fill: parent
@@ -262,9 +322,6 @@ Item {
   Connections {
     target: root.activeItem
     ignoreUnknownSignals: true
-    function onVisibleChanged() { root.syncMetrics() }
-    function onImplicitHeightChanged() { root.syncMetrics() }
-    function onHeightChanged() { root.syncMetrics() }
     function onOpenedChanged() {
       if (root.activeItem) {
         root.resolveCompatibilitySurface()
@@ -295,10 +352,7 @@ Item {
     }
   }
 
-  onActiveItemChanged: {
-    Qt.callLater(injectProps)
-    Qt.callLater(syncMetrics)
-  }
+  onActiveItemChanged: Qt.callLater(injectProps)
   onModuleSettingsChanged: injectProps()
 
   function injectProps() {
@@ -311,10 +365,7 @@ Item {
 
   Component.onCompleted: {
     host.registerPluginSlot(root)
-    if (loader.item) {
-      injectProps()
-      syncMetrics()
-    }
+    if (loader.item) injectProps()
   }
   Component.onDestruction: {
     if (host) host.unregisterPluginSlot(root)

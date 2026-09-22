@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import qs.Commons
 
 // Omacale — entry point of the `omacale.bar` bar plugin. The Omarchy shell
 // host injects the properties below, exactly as it does for the stock bar.
@@ -21,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.14"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.15"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -70,6 +71,15 @@ Item {
     }
     return collected
   }
+
+  // Omarchy widgets draw their mark in Style.bar.iconCanvas (16px) with a
+  // 13px glyph; Omacale's status icons are Material glyphs at iconSize.small
+  // (15pt = a 20px em). Hosted widgets are laid out in Omarchy's units and
+  // scaled by this, so a plugin's canvas lands on a status icon's em and every
+  // mark in the bar reads at one size. pluginBarSize is the pill's breadth in
+  // those units: what a vertical widget is told the bar is.
+  readonly property real pluginIconScale: (Tk.iconSize.small * 4 / 3) / Math.max(1, Style.bar.iconCanvas)
+  readonly property int pluginBarSize: Math.floor(Tk.barInner / pluginIconScale)
 
   // Facade cache for plugins
   property var pluginFacades: ({})
@@ -130,7 +140,7 @@ Item {
     if (!ownerSlot) return false
     var window = ownerSlot.QsWindow ? ownerSlot.QsWindow.window : null
     var candidates = pluginSlots.filter(function(slot) {
-      return slot && slot.visible && slot.activeItem
+      return slot && slot.shown && slot.activeItem
         && (!window || !slot.QsWindow || slot.QsWindow.window === window)
     })
     if (!candidates.length) return false
