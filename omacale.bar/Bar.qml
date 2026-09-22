@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.15"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.12.16"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -45,7 +45,7 @@ Item {
   // Uses the registry metadata's firstParty flag instead of a hardcoded
   // exclusion list — the shell sets firstParty=true for every stock plugin
   // under /usr/share/omarchy/shell/plugins/.
-  readonly property var thirdPartyPlugins: {
+  readonly property var collectedPlugins: {
     if (!barConfig || !barConfig.layout) return []
     var reg = barWidgetRegistry
     if (!reg || !reg.widgets) return []
@@ -71,6 +71,15 @@ Item {
     }
     return collected
   }
+  // The list the pill's Repeater uses, reassigned only when it really changes.
+  // The registry bumps its revision for every (re)registration -- each plugin
+  // on start, all of them on a plugin reload -- and a new array makes the
+  // Repeater destroy and rebuild every widget, popups and state included.
+  property var thirdPartyPlugins: []
+  onCollectedPluginsChanged: {
+    var next = collectedPlugins
+    if (JSON.stringify(next) !== JSON.stringify(thirdPartyPlugins)) thirdPartyPlugins = next
+  }
 
   // Omarchy widgets draw their mark in Style.bar.iconCanvas (16px) with a
   // 13px glyph; Omacale's status icons are Material glyphs at iconSize.small
@@ -81,8 +90,6 @@ Item {
   readonly property real pluginIconScale: (Tk.iconSize.small * 4 / 3) / Math.max(1, Style.bar.iconCanvas)
   readonly property int pluginBarSize: Math.floor(Tk.barInner / pluginIconScale)
 
-  // Facade cache for plugins
-  property var pluginFacades: ({})
   // Slots exist once per output. Keep a host-level list so widgets that use
   // BarWidget.broadcast() receive every live instance, like they do on the
   // stock Omarchy bar.
@@ -151,17 +158,6 @@ Item {
     next.activeItem.open()
     return true
   }
-  function pluginBarFacadeFor(id) {
-    var key = String(id || "")
-    if (!pluginFacades[key]) {
-      var comp = Qt.createComponent("PluginBarFacade.qml")
-      if (comp.status === Component.Ready) {
-        pluginFacades[key] = comp.createObject(root, { host: root, moduleName: key })
-      }
-    }
-    return pluginFacades[key]
-  }
-
   // Service cache for hosted 3rd-party plugins that require a companion service.
   // Avoid reassigning the property to prevent declarative binding loops in hosted panels.
   QtObject {
@@ -321,7 +317,10 @@ Item {
   }
   onBlurChanged: applyBlur()
   onIgnoreAlphaChanged: if (blur) applyBlur()
-  Component.onCompleted: if (blur) applyBlur()
+  Component.onCompleted: {
+    thirdPartyPlugins = collectedPlugins
+    if (blur) applyBlur()
+  }
   Connections {
     target: Hyprland
     function onRawEvent(e) { if (e.name === "configreloaded" && root.blur) root.applyBlur() }

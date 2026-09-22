@@ -660,7 +660,6 @@ Item {
             entry: modelData
             host: root.host
             cellHeight: cellRef.implicitHeight
-            bar: root.host.pluginBarFacadeFor(root.host.entryId(modelData))
           }
         }
       }

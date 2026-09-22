@@ -22,7 +22,9 @@ Item {
 
   required property var entry
   required property var host
-  property var bar: null
+  // One facade per slot, not per plugin id: a widget on each monitor gets its
+  // own click targets and popout, and the facade dies with the widget.
+  readonly property var bar: facade
   // Height of one status icon (an MIcon at the default size), from the pill.
   property real cellHeight: Tk.body.small * 2
 
@@ -38,7 +40,7 @@ Item {
     return w[moduleName] ? w[moduleName].component : null
   }
 
-  readonly property Item activeItem: loader.item
+  property Item activeItem: null
   readonly property var moduleMetadata: {
     var reg = host.barWidgetRegistry
     return reg && typeof reg.metadataFor === "function" ? reg.metadataFor(moduleName) : null
@@ -55,7 +57,37 @@ Item {
   readonly property real naturalWidth: activeItem ? Math.max(0, Number(activeItem.implicitWidth) || 0) : 0
   readonly property real naturalHeight: activeItem ? Math.max(0, Number(activeItem.implicitHeight) || 0) : 0
 
+  // The widget's own bar button (the first WidgetButton in its tree). Read,
+  // never restyled: it says whether the widget has anything to show and how
+  // wide its label really is.
+  property Item primaryButton: null
+  // A text button whose label is wider than the bar, drawn inside a slot that
+  // claims to fit (e.g. 9router's marquee, a label on a vertical bar): it can
+  // only show a fragment, so it gets the stand-in icon.
+  readonly property bool labelOverflows: {
+    var b = primaryButton
+    if (!b || "iconComponent" in b || !b.text) return false
+    var margin = Number(b.scaledHorizontalMargin) || 0
+    return labelProbe.implicitWidth + margin * 2 > logicalBreadth + 1
+  }
+  Text {
+    id: labelProbe
+    visible: false
+    textFormat: Text.PlainText
+    text: root.primaryButton && root.primaryButton.text ? String(root.primaryButton.text) : ""
+    font.family: root.primaryButton && root.primaryButton.fontFamily ? root.primaryButton.fontFamily : Tk.mono
+    font.pixelSize: root.primaryButton && root.primaryButton.fontSize > 0 ? root.primaryButton.fontSize : 12
+  }
+  // Indicator-style widgets (BarIndicator) stay in the tree and keep their
+  // space while inactive, but paint nothing: opacity 0 / concealed.
+  readonly property bool buttonHidden: {
+    var b = primaryButton
+    if (!b) return false
+    return b.concealed === true || b.hasVisualContent === false || Number(b.opacity) <= 0.01
+  }
+
   readonly property string shape: {
+    if (labelOverflows) return "proxy"
     if (naturalWidth <= logicalBreadth + 0.5) return "icon"
     if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "rotated"
     return "proxy"
@@ -65,7 +97,8 @@ Item {
   // `visible` of the item is its effective visibility, so the slot never hides
   // itself on it (that would latch it hidden). Like the stock bar, a widget
   // with nothing to show gets a zero-height slot, which Column skips.
-  readonly property bool shown: loader.status === Loader.Ready && activeItem !== null && activeItem.visible
+  readonly property bool shown: activeItem !== null && activeItem.visible
+    && !buttonHidden
   readonly property real stageWidth: shape === "icon" ? logicalBreadth : naturalWidth
   readonly property real stageHeight: {
     if (shape !== "icon") return Math.max(1, naturalHeight)
@@ -91,7 +124,8 @@ Item {
     "network": "lan", "fun": "mood", "media": "music_note", "system": "memory",
     "productivity": "task_alt", "developer": "code", "development": "code",
     "utilities": "build", "communication": "chat", "weather": "partly_cloudy_day",
-    "time": "schedule", "ai": "smart_toy"
+    "time": "schedule", "ai": "smart_toy", "status": "monitor_heart",
+    "plugin": "extension"
   })
   readonly property string proxyIcon: {
     var cat = moduleMetadata && moduleMetadata.category ? String(moduleMetadata.category).toLowerCase() : ""
@@ -114,11 +148,41 @@ Item {
     for (var i = 0; i < kids.length; i++) adoptTextRendering(kids[i], depth + 1)
   }
   function refreshRendering() { adoptTextRendering(activeItem, 0) }
+
+  function findPrimaryButton(item) {
+    if (!item) return null
+    var queue = [{ it: item, d: 0 }]
+    while (queue.length) {
+      var n = queue.shift()
+      if (typeof n.it.triggerPress === "function") return n.it
+      if (n.d >= 5 || !n.it.children) continue
+      for (var i = 0; i < n.it.children.length; i++) queue.push({ it: n.it.children[i], d: n.d + 1 })
+    }
+    return null
+  }
+
+  // Deferred set-up. A Timer rather than Qt.callLater: it dies with the slot,
+  // so nothing runs against a destroyed slot when the shell reloads plugins.
+  function settleLater() { settleTimer.restart() }
+  Timer {
+    id: settleTimer
+    interval: 0
+    onTriggered: {
+      root.injectProps()
+      root.primaryButton = root.findPrimaryButton(root.activeItem)
+      root.refreshRendering()
+      root.resolveCompatibilitySurface()
+    }
+  }
   // Content that appears later (a label turned on, a Loader) changes the size.
-  onNaturalWidthChanged: Qt.callLater(refreshRendering)
-  onNaturalHeightChanged: Qt.callLater(refreshRendering)
+  onNaturalWidthChanged: settleLater()
+  onNaturalHeightChanged: settleLater()
 
   function triggerCompactAction(button) {
+    if (primaryButton && primaryButton.visible !== false) {
+      primaryButton.triggerPress(button)
+      return
+    }
     var targets = bar && bar.clickTargets ? bar.clickTargets : []
     for (var i = targets.length - 1; i >= 0; i--) {
       var target = targets[i]
@@ -279,18 +343,20 @@ Item {
     rotation: root.shape === "rotated" ? 90 : 0
     opacity: root.compactProxy ? 0 : 1
 
-    Loader {
-      id: loader
-      anchors.fill: parent
-      active: root.registryComponent !== null
-      sourceComponent: root.registryComponent
-      onLoaded: {
-        root.injectProps()
-        Qt.callLater(root.injectProps)
-        Qt.callLater(root.refreshRendering)
-        Qt.callLater(root.resolveCompatibilitySurface)
-      }
-    }
+    // No Loader: the widget is created with bar, moduleName and settings as
+    // initial properties, so they are already set when its own
+    // Component.onCompleted runs. Assigned afterwards (as Loader.onLoaded
+    // and the stock bar do), a widget that starts work on completion runs it
+    // with default settings -- toggl-track then logged into its own plugin
+    // folder, which makes the shell reload every plugin, forever.
+  }
+
+  // Declared after the stage: children are destroyed in order, so the
+  // widget goes before the facade it calls on its way out.
+  PluginBarFacade {
+    id: facade
+    host: root.host
+    moduleName: root.moduleName
   }
 
   // The fallback is deliberately owned by Omacale rather than inferred from
@@ -352,11 +418,45 @@ Item {
     }
   }
 
-  onActiveItemChanged: Qt.callLater(injectProps)
+  onActiveItemChanged: {
+    primaryButton = null
+    settleLater()
+  }
+
+  function createItem() {
+    var comp = registryComponent
+    if (activeItem) {
+      var old = activeItem
+      activeItem = null
+      old.destroy()
+    }
+    if (!comp || comp.status !== Component.Ready) return
+    var item = null
+    try {
+      item = comp.createObject(stage, {
+        bar: root.bar,
+        moduleName: root.moduleName,
+        settings: root.moduleSettings
+      })
+    } catch (e) {
+      console.warn("omacale: bar widget " + root.moduleName + " failed to start: " + e)
+    }
+    if (!item) return
+    item.anchors.fill = stage
+    activeItem = item
+  }
+  // The same Component (the registry re-registers on every rescan) keeps the
+  // live widget; only a different one replaces it.
+  property var createdFrom: null
+  onRegistryComponentChanged: {
+    if (registryComponent === createdFrom) return
+    createdFrom = registryComponent
+    createItem()
+  }
   onModuleSettingsChanged: injectProps()
 
   function injectProps() {
-    var target = loader.item
+    var target = activeItem
     if (!target) return
     if ("bar" in target) target.bar = root.bar
     if ("moduleName" in target) target.moduleName = root.moduleName
@@ -365,7 +465,8 @@ Item {
 
   Component.onCompleted: {
     host.registerPluginSlot(root)
-    if (loader.item) injectProps()
+    createdFrom = registryComponent
+    createItem()
   }
   Component.onDestruction: {
     if (host) host.unregisterPluginSlot(root)
