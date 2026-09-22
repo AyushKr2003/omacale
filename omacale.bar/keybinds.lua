@@ -6,6 +6,15 @@
 -- │  omarchy menu keybindings --print                                       │
 -- ╰─────────────────────────────────────────────────────────────────────────╯
 
+-- ── Helpers ─────────────────────────────────────────────────────────────────
+-- o.rebind is provided by Omarchy (default/hypr/helpers.lua); restated here so
+-- this file is self-contained when pasted. Same arguments as o.bind.
+
+function o.rebind(keys, description, dispatcher, options)
+  hl.unbind(keys)
+  o.bind(keys, description, dispatcher, options)
+end
+
 -- ── Drawers ─────────────────────────────────────────────────────────────────
 
 o.bind("SUPER + A", "Omacale launcher", "omarchy-shell omacale launcher")
