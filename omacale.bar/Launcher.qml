@@ -222,8 +222,9 @@ Item {
     height: root.contentH
     clip: true
 
-    // Caelestia launcher/AppList.qml
-    MListView {
+    // Caelestia launcher/AppList.qml, with the edge fade of Caelestia's
+    // VerticalFadeListView (as Settings' pages have) while it can scroll.
+    FadeListView {
       id: list
       visible: root.listMode
       width: Tk.sizes.launcherItemWidth
