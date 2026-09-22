@@ -288,11 +288,31 @@ Item {
 
   readonly property bool cardSurfaceActive: compatibilityPanel !== null && compatibilityCard !== null && (compatibilityPanel.open || compatibilityCard.opacity > 0)
 
+  // KeyboardPanel takes the anchor window's width for the bar's width, and
+  // Omacale's window is the whole screen. Every sum it builds on that is then
+  // wrong: the card's own x (barW + gap), the room it thinks is left for the
+  // card (screenW - barW - gap - margin, which clamps to its 120px floor and
+  // cuts the content off), and the "bar strip" it forwards clicks in (the
+  // whole screen). `gap` is its one writable term in all three, so correcting
+  // it fixes all three: barW + gap becomes the real bar edge plus a gap. If
+  // the anchor window is ever bar-sized, this leaves a plain gap behind.
+  readonly property real panelGap: {
+    const barW = compatibilityPanel ? Number(compatibilityPanel.barW) || 0 : 0
+    return Math.round(Tk.barWidth + Tk.spacing.medium - barW)
+  }
+  Binding {
+    target: root.compatibilityPanel
+    property: "gap"
+    value: root.panelGap
+    when: root.compatibilityPanel !== null
+    restoreMode: Binding.RestoreNone
+  }
+
   // Anchor the popup card directly next to Omacale's vertical bar
   Binding {
     target: root.compatibilityCard
     property: "x"
-    value: Tk.barWidth + (root.compatibilityPanel && root.compatibilityPanel.gap !== undefined ? root.compatibilityPanel.gap : Tk.spacing.medium)
+    value: Tk.barWidth + Tk.spacing.medium
     when: root.cardSurfaceActive
     restoreMode: Binding.RestoreNone
   }
@@ -306,7 +326,9 @@ Item {
     restoreMode: Binding.RestoreNone
   }
 
-  // Prevent KeyboardPanel from crushing width to 120px
+  // With the gap corrected the panel sizes its own card again (each asks for
+  // its own width, 380-560 in Omarchy's panels). This is only a floor, for a
+  // panel that still reports a crushed width.
   Binding {
     target: root.compatibilityCard
     property: "width"
