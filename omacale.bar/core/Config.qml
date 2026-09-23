@@ -138,6 +138,7 @@ QtObject {
           property bool notifications: true
           property bool bluetoothConnectedOnly: false
           property bool microphoneInUseOnly: false
+          property bool kbLayout: false
         }
         property JsonObject popouts: JsonObject {
           property bool statusIcons: true

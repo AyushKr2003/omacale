@@ -426,7 +426,7 @@ Item {
       readonly property var st: root.cfg.status
       visible: (st.keepAwake && IdleService.enabled) || RecordService.running || st.notifications
         || (st.lockStatus && (root.host.capsLock || root.host.numLock || lockStatus.visible))
-        || st.audio || st.microphone || st.network || st.bluetooth || st.battery
+        || st.audio || st.microphone || st.kbLayout || st.network || st.bluetooth || st.battery
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Tk.barInner
       implicitHeight: statusCol.implicitHeight + Tk.padding.medium * 2
@@ -567,6 +567,19 @@ Item {
           color: Colours.m3secondary
           size: Tk.iconSize.medium
           fill: 1
+        }
+        // Caelestia StatusIcons "kbLayout": the active layout's code in mono.
+        // KbService is only touched while the icon is on, so it costs nothing
+        // when off (its default, as in Caelestia's barconfig).
+        MText {
+          readonly property string popout: "kblayout"
+          visible: root.cfg.status.kbLayout
+          anchors.horizontalCenter: parent.horizontalCenter
+          animate: true
+          text: root.cfg.status.kbLayout ? KbService.code : ""
+          color: Colours.m3secondary
+          font.family: Tk.mono
+          font.pointSize: Tk.body.medium
         }
         MIcon {
           readonly property string popout: "network"

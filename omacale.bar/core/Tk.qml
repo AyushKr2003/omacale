@@ -69,6 +69,7 @@ QtObject {
     readonly property int batteryWidth: 250
     readonly property int bluetoothWidth: 300
     readonly property int trayMenuWidth: 300
+    readonly property int kbLayoutWidth: 320
     readonly property int userWidth: 340
     readonly property int logoSize: 30
     readonly property int uptimeSize: 30

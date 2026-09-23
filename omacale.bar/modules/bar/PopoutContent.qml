@@ -33,7 +33,7 @@ Item {
     anchors.fill: parent
     sourceComponent: ({
       network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
-      lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow
+      kblayout: kblayout, lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow
     })[root.name] || null
   }
 
@@ -545,6 +545,128 @@ Item {
               color: parent.on ? Colours.m3onPrimary : Colours.m3onSurfaceVariant
               Behavior on fill { Anim { type: "effects" } }
             }
+          }
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------- keyboard layout
+  // Caelestia bar/popouts/kblayout/KbLayout.qml: the other configured
+  // layouts (click to switch; XKB only takes the first 4), a divider, then
+  // the active one, which pops in again on every change. The list and row
+  // animations are Caelestia's own NumberAnimations, ported as written.
+  Component {
+    id: kblayout
+    ColumnLayout {
+      id: kb
+      implicitWidth: Tk.sizes.kbLayoutWidth
+      spacing: Tk.spacing.small
+      Component.onCompleted: KbService.refresh()
+
+      Heading { Layout.rightMargin: Tk.padding.extraSmall; text: "Keyboard layouts" }
+
+      ListView {
+        id: kbList
+        Layout.fillWidth: true
+        Layout.rightMargin: Tk.padding.extraSmall
+        Layout.topMargin: Tk.spacing.small
+        clip: true
+        interactive: true
+        implicitHeight: Math.min(contentHeight, 320)
+        visible: count > 0
+        spacing: Tk.spacing.small
+        // Keyed by token, so a re-read of the same layouts keeps the rows.
+        model: ScriptModel {
+          objectProp: "token"
+          values: KbService.layouts.filter(l => l.index !== KbService.activeIndex)
+        }
+
+        add: Transition {
+          NumberAnimation { properties: "opacity"; from: 0; to: 1; duration: 140 }
+          NumberAnimation { properties: "y"; duration: 180; easing.type: Easing.OutCubic }
+        }
+        remove: Transition { NumberAnimation { properties: "opacity"; to: 0; duration: 100 } }
+        move: Transition { NumberAnimation { properties: "y"; duration: 180; easing.type: Easing.OutCubic } }
+        displaced: Transition { NumberAnimation { properties: "y"; duration: 180; easing.type: Easing.OutCubic } }
+
+        delegate: Item {
+          id: kbRow
+          required property var modelData
+          readonly property bool isDisabled: modelData.index > 3
+          width: kbList.width
+          height: Math.max(36, kbRowText.implicitHeight + Tk.padding.small)
+          ToolTip.visible: isDisabled && kbHover.hovered
+          ToolTip.text: "XKB limitation: maximum 4 layouts allowed"
+          HoverHandler { id: kbHover }
+
+          Item {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            height: parent.height - 4
+            property real radius: Tk.rounding.full
+            StateLayer {
+              disabled: kbRow.isDisabled
+              onClicked: if (!kbRow.isDisabled) KbService.switchTo(kbRow.modelData.index)
+            }
+          }
+          MText {
+            id: kbRowText
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: Tk.padding.extraSmall
+            anchors.rightMargin: Tk.padding.extraSmall
+            text: kbRow.modelData.label
+            elide: Text.ElideRight
+            opacity: kbRow.isDisabled ? 0.4 : 1
+          }
+        }
+      }
+
+      Rectangle {
+        visible: KbService.activeLabel.length > 0
+        Layout.fillWidth: true
+        Layout.rightMargin: Tk.padding.extraSmall
+        Layout.topMargin: Tk.spacing.small
+        implicitHeight: 1
+        color: Colours.m3onSurfaceVariant
+        opacity: 0.35
+      }
+
+      RowLayout {
+        id: activeRow
+        visible: KbService.activeLabel.length > 0
+        Layout.fillWidth: true
+        Layout.rightMargin: Tk.padding.extraSmall
+        Layout.topMargin: Tk.spacing.small
+        Layout.bottomMargin: Tk.padding.small
+        spacing: Tk.spacing.small
+
+        MIcon { text: "keyboard"; color: Colours.m3primary }
+        MText {
+          Layout.fillWidth: true
+          text: KbService.activeLabel
+          elide: Text.ElideRight
+          font.pointSize: Tk.body.medium
+          weight: Font.Medium
+          color: Colours.m3primary
+        }
+
+        Connections {
+          target: KbService
+          function onActiveLabelChanged() { if (activeRow.visible) popIn.restart() }
+        }
+        SequentialAnimation {
+          id: popIn
+          ParallelAnimation {
+            NumberAnimation { target: activeRow; property: "opacity"; to: 0; duration: 70 }
+            NumberAnimation { target: activeRow; property: "scale"; to: 0.92; duration: 70 }
+          }
+          ParallelAnimation {
+            NumberAnimation { target: activeRow; property: "opacity"; to: 1; duration: 160; easing.type: Easing.OutCubic }
+            NumberAnimation { target: activeRow; property: "scale"; to: 1; duration: 220; easing.type: Easing.OutBack }
           }
         }
       }

@@ -19,6 +19,7 @@ singleton GameMode 1.0 services/GameMode.qml
 IconButton 1.0 components/controls/IconButton.qml
 IdleInhibitCard 1.0 modules/utilities/IdleInhibitCard.qml
 singleton IdleService 1.0 services/IdleService.qml
+singleton KbService 1.0 services/KbService.qml
 KeybindsCard 1.0 modules/settings/cards/KeybindsCard.qml
 Launcher 1.0 modules/launcher/Launcher.qml
 singleton MenuService 1.0 services/MenuService.qml

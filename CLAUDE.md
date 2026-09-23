@@ -33,8 +33,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `MFlickable.qml`, `MListView.qml`, `FadeFlickable.qml`, `FadeListView.qml`, `MScrollBar.qml` | `components/containers/StyledFlickable.qml`, `StyledListView.qml`, `VerticalFadeFlickable.qml`, `VerticalFadeListView.qml`, `components/controls/StyledScrollBar.qml` |
 | `Elevation.qml` | `components/effects/Elevation.qml` |
 | `StateLayer.qml`, `Anim.qml`, `CAnim.qml` | `components/StateLayer.qml`, `Anim.qml`, `CAnim.qml` |
-| `PopoutContent.qml` (one component per bar popout; `wirelesspassword`, like `traymenu`, is sticky: see `ScreenScope.popoutSticky` / `popoutHeld`) | `modules/bar/popouts/Content.qml`, `Network.qml`, `WirelessPassword.qml`, `Bluetooth.qml`, `Battery.qml`, `AudioPopout.qml`, `LockStatus.qml`, `TrayMenu.qml`, `ActiveWindow.qml` |
+| `PopoutContent.qml` (one component per bar popout; `wirelesspassword`, like `traymenu`, is sticky: see `ScreenScope.popoutSticky` / `popoutHeld`) | `modules/bar/popouts/Content.qml`, `Network.qml`, `WirelessPassword.qml`, `kblayout/KbLayout.qml`, `Bluetooth.qml`, `Battery.qml`, `AudioPopout.qml`, `LockStatus.qml`, `TrayMenu.qml`, `ActiveWindow.qml` |
 | `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
+| `KbService.qml` | `modules/bar/popouts/kblayout/KbLayoutModel.qml`, the layout half of `services/Hypr.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
 | `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent; or, with Settings › Style › Palette › Omarchy, the theme's own colours on the M3 roles) |
 | `WallLuminance.qml` | Caelestia's `ImageAnalyser` (`plugin/src/Caelestia/Images/imageanalyser.cpp`), feeding `Colours.wallLuminance` |
@@ -97,6 +98,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`) |
 | Omarchy menu (`MenuService`) | `$OMARCHY_PATH/default/omarchy/omarchy-menu.jsonc` + `~/.config/omarchy/extensions/omarchy-menu.jsonc`, parsed, searched and guarded by Omarchy's own `shell/plugins/menu/MenuModel.js`, which is loaded in place (never copied) |
 | Plugins (`PluginService`, Settings › Plugins) | `omarchy plugin list --json` (enabled, canDisable, clonedFrom) + `omarchy-plugin-catalog` (manifests); `omarchy plugin enable/disable/add/update/remove`. Enable/disable only rewrite `shell.json`; add/update/remove write into the plugins folder, which reloads Omacale, so they run detached and reopen `settingsPage plugins`. Omacale's own lock/notification clones are shown but locked |
+| Keyboard layouts (`KbService`) | no Omarchy command: Hyprland's `getoption input:kb_layout`, `devices` (re-read on the `activelayout` event), `switchxkblayout all <i>`; names from `/usr/share/X11/xkb/rules/base.lst` |
 | Bar hide | `omarchy toggle bar`; `omarchy.bar` IPC `syncHidden` |
 | Launching UIs | `omarchy-launch-editor`, `omarchy-launch-browser`, ... (there is no `omarchy-launch-wifi`/`-bluetooth`; use the settings pages above) |
 | Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `omacale.bar/keybinds.lua`) |

@@ -260,6 +260,7 @@ var subpages = {
       { type: "toggle", key: "bar.status.audio", label: "Audio" },
       { type: "toggle", key: "bar.status.microphone", label: "Microphone" },
       { type: "toggle", key: "bar.status.microphoneInUseOnly", label: "Microphone only while recording", subtext: "Hide it until an app opens the microphone" },
+      { type: "toggle", key: "bar.status.kbLayout", label: "Keyboard layout", subtext: "Active layout code; hover to switch layouts" },
       { type: "toggle", key: "bar.status.network", label: "Network" },
       { type: "toggle", key: "bar.status.bluetooth", label: "Bluetooth" },
       { type: "toggle", key: "bar.status.bluetoothConnectedOnly", label: "Bluetooth only when connected", subtext: "Hide the idle bluetooth icon" },
