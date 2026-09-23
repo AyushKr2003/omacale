@@ -26,11 +26,16 @@ Rectangle {
   radius: Tk.rounding.extraExtraLarge
   color: Colours.m3surfaceContainer
 
+  // Whether the lock surface holding this card is on screen (LockUi.onScreen).
+  required property bool onScreen
+
   // The lock is often the first thing on screen after a resume, so ask for a
   // refresh when it appears and keep Caelestia's 15 minute beat after that.
-  Component.onCompleted: Sys.weatherProbe.running = true
+  // On `onScreen`, not on completion: this card is built at shell start
+  // inside Omarchy's hidden lock preview, where "when it appears" is never.
+  onOnScreenChanged: if (onScreen) Sys.weatherProbe.running = true
   Timer {
-    running: true
+    running: root.onScreen
     repeat: true
     interval: 900000
     onTriggered: Sys.weatherProbe.running = true

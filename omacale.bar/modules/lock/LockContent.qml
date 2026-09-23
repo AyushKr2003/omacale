@@ -27,6 +27,7 @@ RowLayout {
       Layout.fillWidth: true
       visible: root.cfg.weather
       rootHeight: root.height
+      onScreen: root.lock.onScreen
     }
 
     LockFetch {
@@ -61,6 +62,7 @@ RowLayout {
     LockResources {
       Layout.fillWidth: true
       visible: root.cfg.resources
+      onScreen: root.lock.onScreen
     }
 
     Rectangle {

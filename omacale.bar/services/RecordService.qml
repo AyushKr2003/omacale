@@ -25,7 +25,8 @@ QtObject {
     run("omarchy capture screenrecording" + modeFlag + audioFlag)
     running = true
     elapsed = 0
-    pollTimer.restart()
+    // No pollTimer.restart() here: the timer follows `running` declaratively,
+    // and restarting it imperatively would break that binding for good.
   }
 
   function stop() {
@@ -73,20 +74,52 @@ QtObject {
     return (i === 0 ? Math.round(b) : b.toFixed(1)) + " " + u[i]
   }
 
-  property Process checkProc: Process {
-    command: ["bash", "-c", "pidof gpu-screen-recorder >/dev/null && echo 1 || echo 0"]
-    stdout: SplitParser {
-      onRead: line => {
-        const isRun = String(line).trim() === "1"
-        if (root.running !== isRun) {
-          root.running = isRun
-          if (!isRun) {
-            root.elapsed = 0
-            root.reloadRecordings()
-          }
-        }
-      }
+  function apply(isRun) {
+    if (root.running === isRun)
+      return
+    root.running = isRun
+    if (!isRun) {
+      root.elapsed = 0
+      root.reloadRecordings()
     }
+  }
+
+  // `pidof` straight, not through a shell, and read off the exit code: the
+  // `bash -c ... && echo 1 || echo 0` around it doubled the process count
+  // for one boolean.
+  property Process checkProc: Process {
+    command: ["pidof", "gpu-screen-recorder"]
+    onExited: code => root.apply(code === 0)
+  }
+
+  // Omarchy's own marker for a capture in flight: omarchy-capture-screenrecording
+  // writes the output filename here when it starts and removes it when it
+  // stops, so a recording begun from the keybind or the menu shows up here
+  // without anything having to poll for it.
+  readonly property string runtimeDir:
+    Quickshell.env("XDG_RUNTIME_DIR") || (Quickshell.env("HOME") + "/.local/state/omarchy")
+
+  property FileView marker: FileView {
+    path: root.runtimeDir + "/omarchy-screenrecord-filename"
+    printErrors: false
+    // The marker can outlive a recorder that crashed, so its presence is
+    // confirmed against the process; its absence is conclusive on its own.
+    onLoaded: if (!root.running) root.checkProc.running = true
+    onLoadFailed: root.apply(false)
+  }
+
+  // The runtime directory is busy with locks and sockets that are nothing to
+  // do with us, so coalesce: a re-read is free, and only a marker that is
+  // actually there costs a `pidof`.
+  property Timer markerSettle: Timer {
+    interval: 200
+    onTriggered: root.marker.reload()
+  }
+  property FileView markerWatcher: FileView {
+    path: root.runtimeDir
+    watchChanges: true
+    printErrors: false
+    onFileChanged: root.markerSettle.restart()
   }
 
   property Process recordingsProbe: Process {
@@ -116,13 +149,18 @@ QtObject {
     }
   }
 
+  // Only while recording: the elapsed counter needs a second hand, and a
+  // recorder that dies without clearing the marker has to be noticed. Idle,
+  // the marker watcher above is what reports a capture starting, so this ran
+  // `pidof` once a second for the whole session to learn nothing.
   property Timer pollTimer: Timer {
     interval: 1000
-    running: true
+    running: root.running
     repeat: true
     onTriggered: {
-      root.checkProc.running = true
-      if (root.running) root.elapsed++
+      root.elapsed++
+      if (!root.checkProc.running)
+        root.checkProc.running = true
     }
   }
 

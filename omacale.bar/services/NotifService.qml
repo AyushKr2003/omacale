@@ -239,7 +239,9 @@ QtObject {
 
   function toggleDnd() {
     run("omarchy toggle notification silencing || omarchy-shell notifications toggleDnd")
-    dndProbe.running = true
+    // The watcher picks the new value up, but only once Omarchy has written
+    // it; re-read on a short beat so the switch doesn't sit on the old state.
+    dndSettle.restart()
   }
 
   function dismiss(item) {
@@ -365,14 +367,14 @@ QtObject {
     onTriggered: root.popupNow = Date.now()
   }
 
-  // DND state probe
-  property Process dndProbe: Process {
-    command: ["bash", "-c",
-      "if [[ -f $HOME/.local/state/omarchy/notifications.json ]]; then " +
-      "jq -r '.dnd // false' $HOME/.local/state/omarchy/notifications.json 2>/dev/null; " +
-      "else echo false; fi"]
-    stdout: SplitParser {
-      onRead: line => root.dnd = String(line).trim() === "true"
+  // DND state, parsed from the file the watcher already holds. It used to be
+  // a `bash -c` running `jq` for this one boolean, which is a process pair
+  // (~4ms) for something QML can read straight out of the FileView.
+  function readDnd(t) {
+    try {
+      root.dnd = !!JSON.parse(t).dnd
+    } catch (e) {
+      root.dnd = false
     }
   }
 
@@ -380,7 +382,21 @@ QtObject {
     path: Quickshell.env("HOME") + "/.local/state/omarchy/notifications.json"
     watchChanges: true
     printErrors: false
-    onFileChanged: root.dndProbe.running = true
+    onFileChanged: reload()
+    onLoaded: root.readDnd(text())
+    onLoadFailed: root.dnd = false
+  }
+
+  property Timer dndSettle: Timer {
+    interval: 250
+    repeat: true
+    triggeredOnStart: true
+    property int left: 0
+    onRunningChanged: if (running) left = 6
+    onTriggered: {
+      root.dndWatcher.reload()
+      if (--left <= 0) stop()
+    }
   }
 
   property FileView notifWatcher: FileView {
@@ -397,14 +413,17 @@ QtObject {
     onFileChanged: root.reload()
   }
 
+  // Safety net only. The two FileViews above watch the live and history
+  // directories and do fire on a notification being written, moved or
+  // deleted, so this is here for a change inotify can miss (a directory
+  // replaced wholesale), not as the way notifications arrive. It ran every
+  // 3s, which re-read and re-parsed every notification on disk -- ~21ms of
+  // python a go, for the whole session, to find nothing had changed.
   property Timer pollTimer: Timer {
-    interval: 3000
+    interval: 30000
     running: true
     repeat: true
     triggeredOnStart: true
-    onTriggered: {
-      root.reload()
-      if (!root.dndProbe.running) root.dndProbe.running = true
-    }
+    onTriggered: root.reload()
   }
 }

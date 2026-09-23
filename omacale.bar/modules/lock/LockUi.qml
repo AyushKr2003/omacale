@@ -21,6 +21,19 @@ Item {
   // LockView.qml). Null for a moment while the Loader sets it.
   property var view: null
 
+  // Whether this lock surface is really on screen.
+  //
+  // Omarchy's lock service builds a LockView inside its preview PanelWindow
+  // as a plain child (Service.qml's `previewWindow`), and a window's
+  // `visible: false` does not stop its QML tree being created -- so the whole
+  // lock UI, ours included, exists from the moment the shell starts. Anything
+  // in here that polls has to gate on this instead of on being constructed,
+  // or it runs for the entire session behind a window nobody can see.
+  //
+  // `loadBackground` is exactly that bit on both surfaces Omarchy makes:
+  // `root.locked` on the session lock, `previewVisible` on the preview.
+  readonly property bool onScreen: view ? view.loadBackground : false
+
   readonly property string password: view ? view.passwordText : ""
   readonly property bool authenticating: view ? view.authenticatingPassword : false
   readonly property bool inputEnabled: view ? view.inputEnabled : false

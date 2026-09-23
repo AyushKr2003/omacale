@@ -18,9 +18,25 @@ Rectangle {
     return Math.max(0.3, 1 + Math.pow(Math.abs(diff), 0.8) * Math.sign(diff))
   }
 
-  // Sys only polls while something is showing the numbers.
-  Component.onCompleted: Sys.resourcesWanted += 1
-  Component.onDestruction: Sys.resourcesWanted -= 1
+  // Whether the lock surface holding this card is on screen (LockUi.onScreen).
+  required property bool onScreen
+
+  // Sys only polls while something is showing the numbers. Existing is not
+  // enough: Omarchy keeps a LockView in its hidden preview window from shell
+  // start, so an unconditional hold here kept the resource poll -- and the
+  // gpu and df probes behind it -- running for the whole session.
+  property bool held: false
+  function syncHold() {
+    const want = onScreen && visible
+    if (want === held)
+      return
+    held = want
+    Sys.resourcesWanted += want ? 1 : -1
+  }
+  onOnScreenChanged: syncHold()
+  onVisibleChanged: syncHold()
+  Component.onCompleted: syncHold()
+  Component.onDestruction: if (held) Sys.resourcesWanted -= 1
 
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
   radius: Tk.rounding.extraLarge

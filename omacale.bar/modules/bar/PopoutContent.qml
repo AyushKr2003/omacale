@@ -83,11 +83,15 @@ Item {
     ColumnLayout {
       implicitWidth: Tk.sizes.networkWidth
       spacing: Tk.spacing.small
+      // No NetService.hold(): this list is NetworkManager's last scan, which
+      // is what the `nmcli ... --rescan no` behind it always showed. Starting
+      // a scan (and the link-detail poll that comes with a hold) belongs to
+      // the Network settings page, not to a hover popout.
       Heading { text: Sys.ethernet && !Sys.wifi ? "Ethernet" : "Wireless" }
       Toggle {
         label: "Enabled"
-        checked: Sys.wifi || Sys.networks.length > 0
-        onToggled: c => Sys.run("nmcli radio wifi " + (c ? "on" : "off"))
+        checked: NetService.wifiEnabled
+        onToggled: c => NetService.setWifiEnabled(c)
       }
       Sub { text: Sys.networks.length + (Sys.networks.length === 1 ? " network available" : " networks available") }
       Repeater {

@@ -405,9 +405,13 @@ Scope {
     // ---------------------------------------------------- background
     Item {
       anchors.fill: parent
-      layer.enabled: true
+      // Only when there is a shadow to draw. The layer is a screen-sized
+      // texture that the frame shader renders into and MultiEffect then
+      // blurs; with shadows off that whole round trip produced the same
+      // pixels the shader can write straight to the window.
+      layer.enabled: scope.cfg.appearance.shadow
       layer.effect: MultiEffect {
-        shadowEnabled: scope.cfg.appearance.shadow
+        shadowEnabled: true
         blurMax: 15
         shadowColor: Qt.alpha(Colours.m3shadow, 0.7 * Math.max(0, 1 - win.fs))
       }

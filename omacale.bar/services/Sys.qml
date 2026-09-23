@@ -59,47 +59,25 @@ QtObject {
   }
 
   // ------------------------------------------------------------ network
-  property bool ethernet: false
-  property bool wifi: false
-  property string ssid: ""
-  property int strength: 0
-  property var networks: []   // [{ssid, strength, secure, active}]
-  property bool _seen: false
-
-  property Process netProbe: Process {
-    command: ["bash", "-c",
-      "nmcli -t -f TYPE,STATE device 2>/dev/null | awk -F: '$2==\"connected\"{print \"dev:\"$1}'; " +
-      "nmcli -t -f IN-USE,SIGNAL,SECURITY,SSID dev wifi list --rescan no 2>/dev/null | head -12 | sed 's/^/ap:/'"]
-    property var acc: ({ eth: false, wifi: false, aps: [] })
-    onStarted: acc = { eth: false, wifi: false, aps: [] }
-    stdout: SplitParser {
-      onRead: function(line) {
-        const a = root.netProbe.acc
-        if (line === "dev:ethernet") a.eth = true
-        else if (line === "dev:wifi") a.wifi = true
-        else if (line.indexOf("ap:") === 0) {
-          const p = line.slice(3).split(":")
-          if (p.length >= 4 && p.slice(3).join(":")) {
-            const ssid = p.slice(3).join(":").replace(/\\:/g, ":")
-            if (!a.aps.some(x => x.ssid === ssid))
-              a.aps.push({ active: p[0] === "*", strength: parseInt(p[1]) || 0, secure: p[2] !== "" && p[2] !== "--", ssid: ssid })
-          }
-        }
-      }
+  // What the bar icon and the network popout show. NetService already holds
+  // all of it over NetworkManager (Quickshell.Networking), event-driven, so
+  // this is a view onto that rather than a probe of its own: the `nmcli`
+  // pair this used to run every 5s cost ~28ms of CPU a go -- half a percent
+  // of a core for the whole session, whether or not anything was looking.
+  readonly property bool ethernet: !!(NetService.wiredDevice && NetService.wiredDevice.connected)
+  readonly property bool wifi: !!(NetService.wifiDevice && NetService.wifiDevice.connected)
+  readonly property string ssid: NetService.connectedNetwork ? NetService.connectedNetwork.name : ""
+  readonly property int strength: NetService.connectedNetwork ? NetService.strength(NetService.connectedNetwork) : 0
+  // [{ssid, strength, secure, active}], strongest first with the active one
+  // on top, deduplicated by SSID as the old `nmcli` list was.
+  readonly property var networks: {
+    const out = []
+    for (const n of NetService.networks) {
+      if (!n || !n.name || out.some(x => x.ssid === n.name))
+        continue
+      out.push({ ssid: n.name, strength: NetService.strength(n), secure: !NetService.isOpen(n.security), active: !!n.connected })
     }
-    onExited: {
-      const a = acc
-      root.ethernet = a.eth
-      root.wifi = a.wifi
-      const act = a.aps.find(x => x.active)
-      root.ssid = act ? act.ssid : ""
-      root.strength = act ? act.strength : 0
-      root.networks = a.aps.sort((x, y) => (y.active - x.active) || (y.strength - x.strength))
-    }
-  }
-  property Timer netTimer: Timer {
-    interval: 5000; running: true; repeat: true; triggeredOnStart: true
-    onTriggered: root.netProbe.running = true
+    return out.sort((x, y) => (y.active - x.active) || (y.strength - x.strength))
   }
 
   // ---------------------------------------------------------- resources
@@ -119,16 +97,16 @@ QtObject {
   property var disks: []            // [{ mount, used, total }]
   property string primaryMount: "/"
   readonly property var primaryDisk: disks.find(d => d.mount === primaryMount) || disks[0] || null
+  // Disk usage. Ran on every resource tick beside the CPU temperature; split
+  // off and slowed right down, because a filesystem does not fill up at 1Hz
+  // and `df` is a process (plus the shell around it) each time.
   property Process diskProbe: Process {
     command: ["bash", "-c",
-      "df -B1 --output=source,target,used,size -x tmpfs -x devtmpfs -x efivarfs -x overlay -x squashfs 2>/dev/null | tail -n +2 | sort -u -k1,1; " +
-      "for h in /sys/class/hwmon/hwmon*; do case $(cat $h/name 2>/dev/null) in coretemp|k10temp|zenpower) for l in $h/temp*_label; do " +
-      "case $(cat $l) in 'Package id'*|Tdie|Tctl) echo temp:$(cat ${l%_label}_input); break 2;; esac; done;; esac; done"]
+      "df -B1 --output=source,target,used,size -x tmpfs -x devtmpfs -x efivarfs -x overlay -x squashfs 2>/dev/null | tail -n +2 | sort -u -k1,1"]
     property var acc: []
     onStarted: acc = []
     stdout: SplitParser {
       onRead: function(l) {
-        if (l.indexOf("temp:") === 0) { root.cpuTemp = (parseInt(l.slice(5)) || 0) / 1000; return }
         const p = l.trim().split(/\s+/)
         if (p.length >= 4) root.diskProbe.acc.push({ mount: p[1], used: Number(p[2]), total: Number(p[3]) })
       }
@@ -140,6 +118,32 @@ QtObject {
       root.disk = pd && pd.total ? pd.used / pd.total : 0
       root.diskText = pd ? root.fmtBytes(pd.used) + " / " + root.fmtBytes(pd.total) : ""
     }
+  }
+  property Timer diskTimer: Timer {
+    interval: 10000; repeat: true; triggeredOnStart: true
+    running: root.resourcesWanted > 0
+    onTriggered: if (!root.diskProbe.running) root.diskProbe.running = true
+  }
+
+  // CPU package temperature. The hwmon scan that found it used to run on
+  // every tick, spawning a `cat` per sensor label to re-answer a question
+  // whose answer is a fixed path; resolve that path once, then read the file
+  // in process for the rest of the session.
+  property string cpuTempPath: ""
+  property Process tempScan: Process {
+    running: true
+    command: ["bash", "-c",
+      "for h in /sys/class/hwmon/hwmon*; do case $(cat $h/name 2>/dev/null) in coretemp|k10temp|zenpower) " +
+      "for l in $h/temp*_label; do case $(cat $l 2>/dev/null) in 'Package id'*|Tdie|Tctl) echo ${l%_label}_input; break 2;; esac; done;; esac; done"]
+    stdout: StdioCollector {
+      onStreamFinished: root.cpuTempPath = String(text).trim().split("\n")[0] || ""
+    }
+  }
+  property FileView cpuTempFile: FileView {
+    path: root.cpuTempPath
+    printErrors: false
+    onLoaded: root.cpuTemp = (parseInt(String(text()).trim()) || 0) / 1000
+    onLoadFailed: root.cpuTemp = 0
   }
 
   // CPU model
@@ -159,16 +163,32 @@ QtObject {
   property real gpu: 0
   property real gpuTemp: 0
   property bool gpuSleeping: false
+  // Set once the helper has reported "none": there is no adapter to watch,
+  // so nothing is gained by asking again for the rest of the session.
+  property bool gpuAbsent: false
   property Process gpuProbe: Process {
-    command: ["bash", Qt.resolvedUrl("../scripts/gpu.sh").toString().replace("file://", "")]
+    // The name is handed back in so the helper can skip the lspci and the
+    // second nvidia-smi that resolving it costs (see scripts/gpu.sh).
+    command: ["bash", Qt.resolvedUrl("../scripts/gpu.sh").toString().replace("file://", ""), root.gpuName]
     stdout: SplitParser {
       onRead: function(l) {
         const p = l.split("|")
         root.gpuType = p[0]; root.gpuName = p[1] || ""
         root.gpu = (parseFloat(p[2]) || 0) / 100; root.gpuTemp = parseFloat(p[3]) || 0
         root.gpuSleeping = p[4] === "1"
+        root.gpuAbsent = p[0] === "none"
       }
     }
+  }
+  // On its own beat, and a slower one: an NVIDIA reading means an nvidia-smi
+  // (~20ms, and the only way to get utilisation out of the proprietary
+  // driver), which is far too much to pay at the CPU and memory rate for a
+  // gauge nobody reads that closely.
+  property Timer gpuTimer: Timer {
+    interval: Math.max(2000, Config.o.services.resourceUpdateInterval)
+    repeat: true; triggeredOnStart: true
+    running: root.resourcesWanted > 0 && !root.gpuAbsent
+    onTriggered: if (!root.gpuProbe.running) root.gpuProbe.running = true
   }
 
   // Network throughput (bytes/s) with a rolling history for the sparkline.
@@ -234,9 +254,10 @@ QtObject {
       root.mem = 1 - av / tot
       root.memUsedGb = (tot - av) / 1048576
       root.memTotalGb = tot / 1048576
-      root.diskProbe.running = true
       root.sampleNet()
-      if (!root.gpuProbe.running) root.gpuProbe.running = true
+      // Disk and GPU have their own, slower timers; everything left on this
+      // one is a /proc read done in process, so the tick spawns nothing.
+      if (root.cpuTempPath) root.cpuTempFile.reload()
     }
   }
 
@@ -341,8 +362,57 @@ QtObject {
 
   // Caps / num lock (Hyprland has no event for these). Polled here rather
   // than in Bar.qml so the lock screen can show them too.
+  //
+  // The state is read from the kernel's LED class, not from `hyprctl devices
+  // -j`: that serialises every input device to JSON and cost 4.4ms a go,
+  // 1.5s apart, for the whole session, where reading the LED files in
+  // process is free. Hyprland mirrors the lock state onto every keyboard's
+  // LEDs, so any one of them lit means the modifier is on. Machines with no
+  // LED nodes at all (some VMs, Bluetooth-only keyboards) keep hyprctl.
   property bool capsLock: false
   property bool numLock: false
+
+  property var capsLeds: []
+  property var numLeds: []
+  readonly property bool ledsFound: capsLeds.length > 0 || numLeds.length > 0
+  // One spawn, at startup: QML has no way to enumerate /sys/class/leds.
+  property Process ledScan: Process {
+    running: true
+    command: ["bash", "-c",
+      "for f in /sys/class/leds/*::capslock/brightness; do [[ -r $f ]] && echo \"c:$f\"; done; " +
+      "for f in /sys/class/leds/*::numlock/brightness; do [[ -r $f ]] && echo \"n:$f\"; done"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const c = [], n = []
+        for (const line of String(text).split("\n")) {
+          const s = line.trim()
+          if (s.indexOf("c:") === 0) c.push(s.slice(2))
+          else if (s.indexOf("n:") === 0) n.push(s.slice(2))
+        }
+        root.capsLeds = c
+        root.numLeds = n
+      }
+    }
+  }
+  // Mutated in place and read back by syncLeds, so a tick costs no garbage.
+  property var ledState: ({})
+  function syncLeds() {
+    if (!ledsFound)
+      return
+    capsLock = capsLeds.some(p => ledState[p])
+    numLock = numLeds.some(p => ledState[p])
+  }
+  property Instantiator ledReaders: Instantiator {
+    model: root.capsLeds.concat(root.numLeds)
+    delegate: FileView {
+      required property string modelData
+      path: modelData
+      printErrors: false
+      onLoaded: { root.ledState[modelData] = String(text()).trim() !== "0"; root.syncLeds() }
+      onLoadFailed: { root.ledState[modelData] = false; root.syncLeds() }
+    }
+  }
+
   property Process lockKeysProbe: Process {
     command: ["hyprctl", "devices", "-j"]
     stdout: StdioCollector {
@@ -357,7 +427,14 @@ QtObject {
   }
   property Timer lockKeysTimer: Timer {
     interval: 1500; running: true; repeat: true
-    onTriggered: root.lockKeysProbe.running = true
+    onTriggered: {
+      if (root.ledsFound) {
+        for (let i = 0; i < root.ledReaders.count; i++)
+          root.ledReaders.objectAt(i)?.reload()
+      } else if (!root.lockKeysProbe.running) {
+        root.lockKeysProbe.running = true
+      }
+    }
   }
 
   // ------------------------------------------------------------- players

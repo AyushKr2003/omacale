@@ -39,7 +39,11 @@ Item {
   Behavior on implicitWidth { Anim {} }
   Behavior on implicitHeight { Anim {} }
 
+  // Released on destruction too: a ScreenScope torn down while the dashboard
+  // was open (monitor unplugged, plugins reloaded) would otherwise leak the
+  // hold and leave Sys polling for the rest of the session.
   onActiveChanged: Sys.resourcesWanted += active ? 1 : -1
+  Component.onDestruction: if (active) Sys.resourcesWanted -= 1
 
   readonly property var player: Sys.player
   SystemClock { id: clock; precision: SystemClock.Seconds }
