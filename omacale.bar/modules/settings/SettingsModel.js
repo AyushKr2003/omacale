@@ -225,6 +225,7 @@ var subpages = {
         { value: "bottom", label: "Bottom", icon: "vertical_align_bottom" }
       ] },
       { type: "toggle", key: "overview.detached", label: "Detached", subtext: "At the top or bottom, float a little off the edge like the middle position, instead of growing out of the frame" },
+      { type: "slider", key: "overview.gap", when: { key: "overview.detached", value: true }, label: "Detached gap", icon: "height", from: 0, to: 200, step: 4, unit: "px" },
       { type: "section", text: "Grid" },
       { type: "stepper", key: "overview.rows", label: "Rows", from: 1, to: 6, step: 1 },
       { type: "stepper", key: "overview.columns", label: "Columns", from: 1, to: 10, step: 1 },

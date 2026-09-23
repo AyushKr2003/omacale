@@ -361,7 +361,7 @@ Scope {
     // Detached, a top/bottom overview floats like the middle one, a gap off
     // its frame edge, instead of growing out of it.
     readonly property bool oAttached: oPos !== "middle" && !scope.cfg.overview.detached
-    readonly property real oGap: oAttached ? 0 : Tk.padding.large
+    readonly property real oGap: oAttached ? 0 : scope.cfg.overview.gap
     readonly property real ofw: overviewContent ? overviewContent.implicitWidth : 0
     readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
     readonly property real ow: ofw * (1 - 0.55 * oOff)
