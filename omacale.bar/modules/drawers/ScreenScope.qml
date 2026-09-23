@@ -55,6 +55,13 @@ Scope {
     function onToggleRequested(name, screenName, arg) {
       if (screenName !== scope.screen.name) return
       if (name === "close") { scope.closeAll(); return }
+      // Caelestia only reaches the window info panel from the active-window
+      // popout; the IPC opens it straight away, centred on the bar.
+      if (name === "windowInfo") {
+        if (scope.popout === "winfo") scope.popout = ""
+        else { scope.popoutCenter = scope.screen.height / 2; scope.popout = "winfo" }
+        return
+      }
       if (name === "launcher" && scope.cfg.launcher.enabled) {
         // With a carousel ("wallpaper" / "theme") it opens onto it, and only
         // closes if that carousel is already showing.
@@ -655,6 +662,8 @@ Scope {
             height: implicitHeight
             host: scope.host
             trayItem: scope.trayItem
+            screen: scope.screen
+            open: scope.popout !== ""
             property string lastName: ""
             name: scope.popout !== "" ? scope.popout : lastName
             onNameChanged: if (scope.popout !== "") lastName = scope.popout

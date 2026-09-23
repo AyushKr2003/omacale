@@ -70,6 +70,10 @@ QtObject {
     readonly property int bluetoothWidth: 300
     readonly property int trayMenuWidth: 300
     readonly property int kbLayoutWidth: 320
+    readonly property int windowPreviewSize: 400
+    // Caelestia WInfoTokens (tokens.hpp): the detached window info panel.
+    readonly property real winfoHeightMult: 0.7
+    readonly property int winfoDetailsWidth: 500
     readonly property int userWidth: 340
     readonly property int logoSize: 30
     readonly property int uptimeSize: 30

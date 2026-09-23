@@ -120,6 +120,10 @@ LockCard 1.0 modules/settings/cards/LockCard.qml
 singleton LockService 1.0 services/LockService.qml
 Overview 1.0 modules/overview/Overview.qml
 OverviewWindow 1.0 modules/overview/OverviewWindow.qml
+WindowInfo 1.0 modules/windowinfo/WindowInfo.qml
+WinfoPreview 1.0 modules/windowinfo/WinfoPreview.qml
+WinfoDetails 1.0 modules/windowinfo/WinfoDetails.qml
+WinfoButtons 1.0 modules/windowinfo/WinfoButtons.qml
 singleton PluginService 1.0 services/PluginService.qml
 PluginsPage 1.0 modules/settings/pages/PluginsPage.qml
 PluginInfo 1.0 modules/settings/pages/PluginInfo.qml

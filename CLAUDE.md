@@ -33,8 +33,9 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `MFlickable.qml`, `MListView.qml`, `FadeFlickable.qml`, `FadeListView.qml`, `MScrollBar.qml` | `components/containers/StyledFlickable.qml`, `StyledListView.qml`, `VerticalFadeFlickable.qml`, `VerticalFadeListView.qml`, `components/controls/StyledScrollBar.qml` |
 | `Elevation.qml` | `components/effects/Elevation.qml` |
 | `StateLayer.qml`, `Anim.qml`, `CAnim.qml` | `components/StateLayer.qml`, `Anim.qml`, `CAnim.qml` |
-| `PopoutContent.qml` (one component per bar popout; `wirelesspassword`, like `traymenu`, is sticky: see `ScreenScope.popoutSticky` / `popoutHeld`) | `modules/bar/popouts/Content.qml`, `Network.qml`, `WirelessPassword.qml`, `kblayout/KbLayout.qml`, `Bluetooth.qml`, `Battery.qml`, `AudioPopout.qml`, `LockStatus.qml`, `TrayMenu.qml`, `ActiveWindow.qml` |
+| `PopoutContent.qml` (one component per bar popout; `wirelesspassword` and `winfo`, like `traymenu`, are sticky, and hold the keyboard: see `ScreenScope.popoutSticky` / `popoutHeld`) | `modules/bar/popouts/Content.qml`, `Network.qml`, `WirelessPassword.qml`, `kblayout/KbLayout.qml`, `Bluetooth.qml`, `Battery.qml`, `AudioPopout.qml`, `LockStatus.qml`, `TrayMenu.qml`, `ActiveWindow.qml` |
 | `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
+| `WindowInfo.qml`, `WinfoPreview.qml`, `WinfoDetails.qml`, `WinfoButtons.qml` (the held `winfo` popout, detached from `activewindow`; also IPC `windowInfo`) | `modules/windowinfo/WindowInfo.qml`, `Preview.qml`, `Details.qml`, `Buttons.qml`, and `bar/popouts/Wrapper.qml` `detach("winfo")`. One deliberate difference: Kill closes the panel, since it follows the active window and would otherwise turn to the next one |
 | `KbService.qml` | `modules/bar/popouts/kblayout/KbLayoutModel.qml`, the layout half of `services/Hypr.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
 | `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent; or, with Settings › Style › Palette › Omarchy, the theme's own colours on the M3 roles) |
@@ -169,7 +170,7 @@ shell/omacale/
   map), so those paths are relative to `modules/settings/` and must be updated when one of
   them moves -- a type rename alone won't do it. A wrong path fails as a bare
   "No such file or directory" with no type name.
-- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `overview`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `menu`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
+- **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `overview`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `menu`, `windowInfo`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
 - **`components/Logos.js` is generated.** To add or change a bar logo, edit `OPTIONS` in `scripts/gen-logos.py` and rerun it (`pip install fonttools` in a venv). It stores trimmed outlines that `LogoIcon` rasterises as SVG at whole-pixel sizes; don't draw logos as font glyphs or scaled Shapes, which pad, fringe and blur at bar size.
 - Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`

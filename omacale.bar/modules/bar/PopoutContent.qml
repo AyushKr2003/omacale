@@ -4,19 +4,24 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
+import Quickshell.Widgets
 import Quickshell.Services.UPower
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import "../.."
 
 // Contents of the bar popouts (network, Wi-Fi password, bluetooth, battery,
-// lock status, tray menus, active-window preview). Sized by the current page.
+// keyboard layouts, lock status, tray menus, active-window preview, and the
+// window info panel it detaches into). Sized by the current page.
 Item {
   id: root
 
   property var host
   property string name: ""
   property var trayItem: null
+  property var screen: null
+  // Whether the popout is showing (it keeps its last page loaded after).
+  property bool open: false
   // The network the Wi-Fi password page asks for (ScreenScope keeps it).
   property string passwordSsid: ""
   signal closeRequested()
@@ -33,7 +38,7 @@ Item {
     anchors.fill: parent
     sourceComponent: ({
       network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
-      kblayout: kblayout, lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow
+      kblayout: kblayout, lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow, winfo: winfo
     })[root.name] || null
   }
 
@@ -783,40 +788,98 @@ Item {
   }
 
   // ------------------------------------------------------ active window
+  // Caelestia bar/popouts/ActiveWindow.qml: the app icon, title and class
+  // over a live preview. The chevron detaches the popout into the window
+  // info panel (Wrapper.qml detach("winfo")).
   Component {
     id: activewindow
-    ColumnLayout {
+    Item {
+      id: aw
       readonly property var tl: Sys.activeToplevel
-      spacing: Tk.spacing.medium
-      Rectangle {
-        Layout.alignment: Qt.AlignHCenter
-        implicitWidth: preview.implicitWidth
-        implicitHeight: preview.implicitHeight
-        radius: Tk.rounding.large
-        color: Colours.m3surfaceContainer
-        layer.enabled: true
-        layer.effect: ShaderMaskEffect { maskItem: previewMask }
-        Rectangle { id: previewMask; anchors.fill: parent; radius: parent.radius; visible: false; layer.enabled: true }
-        ScreencopyView {
-          id: preview
-          readonly property real ratio: sourceSize.height > 0 ? sourceSize.width / sourceSize.height : 16 / 9
-          anchors.fill: parent
-          captureSource: tl ? tl.wayland : null
-          live: true
-          constraintSize.width: 400
-          constraintSize.height: 400
-        }
-      }
-      RowLayout {
-        Layout.maximumWidth: 400
+      readonly property var ipc: tl ? tl.lastIpcObject : null
+      implicitWidth: tl ? awCol.implicitWidth : -Tk.padding.extraLargeIncreased
+      implicitHeight: awCol.implicitHeight
+
+      Column {
+        id: awCol
+        anchors.centerIn: parent
         spacing: Tk.spacing.medium
-        MIcon { text: Sys.appIcon(tl && tl.wayland ? tl.wayland.appId : "", "desktop_windows"); color: Colours.m3primary; size: Tk.iconSize.large }
-        ColumnLayout {
-          spacing: 0
-          MText { Layout.fillWidth: true; text: tl && tl.wayland ? tl.wayland.appId : ""; font.pointSize: Tk.body.medium; weight: Font.Medium; elide: Text.ElideRight }
-          MText { Layout.fillWidth: true; text: tl ? tl.title : ""; color: Colours.m3onSurfaceVariant; elide: Text.ElideRight }
+
+        RowLayout {
+          anchors.left: parent.left
+          anchors.right: parent.right
+          spacing: Tk.spacing.medium
+
+          IconImage {
+            asynchronous: true
+            Layout.alignment: Qt.AlignVCenter
+            implicitSize: awDetails.implicitHeight
+            source: WindowIcons.source({
+              class: aw.ipc ? aw.ipc.class : "",
+              initialClass: aw.ipc ? aw.ipc.initialClass : "",
+              title: aw.tl ? aw.tl.title : "",
+              initialTitle: aw.ipc ? aw.ipc.initialTitle : ""
+            })
+          }
+          ColumnLayout {
+            id: awDetails
+            Layout.fillWidth: true
+            spacing: 0
+            MText {
+              Layout.fillWidth: true
+              text: aw.tl ? aw.tl.title : ""
+              font.pointSize: Tk.body.medium
+              elide: Text.ElideRight
+            }
+            MText {
+              Layout.fillWidth: true
+              text: aw.ipc ? (aw.ipc.class || "") : ""
+              color: Colours.m3onSurfaceVariant
+              elide: Text.ElideRight
+            }
+          }
+          Item {
+            Layout.alignment: Qt.AlignVCenter
+            implicitWidth: expandIcon.implicitHeight + Tk.padding.small
+            implicitHeight: expandIcon.implicitHeight + Tk.padding.small
+            StateLayer {
+              radius: Tk.rounding.large
+              onClicked: root.switchRequested("winfo", "")
+            }
+            MIcon {
+              id: expandIcon
+              anchors.centerIn: parent
+              anchors.horizontalCenterOffset: size * 0.05
+              text: "chevron_right"
+              size: Tk.iconSize.large
+            }
+          }
+        }
+
+        ClippingWrapperRectangle {
+          color: "transparent"
+          radius: Tk.rounding.medium
+          ScreencopyView {
+            captureSource: aw.tl ? aw.tl.wayland : null
+            live: visible
+            constraintSize.width: Tk.sizes.windowPreviewSize
+            constraintSize.height: Tk.sizes.windowPreviewSize
+          }
         }
       }
+    }
+  }
+
+  // --------------------------------------------------------- window info
+  // The detached window info panel (Caelestia modules/windowinfo), shown as
+  // a held popout: it has the keyboard, and Escape or a click outside closes it.
+  Component {
+    id: winfo
+    WindowInfo {
+      open: root.open && root.name === "winfo"
+      screen: root.screen
+      client: Sys.activeToplevel
+      onCloseRequested: root.closeRequested()
     }
   }
 }

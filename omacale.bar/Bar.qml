@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.21.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.22.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -278,6 +278,8 @@ Item {
     function utilities(): void { root.toggle("utilities") }
     function overview(): void { root.toggle("overview") }
     function toggles(): void { root.toggle("utilities") }
+    // The active window's details and actions (Caelestia's window info).
+    function windowInfo(): void { root.toggle("windowInfo") }
     function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
     // Caelestia's launcher carousels: ">wallpaper " and ">theme ".

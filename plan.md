@@ -16,7 +16,18 @@ and prefer Omarchy, then Quickshell/Hyprland, then our own code.
 
 ---
 
+## Status
+
+All four are done: 0.19.0 (password), 0.20.0 (keyboard layout), 0.21.0
+(calculator), 0.22.0 (window info). Where the build differs from this plan,
+there's a **Done** note in that section.
+
 ## 0. Groundwork: popouts that can be sticky and take the keyboard
+
+> **Done, with one change:** the tray menu stays sticky-but-swappable as before,
+> but the two keyboard popouts are *held* (`ScreenScope.popoutHeld`): hovering
+> other bar icons doesn't replace them, so crossing the bar can't throw away a
+> half-typed password. Escape, their own buttons or a click outside close them.
 
 Right now every bar popout is hover-only. It closes as soon as the pointer
 leaves (`ScreenScope.updatePointer` and `onContainsMouseChanged`) and never gets
@@ -162,6 +173,13 @@ Steps:
    clipboard (`wl-paste`). Screenshot.
 
 ## 4. Window info panel
+
+> **Done, with two changes:** Kill also closes the panel. Caelestia's stays
+> open and turns to the next active window, so a second click would kill that
+> window too. And because the popout keeps its last page loaded, the panel
+> resets (grid collapsed, toplevels refreshed, keyboard retaken) each time it
+> opens. Its parts are named `WinfoPreview`/`WinfoDetails`/`WinfoButtons`,
+> since the qmldir is flat and `Preview` etc. are too generic.
 
 **Caelestia behaviour:** the active-window popout has a header row (app icon,
 title, class, and a `chevron_right` button) above a live preview. The chevron
