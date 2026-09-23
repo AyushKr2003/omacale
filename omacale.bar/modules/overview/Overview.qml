@@ -126,15 +126,15 @@ Item {
     Hyprland.refreshWorkspaces()
     Hyprland.refreshMonitors()
   }
+  function opened() {
+    refresh()
+    // The frame window holds several focusable panels; take the keys while
+    // this one is up. Deferred: built on demand, it is still being created.
+    Qt.callLater(() => root.forceActiveFocus())
+  }
   onActiveChanged: {
-    if (active) {
-      refresh()
-      // The frame window holds several focusable panels; take the keys while
-      // this one is up.
-      forceActiveFocus()
-    } else {
-      dropTarget = -1
-    }
+    if (active) opened()
+    else dropTarget = -1
   }
   // Only the events that move a window or change what is on a workspace; the
   // raw stream also carries volume, screencast and focus chatter.

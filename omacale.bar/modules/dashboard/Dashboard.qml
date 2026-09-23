@@ -42,6 +42,9 @@ Item {
   // Released on destruction too: a ScreenScope torn down while the dashboard
   // was open (monitor unplugged, plugins reloaded) would otherwise leak the
   // hold and leave Sys polling for the rest of the session.
+  // Built on demand (usually already open): the `active` binding lands after
+  // the default, so onActiveChanged fires on creation as well -- no
+  // Component.onCompleted twin, or the hold is taken twice and never released.
   onActiveChanged: Sys.resourcesWanted += active ? 1 : -1
   Component.onDestruction: if (active) Sys.resourcesWanted -= 1
 

@@ -203,13 +203,15 @@ Item {
     }
   }
 
+  // Wallpapers.reload(): a reopened carousel keeps its old list otherwise,
+  // since it is not recreated when the search text is unchanged.
+  function opened() { menuReset(); search.text = pendingText; pendingText = ""; list.currentIndex = 0; Qt.callLater(() => search.forceActiveFocus()); Wallpapers.reload() }
   onActiveChanged: {
-    // Wallpapers.reload(): a reopened carousel keeps its old list otherwise,
-    // since it is not recreated when the search text is unchanged.
-    if (active) { menuReset(); search.text = pendingText; pendingText = ""; list.currentIndex = 0; search.forceActiveFocus(); Wallpapers.reload() }
+    if (active) opened()
     else Wallpapers.stopPreview()
     disarmPointer()
   }
+  Component.onDestruction: Wallpapers.stopPreview()
 
   // One cursor for mouse and keys, as Omarchy's launcher/clipboard: hovering a
   // row moves currentIndex there, and the keys carry on from it. Only real

@@ -59,7 +59,9 @@ Item {
     else if (stack.length) back()
     else closeRequested()
   }
-  onActiveChanged: if (active) forceActiveFocus()
+  // Deferred: built on demand, it is still being created (not yet in the
+  // window) when `active` first turns true.
+  onActiveChanged: if (active) Qt.callLater(() => root.forceActiveFocus())
 
   // -------------------------------------------------- inner blob frame
   Rectangle { id: outerMask; anchors.fill: parent; radius: root.isWindow ? 0 : Tk.rounding.extraLarge; visible: false; layer.enabled: true }

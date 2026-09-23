@@ -44,6 +44,27 @@ Scope {
   // The network the password popout is asking for.
   property string passwordSsid: ""
 
+  // The drawers, while they exist. As in Caelestia's drawer Wrappers
+  // (`Loader { active: shouldBeActive || visible }`), each one is only built
+  // while it is open or animating out, and destroyed once it has gone: kept
+  // around they cost ~150 MB (their items, and a font engine per text style).
+  readonly property var dash: dashLoader.item
+  readonly property var launch: launchLoader.item
+  readonly property var sess: sessLoader.item
+  readonly property var sidebarPanel: sidebarLoader.item
+  readonly property var util: utilLoader.item
+  readonly property var overviewContent: overviewLoader.item
+  readonly property var nexus: nexusLoader.item
+  // What a rebuilt drawer should come back to: the dashboard's tab and the
+  // settings page (with its back stack) the user left them on.
+  property int dashTab: 0
+  property string nexusPage: "style"
+  property var nexusStack: []
+  // ScreenScope under a name no drawer shadows: Sidebar and Utilities have a
+  // `scope` property of their own, which a binding inside their (inline,
+  // on-demand) component would resolve `scope` to.
+  readonly property var screenScope: scope
+
   function closeAll() {
     launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
   }
@@ -66,13 +87,13 @@ Scope {
         // With a carousel ("wallpaper" / "theme") it opens onto it, and only
         // closes if that carousel is already showing.
         const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : arg === "menu" ? "menu" : ""
-        if (mode && !(scope.launcher && launch.mode === mode)) { launch.openMode(arg); scope.launcher = true }
+        if (mode && !(scope.launcher && launch && launch.mode === mode)) { scope.launcher = true; launch.openMode(arg) }
         else scope.launcher = !scope.launcher
       }
       else if (name === "session" && scope.cfg.session.enabled) scope.session = !scope.session
       else if (name === "settings") {
         // With a page id it opens (never toggles) straight onto that page.
-        if (arg) { scope.popout = ""; nexus.go(arg); scope.settings = true }
+        if (arg) { scope.popout = ""; scope.settings = true; nexus.go(arg) }
         else scope.settings = !scope.settings
       }
       else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) {
@@ -88,10 +109,10 @@ Scope {
         scope.overview = !scope.overview
       }
       else if (name === "dashboard" && scope.cfg.dashboard.enabled) {
-        if (arg && scope.dashboard) { dash.selectTab(arg); return }
+        if (arg && scope.dashboard && dash) { dash.selectTab(arg); return }
         scope.dashboard = !scope.dashboard
         scope.dashShortcut = scope.dashboard
-        if (arg) dash.selectTab(arg)
+        if (arg && dash) dash.selectTab(arg)
       }
     }
   }
@@ -273,18 +294,18 @@ Scope {
     readonly property bool sbVis: sbOff < 1
 
     // Dashboard (top centre)
-    readonly property real dw: dash.implicitWidth || 854
-    readonly property real dh: dash.implicitHeight
+    readonly property real dw: (dash && dash.implicitWidth) || 854
+    readonly property real dh: dash ? dash.implicitHeight : 0
     readonly property real dx: ax + (aw - dw) / 2
     readonly property real dy: ay + (-dh - 5) * Math.max(0, dOff)
     // Launcher (bottom centre)
-    readonly property real lw: launch.implicitWidth
-    property real lh: launch.implicitHeight
+    readonly property real lw: launch ? launch.implicitWidth : 0
+    property real lh: launch ? launch.implicitHeight : 0
     readonly property real lx: ax + (aw - lw) / 2
     readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
     // Session (right centre)
-    readonly property real sw: sess.implicitWidth
-    readonly property real sh: sess.implicitHeight
+    readonly property real sw: sess ? sess.implicitWidth : 0
+    readonly property real sh: sess ? sess.implicitHeight : 0
     readonly property real sx: ax + aw - sw + (sw + 5) * Math.max(0, sOff)
     readonly property real sy: ay + (ah - sh) / 2
     // Popout (left, beside the bar)
@@ -321,15 +342,15 @@ Scope {
     readonly property bool pTouchBottom: py + ph >= ay + ah - 0.5
     readonly property real px: ax + (-pw - 5) * Math.max(0, pOff)
     // Settings (floating, centred) — grows out of a small pill.
-    readonly property real nfw: nexus.implicitWidth
-    readonly property real nfh: nexus.implicitHeight
+    readonly property real nfw: nexus ? nexus.implicitWidth : 0
+    readonly property real nfh: nexus ? nexus.implicitHeight : 0
     readonly property real nw: nfw * (1 - 0.55 * nOff)
     readonly property real nh: nfh * (1 - 0.8 * nOff)
     readonly property real nx: ax + (aw - nw) / 2
     readonly property real ny: ay + (ah - nh) / 2
     // Overview (floating, centred) — the same grow as Settings.
-    readonly property real ofw: overviewContent.implicitWidth
-    readonly property real ofh: overviewContent.implicitHeight
+    readonly property real ofw: overviewContent ? overviewContent.implicitWidth : 0
+    readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
     readonly property real ow: ofw * (1 - 0.55 * oOff)
     readonly property real oh: ofh * (1 - 0.8 * oOff)
     readonly property real ox: ax + (aw - ow) / 2
@@ -392,7 +413,7 @@ Scope {
         grab.active = false
         grab.active = Qt.binding(() => win.grabWanted)
         win.regrabbing = false
-        if (scope.overview) overviewContent.forceActiveFocus()
+        if (scope.overview && overviewContent) overviewContent.forceActiveFocus()
       }
     }
     readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || scope.popoutSticky
@@ -678,70 +699,92 @@ Scope {
       }
 
       // ---- dashboard
-      Dashboard {
-        id: dash
-        x: win.dx
-        y: win.dy
-        width: win.dw
-        height: win.dh
-        visible: win.dVis
-        opacity: 1 - win.dOff
-        host: scope.host
-        active: scope.dashboard
+      Loader {
+        id: dashLoader
+        active: scope.dashboard || win.dVis
+        sourceComponent: Dashboard {
+          x: win.dx
+          y: win.dy
+          width: win.dw
+          height: win.dh
+          visible: win.dVis
+          opacity: 1 - win.dOff
+          host: scope.host
+          active: scope.dashboard
+          tab: scope.dashTab
+          onTabChanged: scope.dashTab = tab
+        }
       }
 
       // ---- launcher
-      Launcher {
-        id: launch
-        x: win.lx
-        y: win.ly
-        width: win.lw
-        height: win.lh
-        visible: win.lVis
-        opacity: 1 - win.lOff
-        active: scope.launcher
-        screenWidth: win.width
-        maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
-        onDismissed: scope.launcher = false
-        onOpenSettings: { scope.launcher = false; scope.settings = true }
+      Loader {
+        id: launchLoader
+        active: scope.launcher || win.lVis
+        // A Loader is a focus scope: without `focus` on it, nothing inside can
+        // hold the keyboard, and a drawer created on open has no earlier focus
+        // to fall back on.
+        focus: scope.launcher
+        sourceComponent: Launcher {
+          x: win.lx
+          y: win.ly
+          width: win.lw
+          height: win.lh
+          visible: win.lVis
+          opacity: 1 - win.lOff
+          active: scope.launcher
+          screenWidth: win.width
+          maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
+          onDismissed: scope.launcher = false
+          onOpenSettings: { scope.launcher = false; scope.settings = true }
+        }
       }
 
       // ---- session
-      Session {
-        id: sess
-        x: win.sx
-        y: win.sy
-        visible: win.sVis
-        opacity: 1 - win.sOff
-        active: scope.session
-        onDismissed: scope.session = false
+      Loader {
+        id: sessLoader
+        active: scope.session || win.sVis
+        focus: scope.session
+        sourceComponent: Session {
+          x: win.sx
+          y: win.sy
+          visible: win.sVis
+          opacity: 1 - win.sOff
+          active: scope.session
+          onDismissed: scope.session = false
+        }
       }
 
       // ---- sidebar
-      Sidebar {
-        id: sidebarPanel
-        x: win.sbx
-        y: win.sby
-        width: win.sbw
-        height: win.sbh
-        visible: win.sbVis
-        opacity: 1 - win.sbOff
-        host: scope.host
-        scope: scope
-        active: scope.sidebar
+      Loader {
+        id: sidebarLoader
+        active: scope.sidebar || win.sbVis
+        sourceComponent: Sidebar {
+          x: win.sbx
+          y: win.sby
+          width: win.sbw
+          height: win.sbh
+          visible: win.sbVis
+          opacity: 1 - win.sbOff
+          host: screenScope.host
+          scope: screenScope
+          active: screenScope.sidebar
+        }
       }
 
       // ---- utilities
-      Utilities {
-        id: util
-        x: win.ux
-        y: win.uy
-        width: win.uw
-        visible: win.uVis
-        opacity: 1 - win.uOff
-        host: scope.host
-        scope: scope
-        active: scope.utilities || scope.sidebar
+      Loader {
+        id: utilLoader
+        active: scope.utilities || scope.sidebar || win.uVis
+        sourceComponent: Utilities {
+          x: win.ux
+          y: win.uy
+          width: win.uw
+          visible: win.uVis
+          opacity: 1 - win.uOff
+          host: screenScope.host
+          scope: screenScope
+          active: screenScope.utilities || screenScope.sidebar
+        }
       }
 
       // ---- overview
@@ -754,19 +797,23 @@ Scope {
         // Clipped like Settings: the grid animates to its own size, and a row
         // that has just appeared stays hidden until the panel holds it.
         clip: true
-        Overview {
-          id: overviewContent
-          x: (parent.width - width) / 2
-          y: (parent.height - height) / 2
-          width: implicitWidth
-          height: implicitHeight
-          opacity: Math.max(0, 1 - win.oOff * 2.5)
-          scale: 0.94 + 0.06 * (1 - win.oOff)
-          active: scope.overview
+        Loader {
+          id: overviewLoader
           focus: scope.overview
-          screen: scope.screen
-          onDismissed: scope.overview = false
-          onRefocus: win.regrab()
+          // Unsized, so the drawer keeps its own size; centred here instead.
+          anchors.centerIn: parent
+          active: scope.overview || win.oVis
+          sourceComponent: Overview {
+            width: implicitWidth
+            height: implicitHeight
+            opacity: Math.max(0, 1 - win.oOff * 2.5)
+            scale: 0.94 + 0.06 * (1 - win.oOff)
+            active: scope.overview
+            focus: scope.overview
+            screen: scope.screen
+            onDismissed: scope.overview = false
+            onRefocus: win.regrab()
+          }
         }
       }
 
@@ -778,20 +825,28 @@ Scope {
         height: win.nh
         visible: win.nVis
         clip: true
-        Settings {
-          id: nexus
-          x: (parent.width - width) / 2
-          y: (parent.height - height) / 2
-          width: implicitWidth
-          height: implicitHeight
-          opacity: Math.max(0, 1 - win.nOff * 2.5)
-          scale: 0.94 + 0.06 * (1 - win.nOff)
-          active: scope.settings
-          screenWidth: scope.screen.width
-          screenHeight: scope.screen.height
-          version: scope.host.version
-          onCloseRequested: scope.settings = false
-          onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
+        Loader {
+          id: nexusLoader
+          focus: scope.settings
+          // Unsized, so the drawer keeps its own size; centred here instead.
+          anchors.centerIn: parent
+          active: scope.settings || win.nVis
+          sourceComponent: Settings {
+            width: implicitWidth
+            height: implicitHeight
+            opacity: Math.max(0, 1 - win.nOff * 2.5)
+            scale: 0.94 + 0.06 * (1 - win.nOff)
+            active: scope.settings
+            screenWidth: scope.screen.width
+            screenHeight: scope.screen.height
+            version: scope.host.version
+            onCloseRequested: scope.settings = false
+            onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
+            pageId: scope.nexusPage
+            stack: scope.nexusStack
+            onPageIdChanged: scope.nexusPage = pageId
+            onStackChanged: scope.nexusStack = stack
+          }
         }
       }
     }

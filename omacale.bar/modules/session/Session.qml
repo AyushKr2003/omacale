@@ -13,7 +13,9 @@ Column {
   rightPadding: Math.max(0, padding - Tk.border)
   spacing: Tk.spacing.large
 
-  onActiveChanged: if (active) logout.forceActiveFocus()
+  // Deferred: built on demand, it is still being created (not yet in the
+  // window) when `active` first turns true.
+  onActiveChanged: if (active) Qt.callLater(() => logout.forceActiveFocus())
 
   SessionButton { id: logout; icon: "logout"; command: "omarchy system logout"; KeyNavigation.down: shutdown }
   SessionButton { id: shutdown; icon: "power_settings_new"; command: "omarchy system shutdown"; KeyNavigation.up: logout; KeyNavigation.down: hibernate }
