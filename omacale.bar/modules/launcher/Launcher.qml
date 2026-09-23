@@ -2,14 +2,17 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Widgets
 import "../.."
+import "../../services/Calc.js" as Calc
 
 // Caelestia launcher: results list above a pill search bar, keyboard driven.
 // Typing ">" lists Omarchy actions instead of apps; ">wallpaper " and
 // ">theme " swap the list for the wallpaper carousel (Caelestia ContentList).
 // Typing ":" walks the Omarchy menu itself, drawn as launcher rows and backed
-// by Omarchy's own menu engine (MenuService).
+// by Omarchy's own menu engine (MenuService). ">calc " is Caelestia's
+// calculator (items/CalcItem.qml): one row with the answer, Enter copies it.
 Item {
   id: root
 
@@ -25,13 +28,16 @@ Item {
   readonly property int itemH: Tk.sizes.launcherItemHeight
   readonly property string wallPrefix: prefix + "wallpaper "
   readonly property string themePrefix: prefix + "theme "
+  readonly property string calcPrefix: prefix + "calc "
   readonly property string mode: search.text.startsWith(wallPrefix) ? "wallpapers"
                                : search.text.startsWith(themePrefix) ? "themes"
+                               : search.text.startsWith(calcPrefix) ? "calc"
                                : search.text.startsWith(menuPrefix) ? "menu" : "apps"
   readonly property bool actionMode: mode === "apps" && search.text.startsWith(prefix)
   readonly property bool menuMode: mode === "menu"
-  // The two modes that draw into the results list, as opposed to the carousel.
-  readonly property bool listMode: animState === "apps" || animState === "menu"
+  readonly property bool calcMode: mode === "calc"
+  // The modes that draw into the results list, as opposed to the carousel.
+  readonly property bool listMode: animState === "apps" || animState === "menu" || animState === "calc"
   // Sizes lag `mode` behind a fade, as Caelestia's animState.
   property string animState: mode
   property real screenWidth: 0
@@ -84,11 +90,33 @@ Item {
     }
   }
 
+  // ------------------------------------------------------------ calculator
+  // Caelestia hands the expression to libqalculate; Omacale evaluates it with
+  // its own small engine (services/Calc.js), since Omarchy has no calculator.
+  // The one row is a constant object, so typing re-evaluates in place rather
+  // than recreating the row on every key.
+  readonly property var calcRow: ({ calc: true })
+  readonly property string calcExpr: calcMode ? search.text.slice(calcPrefix.length) : ""
+  readonly property var calcResult: calcExpr.trim() ? Calc.evaluate(calcExpr) : null
+  // "Open in calculator" is qalc in the terminal, as in Caelestia, and only
+  // offered when qalc is installed.
+  property bool hasQalc: false
+  Process {
+    running: true
+    command: ["bash", "-c", "command -v qalc"]
+    onExited: code => root.hasQalc = code === 0
+  }
+  function openQalc() {
+    Quickshell.execDetached(["omarchy-launch-tui", "qalc", "-i", calcExpr])
+    root.dismissed()
+  }
+
   onModeChanged: {
     if (mode === "menu") { menuReset(); MenuService.open("root") }
   }
 
   readonly property var actions: [
+    { name: "Calculator", comment: "Do simple maths equations", icon: "calculate", autocomplete: "calc" },
     { name: "Settings", comment: "Open Omacale settings", icon: "settings", settings: true },
     { name: "Lock", comment: "Lock the screen", icon: "lock", cmd: "omarchy system lock", dangerous: true },
     { name: "Logout", comment: "End this session", icon: "logout", cmd: "omarchy system logout", dangerous: true },
@@ -106,6 +134,7 @@ Item {
 
   readonly property var results: {
     if (menuMode) return MenuService.rows(menuPath, menuQuery)
+    if (calcMode) return [calcRow]
     const q = (actionMode ? search.text.slice(prefix.length) : search.text).trim().toLowerCase()
     if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0))
     const favs = Config.o.launcher.favouriteApps
@@ -134,6 +163,13 @@ Item {
   function activate(r) {
     if (!r) return
     if (isMenuRow(r)) { activateMenuRow(r); return }
+    // Caelestia CalcItem: copy the answer (qalc's raw result) and close.
+    if (r.calc) {
+      if (!calcResult || calcResult.error) return
+      Quickshell.execDetached(["wl-copy", calcResult.value])
+      root.dismissed()
+      return
+    }
     if (!isApp(r) && r.settings) { root.openSettings(); return }
     if (!isApp(r) && r.autocomplete) { search.text = prefix + r.autocomplete + " "; return }
     if (isApp(r)) r.execute(); else Sys.run(r.cmd)
@@ -271,7 +307,8 @@ Item {
         required property int index
         readonly property var app: root.isApp(modelData) ? modelData : null
         readonly property var menuRow: root.isMenuRow(modelData) ? modelData : null
-        readonly property var action: app || menuRow ? null : modelData
+        readonly property bool isCalc: !!modelData && modelData.calc === true
+        readonly property var action: app || menuRow || isCalc ? null : modelData
         width: list.width
         height: root.itemH
 
@@ -286,7 +323,71 @@ Item {
             onClicked: root.activate(item.modelData)
           }
         }
+        // Caelestia launcher/items/CalcItem.qml
+        RowLayout {
+          visible: item.isCalc
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: Tk.padding.medium
+          spacing: Tk.spacing.medium
+
+          readonly property var res: root.calcResult
+
+          MIcon {
+            Layout.alignment: Qt.AlignVCenter
+            text: "function"
+            size: Tk.iconSize.extraLarge
+          }
+          MText {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            text: !parent.res ? "Type an expression to calculate"
+              : parent.res.error ? "error: " + parent.res.error
+              : parent.res.parsed + " = " + parent.res.value
+            color: !parent.res ? Colours.m3onSurfaceVariant : parent.res.error ? Colours.m3error : Colours.m3onSurface
+            elide: Text.ElideLeft
+          }
+          Rectangle {
+            id: qalcPill
+            visible: root.hasQalc
+            Layout.alignment: Qt.AlignVCenter
+            color: Colours.m3tertiary
+            radius: Tk.rounding.large
+            clip: true
+            implicitWidth: (qalcLayer.containsMouse ? qalcLabel.implicitWidth + qalcLabel.anchors.rightMargin : 0) + qalcIcon.implicitWidth + Tk.padding.medium * 2
+            implicitHeight: Math.max(qalcLabel.implicitHeight, qalcIcon.implicitHeight) + Tk.padding.small
+            Behavior on implicitWidth { Anim { type: "emphasized" } }
+            StateLayer {
+              id: qalcLayer
+              color: Colours.m3onTertiary
+              onClicked: root.openQalc()
+            }
+            MText {
+              id: qalcLabel
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.right: qalcIcon.left
+              anchors.rightMargin: Tk.spacing.small
+              text: "Open in calculator"
+              color: Colours.m3onTertiary
+              font.pointSize: Tk.label.medium
+              weight: Font.Medium
+              opacity: qalcLayer.containsMouse ? 1 : 0
+              Behavior on opacity { Anim { type: "effects" } }
+            }
+            MIcon {
+              id: qalcIcon
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.right: parent.right
+              anchors.rightMargin: Tk.padding.medium
+              text: "open_in_new"
+              color: Colours.m3onTertiary
+              size: Tk.iconSize.large
+            }
+          }
+        }
         Item {
+          visible: !item.isCalc
           anchors.fill: parent
           anchors.leftMargin: Tk.padding.medium
           anchors.rightMargin: Tk.padding.medium

@@ -53,6 +53,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `PluginsPage.qml`, `PluginInfo.qml`, `PluginService.qml` | no Caelestia original: Settings › Plugins follows Shibumi's plugin catalog (`hancore.shibumi.control-center/PluginCatalogPage.qml`), drawn with Nexus rows like `AllApps` / `AppInfo` |
 | `IconTextButton.qml` | `components/controls/IconTextButton.qml` |
 | `ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `RowToggle.qml`, `BigButton.qml` | `modules/nexus/common/ItemList.qml`, `RowButton.qml`, `InfoRow.qml`, `ToggleRow.qml`, `components/controls/ButtonBase.qml` |
+| `services/Calc.js` (+ the `>calc ` mode and calc row in `Launcher.qml`) | `modules/launcher/items/CalcItem.qml`, `AppList.qml` (calc state). Caelestia's engine is libqalculate (`plugin/src/Caelestia/qalculator.cpp`); `Calc.js` is our own evaluator, since Omarchy has none, and prints the same `parsed = result` / `error: ...` forms |
 | `WallpaperList.qml`, `WallpaperItem.qml` (+ the `>wallpaper `/`>theme ` modes in `Launcher.qml`) | `modules/launcher/WallpaperList.qml`, `items/WallpaperItem.qml`, `ContentList.qml` |
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
 | `MenuService.qml` (+ the `:` mode in `Launcher.qml`) | no Caelestia original: the Omarchy menu, drawn as launcher rows. The engine is Omarchy's own `MenuModel.js`, loaded in place -- see below |

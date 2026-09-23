@@ -130,7 +130,14 @@ closes the launcher. The pill opens `qalc -i '<expr>'` in the terminal.
 
 **Engine:** Omarchy ships no calculator, and Caelestia's `Qalculator` is a C++
 libqalculate binding Omacale can't load. So this is our own code (tier 4), kept
-small:
+small.
+
+> **Done (0.21.0), with one change from this plan:** evaluation always uses
+> `Calc.js`. The `qalc` evaluation path was dropped: qalc isn't installed on
+> the dev machine, so it couldn't be verified, and two engines would print
+> different forms. qalc is used only by the "Open in calculator" button, which
+> shows when it's installed (`omarchy-launch-tui qalc -i <expr>`).
+
 - `services/Calc.js`: a recursive-descent evaluator. It supports numbers
   (including `1e3`, `.5`), `+ - * / % ^`, unary minus, parentheses, `!`, the
   constants `pi e tau`, and the functions `sqrt cbrt abs sin cos tan asin acos atan
