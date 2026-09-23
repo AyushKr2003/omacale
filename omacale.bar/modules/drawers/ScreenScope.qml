@@ -354,13 +354,16 @@ Scope {
     readonly property real nh: nfh * (1 - 0.8 * nOff)
     readonly property real nx: ax + (aw - nw) / 2
     readonly property real ny: ay + (ah - nh) / 2
-    // Overview (floating, centred) — the same grow as Settings.
+    // Overview — the same grow as Settings. In the middle it floats; at the
+    // top or bottom (Settings › Panels › Overview › Position) it grows out of
+    // that frame edge instead, as the dashboard and launcher do.
+    readonly property string oPos: scope.cfg.overview.position
     readonly property real ofw: overviewContent ? overviewContent.implicitWidth : 0
     readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
     readonly property real ow: ofw * (1 - 0.55 * oOff)
     readonly property real oh: ofh * (1 - 0.8 * oOff)
     readonly property real ox: ax + (aw - ow) / 2
-    readonly property real oy: ay + (ah - oh) / 2
+    readonly property real oy: oPos === "top" ? ay : oPos === "bottom" ? ay + ah - oh : ay + (ah - oh) / 2
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: ax + aw - sbw + (sbw + 5) * sbOff
@@ -480,11 +483,12 @@ Scope {
         // utilities by 2px so the join never shows a seam.
         property rect r5: win.uVis ? Qt.rect(win.ux, win.uy, win.uw, Math.max(win.uh, win.ay + win.ah - win.uy)) : Qt.rect(0, 0, 0, 0)
         property rect r6: win.sbVis ? Qt.rect(win.sbx, win.sby, Math.max(win.sbw, win.ax + win.aw - win.sbx), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
-        // The overview floats like Settings, so its attach bitmask is 0 too.
+        // The overview floats like Settings (attach 0) unless it sits on the
+        // top (1) or bottom (4) frame edge.
         property rect r7: win.oVis ? Qt.rect(win.ox, win.oy, win.ow, win.oh) : Qt.rect(0, 0, 0, 0)
         // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
         property vector4d attachA: Qt.vector4d(1, 4, 2, 8 + (win.pTouchTop ? 1 : 0) + (win.pTouchBottom ? 4 : 0))
-        property vector4d attachB: Qt.vector4d(0, 6, 3, 0)
+        property vector4d attachB: Qt.vector4d(0, 6, 3, win.oPos === "top" ? 1 : win.oPos === "bottom" ? 4 : 0)
         property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
 
         Behavior on color { CAnim {} }
@@ -806,8 +810,10 @@ Scope {
         Loader {
           id: overviewLoader
           focus: scope.overview
-          // Unsized, so the drawer keeps its own size; centred here instead.
-          anchors.centerIn: parent
+          // Unsized, so the drawer keeps its own size; placed here instead,
+          // against the frame edge it grows out of.
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: win.oPos === "top" ? 0 : win.oPos === "bottom" ? parent.height - height : (parent.height - height) / 2
           active: scope.overview || win.oVis
           sourceComponent: Overview {
             width: implicitWidth

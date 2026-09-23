@@ -38,7 +38,7 @@ var values = {
   sidebar: { enabled: true, width: 430 },
   // Workspace overview (SUPER + TAB). `scale` is a ceiling: the grid is shrunk
   // further whenever rows x columns would not fit the screen.
-  overview: { enabled: true, rows: 2, columns: 5, scale: 0.18, hideEmptyRows: true, previews: true, showIcons: true },
+  overview: { enabled: true, position: "middle", rows: 2, columns: 5, scale: 0.18, hideEmptyRows: true, previews: true, showIcons: true },
   // Off until the user turns it on: switching it on hands Omarchy's lock
   // plugin over to Omacale (omacale.bar/scripts/lock-screen), and switching
   // it off gives Omarchy's own lock view straight back.

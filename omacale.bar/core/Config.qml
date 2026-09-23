@@ -199,6 +199,7 @@ QtObject {
       }
       property JsonObject overview: JsonObject {
         property bool enabled: true
+        property string position: "middle"
         property int rows: 2
         property int columns: 5
         property real scale: 0.18

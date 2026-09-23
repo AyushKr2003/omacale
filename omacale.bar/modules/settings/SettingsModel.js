@@ -219,6 +219,11 @@ var subpages = {
     title: "Overview",
     rows: [
       { type: "toggle", key: "overview.enabled", label: "Enabled", subtext: "A grid of the workspaces on this monitor, with live window previews. Bind it from Settings \u203a Keybinds" },
+      { type: "select", key: "overview.position", label: "Position", subtext: "Float in the middle of the screen, or grow out of the top or bottom edge", options: [
+        { value: "top", label: "Top", icon: "vertical_align_top" },
+        { value: "middle", label: "Middle", icon: "vertical_align_center" },
+        { value: "bottom", label: "Bottom", icon: "vertical_align_bottom" }
+      ] },
       { type: "section", text: "Grid" },
       { type: "stepper", key: "overview.rows", label: "Rows", from: 1, to: 6, step: 1 },
       { type: "stepper", key: "overview.columns", label: "Columns", from: 1, to: 10, step: 1 },
