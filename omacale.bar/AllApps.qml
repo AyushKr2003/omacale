@@ -15,7 +15,7 @@ ColumnLayout {
 
   Repeater {
     id: list
-    model: DesktopEntries.applications.values.filter(e => !e.noDisplay).sort((a, b) => a.name.localeCompare(b.name))
+    model: AppService.entries.slice().sort((a, b) => a.name.localeCompare(b.name))
 
     ConnectedRect {
       id: app

@@ -108,9 +108,9 @@ Item {
     if (menuMode) return MenuService.rows(menuPath, menuQuery)
     const q = (actionMode ? search.text.slice(prefix.length) : search.text).trim().toLowerCase()
     if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0))
-    const hidden = Config.o.launcher.hiddenApps, favs = Config.o.launcher.favouriteApps
+    const favs = Config.o.launcher.favouriteApps
     const fav = e => favs.indexOf(e.id) >= 0 ? 0 : 1
-    const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay && hidden.indexOf(e.id) < 0)
+    const apps = AppService.launchable
     if (!q) return apps.slice().sort((a, b) => fav(a) - fav(b) || a.name.localeCompare(b.name))
     const scored = []
     for (let i = 0; i < apps.length; i++) {

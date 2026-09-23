@@ -9,6 +9,7 @@ PluginBarFacade 1.0 PluginBarFacade.qml
 CAnim 1.0 CAnim.qml
 CircularProgress 1.0 CircularProgress.qml
 ColouredIcon 1.0 ColouredIcon.qml
+singleton AppService 1.0 AppService.qml
 singleton Colours 1.0 Colours.qml
 singleton Config 1.0 Config.qml
 ConnectedRect 1.0 ConnectedRect.qml

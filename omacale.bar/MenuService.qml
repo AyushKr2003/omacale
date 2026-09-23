@@ -183,9 +183,8 @@ QtObject {
   // The apps provider is native in Omarchy too (its AppLibrary). Ours is the
   // launcher's own list, so the menu lists exactly what the launcher lists.
   function mergeApps() {
-    const hidden = Config.o.launcher.hiddenApps
     const rows = []
-    const entries = DesktopEntries.applications.values.filter(e => !e.noDisplay && hidden.indexOf(e.id) < 0)
+    const entries = AppService.launchable
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i]
       const id = String(e.id || "")
@@ -281,9 +280,12 @@ QtObject {
     }
   }
 
+  // AppService.launchable settles only once Omarchy's hidden-entry scan has
+  // returned, which is later than DesktopEntries' own change, so watch the
+  // filtered list rather than the raw one or the merge runs on a stale set.
   property Connections appsWatcher: Connections {
-    target: DesktopEntries.applications
-    function onValuesChanged() { if (root.providersLoaded["apps"]) root.mergeApps() }
+    target: AppService
+    function onLaunchableChanged() { if (root.providersLoaded["apps"]) root.mergeApps() }
   }
 
   // ------------------------------------------------------------- guards
