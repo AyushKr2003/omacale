@@ -104,48 +104,117 @@ hl.config({
 })
 
 -- ── Animations (animations.lua) ─────────────────────────────────────────────
--- Material 3 & Caelestia expressive spatial curves (the same ones Omacale's
--- SDF drawer shader and QML modals use in Tk.curves / Anim.qml).
+-- Hyprland's windows are given the motion of Omacale's own drawers, so a
+-- window and a blob drawer arriving at the same moment read as one gesture.
+--
+-- The two engines turn out to agree exactly, which is what makes this a port
+-- and not an approximation:
+--
+--   * Hyprland's `speed` is deciseconds -- hyprutils' CBaseAnimatedVariable
+--     computes SPENT = clamp((elapsed_ms / 100) / speed, 0, 1), so a leaf's
+--     duration in ms is speed * 100. Every speed below is a Tk.durations
+--     value divided by 100.
+--   * `hl.curve{ points = { {x1,y1}, {x2,y2} } }` is a cubic bezier through
+--     (0,0) and (1,1), evaluated as getYForPoint(SPENT) with NO clamping of
+--     y. That is the same math as Qt's Easing.BezierSpline over a 6-value
+--     [x1,y1,x2,y2,1,1] array, so the Tk.curves entries transfer verbatim --
+--     overshoot (y > 1) included, which is what gives the spatial curves
+--     their settle.
+--
+-- The one curve that cannot cross is `emphasized`: Caelestia's is a TWO
+-- segment spline (12 values), and Hyprland's addBezierWithName only takes two
+-- control points. It is fitted below.
 
-hl.curve("specialWorkSwitch", { type = "bezier", points = { { 0.05, 0.7 }, { 0.1, 1 } } })
+-- Tk.durations, in Hyprland's deciseconds (Tk.animScale = 1).
+local D = {
+  small = 2,          -- 200ms
+  normal = 4,         -- 400ms
+  large = 6,          -- 600ms
+  fastSpatial = 3.5,  -- 350ms
+  spatial = 5,        -- 500ms   (Tk.durations.defaultSpatial)
+  slowSpatial = 6.5,  -- 650ms
+  fastEffects = 1.5,  -- 150ms
+  effects = 2,        -- 200ms
+  slowEffects = 3,    -- 300ms
+}
+
+-- Tk.curves, verbatim (see the note above on why "verbatim" is literal here).
+hl.curve("standard", { type = "bezier", points = { { 0.2, 0 }, { 0, 1 } } })
+hl.curve("standardAccel", { type = "bezier", points = { { 0.3, 0 }, { 1, 1 } } })
+hl.curve("standardDecel", { type = "bezier", points = { { 0, 0 }, { 0, 1 } } })
 hl.curve("emphasizedAccel", { type = "bezier", points = { { 0.3, 0 }, { 0.8, 0.15 } } })
 hl.curve("emphasizedDecel", { type = "bezier", points = { { 0.05, 0.7 }, { 0.1, 1 } } })
-hl.curve("standard", { type = "bezier", points = { { 0.2, 0 }, { 0, 1 } } })
 
--- Expressive spatial curves (overshoot spring physics matching blob.frag drawers & modals)
+-- Tk.curves.emphasized is [0.05,0, 2/15,0.06, 1/6,0.4, 5/24,0.82, 0.25,1, 1,1]
+-- -- two cubic segments, which a single Hyprland bezier cannot express. This
+-- is the least-squares single-cubic fit over 1001 samples, constrained to
+-- y <= 1 so it keeps emphasized's no-overshoot character: RMSE 0.043, worst
+-- error 0.12 at t/T = 0.11 (the near-flat hold before emphasized's jump).
+-- Reusing "standard" instead would be roughly twice as far off.
+hl.curve("emphasized", { type = "bezier", points = { { 0.367, 0.665 }, { 0, 1 } } })
+
+-- Expressive spatial curves. These overshoot: defaultSpatial peaks at 1.014
+-- of the travel at t/T = 0.56, slowSpatial at 1.019, fastSpatial at 1.092.
 hl.curve("spatial", { type = "bezier", points = { { 0.38, 1.21 }, { 0.22, 1 } } })
 hl.curve("slowSpatial", { type = "bezier", points = { { 0.39, 1.29 }, { 0.35, 0.98 } } })
 hl.curve("fastSpatial", { type = "bezier", points = { { 0.42, 1.67 }, { 0.21, 0.9 } } })
 
-hl.animation({ leaf = "layersIn", enabled = true, speed = 5, bezier = "emphasizedDecel", style = "slide" })
-hl.animation({ leaf = "layersOut", enabled = true, speed = 4, bezier = "emphasizedAccel", style = "slide" })
-hl.animation({ leaf = "fadeLayers", enabled = true, speed = 5, bezier = "standard" })
+-- Tk.curves effects, used by the colour animations (CAnim.qml).
+hl.curve("fastEffects", { type = "bezier", points = { { 0.31, 0.94 }, { 0.34, 1 } } })
+hl.curve("effects", { type = "bezier", points = { { 0.34, 0.8 }, { 0.34, 1 } } })
+hl.curve("slowEffects", { type = "bezier", points = { { 0.34, 0.88 }, { 0.34, 1 } } })
 
--- Window animations: open blooms with spatial spring popin matching SDF modals (450ms),
--- and close collapses swiftly with emphasizedAccel (250ms).
-hl.animation({ leaf = "windowsIn", enabled = true, speed = 4.5, bezier = "spatial", style = "popin 65%" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel", style = "popin 75%" })
-hl.animation({ leaf = "windowsMove", enabled = true, speed = 5, bezier = "spatial" })
-hl.animation({ leaf = "workspaces", enabled = true, speed = 5, bezier = "standard" })
-hl.animation({ leaf = "specialWorkspace", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
+-- Windows move like drawers. Omacale's drawers are a constant-size rect that
+-- translates out of the edge it is attached to (ScreenScope's `sbx`, `ly`,
+-- `uy`, ... are all `edge + (size + 5) * off`, with off driven by a plain
+-- `Anim {}` -- defaultSpatial over 500ms). Hyprland's "slide" style is the
+-- same construction: CWindowAnimationController::applySlide pins size.from =
+-- size.to and only animates position in from the nearest monitor edge, so the
+-- client texture is never scaled and the window stays crisp while the spatial
+-- curve carries it 1.4% past its resting spot and back.
+--
+-- "popin" would scale the window from its centre instead, which is the motion
+-- of Settings (r4) and the overview (r7) rather than of the drawers, and it
+-- renders the window briefly larger than its buffer at the overshoot peak.
+hl.animation({ leaf = "windowsIn", enabled = true, speed = D.spatial, bezier = "spatial", style = "slide" })
+-- Closing accelerates out instead of overshooting: past the ~40% mark a
+-- sliding window is already off-screen, so an overshoot tail would be spent
+-- on nothing. This is the same reasoning behind Omacale closing Settings and
+-- the overview on `emphasized` while opening them on slowSpatial.
+hl.animation({ leaf = "windowsOut", enabled = true, speed = D.normal, bezier = "emphasizedAccel", style = "slide" })
+hl.animation({ leaf = "windowsMove", enabled = true, speed = D.spatial, bezier = "spatial" })
 
-hl.animation({ leaf = "fade", enabled = true, speed = 6, bezier = "standard" })
-hl.animation({ leaf = "fadeDim", enabled = true, speed = 6, bezier = "standard" })
-hl.animation({ leaf = "border", enabled = true, speed = 6, bezier = "standard" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = D.normal, bezier = "emphasizedDecel", style = "slide" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = D.normal, bezier = "emphasizedAccel", style = "slide" })
+hl.animation({ leaf = "fadeLayers", enabled = true, speed = D.normal, bezier = "standard" })
+
+hl.animation({ leaf = "workspaces", enabled = true, speed = D.normal, bezier = "standard" })
+hl.animation({ leaf = "specialWorkspace", enabled = true, speed = D.normal, bezier = "emphasizedDecel", style = "slidefadevert 15%" })
+
+hl.animation({ leaf = "fade", enabled = true, speed = D.normal, bezier = "standard" })
+hl.animation({ leaf = "fadeDim", enabled = true, speed = D.normal, bezier = "standard" })
+-- The border is a colour animation, so it takes CAnim.qml's pairing
+-- (slowEffects over 300ms) rather than the geometry curves above.
+hl.animation({ leaf = "border", enabled = true, speed = D.slowEffects, bezier = "slowEffects" })
 
 -- Omarchy's looknfeel sets these child leaves explicitly, so they would not
 -- inherit the parents above. Pin them to what Caelestia gets by inheritance.
--- Synchronize fadeIn and fadeOut with windowsIn and windowsOut.
-hl.animation({ leaf = "fadeIn", enabled = true, speed = 4.5, bezier = "spatial" })
-hl.animation({ leaf = "fadeOut", enabled = true, speed = 2.5, bezier = "emphasizedAccel" })
-hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 6, bezier = "standard" })
-hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = 5, bezier = "standard" })
-hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = 5, bezier = "standard" })
+-- fadeIn/fadeOut run for exactly as long as windowsIn/windowsOut so a window
+-- finishes arriving and finishes appearing together. They use the decel/accel
+-- curves rather than "spatial": a fade animates alpha, and spatial's
+-- overshoot would drive it past 1.0.
+hl.animation({ leaf = "fadeIn", enabled = true, speed = D.spatial, bezier = "emphasizedDecel" })
+hl.animation({ leaf = "fadeOut", enabled = true, speed = D.normal, bezier = "emphasizedAccel" })
+hl.animation({ leaf = "fadeSwitch", enabled = true, speed = D.normal, bezier = "standard" })
+hl.animation({ leaf = "fadeLayersIn", enabled = true, speed = D.normal, bezier = "standard" })
+hl.animation({ leaf = "fadeLayersOut", enabled = true, speed = D.normal, bezier = "standard" })
 
 -- Omarchy's qconsole.lua sets the special-workspace children (a Quake-style
 -- "slide top"/"slide bottom"), which would mask Caelestia's slidefadevert.
-hl.animation({ leaf = "specialWorkspaceIn", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
-hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = 4, bezier = "specialWorkSwitch", style = "slidefadevert 15%" })
+-- Caelestia's own specialWorkSwitch curve is {0.05,0.7},{0.1,1} -- the same
+-- two control points as emphasizedDecel, so it is not defined twice here.
+hl.animation({ leaf = "specialWorkspaceIn", enabled = true, speed = D.normal, bezier = "emphasizedDecel", style = "slidefadevert 15%" })
+hl.animation({ leaf = "specialWorkspaceOut", enabled = true, speed = D.normal, bezier = "emphasizedDecel", style = "slidefadevert 15%" })
 
 -- ── Rules (rules.lua) ───────────────────────────────────────────────────────
 
