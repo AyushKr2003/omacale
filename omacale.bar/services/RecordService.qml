@@ -16,6 +16,8 @@ QtObject {
   property bool listExpanded: false
   property string confirmDelete: ""
   property var recentRecordings: [] // [{ path, name, size, time }]
+  // Where Omarchy saves recordings, as the probe resolved it.
+  property string outputDir: ""
 
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
 
@@ -122,10 +124,15 @@ QtObject {
     onFileChanged: root.markerSettle.restart()
   }
 
+  // The folder is resolved the way omarchy-capture-screenrecording does it
+  // (OMARCHY_SCREENRECORD_DIR, then XDG_VIDEOS_DIR from user-dirs.dirs, then
+  // ~/Videos), and printed first so the watcher below can follow it.
   property Process recordingsProbe: Process {
     command: ["bash", "-c",
-      'OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-$HOME/Videos}"; ' +
+      '[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs; ' +
+      'OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"; ' +
       'mkdir -p "$OUTPUT_DIR"; ' +
+      'printf "DIR|%s\\n" "$OUTPUT_DIR"; ' +
       'find "$OUTPUT_DIR" -maxdepth 1 -type f \\( -name "*.mp4" -o -name "*.mkv" -o -name "*.webm" \\) -printf "%T@|%p|%f|%s\\n" 2>/dev/null | sort -rn | head -20']
     stdout: StdioCollector {
       onStreamFinished: {
@@ -134,6 +141,7 @@ QtObject {
         for (let i = 0; i < lines.length; i++) {
           const l = lines[i].trim()
           if (!l) continue
+          if (l.startsWith("DIR|")) { root.outputDir = l.slice(4); continue }
           const p = l.split("|")
           if (p.length >= 4) {
             list.push({
@@ -147,6 +155,22 @@ QtObject {
         root.recentRecordings = list
       }
     }
+  }
+
+  // The recordings folder, so a video deleted, renamed or added from a file
+  // manager (or anywhere else) shows in the list within a moment instead of
+  // after a shell restart. Qt reports entries coming and going, not a
+  // recording growing, and the short settle turns a burst of changes (a
+  // multi-file delete, a copy) into one re-read.
+  property Timer dirSettle: Timer {
+    interval: 400
+    onTriggered: root.reloadRecordings()
+  }
+  property FileView dirWatcher: FileView {
+    path: root.outputDir
+    watchChanges: root.outputDir !== ""
+    printErrors: false
+    onFileChanged: root.dirSettle.restart()
   }
 
   // Only while recording: the elapsed counter needs a second hand, and a
