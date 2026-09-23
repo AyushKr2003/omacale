@@ -37,11 +37,24 @@ QtObject {
   // Port of Caelestia's Hypr.activeToplevel (services/Hypr.qml): Hyprland
   // keeps reporting the last focused window after switching to an empty
   // workspace, so only trust it while the focused workspace has windows (or
-  // the window sits on a special workspace).
+  // the window sits on a special workspace that is actually open).
   readonly property var activeToplevel: {
     const t = Hyprland.activeToplevel
+    if (!t)
+      return null
+    const name = t.workspace ? t.workspace.name : ""
+    // A special workspace's window stays "active" in Hyprland's eyes after
+    // the special is toggled away, so the name test alone let it survive
+    // onto an empty workspace and the bar kept its title instead of
+    // "Desktop". It only counts while that special is the one open on the
+    // focused monitor -- which lives in lastIpcObject, refreshed on
+    // `activespecial` by Workspaces.qml's Connections.
+    if (name.startsWith("special:")) {
+      const sw = Hyprland.focusedMonitor?.lastIpcObject?.specialWorkspace
+      return (sw && sw.name) === name ? t : null
+    }
     const ws = Hyprland.focusedWorkspace
-    return t && (t.workspace?.name.startsWith("special:") || ws?.toplevels.values.length > 0) ? t : null
+    return ws?.toplevels.values.length > 0 ? t : null
   }
 
   // ------------------------------------------------------------ network
