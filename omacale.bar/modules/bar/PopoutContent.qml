@@ -9,15 +9,20 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import "../.."
 
-// Contents of the bar popouts (network, bluetooth, battery, lock status,
-// tray menus, active-window preview). Sized by the current page.
+// Contents of the bar popouts (network, Wi-Fi password, bluetooth, battery,
+// lock status, tray menus, active-window preview). Sized by the current page.
 Item {
   id: root
 
   property var host
   property string name: ""
   property var trayItem: null
+  // The network the Wi-Fi password page asks for (ScreenScope keeps it).
+  property string passwordSsid: ""
   signal closeRequested()
+  // A page moving the popout on to another one (Caelestia sets
+  // popouts.currentName): network -> wirelesspassword -> network.
+  signal switchRequested(string name, string arg)
 
   readonly property Item current: loader.item
   implicitWidth: current ? current.implicitWidth : 0
@@ -27,7 +32,7 @@ Item {
     id: loader
     anchors.fill: parent
     sourceComponent: ({
-      network: network, bluetooth: bluetooth, battery: battery, audio: audio,
+      network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
       lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow
     })[root.name] || null
   }
@@ -81,12 +86,27 @@ Item {
   Component {
     id: network
     ColumnLayout {
+      id: netCol
       implicitWidth: Tk.sizes.networkWidth
       spacing: Tk.spacing.small
       // No NetService.hold(): this list is NetworkManager's last scan, which
       // is what the `nmcli ... --rescan no` behind it always showed. Starting
       // a scan (and the link-detail poll that comes with a hold) belongs to
       // the Network settings page, not to a hover popout.
+      // Caelestia Network.qml: a network that needs a password turns the
+      // popout into the password page. 802.1X also needs an identity, which
+      // only Settings › Network has a field for.
+      function askPassword(net) {
+        if (!net || NetService.passwordSsid !== net.name) return
+        if (NetService.isEnterprise(net.security)) { root.host.toggle("settings", "network"); root.closeRequested() }
+        else root.switchRequested("wirelesspassword", net.name)
+      }
+      // Set by a click on a secured network, and by a saved network whose
+      // key NetworkManager rejects.
+      Connections {
+        target: NetService
+        function onPasswordSsidChanged() { netCol.askPassword(NetService.networkFor(NetService.passwordSsid)) }
+      }
       Heading { text: Sys.ethernet && !Sys.wifi ? "Ethernet" : "Wireless" }
       Toggle {
         label: "Enabled"
@@ -127,10 +147,9 @@ Item {
               if (!net) return
               if (ap.modelData.active) { NetService.disconnect(net); return }
               // Saved or open networks connect here; anything that needs a
-              // password opens Settings › Network with its prompt already
-              // expanded (Caelestia shows a password popout instead).
+              // password asks for it: activate() sets passwordSsid, which
+              // netCol's Connections turns into the password page.
               NetService.activate(net)
-              if (NetService.passwordSsid === net.name) { root.host.toggle("settings", "network"); root.closeRequested() }
             }
           }
         }
@@ -139,6 +158,215 @@ Item {
         Layout.bottomMargin: Tk.padding.small
         icon: "wifi_find"; label: "Rescan networks"
         onClicked: Sys.run("nmcli device wifi rescan")
+      }
+    }
+  }
+
+  // --------------------------------------------------- wireless password
+  // Caelestia bar/popouts/WirelessPassword.qml: a card asking for the key of
+  // the network picked in the network popout. The field is Caelestia's own
+  // FocusScope that draws one rounded dot per character (the password never
+  // lives in a TextInput). The popout is held while this shows (ScreenScope
+  // popoutHeld), so it has the keyboard and survives the pointer leaving.
+  Component {
+    id: wirelesspassword
+    ColumnLayout {
+      id: wp
+      readonly property var net: NetService.networkFor(root.passwordSsid)
+      readonly property bool connecting: NetService.actionKind === "connect" && NetService.actionSsid === root.passwordSsid
+      // Set once Connect is pressed, so a failure or success from before the
+      // page opened isn't taken for this attempt's.
+      property bool submitted: false
+      property bool hasError: false
+      property string buffer: ""
+      property bool shown: false
+
+      function close() {
+        buffer = ""
+        submitted = false
+        // Clear the pending prompt, so clicking the network again asks again.
+        if (NetService.passwordSsid === root.passwordSsid) NetService.passwordSsid = ""
+        root.switchRequested("network", "")
+      }
+      function connect() {
+        if (!net || connecting || buffer.length === 0) return
+        hasError = false
+        submitted = true
+        NetService.connectWithPsk(net, buffer)
+      }
+
+      spacing: Tk.spacing.medium
+      implicitWidth: 400
+      implicitHeight: card.implicitHeight + Tk.padding.extraLargeIncreased
+      Component.onCompleted: { shown = true; focusTimer.start() }
+      // Caelestia's focusTimer: the surface only takes the keyboard once the
+      // layer has been given OnDemand focus, a frame or two after opening.
+      Timer { id: focusTimer; interval: 150; onTriggered: field.forceActiveFocus() }
+
+      Connections {
+        target: NetService
+        function onFailureReasonChanged() {
+          if (!wp.submitted || NetService.failureSsid !== root.passwordSsid || !NetService.failureReason) return
+          wp.submitted = false
+          wp.hasError = true
+          wp.buffer = ""
+        }
+      }
+      readonly property bool connected: !!net && net.connected
+      onConnectedChanged: if (connected && submitted) successTimer.start()
+      // Caelestia connectionSuccessTimer: give the list a moment to update.
+      Timer { id: successTimer; interval: 500; onTriggered: if (wp.connected) wp.close() }
+
+      Rectangle {
+        id: card
+        Layout.fillWidth: true
+        Layout.preferredWidth: 400
+        implicitHeight: content.implicitHeight + Tk.padding.extraLargeIncreased
+        radius: Tk.rounding.large
+        color: Colours.m3surfaceContainer
+        opacity: wp.shown ? 1 : 0
+        scale: wp.shown ? 1 : 0.7
+        Behavior on opacity { Anim { type: "effects" } }
+        Behavior on scale { Anim {} }
+
+        ColumnLayout {
+          id: content
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.margins: Tk.padding.large
+          spacing: Tk.spacing.medium
+
+          MIcon {
+            Layout.alignment: Qt.AlignHCenter
+            text: "lock"
+            size: Tk.iconSize.extraLarge * 2
+          }
+          MText {
+            Layout.alignment: Qt.AlignHCenter
+            text: "Enter password"
+            font.pointSize: Tk.body.large
+            weight: Font.Medium
+          }
+          MText {
+            Layout.alignment: Qt.AlignHCenter
+            text: root.passwordSsid ? "Network: " + root.passwordSsid : "Unknown network"
+            color: Colours.m3outline
+            font.pointSize: Tk.body.small
+          }
+          MText {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: Tk.spacing.small
+            Layout.maximumWidth: parent.width - Tk.padding.extraLargeIncreased
+            visible: wp.connecting || wp.hasError
+            text: wp.hasError ? "Connection failed. Please check your password and try again." : wp.connecting ? "Connecting..." : ""
+            color: wp.hasError ? Colours.m3error : Colours.m3onSurfaceVariant
+            font.pointSize: Tk.body.small
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+          }
+
+          FocusScope {
+            id: field
+            Layout.topMargin: Tk.spacing.largeIncreased
+            Layout.fillWidth: true
+            implicitHeight: Math.max(48, dots.implicitHeight + Tk.padding.medium * 2)
+            focus: true
+            activeFocusOnTab: true
+
+            Keys.onPressed: e => {
+              if (e.key === Qt.Key_Escape) { wp.close(); e.accepted = true; return }
+              if (wp.hasError && e.text && e.text.length > 0) wp.hasError = false
+              if (e.key === Qt.Key_Enter || e.key === Qt.Key_Return) { wp.connect(); e.accepted = true }
+              else if (e.key === Qt.Key_Backspace) {
+                wp.buffer = (e.modifiers & Qt.ControlModifier) ? "" : wp.buffer.slice(0, -1)
+                e.accepted = true
+              }
+              else if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) e.accepted = false
+              else if (e.text && e.text.length > 0 && e.text.charCodeAt(0) >= 32) { wp.buffer += e.text; e.accepted = true }
+            }
+
+            Rectangle {
+              anchors.fill: parent
+              radius: Tk.rounding.large
+              color: field.activeFocus ? Qt.lighter(Colours.m3surfaceContainer, 1.05) : Colours.m3surfaceContainer
+              border.width: field.activeFocus || wp.hasError ? 4 : 1
+              border.color: wp.hasError ? Colours.m3error : field.activeFocus ? Colours.m3primary : Colours.m3outline
+              Behavior on border.color { CAnim {} }
+              Behavior on border.width { Anim { type: "effects" } }
+              Behavior on color { CAnim {} }
+            }
+            StateLayer {
+              showHoverBackground: false
+              cursorShape: Qt.IBeamCursor
+              radius: Tk.rounding.large
+              onClicked: field.forceActiveFocus()
+            }
+            MText {
+              anchors.centerIn: parent
+              text: "Password"
+              color: Colours.m3outline
+              font.family: Tk.mono
+              font.pointSize: Tk.body.medium
+              opacity: wp.buffer ? 0 : 1
+              Behavior on opacity { Anim { type: "effects" } }
+            }
+            ListView {
+              id: dots
+              anchors.centerIn: parent
+              implicitWidth: count * (implicitHeight + spacing) - spacing
+              implicitHeight: Tk.body.medium
+              orientation: Qt.Horizontal
+              spacing: Tk.spacing.extraSmall
+              interactive: false
+              Behavior on implicitWidth { Anim {} }
+              model: ScriptModel { values: wp.buffer.split("") }
+              delegate: Rectangle {
+                id: ch
+                implicitWidth: implicitHeight
+                implicitHeight: dots.implicitHeight
+                color: Colours.m3onSurface
+                radius: Tk.rounding.medium / 2
+                opacity: 0
+                scale: 0
+                Component.onCompleted: { opacity = 1; scale = 1 }
+                Behavior on opacity { Anim { type: "effects" } }
+                Behavior on scale { Anim { type: "fastSpatial" } }
+                ListView.onRemove: removeAnim.start()
+                SequentialAnimation {
+                  id: removeAnim
+                  PropertyAction { target: ch; property: "ListView.delayRemove"; value: true }
+                  ParallelAnimation {
+                    Anim { type: "effects"; target: ch; property: "opacity"; to: 0 }
+                    Anim { target: ch; property: "scale"; to: 0.5 }
+                  }
+                  PropertyAction { target: ch; property: "ListView.delayRemove"; value: false }
+                }
+              }
+            }
+          }
+
+          RowLayout {
+            Layout.topMargin: Tk.spacing.medium
+            Layout.fillWidth: true
+            spacing: Tk.spacing.medium
+            IconTextButton {
+              Layout.fillWidth: true
+              Layout.minimumHeight: Tk.body.medium + Tk.padding.medium * 2
+              type: "tonal"
+              text: "Cancel"
+              onClicked: wp.close()
+            }
+            IconTextButton {
+              Layout.fillWidth: true
+              Layout.minimumHeight: Tk.body.medium + Tk.padding.medium * 2
+              type: "filled"
+              text: wp.connecting ? "Connecting..." : "Connect"
+              disabled: wp.buffer.length === 0 || wp.connecting
+              onClicked: wp.connect()
+            }
+          }
+        }
       }
     }
   }

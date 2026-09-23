@@ -33,6 +33,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `MFlickable.qml`, `MListView.qml`, `FadeFlickable.qml`, `FadeListView.qml`, `MScrollBar.qml` | `components/containers/StyledFlickable.qml`, `StyledListView.qml`, `VerticalFadeFlickable.qml`, `VerticalFadeListView.qml`, `components/controls/StyledScrollBar.qml` |
 | `Elevation.qml` | `components/effects/Elevation.qml` |
 | `StateLayer.qml`, `Anim.qml`, `CAnim.qml` | `components/StateLayer.qml`, `Anim.qml`, `CAnim.qml` |
+| `PopoutContent.qml` (one component per bar popout; `wirelesspassword`, like `traymenu`, is sticky: see `ScreenScope.popoutSticky` / `popoutHeld`) | `modules/bar/popouts/Content.qml`, `Network.qml`, `WirelessPassword.qml`, `Bluetooth.qml`, `Battery.qml`, `AudioPopout.qml`, `LockStatus.qml`, `TrayMenu.qml`, `ActiveWindow.qml` |
 | `Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` | `modules/bar/components/workspaces/Workspaces.qml`, `SpecialWorkspaces.qml`, `ActiveIndicator.qml` |
 | `Tk.qml` | Caelestia `Tokens` (`plugin/src/Caelestia/Config/tokens.hpp`, `appearanceconfig.hpp`) |
 | `Colours.qml` | Caelestia `Colours` (M3 palette from the Omarchy theme accent; or, with Settings › Style › Palette › Omarchy, the theme's own colours on the M3 roles) |

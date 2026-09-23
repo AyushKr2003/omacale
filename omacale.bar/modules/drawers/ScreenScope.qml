@@ -34,6 +34,15 @@ Scope {
   property string popout: ""
   property real popoutCenter: 0
   property var trayItem: null
+  // Popouts the pointer leaving doesn't close. The tray menu is still swapped
+  // by hovering another bar icon; the two that take the keyboard (Caelestia's
+  // wirelesspassword and the detached winfo) are "held": only Escape, their own
+  // buttons or a click outside (the focus grab clearing) put them away, so
+  // crossing the bar doesn't throw away a half-typed password.
+  readonly property bool popoutHeld: popout === "wirelesspassword" || popout === "winfo"
+  readonly property bool popoutSticky: popout === "traymenu" || popoutHeld
+  // The network the password popout is asking for.
+  property string passwordSsid: ""
 
   function closeAll() {
     launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
@@ -201,7 +210,7 @@ Scope {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omacale"
     WlrLayershell.layer: win.modal ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings || scope.overview ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
     // Fullscreen collapses the frame into the screen edges.
@@ -379,7 +388,7 @@ Scope {
         if (scope.overview) overviewContent.forceActiveFocus()
       }
     }
-    readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || (scope.popout === "traymenu")
+    readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || scope.popoutSticky
     HyprlandFocusGrab {
       id: grab
       windows: [win]
@@ -482,7 +491,7 @@ Scope {
         bar.hoverAt(-1, false)
         if (!scope.dashShortcut) scope.dashboard = false
         if (!scope.utilShortcut) scope.utilities = false
-        if (scope.popout !== "traymenu") scope.popout = ""
+        if (!scope.popoutSticky) scope.popout = ""
         scope.barHover = false
       }
       onWheel: e => { if (e.x < win.bw) bar.handleWheel(e.y, e.angleDelta.y) }
@@ -537,6 +546,7 @@ Scope {
         const onBar = x < win.bw && win.barProg > 0.5
         bar.hoverAt(y, onBar)
 
+        if (scope.popoutHeld) return
         if (onBar) {
           const p = bar.popoutAt(y)
           if (p) {
@@ -648,7 +658,12 @@ Scope {
             property string lastName: ""
             name: scope.popout !== "" ? scope.popout : lastName
             onNameChanged: if (scope.popout !== "") lastName = scope.popout
+            passwordSsid: scope.passwordSsid
             onCloseRequested: scope.popout = ""
+            onSwitchRequested: (name, arg) => {
+              if (name === "wirelesspassword") scope.passwordSsid = arg
+              scope.popout = name
+            }
           }
         }
       }
