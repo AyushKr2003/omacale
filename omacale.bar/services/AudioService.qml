@@ -39,6 +39,9 @@ Singleton {
   readonly property bool capturing: nodes.some(n => n && n.isStream && n.isSink === false
     && String(n.name || "").toLowerCase().indexOf("cava") < 0)
 
+  // Some app has a playback stream open (the desktop visualiser runs cava only then).
+  readonly property bool hasPlayback: nodes.some(n => isPlayback(n))
+
   readonly property bool sourceMuted: !!(source && source.audio && source.audio.muted)
   readonly property real sourceVolume: source && source.audio ? source.audio.volume : 0
 

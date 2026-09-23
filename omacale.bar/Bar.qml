@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.23.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.24.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -319,13 +319,38 @@ Item {
   }
   onBlurChanged: applyBlur()
   onIgnoreAlphaChanged: if (blur) applyBlur()
+
+  // The desktop clock's plate and the desktop visualiser blur the wallpaper
+  // behind them (Caelestia's background blur options). Omarchy draws the
+  // wallpaper in its own window, so the blur is Hyprland's, set the same way
+  // as the frame's; the alpha floor keeps it to the plate and the bars.
+  readonly property var clockCfg: Config.o.background.desktopClock
+  readonly property bool clockBlur: clockCfg.background.enabled && clockCfg.background.blur
+  readonly property real clockIgnoreAlpha: Math.max(0, clockCfg.background.opacity - 0.05)
+  readonly property bool visBlur: Config.o.background.visualiser.blur
+  function applyDesktopBlur() {
+    Quickshell.execDetached(["hyprctl", "eval",
+      'hl.layer_rule({ match = { namespace = "^omacale-clock$" }, blur = ' + (clockBlur ? "true" : "false") +
+      ', ignore_alpha = ' + clockIgnoreAlpha.toFixed(2) + ' }); ' +
+      'hl.layer_rule({ match = { namespace = "^omacale-visualiser$" }, blur = ' + (visBlur ? "true" : "false") +
+      ', ignore_alpha = 0.5 })'])
+  }
+  onClockBlurChanged: applyDesktopBlur()
+  onClockIgnoreAlphaChanged: if (clockBlur) applyDesktopBlur()
+  onVisBlurChanged: applyDesktopBlur()
+
   Component.onCompleted: {
     thirdPartyPlugins = collectedPlugins
     if (blur) applyBlur()
+    if (clockBlur || visBlur) applyDesktopBlur()
   }
   Connections {
     target: Hyprland
-    function onRawEvent(e) { if (e.name === "configreloaded" && root.blur) root.applyBlur() }
+    function onRawEvent(e) {
+      if (e.name !== "configreloaded") return
+      if (root.blur) root.applyBlur()
+      if (root.clockBlur || root.visBlur) root.applyDesktopBlur()
+    }
   }
 
   // omarchy-toggle-bar pings this target after flipping its flag.

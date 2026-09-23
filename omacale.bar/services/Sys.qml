@@ -489,23 +489,28 @@ QtObject {
   }
 
   // ---------------------------------------------------------- visualiser
-  // cava via scripts/cava.sh, only while something shows it.
+  // cava via scripts/cava.sh, only while something shows it (the dashboard's
+  // media tab, the desktop visualiser); each user checks its own setting.
   readonly property int visBars: Math.max(10, Config.o.services.visualiserBars)
   onVisBarsChanged: if (cava.running) { cava.running = false; cavaRestart.restart() }
-  property Timer cavaRestart: Timer { interval: 50; onTriggered: root.cava.running = Qt.binding(() => root.visualiserWanted > 0 && !root.cavaMissing && Config.o.dashboard.visualiser) }
+  property Timer cavaRestart: Timer { interval: 50; onTriggered: root.cava.running = Qt.binding(() => root.visualiserWanted > 0 && !root.cavaMissing) }
   property int visualiserWanted: 0
   property var visValues: []
+  property string _visLine: ""
   property bool cavaMissing: false
   property Process cava: Process {
-    running: root.visualiserWanted > 0 && !root.cavaMissing && Config.o.dashboard.visualiser
+    running: root.visualiserWanted > 0 && !root.cavaMissing
     command: ["bash", Qt.resolvedUrl("../scripts/cava.sh").toString().replace("file://", ""), String(root.visBars)]
     stdout: SplitParser {
       onRead: function(l) {
+        // cava prints a frame 60 times a second even in silence.
+        if (l === root._visLine) return
+        root._visLine = l
         const v = l.split(";")
         if (v.length >= root.visBars) root.visValues = v.slice(0, root.visBars).map(x => (parseInt(x) || 0) / 1000)
       }
     }
-    onExited: (code) => { if (code === 127) root.cavaMissing = true; root.visValues = [] }
+    onExited: (code) => { if (code === 127) root.cavaMissing = true; root.visValues = []; root._visLine = "" }
   }
 
   // --------------------------------------------------------------- icons

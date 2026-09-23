@@ -59,6 +59,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `Wallpapers.qml` | `services/Wallpapers.qml`, `modules/launcher/services/Schemes.qml` |
 | `MenuService.qml` (+ the `:` mode in `Launcher.qml`) | no Caelestia original: the Omarchy menu, drawn as launcher rows. The engine is Omarchy's own `MenuModel.js`, loaded in place -- see below |
 | `Overview.qml`, `OverviewWindow.qml` | no Caelestia original: the workspace overview is ported from the `omarchy-overview` plugin and redrawn in Caelestia's tokens. Its live preview follows Caelestia's `modules/windowinfo/Preview.qml` (a `ScreencopyView` inside a clipping rect). Window icons come from `WindowIcons.qml`, the plugin's fallback chain (`services/FallbackIcon.qml`, `OverviewWindow.iconName`: TUI from the title, web-app class, class, initial class, titles, themed name, default terminal/browser) plus exact matches on Omarchy's web-app URLs and `TUI.*` commands |
+| `Background.qml`, `DesktopClock.qml`, `Visualiser.qml`, `VisualiserBars.qml` + `shaders/visualiser.frag` (Settings › Panels › Desktop) | `modules/background/Background.qml`, `DesktopClock.qml`, `Visualiser.qml`, `plugin/src/Caelestia/Components/visualiserbars.cpp`. The wallpaper stays Omarchy's, so each piece is its own `bottom`-layer surface sized to what it draws, the plate/bar blur is a Hyprland layer rule (`Bar.applyDesktopBlur`), and the bars are one shader quad rather than a QPainter texture. Surfaces on a layer stack in creation order: the visualiser is parked at 1px (never destroyed) while auto-hidden, and the clock is (re)created after it so it stays on top |
 | `omacale.bar/omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
@@ -136,6 +137,7 @@ shell/omacale/
         workspaces/         Workspaces SpecialWorkspaces ActiveIndicator
       drawers/            ScreenScope: per-monitor frame + drawer geometry, input mask,
                           gestures, plus the overlay-layer window the toasts live in
+      background/         desktop clock + visualiser (bottom-layer surfaces, not drawers)
       dashboard/ launcher/ sidebar/ notifications/ utilities/ lock/ overview/ session/
       settings/           Settings SettingsPage SettingsModel.js
         rows/               Row* -- the settings row types
@@ -172,7 +174,7 @@ shell/omacale/
   "No such file or directory" with no type name.
 - **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `overview`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `menu`, `windowInfo`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
 - **`components/Logos.js` is generated.** To add or change a bar logo, edit `OPTIONS` in `scripts/gen-logos.py` and rerun it (`pip install fonttools` in a venv). It stores trimmed outlines that `LogoIcon` rasterises as SVG at whole-pixel sizes; don't draw logos as font glyphs or scaled Shapes, which pad, fringe and blur at bar size.
-- Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
+- Shader change: edit the `.frag` (`blob.frag`, `visualiser.frag`), then rebuild its `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`
 
 ## Dev loop (verifying UI changes)

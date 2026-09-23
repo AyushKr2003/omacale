@@ -88,7 +88,8 @@ var pages = [
       { type: "nav", icon: "construction", label: "Utilities", page: "utilities", status: "utilities.enabled" },
       { type: "nav", icon: "grid_view", label: "Overview", page: "overview", status: "overview.enabled" },
       { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
-      { type: "nav", icon: "lock", label: "Lock screen", page: "lock", status: "lock.enabled" }
+      { type: "nav", icon: "lock", label: "Lock screen", page: "lock", status: "lock.enabled" },
+      { type: "nav", icon: "wallpaper", label: "Desktop", page: "desktop", subtext: "Clock and audio visualiser on the wallpaper" }
     ]
   },
   {
@@ -350,6 +351,39 @@ var subpages = {
       { type: "section", text: "Appearance" },
       { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur what is behind the lock card" },
       { type: "toggle", key: "lock.recolourLogo", when: { key: "lock.enabled", value: true }, label: "Recolour the logo", subtext: "Tint the fetch card's logo with the scheme" }
+    ]
+  },
+  // Caelestia backgroundconfig.hpp; Caelestia has no Nexus page for it.
+  desktop: {
+    title: "Desktop",
+    rows: [
+      { type: "section", text: "Desktop clock" },
+      { type: "toggle", key: "background.desktopClock.enabled", label: "Desktop clock", subtext: "A large clock and date drawn on the wallpaper" },
+      { type: "select", key: "background.desktopClock.position", when: { key: "background.desktopClock.enabled", value: true }, label: "Position", subtext: "Where on the screen the clock sits", options: [
+        { value: "top-left", label: "Top left", icon: "north_west" },
+        { value: "top-center", label: "Top centre", icon: "north" },
+        { value: "top-right", label: "Top right", icon: "north_east" },
+        { value: "middle-left", label: "Middle left", icon: "west" },
+        { value: "middle-center", label: "Centre", icon: "filter_center_focus" },
+        { value: "middle-right", label: "Middle right", icon: "east" },
+        { value: "bottom-left", label: "Bottom left", icon: "south_west" },
+        { value: "bottom-center", label: "Bottom centre", icon: "south" },
+        { value: "bottom-right", label: "Bottom right", icon: "south_east" }
+      ] },
+      { type: "slider", key: "background.desktopClock.scale", when: { key: "background.desktopClock.enabled", value: true }, label: "Scale", icon: "aspect_ratio", from: 0.5, to: 2, step: 0.05, unit: "x" },
+      { type: "toggle", key: "background.desktopClock.invertColors", when: { key: "background.desktopClock.enabled", value: true }, label: "Invert colours", subtext: "Use the container colours, for a clock over a bright (or, in light mode, dark) wallpaper" },
+      { type: "toggle", key: "background.desktopClock.background.enabled", when: { key: "background.desktopClock.enabled", value: true }, label: "Background", subtext: "Draw the clock on a rounded plate" },
+      { type: "slider", key: "background.desktopClock.background.opacity", when: { key: "background.desktopClock.background.enabled", value: true }, label: "Background opacity", icon: "opacity", from: 0, to: 1, step: 0.01, unit: "%" },
+      { type: "toggle", key: "background.desktopClock.background.blur", when: { key: "background.desktopClock.background.enabled", value: true }, label: "Blur", subtext: "Blur the wallpaper behind the plate" },
+      { type: "toggle", key: "background.desktopClock.shadow.enabled", when: { key: "background.desktopClock.enabled", value: true }, label: "Shadow", subtext: "A soft drop shadow under the clock" },
+      { type: "slider", key: "background.desktopClock.shadow.opacity", when: { key: "background.desktopClock.shadow.enabled", value: true }, label: "Shadow opacity", icon: "opacity", from: 0, to: 1, step: 0.01, unit: "%" },
+      { type: "slider", key: "background.desktopClock.shadow.blur", when: { key: "background.desktopClock.shadow.enabled", value: true }, label: "Shadow blur", icon: "blur_on", from: 0, to: 1, step: 0.01, unit: "%" },
+      { type: "section", text: "Audio visualiser" },
+      { type: "toggle", key: "background.visualiser.enabled", label: "Audio visualiser", subtext: "Bars rising from the bottom of the wallpaper (needs cava)" },
+      { type: "toggle", key: "background.visualiser.autoHide", when: { key: "background.visualiser.enabled", value: true }, label: "Auto-hide", subtext: "Only show it while no tiled window covers the desktop" },
+      { type: "toggle", key: "background.visualiser.blur", when: { key: "background.visualiser.enabled", value: true }, label: "Blur", subtext: "Blur the wallpaper behind the bars" },
+      { type: "slider", key: "background.visualiser.rounding", when: { key: "background.visualiser.enabled", value: true }, label: "Bar rounding", icon: "rounded_corner", from: 0, to: 2, step: 0.05, unit: "x" },
+      { type: "slider", key: "background.visualiser.spacing", when: { key: "background.visualiser.enabled", value: true }, label: "Bar spacing", icon: "space_bar", from: 0, to: 3, step: 0.05, unit: "x" }
     ]
   },
   sidebar: {

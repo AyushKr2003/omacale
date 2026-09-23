@@ -53,6 +53,15 @@ var values = {
     // night light, off by default so the card keeps Caelestia's single row.
     toggles: { wifi: true, bluetooth: true, mic: true, settings: true, gameMode: true, dnd: true, nightlight: false }
   },
+  // Caelestia backgroundconfig.hpp (the wallpaper itself stays Omarchy's).
+  background: {
+    desktopClock: {
+      enabled: false, scale: 1.0, position: "bottom-right", invertColors: false,
+      background: { enabled: false, opacity: 0.7, blur: true },
+      shadow: { enabled: true, opacity: 0.7, blur: 0.4 }
+    },
+    visualiser: { enabled: false, autoHide: true, blur: false, rounding: 1, spacing: 1 }
+  },
   general: { clock24: true, weatherLocation: "", units: "metric" },
   // popups.enabled only takes effect once the notification daemon has handed
   // its own toasts over (shell/omacale/scripts/notif-popups).

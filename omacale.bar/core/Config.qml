@@ -234,6 +234,31 @@ QtObject {
           property bool nightlight: false
         }
       }
+      property JsonObject background: JsonObject {
+        property JsonObject desktopClock: JsonObject {
+          property bool enabled: false
+          property real scale: 1.0
+          property string position: "bottom-right"
+          property bool invertColors: false
+          property JsonObject background: JsonObject {
+            property bool enabled: false
+            property real opacity: 0.7
+            property bool blur: true
+          }
+          property JsonObject shadow: JsonObject {
+            property bool enabled: true
+            property real opacity: 0.7
+            property real blur: 0.4
+          }
+        }
+        property JsonObject visualiser: JsonObject {
+          property bool enabled: false
+          property bool autoHide: true
+          property bool blur: false
+          property real rounding: 1
+          property real spacing: 1
+        }
+      }
       property JsonObject general: JsonObject {
         property bool clock24: true
         property string weatherLocation: ""

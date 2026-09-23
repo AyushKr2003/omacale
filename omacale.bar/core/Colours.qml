@@ -180,6 +180,7 @@ QtObject {
     o.onSurfaceVariant = s(0.78)
     o.outline = s(0.55)
     o.outlineVariant = s(0.25)
+    o.inversePrimary = mix(Color.accent, light ? fg : bg, 0.4)
     o.inverseSurface = fg
     o.inverseOnSurface = bg
     return o
@@ -200,6 +201,7 @@ QtObject {
   readonly property color m3onTertiary: role("onTertiary", pT, 20, 100)
   readonly property color m3tertiaryContainer: role("tertiaryContainer", pT, 30, 90)
   readonly property color m3onTertiaryContainer: role("onTertiaryContainer", pT, 90, 10)
+  readonly property color m3inversePrimary: role("inversePrimary", pP, 40, 80)
   readonly property color m3error: role("error", pE, 80, 40)
   readonly property color m3onError: role("onError", pE, 20, 100)
   readonly property color m3errorContainer: role("errorContainer", pE, 30, 90)

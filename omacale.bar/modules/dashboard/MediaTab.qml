@@ -21,7 +21,7 @@ Item {
   implicitHeight: 320
 
   // The visualiser only runs while this tab is on screen and music plays.
-  readonly property bool wantVis: active && visible && playing
+  readonly property bool wantVis: active && visible && playing && Config.o.dashboard.visualiser
   onWantVisChanged: Sys.visualiserWanted += wantVis ? 1 : -1
   Component.onDestruction: if (wantVis) Sys.visualiserWanted -= 1
 
@@ -93,6 +93,7 @@ Item {
       Shape {
         anchors.fill: parent
         preferredRendererType: Shape.CurveRenderer
+        visible: Config.o.dashboard.visualiser
         opacity: Sys.visValues.length ? 1 : 0
         Behavior on opacity { Anim { type: "effects" } }
         ShapePath {

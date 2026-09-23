@@ -131,3 +131,7 @@ singleton WindowIcons 1.0 services/WindowIcons.qml
 FadeListView 1.0 components/containers/FadeListView.qml
 TrayIcons 1.0 modules/settings/pages/TrayIcons.qml
 PinnedPlugins 1.0 modules/settings/pages/PinnedPlugins.qml
+Background 1.0 modules/background/Background.qml
+DesktopClock 1.0 modules/background/DesktopClock.qml
+Visualiser 1.0 modules/background/Visualiser.qml
+VisualiserBars 1.0 modules/background/VisualiserBars.qml

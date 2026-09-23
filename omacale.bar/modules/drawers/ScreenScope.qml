@@ -151,6 +151,12 @@ Scope {
   Reserve { anchors.right: true; exclusiveZone: Tk.border }
   Reserve { anchors.bottom: true; exclusiveZone: Tk.border }
 
+  // Desktop clock and visualiser, under the windows (Caelestia's background).
+  Background {
+    screen: scope.screen
+    barZone: scope.host.barHidden ? 0 : scope.cfg.bar.persistent ? Tk.barWidth : Tk.border
+  }
+
   // ----------------------------------------------- notification toasts
   //
   // Deliberately NOT part of the frame window below. That one sits on
