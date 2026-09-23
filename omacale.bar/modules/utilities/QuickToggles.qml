@@ -107,7 +107,8 @@ Rectangle {
       id: repeater
       delegate: IconButton {
         required property var modelData
-        icon: modelData.icon
+        // A muted mic shows mic_off, as the bar's microphone icon does.
+        icon: modelData.id === "mic" && !root.micOn ? "mic_off" : modelData.icon
         checked: root.isOn(modelData.id)
         toggle: modelData.toggle
         fillWidth: true
