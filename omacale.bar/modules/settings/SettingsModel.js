@@ -224,6 +224,7 @@ var subpages = {
         { value: "middle", label: "Middle", icon: "vertical_align_center" },
         { value: "bottom", label: "Bottom", icon: "vertical_align_bottom" }
       ] },
+      { type: "toggle", key: "overview.detached", label: "Detached", subtext: "At the top or bottom, float a little off the edge like the middle position, instead of growing out of the frame" },
       { type: "section", text: "Grid" },
       { type: "stepper", key: "overview.rows", label: "Rows", from: 1, to: 6, step: 1 },
       { type: "stepper", key: "overview.columns", label: "Columns", from: 1, to: 10, step: 1 },
