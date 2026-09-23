@@ -105,29 +105,68 @@ Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.p
 
 ## Layout
 
+The plugin mirrors Caelestia's own layout, so the port table above maps onto
+directories: a Caelestia file under `modules/sidebar/` is ported to Omacale's
+`modules/sidebar/`.
+
 ```
 shell/omacale/
   omacale.bar/        the plugin (this is what gets installed)
-    Bar.qml             plugin entry: IpcHandler "omacale", per-screen ScreenScope, fonts
-    ScreenScope.qml     per-monitor: frame + drawers geometry, input mask, gestures,
-                        plus the separate overlay-layer window the toasts live in
-    shaders/blob.frag   SDF frame/drawer background; blob.frag.qsb is the compiled output
-    Tk.qml Colours.qml Config.qml Defaults.js   tokens, palette, live settings
-    *Service.qml / GameMode.qml / Sys.qml       singletons wrapping Omarchy data
-    Lock*.qml           the lock screen drawn inside Omarchy's lock plugin
+    Bar.qml             plugin entry: IpcHandler "omacale", per-screen ScreenScope, fonts.
+                        Stays at the root: it is the manifest's entryPoint and the
+                        qmldir beside it is what makes the whole module resolve
+    qmldir  manifest.json  keybinds.lua  omacale.lua
+    core/               Tk Colours Config Defaults.js WallLuminance -- tokens, palette,
+                        live settings; everything else reads these
+    services/           singletons wrapping Omarchy data: Sys, GameMode, Wallpapers,
+                        WindowIcons and the *Service ones (Audio, Bt, Net, Notif,
+                        Record, Idle, Lock, Plugin, Menu, App)
+    components/         shared primitives: MText MIcon Anim StateLayer SectionHeader ...
+      controls/           IconButton MSwitch MSlider MTextField ButtonRow SplitSelect ...
+      containers/         MFlickable MListView FadeFlickable FadeListView
+      effects/            Elevation ShaderMaskEffect
+      shapes/             MShape ShapeGeom.js ConnectedRect WavyLine Sparkline
+    modules/            one directory per feature, as Caelestia does
+      bar/                BarContent BarWidgetSlot PluginBarFacade PopoutContent
+        workspaces/         Workspaces SpecialWorkspaces ActiveIndicator
+      drawers/            ScreenScope: per-monitor frame + drawer geometry, input mask,
+                          gestures, plus the overlay-layer window the toasts live in
+      dashboard/ launcher/ sidebar/ notifications/ utilities/ lock/ overview/ session/
+      settings/           Settings SettingsPage SettingsModel.js
+        rows/               Row* -- the settings row types
+        common/             ItemList RowButton InfoRow RowLabel
+        cards/              StylePreview SeedPicker LogoPicker Keybinds/Lock/LookNFeel/About
+        pages/              Network Bluetooth Audio Apps Plugins Wallpaper Tray ...
+    shaders/blob.frag   SDF frame/drawer background; blob.frag.qsb is the compiled output.
+                        Stays at the root: three modules at three depths load it
     scripts/            our own helper scripts (last resort)
     scripts/lock-screen   hands Omarchy's lock plugin its Caelestia view (Settings runs it)
     assets/lock/LockView.qml  the wrapper written into the lock clone
-    assets/  keybinds.lua  omacale.lua  manifest.json  qmldir
+    assets/
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
   scripts/notif-popups  clones Omarchy's notification daemon and patches the clone headless
-  scripts/gen-logos.py  dev-only: regenerates omacale.bar/Logos.js (needs fontTools)
+  scripts/gen-logos.py  dev-only: regenerates components/Logos.js (needs fontTools)
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
 
-- **Every QML type must be registered in `omacale.bar/qmldir`** (`Name 1.0 Name.qml`; singletons as `singleton Name 1.0 Name.qml`), or it will be "unavailable".
+- **Every QML type must be registered in `omacale.bar/qmldir`**, with its path
+  (`Name 1.0 modules/bar/Name.qml`; singletons as `singleton Name 1.0 services/Name.qml`),
+  or it will be "unavailable". The qmldir is flat: type names are unique across the whole
+  plugin regardless of directory, so moving a file only changes its qmldir line.
+- **Every file outside the root needs `import ".."` back to the module**, with one `..`
+  per level (`import "../../.."` from `modules/settings/pages/`). A file only implicitly
+  sees its *own* directory, so without that import every `Tk`, `Colours` and `MText` in it
+  is unavailable. Siblings in the same subdirectory resolve twice (implicitly and through
+  the qmldir); that is not ambiguous and needs nothing.
+- **Relative URLs resolve against the file's own directory.** `Qt.resolvedUrl("scripts/x")`
+  in `services/` must be `"../scripts/x"`. That covers `scripts/`, `assets/`, `shaders/`,
+  `omacale.lua` and `keybinds.lua`.
+- **`SettingsPage.qml` loads its rows, cards and pages by path, not by type** (the `files`
+  map), so those paths are relative to `modules/settings/` and must be updated when one of
+  them moves -- a type rename alone won't do it. A wrong path fails as a bare
+  "No such file or directory" with no type name.
 - **IPC** is the `omacale` target in `Bar.qml`: `launcher`, `dashboard`, `session`, `settings`, `sidebar`, `utilities`, `toggles`, `overview`, `dashboardTab(tab: string)`, `settingsPage(page: string)`, `wallpapers`, `themes`, `menu`, `close`. IPC functions **must have typed args and a typed return (`: void`, `: string`, ...)** or Quickshell drops the whole target. Call with `omarchy-shell omacale <fn>` (or `qs -p /usr/share/omarchy/shell ipc call omacale <fn>`).
-- **`Logos.js` is generated.** To add or change a bar logo, edit `OPTIONS` in `scripts/gen-logos.py` and rerun it (`pip install fonttools` in a venv). It stores trimmed outlines that `LogoIcon` rasterises as SVG at whole-pixel sizes; don't draw logos as font glyphs or scaled Shapes, which pad, fringe and blur at bar size.
+- **`components/Logos.js` is generated.** To add or change a bar logo, edit `OPTIONS` in `scripts/gen-logos.py` and rerun it (`pip install fonttools` in a venv). It stores trimmed outlines that `LogoIcon` rasterises as SVG at whole-pixel sizes; don't draw logos as font glyphs or scaled Shapes, which pad, fringe and blur at bar size.
 - Shader change: edit `blob.frag`, then rebuild the `.qsb` and commit both:
   `/usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -o shaders/blob.frag.qsb shaders/blob.frag`
 
@@ -195,6 +234,7 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 
 - **`Service.qml` is never patched**, only copied, so every `install` re-syncs the clone with the installed Omarchy. `status` reports `stale: yes` when they differ, and `scripts/omacale doctor` checks it.
 - **The wrapper imports nothing from Omacale.** It loads `LockUi.qml` by URL and falls back to `StockLockView` when the setting is off, Omacale is gone, or the UI fails to load. A relative import would turn a broken Omacale into a machine with no lock screen. Keep it that way.
+- **The wrapper is versioned (`omacale:lock-view vN`), and moving `LockUi.qml` means bumping it.** The wrapper lives in the *clone*, written at install time, so an already-installed machine keeps the old one across an upgrade — and because it loads the UI by URL, a stale wrapper doesn't error, it just silently draws the stock lock. `lock-screen status` prints both the installed `view:` and the `expects:` that this Omacale would write, and `LockService.installed` requires them to match, so a mismatch re-installs the handover by itself. Bump `MARKER` in `scripts/lock-screen` and the marker on line 1 of `assets/lock/LockView.qml` together, whenever the wrapper's content changes. The clone's Loader caches the compiled view, so the re-install applies on the *next* shell restart.
 - **The contract is checked before any write**: every property and signal handler the stock `Service.qml` sets on its `LockView` must exist on the wrapper, or the script refuses (`tests/test-restore.sh` case Q covers both directions). Adding a property upstream means updating `assets/lock/LockView.qml`, and `LockUi.qml` if it wants it.
 - **`LockUi.qml` reaches everything through `view`** (the wrapper) and never assumes it is set: the Loader assigns it a frame late.
 - The install and the removal both apply live — the shell enables the clone and reloads plugin files itself — so neither restarts the shell. `LockService` runs them and is what Settings › Panels › Lock screen drives; `Config.o.lock.enabled` alone decides which view draws, so turning Omacale off never tears anything down mid-lock.

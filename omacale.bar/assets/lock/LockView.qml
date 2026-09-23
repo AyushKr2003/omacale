@@ -1,4 +1,4 @@
-// omacale:lock-view v1
+// omacale:lock-view v2
 //
 // Written into the clone of Omarchy's lock plugin by
 // omacale.bar/scripts/lock-screen. Omarchy's own view is kept beside it as
@@ -41,7 +41,7 @@ Item {
   // this file keeps no import of its own. Missing or unreadable means "on":
   // the handover is only ever installed by someone turning the lock on.
   property bool omacaleEnabled: true
-  readonly property url omacaleUi: Qt.resolvedUrl("../omacale.bar/LockUi.qml")
+  readonly property url omacaleUi: Qt.resolvedUrl("../omacale.bar/modules/lock/LockUi.qml")
 
   function readEnabled(text) {
     try {

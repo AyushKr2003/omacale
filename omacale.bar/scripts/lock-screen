@@ -37,7 +37,7 @@ import re
 import subprocess
 import sys
 
-MARKER = "omacale:lock-view v1"
+MARKER = "omacale:lock-view v2"
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -274,6 +274,11 @@ def status():
         print(f"view:      {view_state(target)}")
         same = sha(os.path.join(target, "Service.qml")) == sha(os.path.join(STOCK_DIR, "Service.qml"))
         print(f"stale:     {'no' if same else 'yes'}")
+    # The wrapper the *installed* Omacale would write. An older one still says
+    # "omacale", but points at a LockUi.qml that has since moved, so the lock
+    # would quietly fall back to the stock view; LockService compares the two
+    # and re-installs when they differ.
+    print(f"expects:   omacale v{MARKER.rsplit('v', 1)[1]}")
     print(f"setting:   {'on' if omacale_enabled() else 'off'}")
     return 0
 

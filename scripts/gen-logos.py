@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate omacale.bar/Logos.js: the bar logo options as vector outlines.
+"""Generate omacale.bar/components/Logos.js: the bar logo options as vector outlines.
 
 Every logo (Omarchy's font glyph, Caelestia's paths, Nerd Font distro glyphs,
 Material Symbols) is pulled out of its source, trimmed to its real bounds and
@@ -10,7 +10,7 @@ area, with no built-in padding, whatever font they came from.
 Dev-only: needs fontTools (`pip install fonttools`) and the fonts below.
 The output is committed, so installs don't need either.
 
-  python3 scripts/gen-logos.py            # rewrite omacale.bar/Logos.js
+  python3 scripts/gen-logos.py            # rewrite omacale.bar/components/Logos.js
 """
 import os
 import re
@@ -25,7 +25,7 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "omacale.bar", "Logos.js")
+OUT = os.path.join(HERE, "..", "omacale.bar", "components", "Logos.js")
 CAELESTIA_LOGO = os.path.join(HERE, "..", "..", "caelestia_shell", "components", "Logo.qml")
 
 OMARCHY_FONT = "/usr/share/fonts/omarchy/omarchy.ttf"

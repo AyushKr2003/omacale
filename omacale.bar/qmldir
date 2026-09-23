@@ -1,128 +1,128 @@
-AboutCard 1.0 AboutCard.qml
-ActiveIndicator 1.0 ActiveIndicator.qml
-Anim 1.0 Anim.qml
+AboutCard 1.0 modules/settings/cards/AboutCard.qml
+ActiveIndicator 1.0 modules/bar/workspaces/ActiveIndicator.qml
+Anim 1.0 components/Anim.qml
 Bar 1.0 Bar.qml
-ButtonRow 1.0 ButtonRow.qml
-BarContent 1.0 BarContent.qml
-BarWidgetSlot 1.0 BarWidgetSlot.qml
-PluginBarFacade 1.0 PluginBarFacade.qml
-CAnim 1.0 CAnim.qml
-CircularProgress 1.0 CircularProgress.qml
-ColouredIcon 1.0 ColouredIcon.qml
-singleton AppService 1.0 AppService.qml
-singleton Colours 1.0 Colours.qml
-singleton Config 1.0 Config.qml
-ConnectedRect 1.0 ConnectedRect.qml
-CoverArt 1.0 CoverArt.qml
-Dashboard 1.0 Dashboard.qml
-singleton GameMode 1.0 GameMode.qml
-IconButton 1.0 IconButton.qml
-IdleInhibitCard 1.0 IdleInhibitCard.qml
-singleton IdleService 1.0 IdleService.qml
-KeybindsCard 1.0 KeybindsCard.qml
-Launcher 1.0 Launcher.qml
-singleton MenuService 1.0 MenuService.qml
-LookNFeelCard 1.0 LookNFeelCard.qml
-MIcon 1.0 MIcon.qml
-MProgress 1.0 MProgress.qml
-MShape 1.0 MShape.qml
-MSlider 1.0 MSlider.qml
-MSwitch 1.0 MSwitch.qml
-MText 1.0 MText.qml
-MediaTab 1.0 MediaTab.qml
-NotifGroup 1.0 NotifGroup.qml
-NotifItem 1.0 NotifItem.qml
-NotifPopups 1.0 NotifPopups.qml
-singleton NotifService 1.0 NotifService.qml
-NotifToast 1.0 NotifToast.qml
-PerfTab 1.0 PerfTab.qml
-Pill 1.0 Pill.qml
-PopoutContent 1.0 PopoutContent.qml
-QuickToggles 1.0 QuickToggles.qml
-RecordCard 1.0 RecordCard.qml
-RecordingList 1.0 RecordingList.qml
-singleton RecordService 1.0 RecordService.qml
-RowLabel 1.0 RowLabel.qml
-RowNav 1.0 RowNav.qml
-RowSelect 1.0 RowSelect.qml
-RowSlider 1.0 RowSlider.qml
-RowStepper 1.0 RowStepper.qml
-RowText 1.0 RowText.qml
-RowToggle 1.0 RowToggle.qml
-ScreenScope 1.0 ScreenScope.qml
-SectionHeader 1.0 SectionHeader.qml
-SeedPicker 1.0 SeedPicker.qml
-Session 1.0 Session.qml
-Settings 1.0 Settings.qml
-SettingsPage 1.0 SettingsPage.qml
-ShaderMaskEffect 1.0 ShaderMaskEffect.qml
-Sidebar 1.0 Sidebar.qml
-Sparkline 1.0 Sparkline.qml
-SplitSelect 1.0 SplitSelect.qml
-SpecialWorkspaces 1.0 SpecialWorkspaces.qml
-StateLayer 1.0 StateLayer.qml
-StylePreview 1.0 StylePreview.qml
-singleton Sys 1.0 Sys.qml
-singleton Tk 1.0 Tk.qml
-Toggle 1.0 Toggle.qml
-Utilities 1.0 Utilities.qml
-WavyLine 1.0 WavyLine.qml
-WeatherTab 1.0 WeatherTab.qml
-Workspaces 1.0 Workspaces.qml
-BigButton 1.0 BigButton.qml
-BluetoothPage 1.0 BluetoothPage.qml
-BtDevice 1.0 BtDevice.qml
-BtDeviceRow 1.0 BtDeviceRow.qml
-BtPairing 1.0 BtPairing.qml
-singleton BtService 1.0 BtService.qml
-InfoRow 1.0 InfoRow.qml
-ItemList 1.0 ItemList.qml
-LoadingIndicator 1.0 LoadingIndicator.qml
-NetworkDetail 1.0 NetworkDetail.qml
-NetworkPage 1.0 NetworkPage.qml
-singleton NetService 1.0 NetService.qml
-RowButton 1.0 RowButton.qml
-LogoIcon 1.0 LogoIcon.qml
-LogoPicker 1.0 LogoPicker.qml
-WallpaperItem 1.0 WallpaperItem.qml
-WallpaperList 1.0 WallpaperList.qml
-singleton Wallpapers 1.0 Wallpapers.qml
-WallLuminance 1.0 WallLuminance.qml
-AppVolumes 1.0 AppVolumes.qml
-AudioDeviceList 1.0 AudioDeviceList.qml
-AudioPage 1.0 AudioPage.qml
-singleton AudioService 1.0 AudioService.qml
-AudioSlider 1.0 AudioSlider.qml
-AllApps 1.0 AllApps.qml
-AppInfo 1.0 AppInfo.qml
-AppsPage 1.0 AppsPage.qml
-IconTextButton 1.0 IconTextButton.qml
-WallpaperGrid 1.0 WallpaperGrid.qml
-FadeFlickable 1.0 FadeFlickable.qml
-MFlickable 1.0 MFlickable.qml
-MListView 1.0 MListView.qml
-MTextField 1.0 MTextField.qml
-Elevation 1.0 Elevation.qml
-OutlinedField 1.0 OutlinedField.qml
-MScrollBar 1.0 MScrollBar.qml
-LockUi 1.0 LockUi.qml
-LockContent 1.0 LockContent.qml
-LockCenter 1.0 LockCenter.qml
-LockPassword 1.0 LockPassword.qml
-LockMessage 1.0 LockMessage.qml
-LockWeather 1.0 LockWeather.qml
-LockFetch 1.0 LockFetch.qml
-LockMedia 1.0 LockMedia.qml
-LockResources 1.0 LockResources.qml
-LockNotifs 1.0 LockNotifs.qml
-LockCard 1.0 LockCard.qml
-singleton LockService 1.0 LockService.qml
-Overview 1.0 Overview.qml
-OverviewWindow 1.0 OverviewWindow.qml
-singleton PluginService 1.0 PluginService.qml
-PluginsPage 1.0 PluginsPage.qml
-PluginInfo 1.0 PluginInfo.qml
-singleton WindowIcons 1.0 WindowIcons.qml
-FadeListView 1.0 FadeListView.qml
-TrayIcons 1.0 TrayIcons.qml
-PinnedPlugins 1.0 PinnedPlugins.qml
+ButtonRow 1.0 components/controls/ButtonRow.qml
+BarContent 1.0 modules/bar/BarContent.qml
+BarWidgetSlot 1.0 modules/bar/BarWidgetSlot.qml
+PluginBarFacade 1.0 modules/bar/PluginBarFacade.qml
+CAnim 1.0 components/CAnim.qml
+CircularProgress 1.0 components/controls/CircularProgress.qml
+ColouredIcon 1.0 components/ColouredIcon.qml
+singleton AppService 1.0 services/AppService.qml
+singleton Colours 1.0 core/Colours.qml
+singleton Config 1.0 core/Config.qml
+ConnectedRect 1.0 components/shapes/ConnectedRect.qml
+CoverArt 1.0 components/CoverArt.qml
+Dashboard 1.0 modules/dashboard/Dashboard.qml
+singleton GameMode 1.0 services/GameMode.qml
+IconButton 1.0 components/controls/IconButton.qml
+IdleInhibitCard 1.0 modules/utilities/IdleInhibitCard.qml
+singleton IdleService 1.0 services/IdleService.qml
+KeybindsCard 1.0 modules/settings/cards/KeybindsCard.qml
+Launcher 1.0 modules/launcher/Launcher.qml
+singleton MenuService 1.0 services/MenuService.qml
+LookNFeelCard 1.0 modules/settings/cards/LookNFeelCard.qml
+MIcon 1.0 components/MIcon.qml
+MProgress 1.0 components/MProgress.qml
+MShape 1.0 components/shapes/MShape.qml
+MSlider 1.0 components/controls/MSlider.qml
+MSwitch 1.0 components/controls/MSwitch.qml
+MText 1.0 components/MText.qml
+MediaTab 1.0 modules/dashboard/MediaTab.qml
+NotifGroup 1.0 modules/sidebar/NotifGroup.qml
+NotifItem 1.0 modules/sidebar/NotifItem.qml
+NotifPopups 1.0 modules/notifications/NotifPopups.qml
+singleton NotifService 1.0 services/NotifService.qml
+NotifToast 1.0 modules/notifications/NotifToast.qml
+PerfTab 1.0 modules/dashboard/PerfTab.qml
+Pill 1.0 components/Pill.qml
+PopoutContent 1.0 modules/bar/PopoutContent.qml
+QuickToggles 1.0 modules/utilities/QuickToggles.qml
+RecordCard 1.0 modules/utilities/RecordCard.qml
+RecordingList 1.0 modules/utilities/RecordingList.qml
+singleton RecordService 1.0 services/RecordService.qml
+RowLabel 1.0 modules/settings/common/RowLabel.qml
+RowNav 1.0 modules/settings/rows/RowNav.qml
+RowSelect 1.0 modules/settings/rows/RowSelect.qml
+RowSlider 1.0 modules/settings/rows/RowSlider.qml
+RowStepper 1.0 modules/settings/rows/RowStepper.qml
+RowText 1.0 modules/settings/rows/RowText.qml
+RowToggle 1.0 modules/settings/rows/RowToggle.qml
+ScreenScope 1.0 modules/drawers/ScreenScope.qml
+SectionHeader 1.0 components/SectionHeader.qml
+SeedPicker 1.0 modules/settings/cards/SeedPicker.qml
+Session 1.0 modules/session/Session.qml
+Settings 1.0 modules/settings/Settings.qml
+SettingsPage 1.0 modules/settings/SettingsPage.qml
+ShaderMaskEffect 1.0 components/effects/ShaderMaskEffect.qml
+Sidebar 1.0 modules/sidebar/Sidebar.qml
+Sparkline 1.0 components/shapes/Sparkline.qml
+SplitSelect 1.0 components/controls/SplitSelect.qml
+SpecialWorkspaces 1.0 modules/bar/workspaces/SpecialWorkspaces.qml
+StateLayer 1.0 components/StateLayer.qml
+StylePreview 1.0 modules/settings/cards/StylePreview.qml
+singleton Sys 1.0 services/Sys.qml
+singleton Tk 1.0 core/Tk.qml
+Toggle 1.0 components/controls/Toggle.qml
+Utilities 1.0 modules/utilities/Utilities.qml
+WavyLine 1.0 components/shapes/WavyLine.qml
+WeatherTab 1.0 modules/dashboard/WeatherTab.qml
+Workspaces 1.0 modules/bar/workspaces/Workspaces.qml
+BigButton 1.0 components/controls/BigButton.qml
+BluetoothPage 1.0 modules/settings/pages/BluetoothPage.qml
+BtDevice 1.0 modules/settings/pages/BtDevice.qml
+BtDeviceRow 1.0 modules/settings/pages/BtDeviceRow.qml
+BtPairing 1.0 modules/settings/pages/BtPairing.qml
+singleton BtService 1.0 services/BtService.qml
+InfoRow 1.0 modules/settings/common/InfoRow.qml
+ItemList 1.0 modules/settings/common/ItemList.qml
+LoadingIndicator 1.0 components/LoadingIndicator.qml
+NetworkDetail 1.0 modules/settings/pages/NetworkDetail.qml
+NetworkPage 1.0 modules/settings/pages/NetworkPage.qml
+singleton NetService 1.0 services/NetService.qml
+RowButton 1.0 modules/settings/common/RowButton.qml
+LogoIcon 1.0 components/LogoIcon.qml
+LogoPicker 1.0 modules/settings/cards/LogoPicker.qml
+WallpaperItem 1.0 modules/launcher/WallpaperItem.qml
+WallpaperList 1.0 modules/launcher/WallpaperList.qml
+singleton Wallpapers 1.0 services/Wallpapers.qml
+WallLuminance 1.0 core/WallLuminance.qml
+AppVolumes 1.0 modules/settings/pages/AppVolumes.qml
+AudioDeviceList 1.0 modules/settings/pages/AudioDeviceList.qml
+AudioPage 1.0 modules/settings/pages/AudioPage.qml
+singleton AudioService 1.0 services/AudioService.qml
+AudioSlider 1.0 modules/settings/pages/AudioSlider.qml
+AllApps 1.0 modules/settings/pages/AllApps.qml
+AppInfo 1.0 modules/settings/pages/AppInfo.qml
+AppsPage 1.0 modules/settings/pages/AppsPage.qml
+IconTextButton 1.0 components/controls/IconTextButton.qml
+WallpaperGrid 1.0 modules/settings/pages/WallpaperGrid.qml
+FadeFlickable 1.0 components/containers/FadeFlickable.qml
+MFlickable 1.0 components/containers/MFlickable.qml
+MListView 1.0 components/containers/MListView.qml
+MTextField 1.0 components/controls/MTextField.qml
+Elevation 1.0 components/effects/Elevation.qml
+OutlinedField 1.0 components/controls/OutlinedField.qml
+MScrollBar 1.0 components/controls/MScrollBar.qml
+LockUi 1.0 modules/lock/LockUi.qml
+LockContent 1.0 modules/lock/LockContent.qml
+LockCenter 1.0 modules/lock/LockCenter.qml
+LockPassword 1.0 modules/lock/LockPassword.qml
+LockMessage 1.0 modules/lock/LockMessage.qml
+LockWeather 1.0 modules/lock/LockWeather.qml
+LockFetch 1.0 modules/lock/LockFetch.qml
+LockMedia 1.0 modules/lock/LockMedia.qml
+LockResources 1.0 modules/lock/LockResources.qml
+LockNotifs 1.0 modules/lock/LockNotifs.qml
+LockCard 1.0 modules/settings/cards/LockCard.qml
+singleton LockService 1.0 services/LockService.qml
+Overview 1.0 modules/overview/Overview.qml
+OverviewWindow 1.0 modules/overview/OverviewWindow.qml
+singleton PluginService 1.0 services/PluginService.qml
+PluginsPage 1.0 modules/settings/pages/PluginsPage.qml
+PluginInfo 1.0 modules/settings/pages/PluginInfo.qml
+singleton WindowIcons 1.0 services/WindowIcons.qml
+FadeListView 1.0 components/containers/FadeListView.qml
+TrayIcons 1.0 modules/settings/pages/TrayIcons.qml
+PinnedPlugins 1.0 modules/settings/pages/PinnedPlugins.qml
