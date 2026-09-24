@@ -135,6 +135,7 @@ QtObject {
           property bool bluetooth: true
           property bool battery: true
           property bool keepAwake: true
+          property bool update: true
           property bool notifications: true
           property bool bluetoothConnectedOnly: false
           property bool microphoneInUseOnly: false

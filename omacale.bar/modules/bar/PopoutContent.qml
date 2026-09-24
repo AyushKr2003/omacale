@@ -38,7 +38,7 @@ Item {
     anchors.fill: parent
     sourceComponent: ({
       network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
-      kblayout: kblayout, lockstatus: lockstatus, traymenu: traymenu, activewindow: activewindow, winfo: winfo
+      kblayout: kblayout, lockstatus: lockstatus, update: update, traymenu: traymenu, activewindow: activewindow, winfo: winfo
     })[root.name] || null
   }
 
@@ -685,6 +685,26 @@ Item {
       spacing: Tk.spacing.small
       MText { text: "Capslock: " + (root.host.capsLock ? "Enabled" : "Disabled") }
       MText { text: "Numlock: " + (root.host.numLock ? "Enabled" : "Disabled") }
+    }
+  }
+
+  // ------------------------------------------------------ system update
+  // No Caelestia original: the stock bar's "Pending Omarchy Updates" tooltip,
+  // with the lines omarchy-update-available printed and a button to run it.
+  Component {
+    id: update
+    ColumnLayout {
+      spacing: Tk.spacing.small
+      MText { text: "Pending Omarchy updates"; weight: Font.Medium }
+      Repeater {
+        model: UpdateService.lines
+        Sub { required property string modelData; text: modelData }
+      }
+      WideButton {
+        icon: UpdateService.running ? "downloading" : "system_update_alt"
+        label: UpdateService.running ? "Updating..." : "Update"
+        onClicked: if (!UpdateService.running) UpdateService.update()
+      }
     }
   }
 

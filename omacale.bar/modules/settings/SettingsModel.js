@@ -274,6 +274,7 @@ var subpages = {
       { type: "toggle", key: "bar.status.bluetoothConnectedOnly", label: "Bluetooth only when connected", subtext: "Hide the idle bluetooth icon" },
       { type: "toggle", key: "bar.status.battery", label: "Battery / power profile" },
       { type: "toggle", key: "bar.status.keepAwake", label: "Keep awake", subtext: "Coffee icon while keep awake is on" },
+      { type: "toggle", key: "bar.status.update", label: "Omarchy updates", subtext: "Shown while an Omarchy update is pending; click runs omarchy update" },
       { type: "toggle", key: "bar.status.notifications", label: "Notifications", subtext: "Unread count and do-not-disturb state; click opens the sidebar" },
       { type: "section", text: "Behaviour" },
       { type: "toggle", key: "bar.popouts.statusIcons", label: "Popout on hover", subtext: "Show a details popout when hovering the status icons" }

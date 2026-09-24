@@ -424,7 +424,8 @@ Item {
       // every child reads invisible, the pill hides, and its children then
       // stay invisible for good, so the pill never came back.
       readonly property var st: root.cfg.status
-      visible: (st.keepAwake && IdleService.enabled) || RecordService.running || st.notifications
+      visible: (st.keepAwake && IdleService.enabled) || (st.update && UpdateService.available)
+        || RecordService.running || st.notifications
         || (st.lockStatus && (root.host.capsLock || root.host.numLock || lockStatus.visible))
         || st.audio || st.microphone || st.kbLayout || st.network || st.bluetooth || st.battery
       Layout.alignment: Qt.AlignHCenter
@@ -453,6 +454,22 @@ Item {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: root.host.toggle("utilities")
+          }
+        }
+
+        // Pending Omarchy update (stock omarchy.system-update): click runs it.
+        MIcon {
+          readonly property string popout: "update"
+          visible: root.cfg.status.update && UpdateService.available
+          anchors.horizontalCenter: parent.horizontalCenter
+          animate: true
+          text: UpdateService.running ? "downloading" : "system_update_alt"
+          color: Colours.m3primary
+          fill: 1
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: UpdateService.update()
           }
         }
 
