@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.28.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.29.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -138,6 +138,8 @@ Item {
   function targetBelongsToWindow(target, window) {
     return !!target && !!window && target.QsWindow && target.QsWindow.window === window
   }
+  // A hosted panel's Tab (Omarchy's Ui/Panel.switchPanel): the next or
+  // previous third-party panel in the plugin pill on the same screen.
   function switchPluginPanelFrom(facade, owner, direction) {
     var ownerSlot = null
     for (var i = 0; i < pluginSlots.length; i++) {
@@ -145,18 +147,132 @@ Item {
       if (slot && slot.activeItem === owner) { ownerSlot = slot; break }
     }
     if (!ownerSlot) return false
-    var window = ownerSlot.QsWindow ? ownerSlot.QsWindow.window : null
-    var candidates = pluginSlots.filter(function(slot) {
-      return slot && slot.shown && slot.activeItem
-        && (!window || !slot.QsWindow || slot.QsWindow.window === window)
-    })
-    if (!candidates.length) return false
-    var index = candidates.indexOf(ownerSlot)
-    if (index < 0) return false
-    var next = candidates[(index + (direction < 0 ? -1 : 1) + candidates.length) % candidates.length]
-    if (!next || next === ownerSlot || !next.activeItem || typeof next.activeItem.open !== "function") return false
-    next.activeItem.open()
-    return true
+    var screenName = slotScreen(ownerSlot)
+    var order = panelOrder(screenName)
+    var index = order.indexOf(ownerSlot.moduleName)
+    if (index < 0 || order.length < 2) return false
+    var next = order[(index + (direction < 0 ? -1 : 1) + order.length) % order.length]
+    if (typeof owner.close === "function") owner.close()
+    return openBarWidget(next, screenName)
+  }
+
+  // ------------------------------------------------------ bar contract
+  //
+  // The host routes every bar-widget summon through the active bar
+  // (shell.qml summon / hide / isPluginOpen / togglePanelAt), so Omarchy's
+  // panel hotkeys -- SUPER+CTRL+A/B/W/P, SUPER+CTRL+ALT+D, SUPER+CTRL+1..9 --
+  // land here with Omarchy ids. Each maps to the Omacale popout that does
+  // that job; a hosted third-party widget opens its own panel. They open on
+  // the focused monitor, with the keyboard (ScreenScope.openPopoutKeys).
+  // SUPER+CTRL+1..9 counts the third-party widgets only.
+
+  property var scopes: []
+  function registerScope(s) { if (scopes.indexOf(s) < 0) scopes = scopes.concat([s]) }
+  function unregisterScope(s) { scopes = scopes.filter(x => x !== s) }
+  function scopeFor(screenName) {
+    for (const s of scopes) if (s.screen && s.screen.name === screenName) return s
+    return scopes.length ? scopes[0] : null
+  }
+
+  // Omarchy id -> the Omacale popout for it. Not mapped, so their hotkeys do
+  // nothing: omarchy.monitor (no Omacale display panel yet), and the clock
+  // and weather (SUPER+CTRL+ALT+D) -- the dashboard has its own binds.
+  // `onBar`: only while that popout's icon is on the status bar.
+  readonly property var widgetTargets: ({
+    "omarchy.network": { popout: "network" },
+    "omarchy.bluetooth": { popout: "bluetooth" },
+    "omarchy.audio": { popout: "audio", onBar: true },
+    "omarchy.power": { popout: "battery" },
+    "omarchy.keyboard-layout": { popout: "kblayout" },
+    "omarchy.system-update": { popout: "update" },
+    "omarchy.active-window": { popout: "activewindow" }
+  })
+  function popoutId(name) {
+    for (const id in widgetTargets) if (widgetTargets[id].popout === name) return id
+    return ""
+  }
+
+  function slotScreen(slot) {
+    var w = slot && slot.QsWindow ? slot.QsWindow.window : null
+    return w && w.screen ? w.screen.name : ""
+  }
+  function hostedSlot(id, screenName) {
+    var fallback = null
+    for (var i = 0; i < pluginSlots.length; i++) {
+      var slot = pluginSlots[i]
+      if (!slot || slot.moduleName !== id || !slot.activeItem) continue
+      if (slotScreen(slot) === screenName) return slot
+      if (!fallback) fallback = slot
+    }
+    return fallback
+  }
+
+  // The third-party widgets in the plugin pill that have a panel, top to
+  // bottom as they are drawn on that screen.
+  function panelOrder(screenName) {
+    var s = scopeFor(screenName)
+    if (!s) return []
+    return pluginSlots.filter(slot => slot && slot.shown && slotScreen(slot) === s.screen.name
+        && slot.activeItem && typeof slot.activeItem.open === "function")
+      .sort((a, b) => a.mapToItem(null, 0, 0).y - b.mapToItem(null, 0, 0).y)
+      .map(slot => slot.moduleName)
+  }
+
+  function openBarWidget(id, screenName) {
+    var t = widgetTargets[id]
+    var s = scopeFor(screenName)
+    if (t && s) {
+      if (t.onBar && s.statusPopouts().indexOf(t.popout) < 0) return false
+      s.openPopoutKeys(t.popout)
+      return true
+    }
+    var slot = hostedSlot(id, screenName)
+    if (slot && typeof slot.activeItem.open === "function") {
+      slot.activeItem.open()
+      return true
+    }
+    return false
+  }
+
+  function summonBarWidget(id) {
+    return openBarWidget(String(id || ""), focusedScreen())
+  }
+  function hideBarWidget(id) {
+    var t = widgetTargets[id]
+    if (t) {
+      for (const s of scopes) if (s.popout === t.popout) s.popout = ""
+      return true
+    }
+    var hidden = false
+    for (var i = 0; i < pluginSlots.length; i++) {
+      var slot = pluginSlots[i]
+      if (slot && slot.moduleName === id && slot.activeItem && typeof slot.activeItem.close === "function") {
+        slot.activeItem.close()
+        hidden = true
+      }
+    }
+    return hidden
+  }
+  function isBarWidgetOpen(id) {
+    var t = widgetTargets[id]
+    if (t) {
+      for (const s of scopes) if (s.popout === t.popout) return true
+      return false
+    }
+    for (var i = 0; i < pluginSlots.length; i++) {
+      var slot = pluginSlots[i]
+      if (slot && slot.moduleName === id && slot.activeItem && slot.activeItem.opened === true) return true
+    }
+    return false
+  }
+  // `togglePanelAt <section> <n>` (SUPER+CTRL+1..9): the nth third-party
+  // widget you can see in the plugin pill (1-based), whatever the section --
+  // Omacale's own popouts have their letter hotkeys. "" when there is none,
+  // and the host then does nothing.
+  function panelWidgetIdAt(section, index) {
+    var ids = panelOrder(focusedScreen())
+    var n = parseInt(index, 10)
+    return n >= 1 && n <= ids.length ? ids[n - 1] : ""
   }
   // Service cache for hosted 3rd-party plugins that require a companion service.
   // Avoid reassigning the property to prevent declarative binding loops in hosted panels.
@@ -282,6 +398,15 @@ Item {
     function windowInfo(): void { root.toggle("windowInfo") }
     function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
+    // Any bar popout by Omacale's own name (network, bluetooth, audio,
+    // battery, kblayout, lockstatus, update, activewindow), opened with the
+    // keyboard on the focused monitor; again closes it.
+    function popout(name: string): void {
+      const s = root.scopeFor(root.focusedScreen())
+      if (!s) return
+      if (s.popout === name) s.popout = ""
+      else s.openPopoutKeys(name)
+    }
     // Caelestia's launcher carousels: ">wallpaper " and ">theme ".
     // Settings › Keybinds › Picker picks the launcher carousel or Omarchy's
     // own menu, so one bind follows the setting without being rewritten.

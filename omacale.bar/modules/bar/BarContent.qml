@@ -60,6 +60,33 @@ Item {
     return null
   }
 
+  // The popouts the status group offers, top to bottom, as the user sees
+  // them: what Omarchy's `togglePanelAt right N` counts (Bar.panelWidgetIdAt).
+  // The microphone opens the same popout as the speaker, so it counts once.
+  function statusPopouts() {
+    const out = []
+    for (let i = 0; i < statusCol.children.length; i++) {
+      const c = statusCol.children[i]
+      if (c.visible && c.popout && out.indexOf(c.popout) < 0)
+        out.push(c.popout)
+    }
+    return out
+  }
+
+  // Where a popout opened without the pointer should sit: beside its icon,
+  // or centred on the bar when the icon is hidden (a keyboard-layout popout
+  // with the icon off still opens).
+  function popoutCenterFor(name) {
+    if (name === "activewindow" && activeWin.visible)
+      return activeWin.mapToItem(root, 0, activeWin.height / 2).y
+    for (let i = 0; i < statusCol.children.length; i++) {
+      const c = statusCol.children[i]
+      if (c.visible && c.popout === name)
+        return c.mapToItem(root, 0, c.height / 2).y
+    }
+    return height / 2
+  }
+
   // Which collapsible group the pointer is over, from ScreenScope (Caelestia
   // drives its compact tray the same way, in Bar.checkPopout). A hover
   // handler inside the bar is no good: leaving the layer surface altogether

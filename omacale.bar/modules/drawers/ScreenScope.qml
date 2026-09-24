@@ -39,7 +39,12 @@ Scope {
   // wirelesspassword and the detached winfo) are "held": only Escape, their own
   // buttons or a click outside (the focus grab clearing) put them away, so
   // crossing the bar doesn't throw away a half-typed password.
-  readonly property bool popoutHeld: popout === "wirelesspassword" || popout === "winfo"
+  //
+  // A popout opened from the keyboard (an Omarchy panel hotkey, IPC) is held
+  // too: hovering the bar doesn't swap it, and it has the keys. One opened by
+  // the pointer stays exactly Caelestia's.
+  property bool popoutKeys: false
+  readonly property bool popoutHeld: popout === "wirelesspassword" || popout === "winfo" || popoutKeys
   readonly property bool popoutSticky: popout === "traymenu" || popoutHeld
   // The network the password popout is asking for.
   property string passwordSsid: ""
@@ -64,6 +69,27 @@ Scope {
   // `scope` property of their own, which a binding inside their (inline,
   // on-demand) component would resolve `scope` to.
   readonly property var screenScope: scope
+
+  onPopoutChanged: if (popout === "") {
+    if (popoutKeys && !cfg.bar.persistent) barHover = false
+    popoutKeys = false
+  }
+
+  // Open a bar popout with the keyboard (Bar.summonBarWidget, IPC popout).
+  // Opens, never toggles: the host asks isBarWidgetOpen first.
+  function openPopoutKeys(name) {
+    if (session) session = false
+    popoutCenter = bar.popoutCenterFor(name)
+    popoutKeys = true
+    popout = name
+    if (!cfg.bar.persistent) barHover = true
+    win.primeFocus()
+  }
+  // The status group's popouts that have an icon on the bar, top to bottom.
+  function statusPopouts() { return bar.statusPopouts() }
+
+  Component.onCompleted: host.registerScope(scope)
+  Component.onDestruction: host.unregisterScope(scope)
 
   function closeAll() {
     launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
@@ -244,7 +270,13 @@ Scope {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omacale"
     WlrLayershell.layer: win.modal ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.keyboardFocus: scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    // A keyboard-opened popout primes Exclusive first, as Omarchy's
+    // KeyboardPanel does: this window is always mapped, and Hyprland doesn't
+    // offer an already-mapped surface the keyboard when it merely changes
+    // from None to OnDemand. OnDemand afterwards gives pointer hit-testing
+    // back to other surfaces (and outputs).
+    WlrLayershell.keyboardFocus: scope.popoutKeys && !win.focusPrimed ? WlrKeyboardFocus.Exclusive
+      : scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
     // Fullscreen collapses the frame into the screen edges.
@@ -414,6 +446,28 @@ Scope {
     // layer surface is not offered it back, so the panel that asked for the
     // switch stops receiving keys. Taking the grab again puts the keyboard
     // back on this window; the overview asks for that after every switch.
+    property bool focusPrimed: true
+    function primeFocus() {
+      focusPrimed = false
+      primeTimer.restart()
+      primeSettle.restart()
+    }
+    // The prime's switch from Exclusive to OnDemand clears the focus grab,
+    // which would close the popout it was opening; for a moment after a
+    // keyboard open, a cleared grab is taken again instead.
+    Timer {
+      id: primeSettle
+      interval: 400
+    }
+    Timer {
+      id: primeTimer
+      interval: 120
+      onTriggered: {
+        win.focusPrimed = true
+        Qt.callLater(() => pop.forceActiveFocus())
+      }
+    }
+
     property bool regrabbing: false
     function regrab() {
       regrabTimer.restart()
@@ -436,7 +490,7 @@ Scope {
       active: win.grabWanted
       onCleared: {
         if (win.regrabbing) return
-        if (scope.overview) {
+        if (scope.overview || primeSettle.running) {
           regrabTimer.restart()
         } else {
           scope.closeAll()
@@ -704,6 +758,9 @@ Scope {
             onNameChanged: if (scope.popout !== "") lastName = scope.popout
             passwordSsid: scope.passwordSsid
             onCloseRequested: scope.popout = ""
+            // Held popouts with their own field (the Wi-Fi password) handle
+            // Escape first; anything else reaching here closes.
+            Keys.onEscapePressed: scope.popout = ""
             onSwitchRequested: (name, arg) => {
               if (name === "wirelesspassword") scope.passwordSsid = arg
               scope.popout = name
