@@ -10,9 +10,9 @@
 -- ╰─────────────────────────────────────────────────────────────────────────╯
 --
 -- Ported from caelestia-dots (hypr/variables.lua, hypr/hyprland/animations.lua,
--- decoration.lua, general.lua, rules.lua). Colours stay with the Omarchy
--- theme: border colours come from the theme's hyprland.lua, and the shadow
--- tint is read from its colors.toml accent.
+-- decoration.lua, general.lua, rules.lua). Border colours stay with the
+-- Omarchy theme (its hyprland.lua); the window shadow is Omacale's own frame
+-- shadow, measured (see below).
 
 -- ── Variables (caelestia-dots hypr/variables.lua) ───────────────────────────
 
@@ -43,16 +43,24 @@ local vars = {
   windowBorderSize = 3,
 }
 
--- Caelestia tints the shadow with its scheme's inversePrimary at 0x10 alpha.
--- The closest Omarchy source is the theme accent.
-local function theme_accent()
-  local f = io.open(os.getenv("HOME") .. "/.local/state/omarchy/current/theme/colors.toml", "r")
-  if not f then return nil end
-  local text = f:read("a")
-  f:close()
-  return text:match('\naccent%s*=%s*"#(%x%x%x%x%x%x)"')
-end
-local shadow_colour = "rgba(" .. (theme_accent() or "000000") .. "10)"
+-- Windows cast the same shadow as Omacale's frame and drawers, which sit
+-- right beside them. That shadow is ScreenScope's MultiEffect: black
+-- (Colours.m3shadow) at 0.7, blurMax 15. It was rendered and read back pixel
+-- by pixel: 0.247 alpha at the edge, 0.129 at 2px, 0.055 at 4px, 0.016 at
+-- 8px, gone by 14px. Hyprland's shadow is alpha * (1 - (d + 0.5) / range) ^
+-- render_power (measured the same way, for every range/power pair), and the
+-- least-squares fit of that to the frame's profile is range 15, power 4 and
+-- black at 0.275 alpha: RMSE 0.004 alpha, within 4% of the frame's total
+-- darkness.
+--
+-- Hyprland multiplies a window's shadow by the window's own opacity (measured:
+-- 0.9 and 0.855 opaque windows cast 0.9x and 0.855x the shadow), so the colour
+-- is divided by windowOpacity to land on 0.275 for the default-opacity windows.
+--
+-- The accent tint at 0x10 this used before (Caelestia's inversePrimary)
+-- peaked at 6% alpha, so windows looked flat next to the shadowed frame.
+local shadow_colour = string.format("rgba(000000%02x)",
+  math.floor(math.min(1, 0.275 / vars.windowOpacity) * 255 + 0.5))
 
 -- ── General / decoration (general.lua, decoration.lua) ──────────────────────
 
