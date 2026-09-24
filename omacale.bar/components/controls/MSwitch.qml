@@ -16,7 +16,9 @@ Item {
   readonly property bool hovered: mouse.containsMouse || hoverOverride
   // KeyNav cursor (see StateLayer.focused).
   property bool focused: false
-  readonly property bool navTarget: !disabled
+  // A row that is itself the switch (RowToggle) is the one cursor stop.
+  property bool inRow: false
+  readonly property bool navTarget: !disabled && !inRow
   function navActivate() { toggled(!checked) }
   signal toggled(bool checked)
 

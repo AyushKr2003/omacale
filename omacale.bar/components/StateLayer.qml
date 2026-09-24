@@ -26,7 +26,10 @@ MouseArea {
   // 10%. Set only while a panel is driven from the keyboard, so pointer use
   // looks exactly like Caelestia.
   property bool focused: false
-  property real stateOpacity: focused ? 0.1 : containsMouse || manualHoverOverride ? 0.08 : 0
+  // Off where something else already marks the cursor (the dashboard's tab
+  // underline follows it), so no veil or ring is drawn on top.
+  property bool showFocus: true
+  property real stateOpacity: focused && showFocus ? 0.1 : containsMouse || manualHoverOverride ? 0.08 : 0
   // A KeyNav cursor stop: anything clickable, bar a field's click-to-focus
   // layer (which draws no veil).
   readonly property bool navTarget: !disabled && showHoverBackground
@@ -140,6 +143,6 @@ MouseArea {
   FocusRing {
     target: root
     innerRadius: root.clamp(root.topLeftRadius)
-    shown: root.focused
+    shown: root.focused && root.showFocus
   }
 }

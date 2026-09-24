@@ -205,6 +205,20 @@ Rectangle {
               closeAnim.start()
             }
 
+            // A cursor stop of its own (ScreenScope's drawer cursor): Enter
+            // does what the notification's open action does -- or, with none,
+            // expands the group -- and x dismisses it.
+            readonly property bool navTarget: !closing
+            property bool focused: false
+            function navActivate() {
+              if (row.modelData.execArgv) {
+                Quickshell.execDetached(["bash", "-c", row.modelData.execArgv])
+                row.close()
+              } else root.toggleExpand(!root.expanded)
+            }
+            function navDelete() { close() }
+            FocusRing { target: row; innerRadius: Tk.rounding.large; shown: row.focused; z: 5 }
+
             width: list.width
             implicitHeight: notif.implicitHeight
             height: notif.implicitHeight

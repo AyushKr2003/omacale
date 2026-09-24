@@ -52,6 +52,19 @@ Item {
   implicitHeight: Math.round(screenHeight * 0.7)
   implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - Tk.barWidth - 80)
 
+  // Keys (ScreenScope's drawer cursor): set by the drawer; the pop-out window
+  // has none. Escape stays Settings' own, below. / searches, Backspace goes
+  // back a page.
+  property var keyHook: null
+  readonly property var navRoots: [root]
+  function focusSearch() { searchField.forceActiveFocus() }
+  Keys.onPressed: e => {
+    if (e.key === Qt.Key_Escape || !root.keyHook) return
+    if (e.text === "/") { searchField.forceActiveFocus(); e.accepted = true; return }
+    if (e.key === Qt.Key_Backspace) { if (root.stack.length) root.back(); e.accepted = true; return }
+    root.keyHook(e)
+  }
+
   focus: true
   Keys.onEscapePressed: {
     if (menuOwner) closeMenu()
@@ -165,6 +178,9 @@ Item {
         clip: true
         onTextChanged: root.search = text
         Keys.onEscapePressed: text ? text = "" : root.closeRequested()
+        // Down or Enter leaves the field for the results.
+        Keys.onDownPressed: root.forceActiveFocus()
+        Keys.onReturnPressed: root.forceActiveFocus()
         MText {
           anchors.verticalCenter: parent.verticalCenter
           text: "Search settings"

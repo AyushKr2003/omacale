@@ -60,6 +60,67 @@ Scope {
     win.regrab()
   }
   Timer { id: wsSettle; interval: 600 }
+  // ---------------------------------------------------- drawer keys
+  //
+  // No Caelestia original (its drawers are pointer-only). The dashboard
+  // opened by its shortcut, the sidebar, and utilities opened by theirs take
+  // the keyboard, and one spatial cursor (NavCursor) walks whatever of them
+  // is open -- the sidebar and utilities share a panel, so j/k run from one
+  // into the other. Settings keeps its own focus and hands its keys over
+  // through keyHook. Omarchy's panel keys (KeyNav), plus Tab / 1..4 for
+  // dashboard tabs and Shift+X to clear the notifications.
+  readonly property bool drawerKeys: !popoutHeld && !barFocus && !launcher && !session && !overview && !settings
+    && (sidebar || (dashboard && dashShortcut) || (utilities && utilShortcut))
+  onDrawerKeysChanged: if (drawerKeys) win.primeFocus()
+
+  NavCursor {
+    id: drawerNav
+    space: win.contentItem
+    active: scope.drawerKeys || scope.settings
+    roots: scope.settings ? (scope.nexus && scope.nexus.navRoots ? scope.nexus.navRoots : [])
+      : [].concat(scope.dashboard && scope.dash ? scope.dash.navRoots : [],
+                  scope.sidebar && scope.sidebarPanel ? scope.sidebarPanel.navRoots : [],
+                  (scope.utilities || scope.sidebar) && scope.util ? scope.util.navRoots : [])
+  }
+  KeyNav {
+    id: drawerKeyNav
+    onMoveRequested: (dx, dy) => drawerNav.move(dx, dy)
+    onActivateRequested: drawerNav.activate()
+    onCloseRequested: {
+      scope.dashboard = false; scope.dashShortcut = false
+      scope.sidebar = false; scope.utilities = false
+    }
+    onTabRequested: d => drawerNav.next(d)
+    onDeleteRequested: drawerNav.remove()
+    onTextKey: t => {
+      const h = drawerNav.nearest(drawerNav.cursor, "navText") || drawerNav.roots.find(r => typeof r.navText === "function")
+      if (h) h.navText(t)
+    }
+  }
+  function drawerKey(e) {
+    if (e.text === "X") {
+      if (sidebar && sidebarPanel) sidebarPanel.navClearAll()
+      e.accepted = true
+      return
+    }
+    if (dashboard && dash && !settings) {
+      const onTabs = drawerNav.cursor && dash.inTabBar(drawerNav.cursor)
+      if (e.key === Qt.Key_Tab || e.key === Qt.Key_Backtab) {
+        dash.navTab((e.modifiers & Qt.ShiftModifier) || e.key === Qt.Key_Backtab ? -1 : 1)
+        if (onTabs) drawerNav.setCursor(dash.navTabStop())
+        e.accepted = true
+        return
+      }
+      if (e.text.length === 1 && e.text >= "1" && e.text <= "9") {
+        dash.navTabAt(Number(e.text))
+        if (onTabs) drawerNav.setCursor(dash.navTabStop())
+        e.accepted = true
+        return
+      }
+    }
+    drawerKeyNav.handle(e)
+  }
+
   function toggleBarFocus() {
     if (barFocus) { barFocus = false; return }
     closeAll()
@@ -308,8 +369,8 @@ Scope {
     // offer an already-mapped surface the keyboard when it merely changes
     // from None to OnDemand. OnDemand afterwards gives pointer hit-testing
     // back to other surfaces (and outputs).
-    WlrLayershell.keyboardFocus: (scope.popoutKeys || scope.barFocus) && !win.focusPrimed ? WlrKeyboardFocus.Exclusive
-      : scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld || scope.barFocus ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (scope.popoutKeys || scope.barFocus || scope.drawerKeys) && !win.focusPrimed ? WlrKeyboardFocus.Exclusive
+      : scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld || scope.barFocus || scope.drawerKeys ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
     // Fullscreen collapses the frame into the screen edges.
@@ -497,7 +558,8 @@ Scope {
       interval: 120
       onTriggered: {
         win.focusPrimed = true
-        Qt.callLater(() => scope.popout !== "" ? pop.forceActiveFocus() : scope.barFocus ? bar.takeKeys() : null)
+        Qt.callLater(() => scope.popout !== "" ? pop.forceActiveFocus() : scope.barFocus ? bar.takeKeys()
+          : scope.drawerKeys ? drawerKeyItem.forceActiveFocus() : null)
       }
     }
 
@@ -530,6 +592,12 @@ Scope {
           scope.closeAll()
         }
       }
+    }
+
+    // Holds the keyboard for the dashboard / sidebar / utilities cursor.
+    Item {
+      id: drawerKeyItem
+      Keys.onPressed: e => scope.drawerKey(e)
     }
 
     // ---------------------------------------------------- scrim
@@ -949,6 +1017,7 @@ Scope {
             version: scope.host.version
             onCloseRequested: scope.settings = false
             onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
+            keyHook: e => screenScope.drawerKey(e)
             pageId: scope.nexusPage
             stack: scope.nexusStack
             onPageIdChanged: scope.nexusPage = pageId

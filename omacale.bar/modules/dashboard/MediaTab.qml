@@ -14,6 +14,12 @@ Item {
   property bool active: false
   readonly property var player: Sys.player
   readonly property bool playing: player ? player.isPlaying : false
+  // Keys (ScreenScope's drawer cursor): n / p next and previous track.
+  function navText(t) {
+    if (!player) return
+    if (t === "n" && player.canGoNext) player.next()
+    else if (t === "p" && player.canGoPrevious) player.previous()
+  }
   readonly property int sectionWidth: 300
   readonly property int coverSize: 200
 

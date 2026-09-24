@@ -35,6 +35,6 @@ ConnectedRect {
     anchors.rightMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
     RowLabel { id: lbl; Layout.fillWidth: true; text: root.text; subtext: root.subtext; textSize: root.labelSize }
-    MSwitch { id: sw; checked: root.checked; disabled: root.disabled; pressOverride: rowState.pressed; hoverOverride: rowState.containsMouse; onToggled: c => root.flip(c) }
+    MSwitch { id: sw; inRow: true; checked: root.checked; disabled: root.disabled; pressOverride: rowState.pressed; hoverOverride: rowState.containsMouse; onToggled: c => root.flip(c) }
   }
 }

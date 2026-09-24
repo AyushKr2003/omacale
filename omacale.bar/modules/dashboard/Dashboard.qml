@@ -31,6 +31,19 @@ Item {
   }
 
   readonly property Item page: tabs[Math.min(tab, tabs.length - 1)].page
+  // Keys (ScreenScope's drawer cursor): the tab bar and the page on show --
+  // not the strip, whose other pages sit clipped beside it. Tab / Shift+Tab
+  // and 1..4 change tabs.
+  readonly property var navRoots: [tabBar, page]
+  function navTab(d) { tab = (tab + d + tabs.length) % tabs.length }
+  function navTabAt(n) { if (n >= 1 && n <= tabs.length) tab = n - 1 }
+  // The current tab's cursor stop, so Tab / 1..4 carry a cursor that is on
+  // the tab bar along to the new tab.
+  function navTabStop() { const it = tabRep.itemAt(tab); return it ? it.stop : null }
+  function inTabBar(item) {
+    for (let p = item; p; p = p.parent) if (p === tabBar) return true
+    return false
+  }
   readonly property bool h12: Sys.h12
   readonly property real margins: Tk.padding.large
 
@@ -72,6 +85,9 @@ Item {
           required property var modelData
           required property int index
           readonly property bool current: root.tab === index
+          readonly property Item stop: tabState
+          // The keyboard cursor landing on a tab opens it, as a tab row does.
+          function navOnFocus() { root.tab = t.index }
           readonly property real contentWidth: Math.max(tIcon.implicitWidth, tLabel.implicitWidth)
           Layout.fillWidth: true
           Layout.preferredWidth: 1
@@ -81,7 +97,9 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height + Tk.sizes.tabIndicatorSpacing * 2
             property real radius: Tk.rounding.medium
-            StateLayer { color: t.current ? Colours.m3primary : Colours.m3onSurface; onClicked: root.tab = t.index }
+            // No focus ring: the cursor opens the tab it lands on, so the
+            // tab underline already marks it.
+            StateLayer { id: tabState; showFocus: false; color: t.current ? Colours.m3primary : Colours.m3onSurface; onClicked: root.tab = t.index }
           }
           MIcon {
             id: tIcon

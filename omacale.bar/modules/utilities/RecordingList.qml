@@ -58,6 +58,8 @@ ColumnLayout {
     delegate: RowLayout {
       id: rec
       required property var modelData
+      // x (ScreenScope's drawer cursor): the delete dialog, as the bin button.
+      function navDelete() { RecordService.confirmDelete = rec.modelData.path }
 
       anchors.left: parent ? parent.left : undefined
       anchors.right: parent ? parent.right : undefined

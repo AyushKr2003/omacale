@@ -65,6 +65,7 @@ SpecialWorkspaces 1.0 modules/bar/workspaces/SpecialWorkspaces.qml
 StateLayer 1.0 components/StateLayer.qml
 KeyNav 1.0 components/KeyNav.qml
 FocusRing 1.0 components/FocusRing.qml
+NavCursor 1.0 components/NavCursor.qml
 StylePreview 1.0 modules/settings/cards/StylePreview.qml
 singleton Sys 1.0 services/Sys.qml
 singleton Tk 1.0 core/Tk.qml

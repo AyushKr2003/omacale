@@ -18,6 +18,12 @@ Item {
   // The frame already supplies `border` of the inset on top and right.
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
 
+  // Keys (ScreenScope's drawer cursor): d toggles do not disturb, Shift+X
+  // clears everything the way the clear-all button does.
+  readonly property var navRoots: [root]
+  function navText(t) { if (t === "d") NotifService.toggleDnd() }
+  function navClearAll() { if (NotifService.count > 0) clearTimer.start() }
+
   Item {
     id: content
     anchors.top: parent.top
@@ -222,6 +228,8 @@ Item {
                 if (g) group = g
               }
               function closeAll() { NotifService.dismissGroup(slot.app) }
+              // x on a group's header: dismiss the whole group.
+              function navDelete() { closeAll() }
 
               Connections { target: NotifService; function onGroupsChanged() { slot.refresh() } }
               // Rows made by the first sync start settled; later ones grow

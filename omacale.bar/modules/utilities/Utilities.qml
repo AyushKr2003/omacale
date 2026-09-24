@@ -15,6 +15,7 @@ Item {
 
   // The frame already supplies `border` of the inset on the right and bottom.
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
+  readonly property var navRoots: [root]
 
   implicitHeight: col.implicitHeight + Tk.padding.large + edgePad
 
