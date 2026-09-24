@@ -725,14 +725,18 @@ Scope {
         if (scope.cfg.dashboard.enabled) {
           const showDash = scope.cfg.dashboard.showOnHover && inTopDash(x, y)
           if (!scope.dashShortcut) scope.dashboard = showDash
-          else if (showDash) scope.dashShortcut = false
+          // Caelestia hands a shortcut-opened dashboard to the pointer once it
+          // hovers it -- which also takes the keyboard away. Not mid-way
+          // through keyboard navigation: the keys would land in the window
+          // behind (a held key kept repeating there).
+          else if (showDash && !drawerNav.cursor) scope.dashShortcut = false
         }
 
         // Utilities: hover the bottom-right corner.
         if (!scope.cfg.utilities || scope.cfg.utilities.enabled) {
           const showUtil = inBottomUtil(x, y)
           if (!scope.utilShortcut) scope.utilities = showUtil
-          else if (showUtil) scope.utilShortcut = false
+          else if (showUtil && !drawerNav.cursor) scope.utilShortcut = false
         }
 
         updatePointer(x, y)
