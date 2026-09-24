@@ -39,6 +39,13 @@ o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboar
 
 o.bind("SUPER + CTRL + code:19", "Omacale bar focus", "omarchy-shell omacale barFocus")
 
+-- Any bar popout straight from a key, opened with the keyboard (again closes
+-- it). Omarchy's letters already cover network, bluetooth, power and audio;
+-- these are the ones it has no key for (Y and U are free in a stock Omarchy;
+-- check with: omarchy menu keybindings --print). Remove the "--" to use them.
+-- o.bind("SUPER + CTRL + Y", "Omacale keyboard layouts", "omarchy-shell omacale popout kblayout")
+-- o.bind("SUPER + CTRL + U", "Omacale pending update", "omarchy-shell omacale popout update")
+
 -- ── Frame ───────────────────────────────────────────────────────────────────
 -- SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows Omacale's
 -- frame too; Omacale follows Omarchy's bar-off toggle.
