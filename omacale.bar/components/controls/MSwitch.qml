@@ -14,6 +14,10 @@ Item {
   property bool hoverOverride: false
   readonly property bool pressed: mouse.pressed || pressOverride
   readonly property bool hovered: mouse.containsMouse || hoverOverride
+  // KeyNav cursor (see StateLayer.focused).
+  property bool focused: false
+  readonly property bool navTarget: !disabled
+  function navActivate() { toggled(!checked) }
   signal toggled(bool checked)
 
   // Caelestia sizes these from the point size used as pixels.
@@ -27,6 +31,18 @@ Item {
     color: root.disabled ? (root.checked ? Qt.alpha(Colours.m3onSurface, 0.12) : Qt.alpha(Colours.m3surfaceContainerHighest, 0.38))
       : root.checked ? Colours.m3primary : Colours.m3surfaceContainerHighest
     Behavior on color { CAnim {} }
+
+    // Keyboard focus: M3's switch state layer, a circle around the handle
+    // (40dp on a 32dp track), which the handle's own veil is too small to show.
+    Rectangle {
+      width: root.height * 1.25
+      height: width
+      radius: width / 2
+      anchors.centerIn: handle
+      color: root.checked ? Colours.m3primary : Colours.m3onSurface
+      opacity: root.focused ? 0.12 : 0
+      Behavior on opacity { Anim { type: "effects" } }
+    }
 
     Rectangle {
       id: handle
@@ -46,7 +62,7 @@ Item {
         anchors.fill: parent
         radius: parent.radius
         color: root.checked ? Colours.m3primary : Colours.m3onSurface
-        opacity: root.pressed ? 0.1 : root.hovered ? 0.08 : 0
+        opacity: root.pressed || root.focused ? 0.1 : root.hovered ? 0.08 : 0
         Behavior on opacity { Anim { type: "effects" } }
       }
 
@@ -88,6 +104,8 @@ Item {
       }
     }
   }
+
+  FocusRing { target: root; innerRadius: root.height / 2; shown: root.focused }
 
   MouseArea {
     id: mouse

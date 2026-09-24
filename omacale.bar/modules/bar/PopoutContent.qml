@@ -28,10 +28,115 @@ Item {
   // A page moving the popout on to another one (Caelestia sets
   // popouts.currentName): network -> wirelesspassword -> network.
   signal switchRequested(string name, string arg)
+  // Tab / Shift+Tab: the next or previous status popout (ScreenScope).
+  signal tabRequested(int direction)
 
   readonly property Item current: loader.item
   implicitWidth: current ? current.implicitWidth : 0
   implicitHeight: current ? current.implicitHeight : 0
+
+  // ------------------------------------------------------- keyboard
+  //
+  // No Caelestia original: its popouts are pointer-only. Opened from the
+  // keyboard (ScreenScope.popoutKeys), a popout is driven with Omarchy's
+  // panel keys (KeyNav). The cursor is one of the page's controls -- every
+  // item with `navTarget` (StateLayer, MSwitch, MSlider) -- found by walking
+  // the page in reading order on each key, so a list rebuilt under it
+  // (networks, devices) loses nothing but the highlight. Pages add their own
+  // keys with navText(t), and a row its own `x` with navDelete().
+  property bool keyMode: false
+  property Item cursor: null
+  property int cursorIndex: -1
+
+  function navTargets() {
+    const out = []
+    const walk = item => {
+      if (!item || !item.visible) return
+      if (item.navTarget === true && item.width > 0 && item.height > 0) out.push(item)
+      for (let i = 0; i < item.children.length; i++) walk(item.children[i])
+    }
+    walk(current)
+    const pos = t => t.mapToItem(root, t.width / 2, t.height / 2)
+    return out.map(t => ({ t: t, p: pos(t) }))
+      .sort((a, b) => Math.abs(a.p.y - b.p.y) > 4 ? a.p.y - b.p.y : a.p.x - b.p.x)
+      .map(e => e.t)
+  }
+  function setCursor(t) {
+    if (cursor && cursor !== t) cursor.focused = false
+    cursor = t
+    if (t) t.focused = root.keyMode
+  }
+  // The control under the cursor was destroyed (a network or device list
+  // rebuilt): put the cursor back on whatever now sits at its place.
+  onCursorChanged: if (!cursor && keyMode && cursorIndex >= 0) cursorRestore.restart()
+  Timer {
+    id: cursorRestore
+    interval: 30
+    onTriggered: {
+      if (root.cursor || !root.keyMode || root.cursorIndex < 0) return
+      const ts = root.navTargets()
+      if (ts.length) root.setCursor(ts[Math.min(root.cursorIndex, ts.length - 1)])
+    }
+  }
+  function resetCursor() {
+    cursorIndex = -1
+    setCursor(null)
+    seekTries = 0
+    if (keyMode) cursorSeek.restart()
+    else cursorSeek.stop()
+  }
+  // The page's controls only count once they are visible, which is a few
+  // frames into the popout's entry; land the cursor on the first as soon as
+  // there is one.
+  property int seekTries: 0
+  Timer {
+    id: cursorSeek
+    interval: 50
+    repeat: true
+    onTriggered: {
+      if (root.cursor || ++root.seekTries > 10 || !root.keyMode) { stop(); return }
+      if (root.navTargets().length) { root.step(1); stop() }
+    }
+  }
+  function step(d) {
+    const ts = navTargets()
+    if (!ts.length) { setCursor(null); return }
+    let i = cursor ? ts.indexOf(cursor) : -1
+    if (i < 0) i = cursorIndex < 0 ? (d > 0 ? -1 : 0) : Math.min(cursorIndex, ts.length) - (d > 0 ? 1 : 0)
+    i = Math.max(0, Math.min(ts.length - 1, i + d))
+    cursorIndex = i
+    setCursor(ts[i])
+  }
+  function nearest(item, name) {
+    for (let p = item; p && p !== root; p = p.parent)
+      if (typeof p[name] === "function") return p
+    return null
+  }
+  onKeyModeChanged: resetCursor()
+  onCurrentChanged: resetCursor()
+  onOpenChanged: if (!open) setCursor(null)
+
+  KeyNav {
+    id: keyNav
+    // The password card types into its own field.
+    blocked: root.name === "wirelesspassword"
+    onMoveRequested: (dx, dy) => {
+      if (dx !== 0 && root.cursor && typeof root.cursor.navAdjust === "function") root.cursor.navAdjust(dx)
+      else root.step(dx + dy > 0 ? 1 : -1)
+    }
+    onActivateRequested: {
+      if (!root.cursor) root.step(1)
+      else root.cursor.navActivate()
+    }
+    onCloseRequested: root.closeRequested()
+    onTabRequested: d => root.tabRequested(d)
+    onDeleteRequested: {
+      const row = root.nearest(root.cursor, "navDelete")
+      if (row) row.navDelete()
+    }
+    onTextKey: t => { if (root.current && typeof root.current.navText === "function") root.current.navText(t) }
+  }
+  Keys.onPressed: e => keyNav.handle(e)
 
   Loader {
     id: loader
@@ -112,6 +217,7 @@ Item {
         target: NetService
         function onPasswordSsidChanged() { netCol.askPassword(NetService.networkFor(NetService.passwordSsid)) }
       }
+      function navText(t) { if (t === "r") Sys.run("nmcli device wifi rescan") }
       Heading { text: Sys.ethernet && !Sys.wifi ? "Ethernet" : "Wireless" }
       Toggle {
         label: "Enabled"
@@ -124,6 +230,11 @@ Item {
         RowLayout {
           id: ap
           required property var modelData
+          // x: forget a saved network.
+          function navDelete() {
+            const net = NetService.networkFor(ap.modelData.ssid)
+            if (net && net.known) NetService.forget(net)
+          }
           Layout.fillWidth: true
           Layout.rightMargin: Tk.padding.extraSmall
           spacing: Tk.spacing.small
@@ -384,6 +495,7 @@ Item {
       spacing: Tk.spacing.medium
       readonly property var sink: Pipewire.defaultAudioSink
       readonly property var nodes: Pipewire.nodes.values.filter(n => n.audio && !n.isStream)
+      function navText(t) { if (t === "m" && sink && sink.audio) sink.audio.muted = !sink.audio.muted }
       PwObjectTracker { objects: [sink] }
       component Radio: RowLayout {
         id: rb
@@ -446,6 +558,8 @@ Item {
           id: dev
           required property var modelData
           readonly property bool loading: modelData.state === BluetoothDeviceState.Connecting || modelData.state === BluetoothDeviceState.Disconnecting
+          // x: forget the device.
+          function navDelete() { dev.modelData.forget() }
           Layout.fillWidth: true
           Layout.rightMargin: Tk.padding.extraSmall
           spacing: Tk.spacing.small

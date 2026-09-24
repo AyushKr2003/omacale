@@ -19,6 +19,14 @@ Item {
   property real pos: dragging ? Math.max(0, Math.min(1, mouse.pressStartPos + mouse.dragMovement)) : Math.max(0, Math.min(1, value))
   signal moved(real value)
 
+  // KeyNav cursor: the handle takes its pressed shape, and Left/Right step
+  // the value (Omarchy's 5% volume step).
+  property bool focused: false
+  property real keyStep: 0.05
+  readonly property bool navTarget: interactive && enabled
+  function navActivate() {}
+  function navAdjust(direction) { moved(Math.max(0, Math.min(1, value + keyStep * direction))) }
+
   implicitWidth: 200
   implicitHeight: 12
 
@@ -57,7 +65,7 @@ Item {
     height: {
       const t = Math.max(0, Math.min(1, (root.height - 12) / 16))
       const lerp = (a, b) => a + (b - a) * t
-      return root.height * (mouse.pressed ? lerp(3.5, 1.5) : lerp(3, 1.2))
+      return root.height * (mouse.pressed || root.focused ? lerp(3.5, 1.5) : lerp(3, 1.2))
     }
     radius: 2
     color: root.fgColour
@@ -84,6 +92,12 @@ Item {
     opacity: remaining.opacity
     color: root.fgColour
   }
+  FocusRing {
+    target: root
+    innerRadius: root.radius
+    shown: root.focused
+  }
+
   // Caelestia StyledSlider: dragging moves the value relative to where it
   // was grabbed; a click without a drag jumps there on release.
   MouseArea {

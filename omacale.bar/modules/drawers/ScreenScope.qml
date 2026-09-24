@@ -87,6 +87,15 @@ Scope {
   }
   // The status group's popouts that have an icon on the bar, top to bottom.
   function statusPopouts() { return bar.statusPopouts() }
+  // Tab in a keyboard popout: the next status popout down the bar, wrapping
+  // (from one that isn't a status popout, the first or last).
+  function tabPopout(d) {
+    const list = statusPopouts()
+    if (!list.length) return
+    const i = list.indexOf(popout)
+    const next = i < 0 ? (d > 0 ? 0 : list.length - 1) : (i + d + list.length) % list.length
+    if (list[next] !== popout) openPopoutKeys(list[next])
+  }
 
   Component.onCompleted: host.registerScope(scope)
   Component.onDestruction: host.unregisterScope(scope)
@@ -758,9 +767,8 @@ Scope {
             onNameChanged: if (scope.popout !== "") lastName = scope.popout
             passwordSsid: scope.passwordSsid
             onCloseRequested: scope.popout = ""
-            // Held popouts with their own field (the Wi-Fi password) handle
-            // Escape first; anything else reaching here closes.
-            Keys.onEscapePressed: scope.popout = ""
+            keyMode: scope.popoutKeys
+            onTabRequested: d => scope.tabPopout(d)
             onSwitchRequested: (name, arg) => {
               if (name === "wirelesspassword") scope.passwordSsid = arg
               scope.popout = name

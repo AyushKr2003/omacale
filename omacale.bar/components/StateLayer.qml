@@ -22,7 +22,19 @@ MouseArea {
   property real topRightRadius: parent && parent.topRightRadius !== undefined ? parent.topRightRadius : radius
   property real bottomLeftRadius: parent && parent.bottomLeftRadius !== undefined ? parent.bottomLeftRadius : radius
   property real bottomRightRadius: parent && parent.bottomRightRadius !== undefined ? parent.bottomRightRadius : radius
-  property real stateOpacity: containsMouse || manualHoverOverride ? 0.08 : 0
+  // Keyboard focus (KeyNav's cursor): M3's focus state, the hover veil at
+  // 10%. Set only while a panel is driven from the keyboard, so pointer use
+  // looks exactly like Caelestia.
+  property bool focused: false
+  property real stateOpacity: focused ? 0.1 : containsMouse || manualHoverOverride ? 0.08 : 0
+  // A KeyNav cursor stop: anything clickable, bar a field's click-to-focus
+  // layer (which draws no veil).
+  readonly property bool navTarget: !disabled && showHoverBackground
+  // Enter/Space on it: the ripple from the middle, then the click.
+  function navActivate() {
+    press(width / 2, height / 2)
+    clicked(null)
+  }
   property real pressX: width / 2
   property real pressY: height / 2
   property real circleRadius
@@ -122,4 +134,12 @@ MouseArea {
   }
 
   Behavior on stateOpacity { Anim { type: "effects" } }
+
+  // M3's keyboard focus indicator: an outline just outside the control, so
+  // the cursor reads on any background, not only where a 10% veil shows.
+  FocusRing {
+    target: root
+    innerRadius: root.clamp(root.topLeftRadius)
+    shown: root.focused
+  }
 }
