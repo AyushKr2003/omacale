@@ -31,7 +31,7 @@ Omacale is a modular bar and desktop shell plugin (`omacale.bar`) built for Omar
 
 - Omarchy Linux with running desktop shell
 - `jq` (JSON processing)
-- `ttf-material-symbols-variable` (Material Symbols Rounded font)
+- `ttf-material-symbols-variable` (Material Symbols Rounded font; the installer adds it when missing and removes it again on uninstall)
 - `cava` *(optional, for media visualizer; installer will prompt)*
 
 ---

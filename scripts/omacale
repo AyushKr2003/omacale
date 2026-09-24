@@ -17,16 +17,18 @@
 #      shell.json that go with it -- only when you accept the lock screen,
 #      and only through `omarchy plugin clone` / `remove`
 #      (see omacale.bar/scripts/lock-screen)
+#   7. the Material Symbols icon font package, only when it is missing, and
+#      only through `omarchy pkg add` (dropped again on uninstall)
 #   (older versions also wrote a marked block to
 #   ~/.config/omarchy/extensions/omarchy-menu.jsonc; nothing writes it now,
 #   and both the plugin and uninstall remove a leftover one)
 #
 # It never edits ~/.config/hypr, themes, Omarchy's own files, or anything
-# under /usr. Everything it needs to undo is snapshotted before the first write.
+# else under /usr. Everything it needs to undo is snapshotted before the first write.
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.27.0"
+VERSION="0.27.1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -105,14 +107,20 @@ Options:
   --help, -h   Show this help
 
 Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
-settings directory, and its own state directory. Nothing under ~/.config/hypr
-or /usr is touched.
+settings directory, and its own state directory -- plus the Material Symbols
+icon font package when it is missing (removed again on uninstall). Nothing
+else under ~/.config/hypr or /usr is touched.
 EOF
 }
 
 # ------------------------------------------------------------------ helpers
 
 need() { command -v "$1" >/dev/null 2>&1 || fail "'$1' is required but not installed"; }
+
+# Every icon in the bar and the drawers is a Material Symbols glyph. Asked of
+# fontconfig, not pacman: the AUR -git build provides the same family.
+FONT_PKG="ttf-material-symbols-variable"
+font_present() { fc-list : family 2>/dev/null | grep -qi 'Material Symbols Rounded'; }
 
 sha() { [[ -e $1 ]] && sha256sum -- "$1" | cut -d' ' -f1 || echo "absent"; }
 
@@ -367,6 +375,7 @@ cmd_install() {
   say "  plugin     : $src_plugin → $dest_plugin$( ((dev_link)) && echo ' (symlink)')"
   say "  shell.json : set bar.id = $PLUGIN_ID  (current: $([[ -f $shell_json ]] && jq -r '.bar.id // "unset"' "$shell_json" || echo 'no file'))"
   say "  snapshots  : $snap_dir"
+  font_present || say "  icon font  : install $FONT_PKG (needed for the icons; removed on uninstall)"
   say "  untouched  : ~/.config/hypr, themes, /usr — nothing else is modified"
   confirm "Continue?"
 
@@ -400,6 +409,26 @@ cmd_install() {
   (( dry_run )) || ok "state recorded"
 
   trap '(( dry_run )) || rollback_install' ERR
+
+  step "Icon font"
+  # Before the bar switch: the shell restart at the end is what makes a
+  # freshly installed font visible to QML. Not fatal -- without it the bar
+  # still works, its icons just draw as their names.
+  local font_installed_by_us=false
+  if font_present; then
+    ok "Material Symbols Rounded already installed"
+  elif (( dry_run )); then
+    say "  ${d}[dry-run]${z} omarchy pkg add $FONT_PKG"
+  elif (( offline )); then
+    say "  ${d}skipped (offline)${z}"
+  elif omarchy pkg add "$FONT_PKG" && font_present; then
+    font_installed_by_us=true; ok "$FONT_PKG installed"
+  else
+    warn "could not install $FONT_PKG; icons will show as text until you run: omarchy pkg add $FONT_PKG"
+  fi
+  if (( ! dry_run )); then
+    jq --argjson f "$font_installed_by_us" '.installedFont = $f' "$state_file" | write_atomic "$state_file"
+  fi
 
   step "Install plugin"
   act "mkdir -p $plugins_dir" mkdir -p "$plugins_dir"
@@ -540,6 +569,8 @@ cmd_install() {
         say "  restarting the Omarchy shell to load fresh plugin code..."
         omarchy restart shell >/dev/null 2>&1 || warn "shell restart failed; run: omarchy restart shell"
         wait_for bar_layer_present 15 && ok "Omacale bar is on screen (fresh shell)" || warn "bar not visible after restart; run: omarchy restart shell"
+      elif [[ $font_installed_by_us == true ]]; then
+        warn "the icon font was just installed; icons appear after: omarchy restart shell"
       fi
     fi
   fi
@@ -583,6 +614,7 @@ cmd_uninstall() {
   say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
   { [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] || lock_handover_on; } && say "  lock       → given back to Omarchy"
   [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
+  [[ "$(jq -r '.installedFont // false' "$state_file")" == true ]] && say "  icon font  → $FONT_PKG removed (Omacale installed it)"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
   else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
   confirm "Continue?"
@@ -631,6 +663,11 @@ cmd_uninstall() {
   if [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && (( ! offline )); then
     step "Remove cava"
     omarchy pkg drop cava && ok "cava removed (it was installed by Omacale)" || warn "could not remove cava; remove it with: omarchy pkg drop cava"
+  fi
+
+  if [[ "$(jq -r '.installedFont // false' "$state_file")" == true ]] && (( ! offline )); then
+    step "Remove icon font"
+    omarchy pkg drop "$FONT_PKG" && ok "$FONT_PKG removed (it was installed by Omacale)" || warn "could not remove $FONT_PKG; remove it with: omarchy pkg drop $FONT_PKG"
   fi
 
   step "Remove plugin"
