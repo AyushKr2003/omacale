@@ -45,6 +45,16 @@ Rectangle {
   color: Colours.m3surfaceContainer
   Behavior on implicitHeight { Anim {} }
 
+  // The workspace cells, top to bottom, for the bar focus mode's cursor.
+  function navItems() {
+    const out = []
+    for (let i = 0; i < rep.count; i++) {
+      const it = rep.itemAt(i)
+      if (it) out.push(it)
+    }
+    return out
+  }
+
   function wsObject(id) {
     const v = Hyprland.workspaces.values
     for (let i = 0; i < v.length; i++) if (v[i].id === id) return v[i]

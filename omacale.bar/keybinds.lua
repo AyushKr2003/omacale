@@ -29,6 +29,16 @@ o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings"
 o.bind("SUPER + ALT + D", "Omacale media", "omarchy-shell omacale dashboardTab media")
 o.bind("SUPER + ALT + P", "Omacale performance", "omarchy-shell omacale dashboardTab performance")
 
+-- ── Keyboard ────────────────────────────────────────────────────────────────
+-- Omarchy's own SUPER + CTRL + A/B/W/P and 1..9 already open Omacale's popouts
+-- (1..9 count the third-party widgets in the plugin pill). This one is the
+-- bar focus mode: the bar takes the keyboard and a cursor walks its items --
+-- j/k or arrows move, Enter/Space act, Menu or Shift+F10 opens a tray item's
+-- menu, 1..9 switch workspace, Escape leaves. code:19 is the 0 key, which
+-- Omarchy's code:10..18 loop leaves free.
+
+o.bind("SUPER + CTRL + code:19", "Omacale bar focus", "omarchy-shell omacale barFocus")
+
 -- ── Frame ───────────────────────────────────────────────────────────────────
 -- SUPER + SHIFT + SPACE ("Toggle top bar") already hides/shows Omacale's
 -- frame too; Omacale follows Omarchy's bar-off toggle.

@@ -44,6 +44,27 @@ Scope {
   // too: hovering the bar doesn't swap it, and it has the keys. One opened by
   // the pointer stays exactly Caelestia's.
   property bool popoutKeys: false
+  // SUPER+CTRL+0: the bar itself has the keyboard (BarContent's cursor).
+  property bool barFocus: false
+  onBarFocusChanged: {
+    if (barFocus) {
+      if (!cfg.bar.persistent) barHover = true
+      win.primeFocus()
+    } else if (!cfg.bar.persistent && popout === "") barHover = false
+  }
+  // The bar focus mode switching workspace: Hyprland takes the keyboard (and
+  // clears the grab), so take both back rather than treat it as a click away.
+  function switchWorkspace(id) {
+    Sys.workspace(id)
+    wsSettle.restart()
+    win.regrab()
+  }
+  Timer { id: wsSettle; interval: 600 }
+  function toggleBarFocus() {
+    if (barFocus) { barFocus = false; return }
+    closeAll()
+    barFocus = true
+  }
   readonly property bool popoutHeld: popout === "wirelesspassword" || popout === "winfo" || popoutKeys
   readonly property bool popoutSticky: popout === "traymenu" || popoutHeld
   // The network the password popout is asking for.
@@ -71,8 +92,10 @@ Scope {
   readonly property var screenScope: scope
 
   onPopoutChanged: if (popout === "") {
-    if (popoutKeys && !cfg.bar.persistent) barHover = false
+    if (popoutKeys && !cfg.bar.persistent && !barFocus) barHover = false
     popoutKeys = false
+    // A popout opened from the bar focus mode gives the keys back to it.
+    if (barFocus) Qt.callLater(() => bar.takeKeys())
   }
 
   // Open a bar popout with the keyboard (Bar.summonBarWidget, IPC popout).
@@ -101,6 +124,7 @@ Scope {
   Component.onDestruction: host.unregisterScope(scope)
 
   function closeAll() {
+    barFocus = false
     launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
   }
 
@@ -284,8 +308,8 @@ Scope {
     // offer an already-mapped surface the keyboard when it merely changes
     // from None to OnDemand. OnDemand afterwards gives pointer hit-testing
     // back to other surfaces (and outputs).
-    WlrLayershell.keyboardFocus: scope.popoutKeys && !win.focusPrimed ? WlrKeyboardFocus.Exclusive
-      : scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (scope.popoutKeys || scope.barFocus) && !win.focusPrimed ? WlrKeyboardFocus.Exclusive
+      : scope.launcher || scope.session || scope.settings || scope.overview || scope.popoutHeld || scope.barFocus ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
     anchors { top: true; bottom: true; left: true; right: true }
 
     // Fullscreen collapses the frame into the screen edges.
@@ -473,7 +497,7 @@ Scope {
       interval: 120
       onTriggered: {
         win.focusPrimed = true
-        Qt.callLater(() => pop.forceActiveFocus())
+        Qt.callLater(() => scope.popout !== "" ? pop.forceActiveFocus() : scope.barFocus ? bar.takeKeys() : null)
       }
     }
 
@@ -490,16 +514,17 @@ Scope {
         grab.active = Qt.binding(() => win.grabWanted)
         win.regrabbing = false
         if (scope.overview && overviewContent) overviewContent.forceActiveFocus()
+        else if (scope.barFocus && scope.popout === "") bar.takeKeys()
       }
     }
-    readonly property bool grabWanted: scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || scope.popoutSticky
+    readonly property bool grabWanted: scope.barFocus || scope.launcher || scope.session || scope.settings || scope.overview || scope.sidebar || (scope.utilities && scope.utilShortcut) || (scope.dashboard && scope.dashShortcut) || scope.popoutSticky
     HyprlandFocusGrab {
       id: grab
       windows: [win]
       active: win.grabWanted
       onCleared: {
         if (win.regrabbing) return
-        if (scope.overview || primeSettle.running) {
+        if (scope.overview || primeSettle.running || wsSettle.running) {
           regrabTimer.restart()
         } else {
           scope.closeAll()
@@ -702,6 +727,7 @@ Scope {
         screen: scope.screen
         host: scope.host
         scope: scope
+        keyMode: scope.barFocus
       }
 
       // ---- tooltip bubble for widgets

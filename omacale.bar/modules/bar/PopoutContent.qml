@@ -122,6 +122,7 @@ Item {
     blocked: root.name === "wirelesspassword"
     onMoveRequested: (dx, dy) => {
       if (dx !== 0 && root.cursor && typeof root.cursor.navAdjust === "function") root.cursor.navAdjust(dx)
+      else if (dx !== 0 && root.current && typeof root.current.navHorizontal === "function" && root.current.navHorizontal(dx)) return
       else root.step(dx + dy > 0 ? 1 : -1)
     }
     onActivateRequested: {
@@ -828,9 +829,30 @@ Item {
     Item {
      implicitWidth: stack.currentItem ? stack.currentItem.implicitWidth : 0
      implicitHeight: stack.currentItem ? stack.currentItem.implicitHeight : 0
+     // Keys (from the bar focus mode, Menu / Shift+F10 on a tray item):
+     // Right opens a submenu, Left goes back, a letter jumps to the next
+     // entry starting with it.
+     function navHorizontal(dx) {
+       const entry = root.nearest(root.cursor, "navLabelText")
+       if (dx > 0 && entry && entry.modelData.hasChildren) { root.cursor.navActivate(); return true }
+       if (dx < 0 && stack.depth > 1) { stack.pop(); return true }
+       return false
+     }
+     function navText(t) {
+       const ts = root.navTargets()
+       const from = Math.max(0, ts.indexOf(root.cursor))
+       const want = t.toLowerCase()
+       for (let k = 1; k <= ts.length; k++) {
+         const i = (from + k) % ts.length
+         const entry = root.nearest(ts[i], "navLabelText")
+         if (entry && entry.navLabelText().toLowerCase().startsWith(want)) { root.cursorIndex = i; root.setCursor(ts[i]); return }
+       }
+     }
      StackView {
       id: stack
       anchors.fill: parent
+      // A new page: the cursor starts again on its first entry.
+      onDepthChanged: root.resetCursor()
       initialItem: menuPage.createObject(null, { handle: root.trayItem ? root.trayItem.menu : null })
       pushEnter: null; pushExit: null; popEnter: null; popExit: null
       replaceEnter: null; replaceExit: null
@@ -865,6 +887,8 @@ Item {
             Item {
               id: entry
               required property var modelData
+              // Menu text without its mnemonic markers (_File, &File).
+              function navLabelText() { return String(modelData.text || "").replace(/[_&]/g, "") }
               width: page.width
               height: modelData.isSeparator ? 1 : Math.max(24, label.implicitHeight + Tk.padding.small)
               Rectangle {

@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.30.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.31.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -401,6 +401,11 @@ Item {
     // Any bar popout by Omacale's own name (network, bluetooth, audio,
     // battery, kblayout, lockstatus, update, activewindow), opened with the
     // keyboard on the focused monitor; again closes it.
+    // SUPER+CTRL+0: the bar takes the keyboard, a cursor walks its items.
+    function barFocus(): void {
+      const s = root.scopeFor(root.focusedScreen())
+      if (s) s.toggleBarFocus()
+    }
     function popout(name: string): void {
       const s = root.scopeFor(root.focusedScreen())
       if (!s) return

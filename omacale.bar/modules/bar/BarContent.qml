@@ -60,6 +60,185 @@ Item {
     return null
   }
 
+  // ------------------------------------------------------ bar focus
+  //
+  // No Caelestia original, and none in the stock bar: SUPER+CTRL+0 hands the
+  // bar itself the keyboard (ScreenScope.barFocus) and a cursor walks every
+  // item top to bottom with Omarchy's panel keys (KeyNav). Enter does what a
+  // click does; an item with a popout opens it with the keys, and Escape
+  // there comes back here. Drawn as one M3 focus ring that moves between
+  // items, so none of them needs a focus state of its own.
+  property bool keyMode: false
+  property var cursorStop: null
+  property int cursorIndex: -1
+
+  // Everything the cursor can land on: { item, act, kind, ... }.
+  function navStops() {
+    const out = []
+    const add = (item, act, extra) => {
+      if (item && item.visible && item.width > 0 && item.height > 0)
+        out.push(Object.assign({ item: item, act: act }, extra || {}))
+    }
+    if (cfg.logo) add(logo, () => root.leaveFor("launcher"))
+    for (const ws of workspaces.navItems())
+      add(ws, () => root.scope.switchWorkspace(ws.wsId), { kind: "workspace", wsId: ws.wsId })
+    if (activeWin.visible && Sys.activeToplevel)
+      add(activeWin, () => root.scope.openPopoutKeys("activewindow"))
+    if (pluginPill.visible && pluginPill.anyShown)
+      for (let i = 0; i < pluginRep.count; i++) {
+        const slot = pluginRep.itemAt(i)
+        if (slot && slot.shown && slot.activeItem)
+          out.push({ item: slot, kind: "plugin", act: () => root.openPlugin(slot) })
+      }
+    if (trayPill.visible)
+      for (let i = 0; i < trayRep.count; i++) {
+        const it = trayRep.itemAt(i)
+        if (it) out.push({ item: it, kind: "tray", tray: it.modelData, act: () => it.modelData.activate() })
+      }
+    add(clockPill, () => root.leaveFor("dashboard"))
+    for (let i = 0; i < statusCol.children.length; i++) {
+      const c = statusCol.children[i]
+      if (!c.visible || c instanceof Repeater) continue
+      if (c.popout && c.popout !== "update") add(c, () => root.scope.openPopoutKeys(c.popout))
+      else {
+        const area = [...c.children].find(k => k instanceof MouseArea)
+        if (area) add(c, () => { root.scope.barFocus = false; area.clicked(null) })
+      }
+    }
+    if (cfg.power) add(powerItem, () => root.leaveFor("session"))
+    return out
+  }
+
+  function sameStop(a, b) { return !!a && !!b && a.item === b.item }
+  function setStop(s, i) {
+    cursorStop = s
+    cursorIndex = i
+    // The compact tray and the plugin overflow open while the cursor is in them.
+    const inTray = !!s && s.kind === "tray"
+    if (inTray) { collapseTrayTimer.stop(); if (trayPill.compact) trayPill.expanded = true }
+    else if (trayPill.expanded) collapseTrayTimer.restart()
+    const inPlugins = !!s && s.kind === "plugin"
+    if (inPlugins) { collapsePluginsTimer.stop(); if (pluginPill.overflowCount > 0) pluginPill.expanded = true }
+    else if (pluginPill.expanded) collapsePluginsTimer.restart()
+  }
+  function stepStop(d) {
+    const stops = navStops()
+    if (!stops.length) return
+    let i = stops.findIndex(s => sameStop(s, cursorStop))
+    if (i < 0) i = Math.max(-1, Math.min(stops.length, cursorIndex) - (d > 0 ? 1 : 0))
+    i = Math.max(0, Math.min(stops.length - 1, i + d))
+    setStop(stops[i], i)
+  }
+  // The cursor starts on the workspace you are on.
+  function startCursor() {
+    const stops = navStops()
+    const i = Math.max(0, stops.findIndex(s => s.kind === "workspace" && s.wsId === workspaces.activeId))
+    setStop(stops[i] || null, stops.length ? i : -1)
+  }
+  function takeKeys() { forceActiveFocus() }
+  onKeyModeChanged: {
+    if (keyMode) startCursor()
+    else setStop(null, -1)
+  }
+
+  // A drawer takes over from here: leave bar focus, then open it.
+  function leaveFor(name) {
+    scope.barFocus = false
+    host.toggle(name)
+  }
+  // A hosted widget opens its own keyboard panel; the bar lets go.
+  function openPlugin(slot) {
+    scope.barFocus = false
+    const it = slot.activeItem
+    if (typeof it.toggle === "function") it.toggle()
+    else if (typeof it.open === "function") it.open()
+  }
+  function openTrayMenu(stop) {
+    if (!stop || !stop.tray || !stop.tray.hasMenu) return
+    scope.trayItem = stop.tray
+    scope.openPopoutKeys("traymenu")
+  }
+
+  KeyNav {
+    id: barKeys
+    onMoveRequested: (dx, dy) => root.stepStop(dx + dy > 0 ? 1 : -1)
+    onActivateRequested: if (root.cursorStop) root.cursorStop.act()
+    onCloseRequested: root.scope.barFocus = false
+    onTabRequested: d => root.stepStop(d)
+  }
+  Keys.onPressed: e => {
+    // Menu or Shift+F10: the tray item's own menu.
+    if (e.key === Qt.Key_Menu || (e.key === Qt.Key_F10 && (e.modifiers & Qt.ShiftModifier))) {
+      if (root.cursorStop && root.cursorStop.kind === "tray") root.openTrayMenu(root.cursorStop)
+      e.accepted = true
+      return
+    }
+    // 1..9: that workspace of the group on show.
+    if (e.text >= "1" && e.text <= "9" && e.text.length === 1) {
+      const n = Number(e.text)
+      if (n <= workspaces.shown) root.scope.switchWorkspace(workspaces.groupOffset + n)
+      e.accepted = true
+      return
+    }
+    barKeys.handle(e)
+  }
+
+  // The cursor: Caelestia's workspace ActiveIndicator motion (its leading
+  // edge runs ahead on defaultSpatial and the trailing one follows 1.5x
+  // slower), drawn as M3's focus indicator -- an outline with a light tint,
+  // the pills' own width, so it sits on the bar's shapes rather than across
+  // them. It hugs its item: a short pill on an icon, a tall one on the clock.
+  Rectangle {
+    id: barCursor
+
+    readonly property Item target: root.cursorStop ? root.cursorStop.item : null
+    readonly property real pad: Tk.padding.small / 2 + 2
+    property real start: 0
+    property real end: 0
+    // Where the target is now; re-read when anything above it moves.
+    readonly property rect r: {
+      void (col.y + titleArea.height + trayPill.height + pluginPill.height + statusPill.height + workspaces.height)
+      if (!target) return Qt.rect(0, 0, 0, 0)
+      const p = target.mapToItem(root, 0, 0)
+      return Qt.rect(p.x, p.y, target.width, target.height)
+    }
+    function run() {
+      if (!target) return
+      const w = width
+      const h = r.height + pad * 2
+      const s = Math.round(r.y + r.height / 2 - h / 2), e = s + Math.round(h)
+      if (opacity === 0) { startAnim.stop(); endAnim.stop(); start = s; end = e; return }
+      const up = s < start
+      const lead = Tk.durations.defaultSpatial, trailing = lead * 1.5
+      startAnim.stop(); endAnim.stop()
+      startAnim.to = s; endAnim.to = e
+      startAnim.duration = up ? lead : trailing
+      endAnim.duration = up ? trailing : lead
+      startAnim.start(); endAnim.start()
+    }
+    onRChanged: run()
+    NumberAnimation { id: startAnim; target: barCursor; property: "start"; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.defaultSpatial }
+    NumberAnimation { id: endAnim; target: barCursor; property: "end"; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.defaultSpatial }
+
+    readonly property bool shown: root.keyMode && !!target
+    z: 10
+    width: Tk.barInner
+    x: Math.round((root.width - width) / 2)
+    y: start
+    height: Math.max(0, end - start)
+    radius: width / 2
+    color: Qt.alpha(Colours.m3primary, 0.14)
+    border.width: 2
+    border.color: Colours.m3primary
+    opacity: shown ? 1 : 0
+    scale: shown ? 1 : 0.85
+    visible: opacity > 0
+    Behavior on opacity { Anim { type: "effects" } }
+    Behavior on scale { Anim { type: "fastSpatial" } }
+    Behavior on color { CAnim {} }
+    Behavior on border.color { CAnim {} }
+  }
+
   // The popouts the status group offers, top to bottom, as the user sees
   // them: what Omarchy's `togglePanelAt right N` counts (Bar.panelWidgetIdAt).
   // The microphone opens the same popout as the speaker, so it counts once.
@@ -77,6 +256,8 @@ Item {
   // or centred on the bar when the icon is hidden (a keyboard-layout popout
   // with the icon off still opens).
   function popoutCenterFor(name) {
+    if (name === "traymenu" && cursorStop && cursorStop.kind === "tray")
+      return cursorStop.item.mapToItem(root, 0, cursorStop.item.height / 2).y
     if (name === "activewindow" && activeWin.visible)
       return activeWin.mapToItem(root, 0, activeWin.height / 2).y
     for (let i = 0; i < statusCol.children.length; i++) {
@@ -370,6 +551,7 @@ Item {
 
     // --------------------------------------------------------- clock
     Rectangle {
+      id: clockPill
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: Tk.barInner
       implicitHeight: clockCol.implicitHeight + (root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2
@@ -685,6 +867,7 @@ Item {
 
     // --------------------------------------------------------- power
     Item {
+      id: powerItem
       visible: root.cfg.power
       Layout.alignment: Qt.AlignHCenter
       implicitWidth: powerIcon.implicitHeight + Tk.padding.small
