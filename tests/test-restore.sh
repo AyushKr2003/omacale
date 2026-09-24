@@ -3,6 +3,9 @@
 # Uses a throwaway HOME and OMACALE_OFFLINE=1, so it never touches the real
 # desktop, shell, or config.
 set -Eeuo pipefail
+# The scripts under test live in the plugin; bytecode written beside them
+# would be synced into ~/.config/omarchy/plugins and reload every plugin.
+export PYTHONDONTWRITEBYTECODE=1
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 omacale="$here/../scripts/omacale"
@@ -152,13 +155,13 @@ echo "O. look'n'feel file is valid Lua"
 check "omacale.lua parses"         luac -p "$here/../omacale.bar/omacale.lua"
 
 echo "P. the notification daemon patch"
-# scripts/notif-popups edits a clone of Omarchy's notification plugin. It must
+# omacale.bar/scripts/notif-popups edits a clone of Omarchy's notification plugin. It must
 # do exactly one thing to a file it recognises, nothing at all to one it does
 # not, and nothing a second time.
 stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/notifications/Service.qml"
 patch_copy() { python3 -c "
 from importlib.machinery import SourceFileLoader
-SourceFileLoader('np', '$here/../scripts/notif-popups').load_module().patch_service('$1')"; }
+SourceFileLoader('np', '$here/../omacale.bar/scripts/notif-popups').load_module().patch_service('$1')"; }
 if [[ -f $stock ]]; then
   work="$(mktemp -d)"; cp "$stock" "$work/Service.qml"
   patch_copy "$work/Service.qml" >/dev/null 2>&1
@@ -216,6 +219,112 @@ PY
   check "wrapper carries its version marker"   grep -q 'omacale:lock-view v' "$wrapper"
 else
   echo "  - skipped (no Omarchy lock plugin on this machine)"
+fi
+
+echo "R. handovers follow Omarchy updates"
+# Both clones are rebuilt from the installed Omarchy on every sync, and the
+# watchdog hands a broken one back. Run against a scratch OMARCHY_PATH and
+# HOME, with omarchy-shell / omarchy faked on PATH, so nothing real is touched.
+real_omarchy="${OMARCHY_PATH:-/usr/share/omarchy}"
+scripts="$here/../omacale.bar/scripts"
+if [[ -d $real_omarchy/shell/plugins/notifications && -d $real_omarchy/shell/plugins/lock ]]; then
+  new_home
+  fake="$H/omarchy"; mkdir -p "$fake/shell/plugins" "$H/bin"
+  cp -r "$real_omarchy/shell/plugins/notifications" "$real_omarchy/shell/plugins/lock" "$fake/shell/plugins/"
+  plugins="$H/.config/omarchy/plugins"
+  # The fake shell answers from files, so a case can make a plugin "broken".
+  cat > "$H/bin/omarchy-shell" <<'SH'
+#!/bin/bash
+case "$1 $2" in
+  "shell ping") echo ok ;;
+  "shell listPlugins") echo '[]' ;;
+  "notifications ping") [[ -f $HOME/notif-broken ]] && exit 1; echo ok ;;
+  "notifications popupsHidden") [[ -f $HOME/notif-broken ]] && exit 1; echo yes ;;
+  "lock isLocked") echo false ;;
+  "lock status") [[ -f $HOME/lock-broken ]] && { echo '{"locked":false,"passwordPam":false}'; exit 0; }; echo '{"locked":false,"passwordPam":true}' ;;
+  *) exit 1 ;;
+esac
+SH
+  cat > "$H/bin/omarchy" <<'SH'
+#!/bin/bash
+[[ "$1 $2" == "plugin remove" ]] && rm -rf "$HOME/.config/omarchy/plugins/$3"
+SH
+  printf '#!/bin/bash\nrm -rf "$HOME/.config/omarchy/plugins/$1"\n' > "$H/bin/omarchy-plugin-remove"
+  printf '#!/bin/bash\nexit 0\n' > "$H/bin/omarchy-plugin-enable"
+  chmod +x "$H/bin/"*
+  hv() { env HOME="$H" USER=tester OMARCHY_PATH="$fake" PATH="$H/bin:$PATH" OMACALE_HEALTH_TRIES=0 "$@"; }
+  # Clones as `omarchy plugin clone` leaves them: stock files + an identity.
+  nclone="$plugins/tester.notifications"; lclone="$plugins/tester.lock"
+  cp -r "$fake/shell/plugins/notifications" "$nclone"
+  jq '.id = "tester.notifications" | .omarchy.clonedFrom = "omarchy.notifications"' "$fake/shell/plugins/notifications/manifest.json" > "$nclone/manifest.json"
+  cp -r "$fake/shell/plugins/lock" "$lclone"
+  jq '.id = "tester.lock" | .omarchy.clonedFrom = "omarchy.lock"' "$fake/shell/plugins/lock/manifest.json" > "$lclone/manifest.json"
+  hv python3 "$scripts/notif-popups" sync >/dev/null
+  hv python3 -c "
+import sys; sys.argv=['lock-screen']
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader('lk', '$scripts/lock-screen').load_module()
+m.plan('$lclone', open(m.TEMPLATE).read()).apply()"
+  nstatus() { hv python3 "$scripts/notif-popups" status --offline; }
+  lstale() { hv python3 -c "
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader('lk', '$scripts/lock-screen').load_module()
+print(','.join(m.stale_files('$lclone')))"; }
+  check "fresh notification clone is not stale"  grep -qx 'stale:     no' <<<"$(nstatus)"
+  check "fresh lock clone is not stale"          test -z "$(lstale)"
+
+  # A newer Omarchy: the daemon changes but the patch still applies.
+  sed -i 's|function ping(): string { return "ok" }|function ping(): string { return "ok" }\n    function newer(): string { return "yes" }|' "$fake/shell/plugins/notifications/Service.qml"
+  echo "// newer" >> "$fake/shell/plugins/notifications/NotificationLogic.js"
+  check "a newer daemon makes the clone stale"   grep -qx 'stale:     yes' <<<"$(nstatus)"
+  check "and is not the verified one"            grep -qx 'verified:  no' <<<"$(nstatus)"
+  hv python3 "$scripts/notif-popups" sync >/dev/null
+  check "sync rebuilds from the newer stock"     grep -q 'function newer' "$nclone/Service.qml"
+  check "the patch is re-applied"                grep -q 'omacale:headless-popups' "$nclone/Service.qml"
+  check "the patch is applied once"              test "$(grep -c 'function popupsHidden' "$nclone/Service.qml")" = 1
+  check "other files follow stock"               cmp -s "$fake/shell/plugins/notifications/NotificationLogic.js" "$nclone/NotificationLogic.js"
+  check "the pristine copy is the new stock"     cmp -s "$fake/shell/plugins/notifications/Service.qml" "$nclone/Service.qml.omacale-orig"
+  check "clean after the sync"                   grep -qx 'stale:     no' <<<"$(nstatus)"
+
+  # Stock reshaped so the patch no longer applies: the old clone stays.
+  before_clone="$(sha256sum "$nclone/Service.qml")"
+  sed -i 's|// -------------------------------------------------------------- popup UI|// popups, redone|' "$fake/shell/plugins/notifications/Service.qml"
+  check "a reshaped daemon is refused"           grep -qx 'patch:     refused' <<<"$(nstatus)"
+  check "and reported stale"                     grep -qx 'stale:     yes' <<<"$(nstatus)"
+  sync_refused() { ! hv python3 "$scripts/notif-popups" sync >/dev/null 2>&1; }
+  check "sync refuses"                           sync_refused
+  check "the old clone is kept"                  test "$(sha256sum "$nclone/Service.qml")" = "$before_clone"
+  wd="$(hv python3 "$scripts/notif-popups" watchdog)"
+  check "watchdog keeps a refused but healthy clone" grep -qx 'action:    refused' <<<"$wd"
+  check "  (still there)"                        test -d "$nclone"
+  touch "$H/notif-broken"
+  wd="$(hv python3 "$scripts/notif-popups" watchdog)"
+  check "watchdog hands a broken daemon back"    grep -qx 'action:    fellback' <<<"$wd"
+  check "  (clone removed)"                      test ! -e "$nclone"
+
+  # The lock: a new file upstream reaches the clone, a removed one leaves it,
+  # and a manifest capability change is carried over.
+  echo "// new" > "$fake/shell/plugins/lock/NewThing.qml"
+  rm "$fake/shell/plugins/lock/poster.sh"
+  jq '.omarchy.capabilities += ["newcap"]' "$fake/shell/plugins/lock/manifest.json" > "$H/m" && mv "$H/m" "$fake/shell/plugins/lock/manifest.json"
+  stale="$(lstale)"
+  check "lock: new upstream file is stale"       grep -q 'NewThing.qml' <<<"$stale"
+  check "lock: removed upstream file is stale"   grep -q 'poster.sh (removed upstream)' <<<"$stale"
+  check "lock: manifest change is stale"         grep -q 'manifest.json' <<<"$stale"
+  wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
+  check "lock watchdog syncs"                    grep -qx 'action:    synced' <<<"$wd"
+  check "a new file upstream reaches the clone"  test -f "$lclone/NewThing.qml"
+  check "a file removed upstream leaves it"      test ! -e "$lclone/poster.sh"
+  check "our wrapper is kept"                    grep -q 'omacale:lock-view' "$lclone/LockView.qml"
+  check "stock view kept as StockLockView"       cmp -s "$fake/shell/plugins/lock/LockView.qml" "$lclone/StockLockView.qml"
+  check "capabilities follow stock"              jq -e '.omarchy.capabilities | index("newcap")' "$lclone/manifest.json" >/dev/null
+  check "identity stays the clone's"             jq -e '.id == "tester.lock" and .omarchy.clonedFrom == "omarchy.lock"' "$lclone/manifest.json" >/dev/null
+  touch "$H/lock-broken"
+  wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
+  check "a lock without PAM is handed back"      grep -qx 'action:    fellback' <<<"$wd"
+  check "  (lock clone removed)"                 test ! -e "$lclone"
+else
+  echo "  - skipped (no Omarchy notification/lock plugins on this machine)"
 fi
 
 echo; echo "passed: $pass  failed: $failn"

@@ -12,7 +12,7 @@
 #   5. ~/.config/omarchy/plugins/<user>.notifications/ and the plugin keys in
 #      shell.json that go with it -- only when you accept the notification
 #      popups, and only through `omarchy plugin clone` / `remove`
-#      (see scripts/notif-popups)
+#      (see omacale.bar/scripts/notif-popups)
 #   6. ~/.config/omarchy/plugins/<user>.lock/ and the plugin keys in
 #      shell.json that go with it -- only when you accept the lock screen,
 #      and only through `omarchy plugin clone` / `remove`
@@ -28,7 +28,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.27.3"
+VERSION="0.28.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -163,6 +163,14 @@ lock_script() {
 }
 lock_handover_on() { lock_script status 2>/dev/null | grep -q "^view:      omacale"; }
 
+# Same for the notification handover: in the plugin, so the running shell can
+# re-sync its clone after an Omarchy update.
+notif_script() {
+  local script="$src_plugin/scripts/notif-popups"
+  [[ -x $dest_plugin/scripts/notif-popups ]] && script="$dest_plugin/scripts/notif-popups"
+  python3 "$script" "$@"
+}
+
 # Turning the handover on without turning the setting on would install it and
 # still draw Omarchy's view, so the two go together.
 set_lock_setting() {
@@ -217,7 +225,7 @@ cmd_status() {
   [[ -f $shell_json ]] && cur="$(jq -r '.bar.id // "unset (built-in omarchy.bar)"' "$shell_json" 2>/dev/null || echo unreadable)"
   say "  bar.id     : $cur"
   if (( ! offline )); then
-    if "$script_dir/notif-popups" status 2>/dev/null | grep -q "^daemon:    headless"; then
+    if notif_script status 2>/dev/null | grep -q "^daemon:    headless"; then
       say "  popups     : drawn by Omacale$(installed_state && [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]] && echo " (put back on uninstall)")"
     else
       say "  popups     : drawn by Omarchy's own daemon"
@@ -261,7 +269,11 @@ cmd_doctor() {
       chk "bar layer is mapped" "bar_layer_present"
       if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
         chk "notification daemon still headless (Omacale draws the popups)" \
-          "'$script_dir/notif-popups' status | grep -q '^daemon:    headless'"
+          "notif_script status | grep -q '^daemon:    headless'"
+        # The same checks the shell's watchdog runs (services/Handover.qml).
+        chk "notification clone runs the current Omarchy daemon" \
+          "notif_script status | grep -q '^stale:     no'"
+        chk "notification daemon answers (health)" "notif_script health"
       fi
       if [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]]; then
         chk "lock screen still handed over (Omacale draws it)" "lock_handover_on"
@@ -269,6 +281,7 @@ cmd_doctor() {
         # update` that changes it wants a reinstall to pick the new one up.
         chk "lock clone runs the current Omarchy lock service" \
           "lock_script status | grep -q '^stale:     no'"
+        chk "lock service answers, with PAM (health)" "lock_script health"
       fi
     fi
   else
@@ -456,7 +469,7 @@ cmd_install() {
   local notif_clone=false
   if (( offline || dry_run )); then
     say "  ${d}skipped (notification popups are optional)${z}"
-  elif "$script_dir/notif-popups" status 2>/dev/null | grep -q "^patched:   yes"; then
+  elif notif_script status 2>/dev/null | grep -q "^patched:   yes"; then
     ok "notification popups already handed over to Omacale"
     notif_clone=true
   else
@@ -470,13 +483,13 @@ cmd_install() {
       fi
     fi
     if [[ $want == yes ]]; then
-      if "$script_dir/notif-popups" install --no-restart; then
+      if notif_script install --no-restart; then
         notif_clone=true; ok "Omacale draws the notification popups"
       else
         warn "could not hand the popups over; Omarchy keeps drawing its own toasts"
       fi
     else
-      say "  skipped — Omarchy keeps its own toasts (enable later with: $script_dir/notif-popups install)"
+      say "  skipped — Omarchy keeps its own toasts (enable later with: $src_plugin/scripts/notif-popups install)"
     fi
   fi
   if (( ! dry_run )); then
@@ -627,8 +640,8 @@ cmd_uninstall() {
     step "Give the notification popups back"
     # Before the restore below: `omarchy plugin remove` writes shell.json too,
     # and the snapshot has to be the last word on that file.
-    if "$script_dir/notif-popups" remove --no-restart; then ok "Omarchy draws its own toasts again"
-    else warn "could not remove the notification clone; run: $script_dir/notif-popups remove"; fi
+    if notif_script remove --no-restart; then ok "Omarchy draws its own toasts again"
+    else warn "could not remove the notification clone; run: $src_plugin/scripts/notif-popups remove"; fi
   fi
 
   # Recorded, or simply found drawing Omacale's view: either way the clone is

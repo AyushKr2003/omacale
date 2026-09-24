@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.27.3"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.28.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -301,8 +301,10 @@ Item {
   readonly property string wallpapersScript: Wallpapers.script
 
   // Likewise: LockService checks the lock-screen handover at startup, and
-  // installs it if the setting is on and it is missing.
+  // installs it if the setting is on and it is missing. Both handovers then
+  // keep their clones in step with Omarchy updates (services/Handover.qml).
   readonly property bool lockHandover: LockService.installed
+  readonly property bool notifHandover: NotifHandover.installed
 
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to

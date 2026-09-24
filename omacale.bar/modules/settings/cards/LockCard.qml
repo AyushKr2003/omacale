@@ -23,7 +23,7 @@ ColumnLayout {
   ConnectedRect {
     Layout.fillWidth: true
     first: true
-    last: !root.stale && !LockService.error
+    last: !root.notice && !LockService.error
     implicitHeight: intro.implicitHeight + Tk.padding.largeIncreased * 2
 
     ColumnLayout {
@@ -70,6 +70,8 @@ ColumnLayout {
                   return "Working…"
                 if (!LockService.ready)
                   return "Checking…"
+                if (LockService.fellBack && !root.installed)
+                  return "Handed back to Omarchy"
                 if (root.drawing)
                   return "Drawn by Omacale"
                 if (root.on)
@@ -106,7 +108,7 @@ ColumnLayout {
         }
         Pill {
           icon: "download"
-          label: "Install handover"
+          label: LockService.fellBack ? "Install again" : "Install handover"
           visible: LockService.ready && !LockService.installed
           onClicked: LockService.install()
         }
@@ -126,14 +128,26 @@ ColumnLayout {
     }
   }
 
-  // Omarchy's lock service is copied into the clone as it was at install
-  // time, so an `omarchy update` that changes it wants a reinstall.
-  readonly property bool stale: LockService.installed && LockService.stale
+  // The clone is rebuilt from Omarchy's lock plugin whenever an `omarchy
+  // update` changes it (services/Handover.qml); this says what happened.
+  readonly property string notice: {
+    if (LockService.fellBack && !root.installed)
+      return "After an Omarchy update the lock service in the handover stopped working"
+        + (LockService.lastReason ? " (" + LockService.lastReason + ")" : "")
+        + ", so Omarchy's own lock screen was put back. Install the handover again once Omacale is updated."
+    if (LockService.lastAction === "synced")
+      return "Omarchy's lock plugin was updated, and the handover now carries the new one. It applies after the next shell restart."
+    if (LockService.lastAction === "refused")
+      return "Omarchy's lock service now drives its view with something Omacale's doesn't have, so the handover kept the previous service. Update Omacale."
+    if (LockService.installed && LockService.stale)
+      return "Omarchy's lock plugin has changed. The handover picks it up by itself while the screen is unlocked, or now with Reinstall."
+    return ""
+  }
 
   ConnectedRect {
     Layout.fillWidth: true
     last: !LockService.error
-    visible: root.stale
+    visible: root.notice !== ""
     implicitHeight: staleText.implicitHeight + Tk.padding.medium * 2
 
     MText {
@@ -148,7 +162,7 @@ ColumnLayout {
       wrapMode: Text.WordWrap
       color: Colours.m3onSurfaceVariant
       font.pointSize: Tk.label.small
-      text: "Omarchy's lock service has changed since the handover was installed. Reinstall to run the new one — the view stays Omacale's."
+      text: root.notice
     }
   }
 

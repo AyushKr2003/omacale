@@ -10,8 +10,9 @@ Omacale to draw the toast is to take that one window out of the daemon.
 
 Omarchy documents the route: `omarchy plugin clone` copies a built-in plugin
 into ~/.config/omarchy/plugins/, disables the built-in and routes its IPC to
-the clone. This script clones the daemon once and applies a small, idempotent
-patch to the clone:
+the clone. This script clones the daemon once, and every sync rebuilds the
+clone from the installed Omarchy (see handover.py) with a small patch applied
+to a *fresh* copy of stock `Service.qml` -- never on top of the last one:
 
   * the popup window is replaced by a headless lifetime manager -- the expiry
     timer used to live inside the toast delegate, so deleting the window
@@ -24,9 +25,18 @@ patch to the clone:
 Everything else -- the server, DND, history, persistence, and the existing
 `dismissAll` / `invokeLast` / `dismiss` IPC -- stays upstream code.
 
-  notif-popups install    clone + patch + restart the shell
+If an Omarchy update reshapes the popup UI so the patch no longer applies,
+the working clone is left exactly as it is: an old daemon that runs beats no
+daemon. `status` says `patch: refused`, and the watchdog hands the toasts back
+to Omarchy only if that old clone also stops answering.
+
+  notif-popups install    clone + sync + restart the shell (--no-restart)
+  notif-popups sync       rebuild an existing clone from stock + patch
   notif-popups remove     put the stock daemon (and its toasts) back
-  notif-popups status     report what is in place
+  notif-popups status     report what is in place (parsable, key: value)
+  notif-popups health     is the headless daemon answering? (exit 0/1)
+  notif-popups watchdog   sync a stale clone, check its health, and give the
+                          toasts back to Omarchy if it is broken
 """
 
 import getpass
@@ -36,7 +46,18 @@ import shutil
 import subprocess
 import sys
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+# The installed copy lives under the plugins folder, where a __pycache__
+# written on import would reload every plugin.
+sys.dont_write_bytecode = True
+sys.path.insert(0, HERE)
+import handover  # noqa: E402
+
 MARKER = "omacale:headless-popups v1"
+# The stock Service.qml this patch was last tested against. A different one
+# that the patch still applies to is synced, but `status` says `verified: no`
+# so we know to re-test the toasts after that Omarchy update.
+VERIFIED_AGAINST = "11665542e70df80ccd3c785a6143dee2daefd2082e4f75c740adc2c9947cf7c2"
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -281,43 +302,80 @@ def write_atomic(path, text):
     os.replace(tmp, path)
 
 
-def patch_service(path):
-    """Apply the headless patch to a cloned Service.qml. Returns True if it changed."""
-    text = read(path)
-    if MARKER in text:
-        return False
+class Refused(Exception):
+    """Stock Service.qml is not the file this patch was written for."""
 
+
+def patch_text(text):
+    """The headless patch applied to a stock Service.qml."""
     index = text.find(POPUP_UI_ANCHOR)
     if index == -1:
-        fail(
-            "the cloned daemon does not look like the one this patch was written for "
-            "(no popup UI section in %s).\nOmarchy's notification plugin has probably "
-            "changed shape; re-clone it and update scripts/notif-popups." % path
+        raise Refused(
+            "Omarchy's notification daemon no longer has the popup UI section this "
+            "patch replaces; its popup UI has probably changed shape. Update "
+            "omacale.bar/scripts/notif-popups."
         )
 
     removed = text[index:]
     missing = [f for f in POPUP_UI_FINGERPRINTS if f not in removed]
     if missing:
-        fail(
-            "the popup UI in %s is not the block this patch removes (missing: %s).\n"
-            "Re-clone the plugin and update scripts/notif-popups." % (path, ", ".join(missing))
+        raise Refused(
+            "the popup UI in Omarchy's notification daemon is not the block this "
+            "patch removes (missing: %s). Update omacale.bar/scripts/notif-popups."
+            % ", ".join(missing)
         )
     if removed.rstrip().rsplit("\n", 1)[-1].strip() != "}":
-        fail("unexpected end of %s; refusing to patch" % path)
+        raise Refused("unexpected end of Omarchy's notification Service.qml")
 
     patched = text[:index] + HEADLESS_BLOCK.format(marker=MARKER)
 
     if IPC_ANCHOR not in patched:
-        fail("no IpcHandler anchor in %s; refusing to patch" % path)
-    patched = patched.replace(
+        raise Refused("no IpcHandler anchor in Omarchy's notification Service.qml")
+    return patched.replace(
         IPC_ANCHOR, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR).rstrip("\n"), 1
     )
 
+
+def patch_service(path):
+    """Apply the headless patch to a Service.qml in place (tests use this).
+    Returns True if it changed."""
+    text = read(path)
+    if MARKER in text:
+        return False
+    try:
+        patched = patch_text(text)
+    except Refused as e:
+        fail(str(e))
     backup = path + ".omacale-orig"
     if not os.path.exists(backup):
         shutil.copy2(path, backup)
     write_atomic(path, patched)
     return True
+
+
+def plan(directory):
+    """The clone as it should be: stock, with Service.qml patched and the
+    pristine copy beside it. Raises Refused when the patch does not apply."""
+    tree = handover.stock_tree(STOCK_DIR)
+    stock_service = tree.get("Service.qml")
+    if stock_service is None:
+        raise Refused("%s/Service.qml is missing; is this Omarchy?" % STOCK_DIR)
+    tree["Service.qml"] = patch_text(stock_service.decode("utf-8")).encode("utf-8")
+    tree["Service.qml.omacale-orig"] = stock_service
+    return handover.Plan(STOCK_DIR, directory, tree)
+
+
+def ours(directory):
+    """A clone this script made, as opposed to one someone made for their own
+    edits: cloned from the daemon, and either patched already or untouched."""
+    manifest = handover.load_json(os.path.join(directory, "manifest.json")) or {}
+    return (manifest.get("omarchy") or {}).get("clonedFrom") == SOURCE_ID
+
+
+def sync(directory):
+    """Rebuild the clone. Returns the files it changed; raises Refused and
+    touches nothing when the patch no longer applies."""
+    return plan(directory).apply()
 
 
 def ipc(target, fn, *args):
@@ -329,14 +387,107 @@ def popups_hidden():
     return ipc("notifications", "popupsHidden") == "yes"
 
 
-def cmd_status():
+def plugin_enabled(plugin_id):
+    try:
+        rows = json.loads(handover.ipc("shell", "listPlugins") or "[]")
+    except ValueError:
+        return False
+    return any(row.get("id") == plugin_id and row.get("enabled") for row in rows)
+
+
+def cmd_status(offline=False):
     directory = clone_dir()
     service = os.path.join(directory, "Service.qml")
-    print("clone:     %s" % (directory if os.path.isdir(directory) else "(none)"))
+    if os.path.isdir(directory):
+        state = "" if offline else " (%s)" % ("enabled" if plugin_enabled(clone_id()) else "disabled")
+        print("clone:     %s%s" % (clone_id(), state))
+    else:
+        print("clone:     none")
     if os.path.isfile(service):
         print("patched:   %s" % ("yes" if MARKER in read(service) else "NO"))
-    print("daemon:    %s" % ("headless (Omacale draws the toasts)"
-                             if popups_hidden() else "stock (draws its own toasts)"))
+        stock = handover.read_bytes(os.path.join(STOCK_DIR, "Service.qml")) or b""
+        try:
+            stale = plan(directory).stale_files()
+            print("patch:     applies")
+        except Refused as e:
+            # The clone can't be rebuilt; it is stale by definition once stock
+            # moved away from the copy it was patched from.
+            orig = handover.read_bytes(service + ".omacale-orig")
+            stale = ["Service.qml"] if orig != stock else []
+            print("patch:     refused")
+            print("refused:   %s" % e)
+        print("stale:     %s" % ("yes" if stale else "no"))
+        if stale:
+            print("stale-files: %s" % ", ".join(stale))
+        print("verified:  %s" % ("yes" if handover.sha(stock) == VERIFIED_AGAINST else "no"))
+    print("expects:   %s" % MARKER)
+    if not offline:
+        print("daemon:    %s" % ("headless (Omacale draws the toasts)"
+                                 if popups_hidden() else "stock (draws its own toasts)"))
+    return 0
+
+
+def probe():
+    if handover.ipc("notifications", "ping") != "ok":
+        return False, "the notification daemon does not answer (`omarchy-shell notifications ping`)"
+    if handover.ipc("notifications", "popupsHidden") != "yes":
+        return False, "the notification daemon is not the headless clone (no `popupsHidden`)"
+    return True, ""
+
+
+def cmd_health():
+    verdict, reason = handover.checked(probe)
+    print("health:    %s" % verdict)
+    if reason:
+        print("reason:    %s" % reason)
+    return 0 if verdict != "fail" else 1
+
+
+def cmd_sync():
+    directory = clone_dir()
+    if not os.path.isdir(directory):
+        print("No notification clone; nothing to sync.")
+        return 0
+    if not ours(directory):
+        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+    try:
+        changed = sync(directory)
+    except Refused as e:
+        fail("patch refused, the clone was left as it is: %s" % e)
+    for rel in changed:
+        print("  synced %s" % rel)
+    if not changed:
+        print("  clone already matches Omarchy")
+    return 0
+
+
+def cmd_watchdog():
+    """Heal what an `omarchy update` did to the clone: re-sync it, and if the
+    daemon is then broken, hand the toasts back to Omarchy's own."""
+    directory = clone_dir()
+    if not os.path.isdir(directory) or not ours(directory):
+        print("action:    none")
+        return 0
+
+    action = "none"
+    try:
+        p = plan(directory)
+        if p.stale_files():
+            p.apply()
+            action = "synced"
+    except Refused as e:
+        # Keep the old clone running; it goes only if it is broken too.
+        action = "refused"
+        print("refused:   %s" % e)
+
+    verdict, reason = handover.checked(probe)
+    if verdict == "fail":
+        cmd_remove(restart=False)
+        action = "fellback"
+    print("action:    %s" % action)
+    print("health:    %s" % verdict)
+    if reason:
+        print("reason:    %s" % reason)
     return 0
 
 
@@ -356,18 +507,17 @@ def cmd_install(restart=True):
         fail("%s has no Service.qml" % directory)
 
     # A clone someone else made, for their own edits, is not ours to rewrite.
-    manifest_path = os.path.join(directory, "manifest.json")
-    try:
-        manifest = json.loads(read(manifest_path))
-    except (OSError, ValueError):
-        fail("cannot read %s" % manifest_path)
-    if (manifest.get("omarchy") or {}).get("clonedFrom") != SOURCE_ID:
+    if not ours(directory):
         fail("%s is not a clone of %s" % (directory, SOURCE_ID))
 
-    if patch_service(service):
-        print("  ✓ patched Service.qml (backup: Service.qml.omacale-orig)")
+    try:
+        changed = sync(directory)
+    except Refused as e:
+        fail(str(e))
+    if changed:
+        print("  ✓ synced from Omarchy and patched: %s" % ", ".join(changed))
     else:
-        print("  ✓ Service.qml already patched")
+        print("  ✓ clone already matches Omarchy")
 
     if restart:
         print("==> Restarting the shell")
@@ -422,8 +572,14 @@ def main(argv):
     if command == "remove":
         return cmd_remove(restart)
     if command == "status":
-        return cmd_status()
-    fail("unknown command '%s' (install | remove | status)" % command)
+        return cmd_status(offline="--offline" in argv)
+    if command == "sync":
+        return cmd_sync()
+    if command == "health":
+        return cmd_health()
+    if command == "watchdog":
+        return cmd_watchdog()
+    fail("unknown command '%s' (install | sync | remove | status | health | watchdog)" % command)
 
 
 if __name__ == "__main__":

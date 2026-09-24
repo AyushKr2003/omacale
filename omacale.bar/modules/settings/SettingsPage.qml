@@ -18,7 +18,7 @@ ColumnLayout {
   readonly property var files: ({
     toggle: "rows/RowToggle.qml", stepper: "rows/RowStepper.qml", slider: "rows/RowSlider.qml", select: "rows/RowSelect.qml",
     text: "rows/RowText.qml", nav: "rows/RowNav.qml", section: "../../components/SectionHeader.qml",
-    preview: "cards/StylePreview.qml", seeds: "cards/SeedPicker.qml", logoPicker: "cards/LogoPicker.qml", keybinds: "cards/KeybindsCard.qml", lock: "cards/LockCard.qml", looknfeel: "cards/LookNFeelCard.qml", about: "cards/AboutCard.qml",
+    preview: "cards/StylePreview.qml", seeds: "cards/SeedPicker.qml", logoPicker: "cards/LogoPicker.qml", keybinds: "cards/KeybindsCard.qml", lock: "cards/LockCard.qml", notifs: "cards/NotifCard.qml", looknfeel: "cards/LookNFeelCard.qml", about: "cards/AboutCard.qml",
     network: "pages/NetworkPage.qml", networkDetail: "pages/NetworkDetail.qml",
     bluetooth: "pages/BluetoothPage.qml", btPair: "pages/BtPairing.qml", btDevice: "pages/BtDevice.qml",
     audio: "pages/AudioPage.qml", appVolumes: "pages/AppVolumes.qml",

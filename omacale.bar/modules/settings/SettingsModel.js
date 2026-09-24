@@ -159,6 +159,7 @@ var subpages = {
     title: "Notifications",
     rows: [
       { type: "section", text: "Popups" },
+      { type: "custom", comp: "notifs" },
       { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows" },
       { type: "slider", key: "notifs.popups.width", label: "Popup width", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Notifications" },

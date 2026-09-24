@@ -16,6 +16,10 @@ QtObject {
   // An update was launched from here and hasn't released its lock yet.
   property bool running: false
 
+  // An update launched from here has let go of its lock. The handovers
+  // re-check their clones on it (Handover.qml).
+  signal finished
+
   function refresh() {
     if (!check.running) check.running = true
   }
@@ -61,6 +65,7 @@ QtObject {
       root.lockPoll.stop()
       root.running = false
       root.refresh()
+      root.finished()
     }
   }
 }

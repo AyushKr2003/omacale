@@ -118,7 +118,10 @@ LockMedia 1.0 modules/lock/LockMedia.qml
 LockResources 1.0 modules/lock/LockResources.qml
 LockNotifs 1.0 modules/lock/LockNotifs.qml
 LockCard 1.0 modules/settings/cards/LockCard.qml
+NotifCard 1.0 modules/settings/cards/NotifCard.qml
 singleton LockService 1.0 services/LockService.qml
+singleton NotifHandover 1.0 services/NotifHandover.qml
+Handover 1.0 services/Handover.qml
 Overview 1.0 modules/overview/Overview.qml
 OverviewWindow 1.0 modules/overview/OverviewWindow.qml
 WindowInfo 1.0 modules/windowinfo/WindowInfo.qml

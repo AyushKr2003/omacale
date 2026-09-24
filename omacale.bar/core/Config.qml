@@ -224,6 +224,7 @@ QtObject {
         property bool hideNotifs: false
         property bool recolourLogo: true
         property bool blur: true
+        property bool autoFellBack: false
       }
       property JsonObject utilities: JsonObject {
         property bool enabled: true
@@ -275,6 +276,7 @@ QtObject {
           property bool enabled: true
           property int width: 430
         }
+        property bool autoFellBack: false
       }
       property JsonObject services: JsonObject {
         property int mediaUpdateInterval: 500

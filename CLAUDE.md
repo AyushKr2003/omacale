@@ -149,10 +149,11 @@ shell/omacale/
                         Stays at the root: three modules at three depths load it
     scripts/            our own helper scripts (last resort)
     scripts/lock-screen   hands Omarchy's lock plugin its Caelestia view (Settings runs it)
+    scripts/notif-popups  clones Omarchy's notification daemon and patches the clone headless
+    scripts/handover.py   shared by both: rebuild a clone from stock, health checks
     assets/lock/LockView.qml  the wrapper written into the lock clone
     assets/
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
-  scripts/notif-popups  clones Omarchy's notification daemon and patches the clone headless
   scripts/gen-logos.py  dev-only: regenerates components/Logos.js (needs fontTools)
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
@@ -226,14 +227,26 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 
 Omarchy's `omarchy.notifications` service owns the D-Bus name *and* draws the toasts, a second notification server is not allowed beside it, and Hyprland 0.56 has no layer rule that can hide a surface. So Omacale can only draw toasts if that daemon gives its window up.
 
-`scripts/notif-popups install` does it the supported way: `omarchy plugin clone omarchy.notifications` (which disables the stock plugin, enables the clone and routes IPC to it), then a small idempotent patch of the clone.
+`omacale.bar/scripts/notif-popups install` does it the supported way: `omarchy plugin clone omarchy.notifications` (which disables the stock plugin, enables the clone and routes IPC to it), then a small idempotent patch of the clone.
 
 - The patch replaces the popup-UI block with a headless lifetime manager and adds IPC. **The expiry timer used to live inside the toast delegate**, so deleting the window without replacing that timer leaves every popup on screen forever.
 - The clone writes `deadline` into each live popup file, so the daemon's timer and Omacale's countdown ring run off one clock. Omacale never invents a deadline when one is there.
-- `scripts/notif-popups` refuses to patch a `Service.qml` it doesn't recognise rather than half-edit the notification daemon; `tests/test-restore.sh` case P covers that. If `omarchy update` reshapes the popup UI, update the anchors in that script.
+- `notif-popups` refuses to patch a `Service.qml` it doesn't recognise rather than half-edit the notification daemon, and a refused sync leaves the working clone exactly as it is (`status` says `patch: refused`); `tests/test-restore.sh` cases P and R cover that. If `omarchy update` reshapes the popup UI, update the anchors in that script, re-test the toasts, and set `VERIFIED_AGAINST` to the new stock `Service.qml` sha.
+- The patch is always applied to a **fresh** copy of stock `Service.qml`, never on top of the last patched one; every other stock file is copied verbatim (see "Handovers follow Omarchy updates").
 - `NotifService.popupsSupported` comes from the clone's `popupsHidden` IPC, and Omacale draws nothing without it — that is what stops two toasts appearing at once. Don't bypass the gate.
 - Install records `installedNotifClone`; uninstall runs `notif-popups remove` **before** `restore_shell_json`, because `omarchy plugin remove` writes `shell.json` too and the snapshot has to be the last word on it.
 - Don't hand-delete the clone directory: `omarchy plugin remove` is what takes `omarchy.notifications` back out of `disabledPlugins[]`. Removing the directory alone leaves no notification daemon at all.
+
+## Handovers follow Omarchy updates
+
+Both clones are build artifacts: `scripts/handover.py` rebuilds them from `/usr/share/omarchy` plus our delta (every stock file copied, files upstream removed deleted, the manifest's `schemaVersion`/`kinds`/`keepLoaded`/`entryPoints`/`omarchy.capabilities` taken from stock, identity kept). `status` reports `stale:` and `stale-files:` against exactly that.
+
+- **`services/Handover.qml` is the watchdog** (`LockService` and `NotifHandover` are instances of it). It runs the script's `watchdog` 20s after start, 5s after a watched stock file changes, and when `UpdateService` sees an update it launched finish. `watchdog` re-syncs a stale clone (the lock only while unlocked), then health-checks it: lock = `lock status` with `passwordPam: true` (a live lock counts as healthy); notifications = `ping` and `popupsHidden`. A failure is retried at 0/3/8s, and "the shell itself isn't answering" is `unknown`, never a failure -- a plugin that hasn't registered its IPC yet is not broken.
+- **A failed health check hands the plugin back to Omarchy automatically** (`remove`), sets `<lock|notifs>.autoFellBack` in Config so the next start doesn't reinstall into the same fault, and sends a notification. Installing from Settings clears it. Fail safe, never fail closed.
+- **The stock files are replaced, not edited, by pacman**, so the `FileView` watches point at unlinked inodes afterwards; `Handover` recreates them (`watchers.active` off and on) after every change.
+- Both services are `keepLoaded`, so a re-sync writes the new files but the running service is replaced on the next shell restart; Settings says so.
+- **No post-update hook.** Omacale must work standalone, so it never writes into `~/.config/omarchy/hooks/`.
+- **The handover scripts live in the plugin, so they must not write bytecode there**: `sys.dont_write_bytecode` before importing `handover`, and `tests/test-restore.sh` exports `PYTHONDONTWRITEBYTECODE`. A `__pycache__` under `~/.config/omarchy/plugins` reloads every plugin.
 
 ## The lock screen handover
 

@@ -79,7 +79,7 @@ QtObject {
   // files Omarchy's daemon keeps for exactly as long as a toast is showing.
   //
   // Omacale may only draw them once the daemon has given up its own toast
-  // window (shell/omacale/scripts/notif-popups). Until then popupsSupported
+  // window (scripts/notif-popups). Until then popupsSupported
   // is false and Omacale draws nothing, so the two can never both be up.
   property bool popupsSupported: false
   onPopupsSupportedChanged: if (!popupsSupported) popups = []
@@ -325,8 +325,12 @@ QtObject {
   readonly property string notifsScript: Qt.resolvedUrl("../scripts/notifs.py").toString().replace("file://", "")
 
   // Does the daemon still draw its own toasts? Omacale's only answer when it
-  // does is to stay out of the way. Re-asked after a shell restart, which is
-  // how the clone gets installed or removed.
+  // does is to stay out of the way. Asked at start and again whenever
+  // NotifHandover installs, re-syncs or removes the clone.
+  function probePopups() {
+    if (!popupSupportProbe.running)
+      popupSupportProbe.running = true
+  }
   property Process popupSupportProbe: Process {
     running: true
     // Not `-q`: that swallows the answer we are asking for.

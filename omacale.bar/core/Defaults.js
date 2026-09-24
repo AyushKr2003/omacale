@@ -45,7 +45,10 @@ var values = {
   lock: {
     enabled: false,
     weather: true, fetch: true, media: true, resources: true, notifs: true,
-    hideNotifs: false, recolourLogo: true, blur: true
+    hideNotifs: false, recolourLogo: true, blur: true,
+    // Set when the watchdog gave the lock back to Omarchy after an update
+    // broke it (services/Handover.qml); reinstalling from Settings clears it.
+    autoFellBack: false
   },
   utilities: {
     enabled: true, width: 430,
@@ -64,8 +67,8 @@ var values = {
   },
   general: { clock24: true, weatherLocation: "", units: "metric" },
   // popups.enabled only takes effect once the notification daemon has handed
-  // its own toasts over (shell/omacale/scripts/notif-popups).
-  notifs: { groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 } },
+  // its own toasts over (scripts/notif-popups). autoFellBack: as lock's.
+  notifs: { groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 }, autoFellBack: false },
   // Caelestia services / dashboard polling. Steps are Omarchy's 5%, not
   // Caelestia's 10%, so the bar scrolls like Omarchy's volume keys.
   services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 }

@@ -63,12 +63,12 @@ scripts/omacale install --dev    # Symlink plugin for live development
 Omarchy's notification daemon normally draws its own toasts. The installer can hand over toast rendering to Omacale:
 - **Headless Handover**: The daemon, DND mode, and history remain intact; only the toast view is delegated to Omacale.
 - **Overlay Elevation**: Toasts appear over fullscreen windows and videos.
-- **Toggle Anytime**: Turn popups on/off without unpatching via **Settings › Panels › Notifications**.
+- **Toggle Anytime**: Turn popups on/off without unpatching via **Settings › Notifications**, which also shows the handover's state.
 - **CLI Management**:
   ```bash
-  scripts/notif-popups status      # Check toast renderer
-  scripts/notif-popups install     # Hand toasts to Omacale
-  scripts/notif-popups remove      # Restore Omarchy default toasts
+  omacale.bar/scripts/notif-popups status      # Check toast renderer
+  omacale.bar/scripts/notif-popups install     # Hand toasts to Omacale
+  omacale.bar/scripts/notif-popups remove      # Restore Omarchy default toasts
   ```
 
 ### Lock Screen
@@ -82,6 +82,13 @@ Omarchy's lock service owns PAM authentication, session lock lifecycle, and idle
   omacale.bar/scripts/lock-screen install   # Enable Omacale lock view
   omacale.bar/scripts/lock-screen remove    # Restore Omarchy lock view
   ```
+
+### Omarchy Updates
+Both handovers are clones of Omarchy plugins, rebuilt from the installed Omarchy rather than kept as forks:
+- **Self-healing**: while the shell runs, Omacale watches the stock plugins. When `omarchy update` changes one, the clone is rebuilt from the new files plus Omacale's small change (the lock only while unlocked). The rebuilt service runs after the next shell restart.
+- **Never broken**: after each rebuild (and shortly after the shell starts) the clone is health-checked. A lock service that stops answering or loses PAM, or a notification daemon that stops answering, is handed straight back to Omarchy, and a notification says so. Reinstall it from Settings once Omacale is updated.
+- **Refused patches**: if Omarchy reshapes the notification daemon so Omacale's patch no longer applies, the previous working clone keeps running and Settings says so.
+- `omacale.bar/scripts/{lock-screen,notif-popups} status | health | watchdog` and `scripts/omacale doctor` show the same state.
 
 ### Caelestia Window Styling (Optional)
 To match Hyprland window borders, animations, and shadows with Caelestia styling, add this to `~/.config/hypr/looknfeel.lua`:

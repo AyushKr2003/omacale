@@ -10,14 +10,17 @@ Omacale takes the one part it wants -- the view -- and leaves the rest.
 
 Omarchy documents the route: `omarchy plugin clone` copies a built-in plugin
 into ~/.config/omarchy/plugins/, disables the built-in and routes its IPC to
-the clone. This script clones the lock plugin once and then, on every run:
+the clone. This script clones the lock plugin once and then, on every run, rebuilds the
+clone from the installed Omarchy (see handover.py):
 
-  * copies the stock `Service.qml` into the clone untouched, so the clone
-    picks up Omarchy's lock fixes instead of freezing at clone time;
-  * keeps the stock view beside it as `StockLockView.qml`;
-  * writes `LockView.qml` from assets/lock/LockView.qml -- a wrapper that
+  * every stock file is copied in untouched -- `Service.qml` included -- so
+    the clone picks up Omarchy's lock fixes instead of freezing at clone
+    time, and files upstream removed leave it;
+  * the stock view is kept beside it as `StockLockView.qml`;
+  * `LockView.qml` is written from assets/lock/LockView.qml -- a wrapper that
     loads Omacale's LockUi.qml by URL and falls back to the stock view when
-    Omacale is off, missing or broken.
+    Omacale is off, missing or broken;
+  * the manifest takes stock's capabilities, kinds and entry points.
 
 Before writing anything it checks that every property and signal the stock
 `Service.qml` drives its view with exists on the wrapper. If `omarchy update`
@@ -28,14 +31,25 @@ a lock screen that cannot load.
                          clone up live, so --restart is only for installers
   lock-screen remove     give the lock back to Omarchy
   lock-screen status     report what is in place (parsable, key: value)
+  lock-screen health     is the lock service answering, with PAM? (exit 0/1)
+  lock-screen watchdog   re-sync a stale clone (only while unlocked), then
+                         check its health and give the lock back to Omarchy
+                         if it is broken -- a machine that cannot lock is
+                         worse than one with the stock lock screen
 """
 
-import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+# The installed copy lives under the plugins folder, where a __pycache__
+# written on import would reload every plugin.
+sys.dont_write_bytecode = True
+sys.path.insert(0, HERE)
+import handover  # noqa: E402
 
 MARKER = "omacale:lock-view v3"
 
@@ -47,7 +61,6 @@ STOCK_DIR = os.path.join(
     "shell", "plugins", "lock",
 )
 
-HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN_DIR = os.path.dirname(HERE)
 TEMPLATE = os.path.join(PLUGIN_DIR, "assets", "lock", "LockView.qml")
 SETTINGS = os.path.join(HOME, ".config", "omacale", "settings.json")
@@ -60,14 +73,6 @@ def fail(msg):
 
 def run(cmd, **kwargs):
     return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
-
-
-def sha(path):
-    try:
-        with open(path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
-    except OSError:
-        return ""
 
 
 def clone_dir():
@@ -186,8 +191,6 @@ def install(restart=False):
 
     with open(os.path.join(STOCK_DIR, "Service.qml")) as f:
         service_qml = f.read()
-    with open(os.path.join(STOCK_DIR, "LockView.qml")) as f:
-        stock_view = f.read()
     with open(TEMPLATE) as f:
         template_qml = f.read()
 
@@ -203,11 +206,11 @@ def install(restart=False):
             fail("the cloned lock plugin was not found after cloning")
         print(f"cloned {SOURCE_ID} to {target}")
 
-    # Omarchy's service, verbatim: re-copied every run so the clone follows
+    # Omarchy's plugin, verbatim: rebuilt every run so the clone follows
     # `omarchy update` instead of freezing at the version it was cloned from.
-    changed = write(os.path.join(target, "Service.qml"), service_qml)
-    changed |= write(os.path.join(target, "StockLockView.qml"), stock_view)
-    changed |= write(os.path.join(target, "LockView.qml"), template_qml)
+    changed = plan(target, template_qml).apply()
+    for rel in changed:
+        print(f"  synced {rel}")
 
     plugin_id = os.path.basename(target)
     if not plugin_enabled(plugin_id):
@@ -221,20 +224,22 @@ def install(restart=False):
     return 0
 
 
-def write(path, text):
-    """Only when it differs: the shell watches plugin directories and reloads
-    the plugin on any write, and a reload takes the lock service with it."""
+def plan(target, template_qml):
+    """The clone as it should be: stock, with the view renamed and our
+    wrapper in its place."""
+    tree = handover.stock_tree(STOCK_DIR)
+    tree["StockLockView.qml"] = tree.pop("LockView.qml")
+    tree["LockView.qml"] = template_qml.encode()
+    return handover.Plan(STOCK_DIR, target, tree)
+
+
+def stale_files(target):
     try:
-        with open(path) as f:
-            if f.read() == text:
-                return False
+        with open(TEMPLATE) as f:
+            template_qml = f.read()
     except OSError:
-        pass
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        f.write(text)
-    os.replace(tmp, path)
-    return True
+        return ["LockView.qml (no template)"]
+    return plan(target, template_qml).stale_files()
 
 
 def remove(restart=False):
@@ -272,14 +277,81 @@ def status():
         plugin_id = os.path.basename(target)
         print(f"clone:     {plugin_id} ({'enabled' if plugin_enabled(plugin_id) else 'disabled'})")
         print(f"view:      {view_state(target)}")
-        same = sha(os.path.join(target, "Service.qml")) == sha(os.path.join(STOCK_DIR, "Service.qml"))
-        print(f"stale:     {'no' if same else 'yes'}")
+        stale = stale_files(target)
+        print(f"stale:     {'yes' if stale else 'no'}")
+        if stale:
+            print(f"stale-files: {', '.join(stale)}")
     # The wrapper the *installed* Omacale would write. An older one still says
     # "omacale", but points at a LockUi.qml that has since moved, so the lock
     # would quietly fall back to the stock view; LockService compares the two
     # and re-installs when they differ.
     print(f"expects:   omacale v{MARKER.rsplit('v', 1)[1]}")
     print(f"setting:   {'on' if omacale_enabled() else 'off'}")
+    return 0
+
+
+# ------------------------------------------------------------------- health
+
+def locked():
+    return handover.ipc("lock", "isLocked") == "true"
+
+
+def probe():
+    """Healthy: the `lock` IPC answers and PAM is configured. A lock that is
+    up right now is by definition healthy enough to leave alone."""
+    raw = handover.ipc("lock", "status")
+    if raw is None:
+        return False, "the lock service does not answer (`omarchy-shell lock status`)"
+    try:
+        state = json.loads(raw)
+    except ValueError:
+        return False, "the lock service answered with something that is not its status"
+    if state.get("locked"):
+        return True, ""
+    if state.get("passwordPam") is not True:
+        return False, "the lock service has no password PAM"
+    return True, ""
+
+
+def health():
+    verdict, reason = handover.checked(probe)
+    print(f"health:    {verdict}")
+    if reason:
+        print(f"reason:    {reason}")
+    return 0 if verdict != "fail" else 1
+
+
+def watchdog():
+    """Heal what an `omarchy update` did to the clone: re-sync it, and if the
+    lock service is then broken, hand the lock back to Omarchy."""
+    target = clone_dir()
+    if target is None:
+        print("action:    none")
+        return 0
+
+    action = "none"
+    if stale_files(target):
+        # A service swapped under a live lock is not a risk worth taking; the
+        # next check after unlocking catches up.
+        if locked():
+            action = "skipped-locked"
+        else:
+            try:
+                install()
+                action = "synced"
+            except SystemExit:
+                # check_contract refused (its reason is on stderr): the old
+                # clone keeps running and the health check decides.
+                action = "refused"
+
+    verdict, reason = handover.checked(probe)
+    if verdict == "fail":
+        remove()
+        action = "fellback"
+    print(f"action:    {action}")
+    print(f"health:    {verdict}")
+    if reason:
+        print(f"reason:    {reason}")
     return 0
 
 
@@ -298,6 +370,10 @@ def main(argv):
         return remove(restart)
     if action == "status":
         return status()
+    if action == "health":
+        return health()
+    if action == "watchdog":
+        return watchdog()
     fail(f"unknown action: {action}")
 
 
