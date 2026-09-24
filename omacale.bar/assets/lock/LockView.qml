@@ -1,4 +1,4 @@
-// omacale:lock-view v2
+// omacale:lock-view v3
 //
 // Written into the clone of Omarchy's lock plugin by
 // omacale.bar/scripts/lock-screen. Omarchy's own view is kept beside it as
@@ -42,6 +42,9 @@ Item {
   // the handover is only ever installed by someone turning the lock on.
   property bool omacaleEnabled: true
   readonly property url omacaleUi: Qt.resolvedUrl("../omacale.bar/modules/lock/LockUi.qml")
+  // OWE's live lock feed, which Omarchy ships beside its view. Omacale's UI
+  // loads it from here so it needs no path into this plugin of its own.
+  readonly property url feedSurfaceUrl: Qt.resolvedUrl("LockFeedSurface.qml")
 
   function readEnabled(text) {
     try {
@@ -86,6 +89,7 @@ Item {
 
     StockLockView {
       backgroundPath: root.backgroundPath
+      videoPosterPath: root.videoPosterPath
       backgroundVersion: root.backgroundVersion
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: root.authenticatingPassword

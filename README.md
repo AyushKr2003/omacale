@@ -145,7 +145,7 @@ See [`CLAUDE.md`](CLAUDE.md) for architectural guidelines, design token definiti
 ## 📋 Known Differences & Limitations
 
 - **OSD**: Volume and brightness indicators use Omarchy's built-in OSD.
-- **Lock Wallpaper**: Lock screen renders the desktop wallpaper rather than a live blurred desktop snapshot.
+- **Lock Wallpaper**: Lock screen renders the desktop wallpaper rather than a live blurred desktop snapshot. A video wallpaper is drawn as Omarchy's own lock does it: a cached poster frame with OWE's live lock feed over it. The blur setting applies to the poster only, since the feed can't be blurred on every renderer (Omarchy doesn't blur it either).
 - **Notification Actions**: Action buttons and inline replies are limited to the default action provided by Omarchy's notification daemon API.
 
 ---

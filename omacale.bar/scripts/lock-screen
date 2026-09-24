@@ -37,7 +37,7 @@ import re
 import subprocess
 import sys
 
-MARKER = "omacale:lock-view v2"
+MARKER = "omacale:lock-view v3"
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
