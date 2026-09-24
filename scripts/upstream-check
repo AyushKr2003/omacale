@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Dev-only: which parts of Omarchy that Omacale depends on changed?
+
+Omacale reaches into a handful of Omarchy's own files (the two plugins it
+clones, a few shell components it loads by URL, the menu engine, the bar
+contract the host calls on a custom bar). tests/upstream.lock records the
+sha256 of each as of the last Omarchy Omacale was verified against. Run this
+after `omarchy update` to see which Omacale areas to re-test before a user
+hits them.
+
+  scripts/upstream-check            compare; exit 1 if anything changed
+  scripts/upstream-check --record   re-test first, then record the current
+                                    Omarchy as verified
+  --lock PATH                       use another lock file (tests)
+
+OMARCHY_PATH picks the Omarchy to read (default /usr/share/omarchy).
+"""
+
+import datetime
+import fnmatch
+import glob
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOCK = os.path.join(HERE, "..", "tests", "upstream.lock")
+OMARCHY = os.environ.get("OMARCHY_PATH", "/usr/share/omarchy")
+
+# (path or glob under OMARCHY_PATH, the Omacale area to re-test when it moves)
+DEPENDS = [
+    ("shell/plugins/lock/**", "lock handover: lock-screen contract, assets/lock/LockView.qml, LockUi.qml (lock preview)"),
+    ("shell/plugins/notifications/**", "notification handover: notif-popups patch (VERIFIED_AGAINST), notifs.py, NotifService toasts"),
+    ("shell/Ui/BackgroundMedia.qml", "lock background: LockUi.qml (still + video poster)"),
+    ("shell/plugins/menu/MenuModel.js", "Omarchy menu in the launcher (`:`): MenuService, its restated providers"),
+    ("shell/services/hidden-entries.sh", "launcher hidden apps: AppService"),
+    ("default/omarchy/launcher.hides", "launcher hidden apps: AppService"),
+    ("shell/Ui/PluginBarApi.qml", "hosted bar widgets: BarWidgetSlot, PluginBarFacade"),
+    ("shell/Ui/KeyboardPanel.qml", "hosted widget panels: BarWidgetSlot's gap fix, keyboard focus"),
+]
+
+# What the host calls on a custom bar: `shell.bar.<member>` in shell.qml and
+# the shared Ui components, and `bar.<member>(` from those components. The
+# names are the contract; the files around them change for other reasons.
+CONTRACT_FILES = ["shell/shell.qml", "shell/Ui/*.qml"]
+CONTRACT_AREA = "the bar contract: Bar.qml / PluginBarFacade must implement every member"
+
+
+def sha(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def current_files():
+    out = {}
+    for pattern, _ in DEPENDS:
+        for path in sorted(glob.glob(os.path.join(OMARCHY, pattern), recursive=True)):
+            if os.path.isfile(path):
+                out[os.path.relpath(path, OMARCHY)] = sha(path)
+    return out
+
+
+def current_contract():
+    names = set()
+    for pattern in CONTRACT_FILES:
+        for path in glob.glob(os.path.join(OMARCHY, pattern)):
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            names |= set(re.findall(r"\bshell\.bar\.([A-Za-z_]\w*)", text))
+            names |= set(re.findall(r"\bbar\.([A-Za-z_]\w*)\(", text))
+    return sorted(names)
+
+
+def area_of(rel):
+    for pattern, area in DEPENDS:
+        if fnmatch.fnmatch(rel, pattern.replace("**", "*")):
+            return area
+    return "?"
+
+
+def omarchy_version():
+    try:
+        out = subprocess.run(
+            ["pacman", "-Qo", os.path.join(OMARCHY, "shell", "shell.qml")],
+            text=True, capture_output=True,
+        ).stdout.strip()
+        return out.rsplit(" ", 2)[-2] + " " + out.rsplit(" ", 1)[-1] if out else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def main(argv):
+    if "-h" in argv or "--help" in argv:
+        print(__doc__.strip())
+        return 0
+    lock = LOCK
+    if "--lock" in argv:
+        lock = argv[argv.index("--lock") + 1]
+
+    files, contract = current_files(), current_contract()
+    if not files:
+        print(f"upstream-check: nothing found under {OMARCHY}; is this Omarchy?", file=sys.stderr)
+        return 2
+
+    if "--record" in argv:
+        with open(lock, "w") as f:
+            json.dump({
+                "omarchy": omarchy_version(),
+                "recorded": datetime.date.today().isoformat(),
+                "files": files,
+                "barContract": contract,
+            }, f, indent=2)
+            f.write("\n")
+        print(f"recorded {len(files)} files and {len(contract)} bar-contract members as verified")
+        return 0
+
+    try:
+        with open(lock) as f:
+            known = json.load(f)
+    except (OSError, ValueError):
+        print(f"upstream-check: no lock at {lock}; run with --record once verified", file=sys.stderr)
+        return 2
+
+    old = known.get("files", {})
+    changes = {}
+    for rel in sorted(set(old) | set(files)):
+        if rel not in files:
+            what = "removed"
+        elif rel not in old:
+            what = "added"
+        elif old[rel] != files[rel]:
+            what = "changed"
+        else:
+            continue
+        changes.setdefault(area_of(rel), []).append(f"{what}: {rel}")
+
+    before = set(known.get("barContract", []))
+    for name in sorted(before - set(contract)):
+        changes.setdefault(CONTRACT_AREA, []).append(f"no longer called: bar.{name}")
+    for name in sorted(set(contract) - before):
+        changes.setdefault(CONTRACT_AREA, []).append(f"newly called: bar.{name}")
+
+    print(f"verified against: {known.get('omarchy', '?')} ({known.get('recorded', '?')})")
+    print(f"installed:        {omarchy_version()}")
+    if not changes:
+        print("nothing Omacale depends on has changed")
+        return 0
+    for area, lines in changes.items():
+        print(f"\nre-test {area}")
+        for line in lines:
+            print(f"  {line}")
+    print("\nOnce re-tested: scripts/upstream-check --record")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

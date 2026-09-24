@@ -155,6 +155,7 @@ shell/omacale/
     assets/
   scripts/omacale     installer / uninstaller (records + restores exact prior state)
   scripts/gen-logos.py  dev-only: regenerates components/Logos.js (needs fontTools)
+  scripts/upstream-check  dev-only: which Omarchy files Omacale depends on changed (tests/upstream.lock)
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
 
@@ -195,6 +196,8 @@ qs -p /usr/share/omarchy/shell ipc call omacale close     # put the drawers away
 
 Always screenshot and read the log; "no errors" without a screenshot proves little, and the reverse too.
 
+After every `omarchy update`, run `scripts/upstream-check`. It compares the Omarchy files Omacale reaches into (the cloned plugins, `BackgroundMedia`, `MenuModel.js`, the launcher hides, `PluginBarApi`/`KeyboardPanel`) and the members the host calls on a custom bar (`shell.bar.*`, `bar.*(` in `shell/Ui`) with `tests/upstream.lock`, and names the Omacale area to re-test for each change. Once re-tested, `--record` and commit the lock. A reach-in added to Omacale belongs in its `DEPENDS` list.
+
 ### Gotchas that have bitten us
 
 - **A QML load error silently keeps the OLD UI**, and after a restart the shell **falls back to the stock `omarchy.bar`** ("bar option omacale.bar failed to load"). Live auto-reload ("Local plugin changed, reloading") does not report the error clearly. If a change doesn't show up, `omarchy-restart-shell` and read the log for `Type X unavailable` / `Invalid property assignment`.
@@ -208,6 +211,7 @@ Always screenshot and read the log; "no errors" without a screenshot proves litt
 - **Qt's `hh` is only 12-hour when the same format string has `AP`.** `Qt.formatTime(d, "hh")` alone is 24-hour. Use `Sys.hour(d)` / `Sys.time(d)`, never a bare `"hh"`.
 - A PathView/ListView bound to a plain JS array resets `currentIndex` when the array is reassigned, after any `onValuesChanged` handler has run. Set the index in `onModelChanged` (see `WallpaperList.recentre`).
 - Hyprland animation leaves set explicitly by Omarchy's `looknfeel.lua` (`fadeIn`, `fadeLayersIn`, ...) don't inherit a parent leaf you set later; override them by name (see `omacale.lua`).
+- **`notifs.py` normalizes every record** to the fields and defaults of Omarchy's `NotificationLogic.historyEntry` and passes unknown fields through; a record it can't read is skipped, never the whole list. A format change is logged once per process. `NotifService.readDnd` likewise warns once if `notifications.json` isn't `version: 3`.
 - Don't drive real notifications/recording in tests destructively: `RecordService.remove`, `NotifService.clearAll` and `dismiss` delete real files. `switcher.sh menu off` edits the real `~/.config/omarchy/extensions/omarchy-menu.jsonc`; test it with `HOME` pointed at a scratch dir.
 - **The menu engine is loaded, not vendored.** `omarchy.menu` has no data IPC (only toggle/summon/close/refresh), but its engine is plain JS with no shell dependencies, so `MenuService` builds a wrapper with `Qt.createQmlObject(src, root, "file://$OMARCHY_PATH/shell/plugins/menu/<anything>.qml")` -- that URL is what resolves the wrapper's relative `import "MenuModel.js"`, and the file it names never has to exist. Do it that way, not with a top-level `import`: a missing Omarchy would then be a QML load error, which takes the whole bar down with it. Search order, scoring and route resolution stay Omarchy's. What can't be read from Omarchy is its `providers` map (a property of the plugin Item), so `fonts` and `power-profiles` are restated in `MenuService` and have to be kept in step; `apps` is backed by the launcher's own `DesktopEntries` list.
 - **The `when:`/`checked:`/`disabled:` guards are one bash run** built by the engine (`guardScript`), and it queries pacman -- the better part of a second. The menu draws on the last answers and redraws when the new ones land, and `MenuService` won't re-run it more than once every 5s, so typing `:` over and over doesn't.

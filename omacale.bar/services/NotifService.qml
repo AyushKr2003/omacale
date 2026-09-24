@@ -374,9 +374,18 @@ QtObject {
   // DND state, parsed from the file the watcher already holds. It used to be
   // a `bash -c` running `jq` for this one boolean, which is a process pair
   // (~4ms) for something QML can read straight out of the FileView.
+  // Omarchy's notifications.json is `{ version: 3, dnd }` (its
+  // NotificationLogic.parseSettings). A newer shape still reads as "DND off"
+  // rather than breaking anything, but says so once in the log.
+  property bool dndFormatWarned: false
   function readDnd(t) {
     try {
-      root.dnd = !!JSON.parse(t).dnd
+      const parsed = JSON.parse(t)
+      if (!dndFormatWarned && (parsed.version !== 3 || typeof parsed.dnd !== "boolean")) {
+        dndFormatWarned = true
+        console.warn("Omacale: notifications.json is version " + parsed.version + ", expected 3; reading dnd as " + !!parsed.dnd)
+      }
+      root.dnd = !!parsed.dnd
     } catch (e) {
       root.dnd = false
     }

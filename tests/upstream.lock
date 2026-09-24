@@ -1,0 +1,40 @@
+{
+  "omarchy": "omarchy-dev 4.0.0.r2186.gee8ebf6-1",
+  "recorded": "2026-09-24",
+  "files": {
+    "shell/plugins/lock/LockFeedSurface.qml": "f5c4939dcfbe311f5f87d8fd425f0aab8d9c445431718524af466adabd5b5d91",
+    "shell/plugins/lock/LockView.qml": "3797abbb2233455975b69575692d4b875c444e88fc6397b809605a39bfc43922",
+    "shell/plugins/lock/Service.qml": "f0693da6429c6ff1f1cdc6354e78f1954a468deff452734373fb2050ac08b7dd",
+    "shell/plugins/lock/manifest.json": "58af8610a79045dfc09b541a5c2fdfd2e8886624549a49114ba424b4833cc546",
+    "shell/plugins/lock/poster.sh": "4941c8ae143a0ed0b226a6c54e1f94cbdd5937907cc01d0d0866c0cf34d916df",
+    "shell/plugins/notifications/NotificationLogic.js": "99e82df6524ee1ee1d52673b2a1496f62b14b220288f186c41fd8deed77a69bd",
+    "shell/plugins/notifications/Service.qml": "11665542e70df80ccd3c785a6143dee2daefd2082e4f75c740adc2c9947cf7c2",
+    "shell/plugins/notifications/components/NotificationCard.qml": "e1b5bae943d2e3b495741bc845b4fd981c274be538ea01799c46026f9db0fe49",
+    "shell/plugins/notifications/manifest.json": "82ed1a26f0040ddff78dd0ed1f12c5e4b49929ec5d0efc7ea62bedabbf48e910",
+    "shell/Ui/BackgroundMedia.qml": "f807fc72481e0c15270ecf22e2e5a9af55e6111bf2fbe01caa99847c2c348a1c",
+    "shell/plugins/menu/MenuModel.js": "e75faf23e1c4bdd341689c49f236cdbfa7144267bd9aa65186e339a9240137d1",
+    "shell/services/hidden-entries.sh": "ca3675606d94935c808f6487e967f757be273c4c3b48a99d633c2e70feebd85b",
+    "default/omarchy/launcher.hides": "91ed5019f97ec093d19fbab1b945ec4643a36577c862ced6caf9f1316c8ac0f4",
+    "shell/Ui/PluginBarApi.qml": "91964a42b92c58476a4f961df35148d4c94071344ef1a69eab1563d1496705a7",
+    "shell/Ui/KeyboardPanel.qml": "96245f2da8d38baa0017caa285d596c485bd19a3a4d2cd1675bee9d84ffba42d"
+  },
+  "barContract": [
+    "barHidden",
+    "barSize",
+    "debugBarGeometry",
+    "fontFamily",
+    "hideBarWidget",
+    "hideTooltip",
+    "isBarWidgetOpen",
+    "moduleWidgets",
+    "panelWidgetIdAt",
+    "position",
+    "releasePopout",
+    "requestPopout",
+    "showTooltip",
+    "summonBarWidget",
+    "switchPanelFrom",
+    "targetBelongsToWindow",
+    "toggleTransparency"
+  ]
+}

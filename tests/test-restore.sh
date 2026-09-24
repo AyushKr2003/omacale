@@ -327,5 +327,49 @@ else
   echo "  - skipped (no Omarchy notification/lock plugins on this machine)"
 fi
 
+echo "S. upstream-check names what moved"
+# Dev-only drift report: record a scratch Omarchy, change it, and it must
+# point at the Omacale area to re-test.
+if [[ -d $real_omarchy/shell/plugins/lock ]]; then
+  new_home
+  fake="$H/omarchy"; mkdir -p "$fake/shell/Ui" "$fake/shell/plugins" "$fake/default/omarchy"
+  cp -r "$real_omarchy/shell/plugins/lock" "$real_omarchy/shell/plugins/notifications" "$fake/shell/plugins/"
+  cp "$real_omarchy/shell/shell.qml" "$fake/shell/"
+  cp "$real_omarchy"/shell/Ui/*.qml "$fake/shell/Ui/"
+  uc() { OMARCHY_PATH="$fake" python3 "$here/../scripts/upstream-check" --lock "$H/upstream.lock" "$@"; }
+  uc --record >/dev/null
+  uc_ok() { uc >/dev/null; }
+  check "unchanged Omarchy passes"               uc_ok
+  echo "// x" >> "$fake/shell/plugins/lock/Service.qml"
+  echo "x" > "$fake/shell/plugins/notifications/New.qml"
+  echo 'function f() { shell.bar.brandNewCall() }' >> "$fake/shell/shell.qml"
+  out="$(uc || true)"
+  check "a changed file is reported"             grep -q 'changed: shell/plugins/lock/Service.qml' <<<"$out"
+  check "with the area to re-test"               grep -q 're-test lock handover' <<<"$out"
+  check "an added file is reported"              grep -q 'added: shell/plugins/notifications/New.qml' <<<"$out"
+  check "a new bar-contract call is reported"    grep -q 'newly called: bar.brandNewCall' <<<"$out"
+  uc_fails() { ! uc >/dev/null; }
+  check "and the check fails"                    uc_fails
+  check "the committed lock is readable"         python3 -c "import json; json.load(open('$here/upstream.lock'))"
+else
+  echo "  - skipped (no Omarchy lock plugin on this machine)"
+fi
+
+echo "T. notifs.py survives a changed record format"
+new_home
+nd="$H/.local/state/omarchy/notifications"; mkdir -p "$nd/history"
+echo '{"id": 1, "app": "a", "summary": "ok", "timestamp": 100}' > "$nd/history/100-1.json"
+echo '{"id": 2, "app": "b", "summary": "late", "timestamp": "not a number", "shiny": true}' > "$nd/history/200-2.json"
+echo '{"id": 3, "app": "c", "headline": "no summary", "timestamp": 300}' > "$nd/history/300-3.json"
+echo '[1, 2, 3]' > "$nd/history/400-4.json"
+echo '{broken' > "$nd/history/500-5.json"
+out="$(HOME="$H" python3 "$here/../omacale.bar/scripts/notifs.py" 2>"$H/err")"
+check "good records survive bad neighbours"    test "$(jq length <<<"$out")" = 3
+check "newest first"                           test "$(jq -r '.[0].app' <<<"$out")" = c
+check "a bad timestamp becomes 0"              test "$(jq -r '.[] | select(.app == "b") | .timestamp' <<<"$out")" = 0
+check "unknown fields pass through"            test "$(jq -r '.[] | select(.app == "b") | .shiny' <<<"$out")" = true
+check "a missing summary is filled"            test "$(jq -r '.[] | select(.app == "c") | .summary' <<<"$out")" = ""
+check "the format change is logged once"       test "$(grep -c 'notifs.py:' "$H/err")" = 1
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

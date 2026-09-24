@@ -28,7 +28,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.28.0"
+VERSION="0.28.1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
