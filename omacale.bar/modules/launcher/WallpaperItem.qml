@@ -14,7 +14,9 @@ Item {
 
   scale: 0.5
   opacity: 0
-  z: PathView.z ?? 0
+  // The path's z puts the centre on top; a pair doesn't move, so there it is
+  // whichever one is current.
+  z: PathView.view && PathView.view.pair ? (PathView.isCurrentItem ? 1 : 0) : PathView.z ?? 0
 
   Component.onCompleted: {
     scale = Qt.binding(() => PathView.isCurrentItem ? 1 : PathView.onPath ? 0.8 : 0)

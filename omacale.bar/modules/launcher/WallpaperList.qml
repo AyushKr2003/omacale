@@ -5,6 +5,11 @@ import "../.."
 // current item sits in the middle at full size; scrolling previews it on the
 // Omarchy background. Omacale also uses it for Omarchy themes, whose preview
 // images take the place of wallpapers.
+//
+// One deliberate difference: with exactly two entries Caelestia shows only the
+// current one, since a wrapping path can't hold the other on a fixed side of a
+// centred item. Omacale shows both side by side (`pair`): the path stops
+// following the selection, so moving it only changes which one is current.
 PathView {
   id: root
 
@@ -23,6 +28,7 @@ PathView {
     return q ? all.filter(w => w.label.toLowerCase().indexOf(q) >= 0 || w.key.split("/").pop().toLowerCase().indexOf(q) >= 0) : all
   }
 
+  readonly property bool pair: numItems === 2
   readonly property int numItems: {
     // Screen width - 4x outer rounding - 2x bar (cause centered)
     const maxWidth = screenWidth - Tk.borderRounding * 4 - Tk.barWidth * 2
@@ -31,7 +37,9 @@ PathView {
     const maxItemsOnScreen = Math.floor(maxWidth / itemWidth)
     const visible = Math.min(maxItemsOnScreen, Config.o.launcher.maxWallpapers, values.length)
 
-    if (visible === 2) return 1
+    // Only a model of exactly two is a pair; two that fit out of more stay 1,
+    // as a still path can't scroll through the rest.
+    if (visible === 2) return values.length === 2 ? 2 : 1
     if (visible > 1 && visible % 2 === 0) return visible - 1
     return visible
   }
@@ -52,6 +60,12 @@ PathView {
   // the model changes (Caelestia's ScriptModel does it on valuesChanged).
   model: values
   onModelChanged: recentre()
+  // A pair sits at offset 0 whatever is current; leaving one, put the current
+  // item back in the middle, since the range mode alone doesn't move the path.
+  onPairChanged: Qt.callLater(() => {
+    if (pair) offset = 0
+    else positionViewAtIndex(currentIndex, PathView.Center)
+  })
   Component.onCompleted: { Wallpapers.reload(); recentre() }
   Component.onDestruction: Wallpapers.stopPreview()
 
@@ -63,19 +77,25 @@ PathView {
   cacheItemCount: 4
 
   snapMode: PathView.SnapToItem
-  preferredHighlightBegin: 0.5
-  preferredHighlightEnd: 0.5
-  highlightRangeMode: PathView.StrictlyEnforceRange
+  // PathView adds the highlight start to every position whenever it snaps,
+  // range or no range, so a pair has none: item 0 is left, item 1 right.
+  preferredHighlightBegin: pair ? 0 : 0.5
+  preferredHighlightEnd: pair ? 0 : 0.5
+  highlightRangeMode: pair ? PathView.NoHighlightRange : PathView.StrictlyEnforceRange
+  interactive: !pair
 
   delegate: WallpaperItem {}
 
+  // A pair's path runs from the first slot's centre to half a slot past the
+  // second, so its two items (at 0 and 0.5 of it) sit on the slot centres.
   path: Path {
+    startX: root.pair ? root.itemWidth / 2 : 0
     startY: root.height / 2
 
     PathAttribute { name: "z"; value: 0 }
-    PathLine { x: root.width / 2; relativeY: 0 }
+    PathLine { x: root.pair ? root.itemWidth * 1.5 : root.width / 2; relativeY: 0 }
     PathAttribute { name: "z"; value: 1 }
-    PathLine { x: root.width; relativeY: 0 }
+    PathLine { x: root.pair ? root.itemWidth * 2.5 : root.width; relativeY: 0 }
   }
 
   MouseArea {
