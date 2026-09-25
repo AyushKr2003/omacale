@@ -21,7 +21,7 @@ ColumnLayout {
   property var binds: []        // { keys, desc, cmd, line, optional, note }
   property var active: ({})     // description -> true when bound in Hyprland
   property var tried: []        // keys bound by "Try" in this session
-  property real keysWidth: 230  // widest key combo, so every label lines up
+  property real keysWidth: Tk.px(230)  // widest key combo, so every label lines up
   property string toast: ""
 
   FileView {
@@ -93,7 +93,7 @@ ColumnLayout {
       RowLayout {
         spacing: Tk.spacing.large
         MShape {
-          implicitSize: 56
+          implicitSize: Tk.px(56)
           shape: "cookie9"
           color: Colours.m3primaryContainer
           MIcon { anchors.centerIn: parent; text: "keyboard"; size: Tk.iconSize.large; fill: 1; color: Colours.m3onPrimaryContainer }
@@ -256,8 +256,8 @@ ColumnLayout {
           model: br.bind.keys.split("+").map(k => k.trim())
           Rectangle {
             required property string modelData
-            width: Math.max(28, kt.implicitWidth + Tk.padding.small * 2)
-            height: 28
+            width: Math.max(Tk.px(28), kt.implicitWidth + Tk.padding.small * 2)
+            height: Tk.px(28)
             radius: Tk.rounding.small
             color: Colours.m3surfaceContainerHighest
             border.width: 1

@@ -1,6 +1,6 @@
 {
   "omarchy": "omarchy-dev 4.0.0.r2186.gee8ebf6-1",
-  "recorded": "2026-09-24",
+  "recorded": "2026-09-25",
   "files": {
     "shell/plugins/lock/LockFeedSurface.qml": "f5c4939dcfbe311f5f87d8fd425f0aab8d9c445431718524af466adabd5b5d91",
     "shell/plugins/lock/LockView.qml": "3797abbb2233455975b69575692d4b875c444e88fc6397b809605a39bfc43922",
@@ -16,7 +16,8 @@
     "shell/services/hidden-entries.sh": "ca3675606d94935c808f6487e967f757be273c4c3b48a99d633c2e70feebd85b",
     "default/omarchy/launcher.hides": "91ed5019f97ec093d19fbab1b945ec4643a36577c862ced6caf9f1316c8ac0f4",
     "shell/Ui/PluginBarApi.qml": "91964a42b92c58476a4f961df35148d4c94071344ef1a69eab1563d1496705a7",
-    "shell/Ui/KeyboardPanel.qml": "96245f2da8d38baa0017caa285d596c485bd19a3a4d2cd1675bee9d84ffba42d"
+    "shell/Ui/KeyboardPanel.qml": "96245f2da8d38baa0017caa285d596c485bd19a3a4d2cd1675bee9d84ffba42d",
+    "shell/Commons/Style.qml": "f5901092617ae62645597199270afd4dfb0644d596bdfff16e1834fca6ad7243"
   },
   "barContract": [
     "barHidden",

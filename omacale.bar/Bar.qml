@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.32.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.33.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -425,6 +425,20 @@ Item {
     }
     // The Omarchy menu, walked inside the launcher (the ":" prefix).
     function menu(): void { root.toggle("launcher", "menu") }
+    // UI scale: "omarchy" follows shell.toml, a number (0.5-2) sets a custom
+    // one. Also the way back from a size too broken to use Settings at.
+    // Prints the effective scale.
+    function scale(value: string): string {
+      const v = value.trim().toLowerCase()
+      if (v === "omarchy") Config.set("appearance.scale.source", "omarchy")
+      else if (v !== "") {
+        const n = Number(v.replace(/%$/, "")) / (v.endsWith("%") ? 100 : 1)
+        if (!isFinite(n) || n < 0.5 || n > 2) return "scale: expected omarchy or 0.5-2 (or 50%-200%)"
+        Config.set("appearance.scale.ui", n)
+        Config.set("appearance.scale.source", "custom")
+      }
+      return Config.o.appearance.scale.source + " " + Tk.uiScale.toFixed(2)
+    }
   }
 
   // Created at startup so an old menu-route block gets cleaned up.

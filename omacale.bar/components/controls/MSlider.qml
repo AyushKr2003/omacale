@@ -27,8 +27,8 @@ Item {
   function navActivate() {}
   function navAdjust(direction) { moved(Math.max(0, Math.min(1, value + keyStep * direction))) }
 
-  implicitWidth: 200
-  implicitHeight: 12
+  implicitWidth: Tk.px(200)
+  implicitHeight: Tk.px(12)
 
   property real filledWidth: (width - handle.width - Tk.spacing.extraSmall) * pos
   Behavior on filledWidth { id: widthBehavior; Anim {} }
@@ -61,13 +61,13 @@ Item {
     id: handle
     x: root.filledWidth + Tk.spacing.extraSmall
     anchors.verticalCenter: parent.verticalCenter
-    width: 4
+    width: Tk.px(4)
     height: {
       const t = Math.max(0, Math.min(1, (root.height - 12) / 16))
       const lerp = (a, b) => a + (b - a) * t
       return root.height * (mouse.pressed || root.focused ? lerp(3.5, 1.5) : lerp(3, 1.2))
     }
-    radius: 2
+    radius: Tk.px(2)
     color: root.fgColour
     Behavior on height { Anim { type: "fastSpatial" } }
   }

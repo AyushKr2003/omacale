@@ -24,6 +24,8 @@ ColumnLayout {
     Layout.fillWidth: true
     implicitHeight: Math.round(width / root.sw * root.sh)
     readonly property real s: width / root.sw
+    // The miniature UI at Omacale's scale; the frame (border, rounding) is px, so `s`.
+    readonly property real u: s * Tk.uiScale
 
     Rectangle { id: mask; anchors.fill: parent; radius: Tk.rounding.large; visible: false; layer.enabled: true }
 
@@ -46,10 +48,11 @@ ColumnLayout {
       Item {
         anchors.fill: parent
         readonly property real s: card.s
+        readonly property real u: card.u
         readonly property real bw: Tk.barWidth * s
         readonly property real bt: Tk.border * s
-        readonly property real dw: 860 * s
-        readonly property real dh: 360 * s
+        readonly property real dw: 860 * u
+        readonly property real dh: 360 * u
         layer.enabled: Config.o.appearance.shadow
         layer.effect: MultiEffect { shadowEnabled: true; blurMax: 12; shadowColor: Qt.alpha("black", 0.6) }
 
@@ -76,50 +79,50 @@ ColumnLayout {
         // mini bar
         Column {
           x: (parent.bw - width) / 2
-          y: 16 * parent.s
-          spacing: 12 * parent.s
-          width: 40 * parent.s
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 19 * card.s; height: width; radius: 4 * card.s; color: Colours.m3tertiary }
+          y: 16 * parent.u
+          spacing: 12 * parent.u
+          width: 40 * parent.u
+          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 19 * card.u; height: width; radius: 4 * card.u; color: Colours.m3tertiary }
           Rectangle {
-            width: parent.width; height: 5 * 36 * card.s + 8 * card.s
+            width: parent.width; height: 5 * 36 * card.u + 8 * card.u
             radius: width / 2
             color: Colours.m3surfaceContainer
-            Rectangle { x: 4 * card.s; y: 4 * card.s; width: parent.width - 8 * card.s; height: 32 * card.s; radius: width / 2; color: Colours.m3primary }
+            Rectangle { x: 4 * card.u; y: 4 * card.u; width: parent.width - 8 * card.u; height: 32 * card.u; radius: width / 2; color: Colours.m3primary }
             Column {
-              y: 4 * card.s + 32 * card.s + 4 * card.s
+              y: 4 * card.u + 32 * card.u + 4 * card.u
               anchors.horizontalCenter: parent.horizontalCenter
-              spacing: 4 * card.s
-              Repeater { model: 4; Item { width: 32 * card.s; height: 32 * card.s
-                Rectangle { anchors.centerIn: parent; width: (index === 0 ? 11 : 8) * card.s; height: width; radius: index === 0 ? 2 * card.s : width / 2; color: index === 0 ? Colours.m3onSurface : Colours.m3outlineVariant } } }
+              spacing: 4 * card.u
+              Repeater { model: 4; Item { width: 32 * card.u; height: 32 * card.u
+                Rectangle { anchors.centerIn: parent; width: (index === 0 ? 11 : 8) * card.u; height: width; radius: index === 0 ? 2 * card.u : width / 2; color: index === 0 ? Colours.m3onSurface : Colours.m3outlineVariant } } }
             }
           }
         }
         Column {
           x: (parent.bw - width) / 2
           anchors.bottom: parent.bottom
-          anchors.bottomMargin: 16 * parent.s
-          spacing: 12 * parent.s
-          width: 40 * parent.s
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.s; height: 40 * card.s; radius: 4 * card.s; color: Qt.alpha(Colours.m3tertiary, 0.8) }
-          Rectangle { width: parent.width; height: 110 * card.s; radius: width / 2; color: Colours.m3surfaceContainer
-            Column { anchors.centerIn: parent; spacing: 10 * card.s
-              Repeater { model: 3; Rectangle { width: 16 * card.s; height: width; radius: width / 2; color: Colours.m3secondary } } } }
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.s; height: width; radius: width / 2; color: Colours.m3error }
+          anchors.bottomMargin: 16 * parent.u
+          spacing: 12 * parent.u
+          width: 40 * parent.u
+          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: 40 * card.u; radius: 4 * card.u; color: Qt.alpha(Colours.m3tertiary, 0.8) }
+          Rectangle { width: parent.width; height: 110 * card.u; radius: width / 2; color: Colours.m3surfaceContainer
+            Column { anchors.centerIn: parent; spacing: 10 * card.u
+              Repeater { model: 3; Rectangle { width: 16 * card.u; height: width; radius: width / 2; color: Colours.m3secondary } } } }
+          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: width; radius: width / 2; color: Colours.m3error }
         }
 
         // mini dashboard cards
         Grid {
-          x: parent.bw + (parent.width - parent.bw - parent.bt - parent.dw) / 2 + 16 * card.s
-          y: parent.bt + 70 * card.s
+          x: parent.bw + (parent.width - parent.bw - parent.bt - parent.dw) / 2 + 16 * card.u
+          y: parent.bt + 70 * card.u
           columns: 3
-          spacing: 12 * card.s
-          Rectangle { width: 275 * card.s; height: 120 * card.s; radius: 42 * card.s; color: Colours.m3surfaceContainer
-            Rectangle { x: 30 * card.s; anchors.verticalCenter: parent.verticalCenter; width: 60 * card.s; height: width; radius: width / 2; color: Colours.m3secondary } }
-          Rectangle { width: 340 * card.s; height: 120 * card.s; radius: 28 * card.s; color: Colours.m3surfaceContainer
-            Rectangle { x: 20 * card.s; y: 16 * card.s; width: 46 * card.s; height: width; radius: 12 * card.s; color: Colours.m3primaryContainer }
-            Rectangle { x: 90 * card.s; y: 20 * card.s; width: 120 * card.s; height: 32 * card.s; radius: height / 2; color: Colours.m3secondaryContainer } }
-          Rectangle { width: 170 * card.s; height: 250 * card.s; radius: 56 * card.s; color: Colours.m3surfaceContainer
-            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; y: 20 * card.s; width: 120 * card.s; height: width; radius: width / 2; color: Colours.m3surfaceContainerHigh; border.width: 5 * card.s; border.color: Colours.m3primary } }
+          spacing: 12 * card.u
+          Rectangle { width: 275 * card.u; height: 120 * card.u; radius: 42 * card.u; color: Colours.m3surfaceContainer
+            Rectangle { x: 30 * card.u; anchors.verticalCenter: parent.verticalCenter; width: 60 * card.u; height: width; radius: width / 2; color: Colours.m3secondary } }
+          Rectangle { width: 340 * card.u; height: 120 * card.u; radius: 28 * card.u; color: Colours.m3surfaceContainer
+            Rectangle { x: 20 * card.u; y: 16 * card.u; width: 46 * card.u; height: width; radius: 12 * card.u; color: Colours.m3primaryContainer }
+            Rectangle { x: 90 * card.u; y: 20 * card.u; width: 120 * card.u; height: 32 * card.u; radius: height / 2; color: Colours.m3secondaryContainer } }
+          Rectangle { width: 170 * card.u; height: 250 * card.u; radius: 56 * card.u; color: Colours.m3surfaceContainer
+            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; y: 20 * card.u; width: 120 * card.u; height: width; radius: width / 2; color: Colours.m3surfaceContainerHigh; border.width: 5 * card.u; border.color: Colours.m3primary } }
         }
       }
     }

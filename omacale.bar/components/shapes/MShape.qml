@@ -11,7 +11,7 @@ Item {
 
   property string shape: "circle"
   property color color: Colours.m3primary
-  property real implicitSize: 32
+  property real implicitSize: Tk.px(32)
   property int morphDuration: Tk.durations.defaultSpatial
   property var morphCurve: Tk.curves.defaultSpatial
 

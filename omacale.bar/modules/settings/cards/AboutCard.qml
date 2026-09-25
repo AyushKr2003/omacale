@@ -36,11 +36,11 @@ ColumnLayout {
       spacing: Tk.spacing.small
       Item {
         Layout.alignment: Qt.AlignHCenter
-        implicitWidth: 96; implicitHeight: 96
+        implicitWidth: Tk.px(96); implicitHeight: Tk.px(96)
         MShape {
           id: logoShape
           anchors.fill: parent
-          implicitSize: 96
+          implicitSize: Tk.px(96)
           color: Colours.m3primaryContainer
           property int i: 0
           readonly property var cycle: ["cookie12", "softBurst", "gem", "clover4", "cookie7", "sunny"]
@@ -50,7 +50,7 @@ ColumnLayout {
         }
         ColouredIcon {
           anchors.centerIn: parent
-          implicitSize: 44
+          implicitSize: Tk.px(44)
           source: "file://" + Quickshell.env("OMARCHY_PATH") + "/icon.png"
           colour: Colours.m3onPrimaryContainer
         }

@@ -46,11 +46,11 @@ Item {
   }
   function closeMenu() { menuOwner = null }
 
-  readonly property int navWidth: Math.min(600, Math.round(width / 3))
+  readonly property int navWidth: Math.min(Tk.px(600), Math.round(width / 3))
   readonly property int frameSide: Tk.padding.medium
   readonly property real holeX: navWidth + Tk.padding.large * 2
   implicitHeight: Math.round(screenHeight * 0.7)
-  implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - Tk.barWidth - 80)
+  implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - Tk.barWidth - Tk.px(80))
 
   // Keys (ScreenScope's drawer cursor): set by the drawer; the pop-out window
   // has none. Escape stays Settings' own, below. / searches, Backspace goes
@@ -362,7 +362,7 @@ Item {
     readonly property bool above: anchorPos.y + implicitHeight + Tk.spacing.small > root.height - Tk.padding.large
     x: Math.max(Tk.padding.large, anchorPos.x - width)
     y: above ? anchorPos.y - (root.menuAnchor ? root.menuAnchor.height : 0) - height - Tk.spacing.small : anchorPos.y + Tk.spacing.small
-    implicitWidth: Math.max(200, menuCol.implicitWidth + menuCol.anchors.margins * 2)
+    implicitWidth: Math.max(Tk.px(200), menuCol.implicitWidth + menuCol.anchors.margins * 2)
     implicitHeight: menuCol.implicitHeight + menuCol.anchors.margins * 2
     width: implicitWidth
     height: implicitHeight

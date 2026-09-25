@@ -46,7 +46,7 @@ Item {
       anchors.fill: parent
       source: root.source
       fillMode: Image.PreserveAspectCrop
-      sourceSize.width: 400; sourceSize.height: 400
+      sourceSize.width: Tk.px(400); sourceSize.height: Tk.px(400)
       asynchronous: true
       opacity: status === Image.Ready ? 1 : 0
       Behavior on opacity { Anim { type: "slowEffects" } }

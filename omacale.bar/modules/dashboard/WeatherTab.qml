@@ -9,7 +9,7 @@ Item {
   property bool active: false
   onActiveChanged: if (active && Sys.forecast.length === 0) Sys.weatherProbe.running = true
 
-  implicitWidth: Math.max(840, layout.implicitWidth)
+  implicitWidth: Math.max(Tk.px(840), layout.implicitWidth)
   implicitHeight: layout.implicitHeight
 
   ColumnLayout {
@@ -23,7 +23,7 @@ Item {
       Layout.fillWidth: true
       Column {
         spacing: Tk.spacing.extraSmall
-        MText { text: Sys.city || "Loading..."; font.pointSize: 28; weight: Font.DemiBold }
+        MText { text: Sys.city || "Loading..."; font.pointSize: Tk.font(28); weight: Font.DemiBold }
         MText { text: new Date().toLocaleDateString(Qt.locale(), "dddd, MMMM d"); color: Colours.m3onSurfaceVariant }
       }
       Item { Layout.fillWidth: true }
@@ -47,7 +47,7 @@ Item {
         ColumnLayout {
           Layout.alignment: Qt.AlignVCenter
           spacing: -Tk.spacing.small
-          MText { text: Sys.temp; font.pointSize: 28 * 2; weight: Font.Medium; color: Colours.m3primary }
+          MText { text: Sys.temp; font.pointSize: Tk.font(28) * 2; weight: Font.Medium; color: Colours.m3primary }
           MText { Layout.leftMargin: Tk.padding.extraSmall; text: Sys.weatherDesc; font.pointSize: Tk.body.medium; color: Colours.m3onSurfaceVariant }
         }
       }
@@ -105,7 +105,7 @@ Item {
     property string value
     property color colour
     Layout.fillWidth: true
-    Layout.preferredHeight: 60
+    Layout.preferredHeight: Tk.px(60)
     radius: Tk.rounding.medium
     color: Colours.m3surfaceContainer
     Row {

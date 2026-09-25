@@ -11,7 +11,11 @@ ConnectedRect {
   property var settings
   property string value: row.key ? String(Config.get(row.key)) : ""
   signal picked(string value)
-  function choose(v) { if (root.row.key) Config.set(root.row.key, v); root.picked(v) }
+  // Options are strings; a numeric setting (the scale presets) stores a number.
+  function choose(v) {
+    if (root.row.key) Config.set(root.row.key, typeof Config.get(root.row.key) === "number" ? Number(v) : v)
+    root.picked(v)
+  }
   readonly property var current: (row.options || []).find(o => o.value === value) || (row.options || [])[0]
 
   implicitHeight: Math.max(lbl.implicitHeight, split.implicitHeight) + Tk.padding.medium * 2
@@ -43,7 +47,7 @@ ConnectedRect {
           anchors.centerIn: parent
           anchors.horizontalCenterOffset: Math.floor(split.vPad / 4)
           spacing: Tk.spacing.small
-          MIcon { Layout.alignment: Qt.AlignVCenter; text: root.current ? root.current.icon : ""; fill: 1; color: Colours.m3onSecondaryContainer; animate: true }
+          MIcon { Layout.alignment: Qt.AlignVCenter; visible: text !== ""; text: root.current && root.current.icon ? root.current.icon : ""; fill: 1; color: Colours.m3onSecondaryContainer; animate: true }
           MText { Layout.alignment: Qt.AlignVCenter; text: root.current ? root.current.label : ""; color: Colours.m3onSecondaryContainer; animate: true }
         }
       }

@@ -19,7 +19,7 @@ Item {
   signal editingFinished()
   signal accepted()
 
-  implicitWidth: 250
+  implicitWidth: Tk.px(250)
   implicitHeight: input.contentHeight + verticalPadding * 2
 
   Shape {

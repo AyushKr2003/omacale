@@ -9,6 +9,10 @@ var values = {
     variant: "tonalspot",    // M3 dynamic scheme
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
     animScale: 1.0,
+    // UI scale. `source` omarchy follows ~/.config/omarchy/shell.toml ([font]
+    // base-size, [spacing] scale); custom uses `ui`. font/padding/spacing/rounding
+    // are Caelestia's appearance.*.scale, applied on top.
+    scale: { source: "omarchy", ui: 1.0, font: 1.0, padding: 1.0, spacing: 1.0, rounding: 1.0 },
     shadow: true,
     transparency: { enabled: false, base: 0.85, layers: 0.4 }
   },

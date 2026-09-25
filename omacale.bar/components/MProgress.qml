@@ -11,8 +11,8 @@ Item {
   readonly property real v: Math.max(0, Math.min(1, isNaN(value) ? 0 : value))
   property real shown: v
   Behavior on shown { Anim {} }
-  implicitWidth: 200
-  implicitHeight: 4
+  implicitWidth: Tk.px(200)
+  implicitHeight: Tk.px(4)
 
   Rectangle {
     id: fill

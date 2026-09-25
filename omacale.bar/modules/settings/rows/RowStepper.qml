@@ -57,7 +57,7 @@ ConnectedRect {
       }
       Btn { id: down; icon: "remove"; leftSide: true; disabled: root.value <= root.row.from }
       Rectangle {
-        width: 65; height: down.height
+        width: Tk.px(65); height: down.height
         radius: Tk.rounding.extraSmall
         color: Colours.m3surfaceContainerHighest
         MTextField {

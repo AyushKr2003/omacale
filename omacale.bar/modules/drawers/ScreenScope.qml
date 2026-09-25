@@ -340,8 +340,8 @@ Scope {
       color: Colours.m3surface
       implicitWidth: winSettings.implicitWidth
       implicitHeight: winSettings.implicitHeight
-      minimumSize.width: 800
-      minimumSize.height: 500
+      minimumSize.width: Tk.px(800)
+      minimumSize.height: Tk.px(500)
       onVisibleChanged: if (!visible) scope.settingsWindow = false
       Settings {
         id: winSettings
@@ -426,7 +426,7 @@ Scope {
     readonly property bool sbVis: sbOff < 1
 
     // Dashboard (top centre)
-    readonly property real dw: (dash && dash.implicitWidth) || 854
+    readonly property real dw: (dash && dash.implicitWidth) || Tk.px(854)
     readonly property real dh: dash ? dash.implicitHeight : 0
     readonly property real dx: ax + (aw - dw) / 2
     readonly property real dy: ay + (-dh - 5) * Math.max(0, dOff)
@@ -511,7 +511,7 @@ Scope {
       }
     }
     readonly property real uw: Math.max(0, ax + aw - sbx) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
-    readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : 450
+    readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : Tk.px(450)
     readonly property real ux: ax + aw - uw
     readonly property real uy: ay + ah - uh + (uh + 5) * uOff
     // Caelestia's PanelBg: the corners they share square up and their fillet

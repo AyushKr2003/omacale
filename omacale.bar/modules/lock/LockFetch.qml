@@ -83,7 +83,7 @@ Rectangle {
       LogoIcon {
         Layout.alignment: Qt.AlignVCenter
         visible: root.sideLogo
-        size: Math.max(48, lines.implicitHeight)
+        size: Math.max(Tk.px(48), lines.implicitHeight)
         value: Config.o.bar.logoIcon
         colour: Config.o.lock.recolourLogo ? Colours.m3primary : Colours.m3onSurface
       }

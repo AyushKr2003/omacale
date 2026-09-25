@@ -17,7 +17,7 @@ Item {
   id: root
 
   property bool active: false
-  property real maxHeight: 800
+  property real maxHeight: Tk.px(800)
   signal dismissed()
   signal openSettings()
   readonly property var cfg: Config.o.launcher

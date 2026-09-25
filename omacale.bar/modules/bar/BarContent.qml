@@ -328,7 +328,7 @@ Item {
       }
       MouseArea {
         anchors.fill: logo
-        anchors.margins: -4
+        anchors.margins: -Tk.px(4)
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: e => root.host.toggle(e.button === Qt.RightButton ? "settings" : "launcher")
@@ -598,14 +598,14 @@ Item {
         ColumnLayout {
           visible: root.cfg.clock.showDate
           Layout.alignment: Qt.AlignHCenter
-          spacing: clockCol.spacing - 4
+          spacing: clockCol.spacing - Tk.px(4)
           MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small * 0.9; color: Colours.m3tertiary }
           MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: clockCol.size * 1.1; color: Colours.m3tertiary }
           Rectangle {
             Layout.fillWidth: true
             Layout.leftMargin: -Tk.padding.extraSmall
             Layout.rightMargin: -Tk.padding.extraSmall
-            Layout.topMargin: 4
+            Layout.topMargin: Tk.px(4)
             Layout.bottomMargin: Tk.padding.extraSmall / 2
             implicitHeight: 1
             color: Colours.m3outlineVariant
@@ -617,7 +617,7 @@ Item {
         MText {
           visible: parent.parent.h12
           Layout.alignment: Qt.AlignHCenter
-          Layout.topMargin: -clockCol.spacing - 4
+          Layout.topMargin: -clockCol.spacing - Tk.px(4)
           text: Qt.formatTime(clock.date, "AP").toLowerCase()
           font.pointSize: Tk.body.small * 0.9
           color: Colours.m3tertiary

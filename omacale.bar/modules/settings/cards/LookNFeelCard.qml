@@ -177,7 +177,7 @@ ColumnLayout {
       RowLayout {
         spacing: Tk.spacing.large
         MShape {
-          implicitSize: 56
+          implicitSize: Tk.px(56)
           shape: "cookie9"
           color: Colours.m3primaryContainer
           MIcon { anchors.centerIn: parent; text: "auto_awesome"; size: Tk.iconSize.large; fill: 1; color: Colours.m3onPrimaryContainer }
@@ -276,7 +276,7 @@ ColumnLayout {
       id: code
       anchors.fill: parent
       anchors.margins: Tk.padding.large
-      anchors.rightMargin: Tk.padding.large + 40
+      anchors.rightMargin: Tk.padding.large + Tk.px(40)
       readOnly: true
       selectByMouse: true
       wrapMode: TextEdit.WrapAnywhere

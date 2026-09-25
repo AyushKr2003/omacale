@@ -22,6 +22,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Plugin manager** and hosting for third-party Omarchy bar widgets.
 - **Keyboard-driven**: every panel works with `h` `j` `k` `l`, Enter and Escape.
 - **Settings app** for everything above, applied live.
+- **UI scale**: follows Omarchy's font size (`[font] base-size` in `~/.config/omarchy/shell.toml`) or a size of your own, with separate text, padding, spacing and rounding scales. Unlike Caelestia, the drawers and bar scale with it too, so a smaller UI also takes less room.
 
 ## Requirements
 
@@ -112,6 +113,7 @@ omarchy-shell omacale <wallpapers|themes|menu|windowInfo|barFocus>
 omarchy-shell omacale dashboardTab <dashboard|media|performance|weather>
 omarchy-shell omacale settingsPage <page>
 omarchy-shell omacale popout <network|bluetooth|audio|battery|kblayout|lockstatus|update|activewindow>
+omarchy-shell omacale scale <omarchy|0.5-2|50%-200%>                  # empty prints the current scale
 ```
 
 ## Omarchy integration
@@ -120,6 +122,7 @@ Omacale changes how things look, never how they work underneath.
 
 - **Notifications**: Omarchy's daemon keeps the server, do not disturb and history. Omacale only draws the toasts.
 - **Lock screen**: Omarchy keeps the session lock, PAM and idle timers. Omacale only draws the view, and Omarchy's view comes back if Omacale is off or missing.
+- **Scale**: by default Omacale follows the size set in Omarchy's `shell.toml` (`[font] base-size`, `[spacing] scale`), so the stock bar and Omacale grow and shrink together.
 - **Updates**: when `omarchy update` changes those plugins, Omacale rebuilds its copies from the new version. If a copy stops working, Omarchy's original is restored automatically and you get a notification.
 
 <details>

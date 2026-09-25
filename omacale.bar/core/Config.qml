@@ -71,6 +71,14 @@ QtObject {
         property string variant: "tonalspot"
         property string seed: ""
         property real animScale: 1.0
+        property JsonObject scale: JsonObject {
+          property string source: "omarchy"
+          property real ui: 1.0
+          property real font: 1.0
+          property real padding: 1.0
+          property real spacing: 1.0
+          property real rounding: 1.0
+        }
         property bool shadow: true
         property JsonObject transparency: JsonObject {
           property bool enabled: false

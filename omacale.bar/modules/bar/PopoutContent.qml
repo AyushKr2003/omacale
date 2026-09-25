@@ -313,7 +313,7 @@ Item {
       }
 
       spacing: Tk.spacing.medium
-      implicitWidth: 400
+      implicitWidth: Tk.px(400)
       implicitHeight: card.implicitHeight + Tk.padding.extraLargeIncreased
       Component.onCompleted: { shown = true; focusTimer.start() }
       // Caelestia's focusTimer: the surface only takes the keyboard once the
@@ -337,7 +337,7 @@ Item {
       Rectangle {
         id: card
         Layout.fillWidth: true
-        Layout.preferredWidth: 400
+        Layout.preferredWidth: Tk.px(400)
         implicitHeight: content.implicitHeight + Tk.padding.extraLargeIncreased
         radius: Tk.rounding.large
         color: Colours.m3surfaceContainer
@@ -387,7 +387,7 @@ Item {
             id: field
             Layout.topMargin: Tk.spacing.largeIncreased
             Layout.fillWidth: true
-            implicitHeight: Math.max(48, dots.implicitHeight + Tk.padding.medium * 2)
+            implicitHeight: Math.max(Tk.px(48), dots.implicitHeight + Tk.padding.medium * 2)
             focus: true
             activeFocusOnTab: true
 
@@ -506,12 +506,12 @@ Item {
         Layout.fillWidth: true
         spacing: Tk.spacing.medium
         Rectangle {
-          width: 20; height: 20; radius: 10
+          width: Tk.px(20); height: Tk.px(20); radius: width / 2
           color: "transparent"
           border.width: 2
           border.color: rb.checked ? Colours.m3primary : Colours.m3onSurfaceVariant
           Behavior on border.color { CAnim {} }
-          Rectangle { anchors.centerIn: parent; width: 8; height: 8; radius: 4; color: Colours.m3primary; opacity: rb.checked ? 1 : 0; Behavior on opacity { Anim { type: "effects" } } }
+          Rectangle { anchors.centerIn: parent; width: Tk.px(8); height: Tk.px(8); radius: width / 2; color: Colours.m3primary; opacity: rb.checked ? 1 : 0; Behavior on opacity { Anim { type: "effects" } } }
           Item { anchors.fill: parent; anchors.margins: -Tk.padding.small; property real radius: width / 2
             StateLayer { color: rb.checked ? Colours.m3onSurface : Colours.m3primary; onClicked: rb.clicked() } }
         }
@@ -693,7 +693,7 @@ Item {
         Layout.topMargin: Tk.spacing.small
         clip: true
         interactive: true
-        implicitHeight: Math.min(contentHeight, 320)
+        implicitHeight: Math.min(contentHeight, Tk.px(320))
         visible: count > 0
         spacing: Tk.spacing.small
         // Keyed by token, so a re-read of the same layouts keeps the rows.
@@ -715,7 +715,7 @@ Item {
           required property var modelData
           readonly property bool isDisabled: modelData.index > 3
           width: kbList.width
-          height: Math.max(36, kbRowText.implicitHeight + Tk.padding.small)
+          height: Math.max(Tk.px(36), kbRowText.implicitHeight + Tk.padding.small)
           ToolTip.visible: isDisabled && kbHover.hovered
           ToolTip.text: "XKB limitation: maximum 4 layouts allowed"
           HoverHandler { id: kbHover }
@@ -724,7 +724,7 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            height: parent.height - 4
+            height: parent.height - Tk.px(4)
             property real radius: Tk.rounding.full
             StateLayer {
               disabled: kbRow.isDisabled
@@ -890,7 +890,7 @@ Item {
               // Menu text without its mnemonic markers (_File, &File).
               function navLabelText() { return String(modelData.text || "").replace(/[_&]/g, "") }
               width: page.width
-              height: modelData.isSeparator ? 1 : Math.max(24, label.implicitHeight + Tk.padding.small)
+              height: modelData.isSeparator ? 1 : Math.max(Tk.px(24), label.implicitHeight + Tk.padding.small)
               Rectangle {
                 visible: entry.modelData.isSeparator
                 anchors.fill: parent
@@ -915,7 +915,7 @@ Item {
                   width: entry.modelData.icon ? label.implicitHeight : 0
                   height: width
                   source: entry.modelData.icon
-                  sourceSize.width: 48; sourceSize.height: 48
+                  sourceSize.width: Tk.px(48); sourceSize.height: Tk.px(48)
                 }
                 MText {
                   id: label

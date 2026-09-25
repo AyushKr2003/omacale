@@ -42,11 +42,11 @@ ConnectedRect {
           id: tile
           required property var modelData
           readonly property bool selected: root.current === modelData.id
-          width: 64; height: 70
+          width: Tk.px(64); height: Tk.px(70)
           Rectangle {
             id: ring
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 48; height: 48
+            width: Tk.px(48); height: Tk.px(48)
             radius: tile.selected ? Tk.rounding.medium : width / 2
             color: tile.selected ? Colours.m3primaryContainer : Colours.m3surfaceContainerHighest
             border.width: tile.selected ? 2 : 0
@@ -63,7 +63,7 @@ ConnectedRect {
           }
           MText {
             anchors.top: ring.bottom
-            anchors.topMargin: 3
+            anchors.topMargin: Tk.px(3)
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width
             horizontalAlignment: Text.AlignHCenter

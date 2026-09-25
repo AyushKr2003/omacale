@@ -15,12 +15,17 @@ ConnectedRect {
     if (row.unit === "px") return Math.round(v) + " px"
     return String(v)
   }
-  function setFrac(f) {
+  function valueAt(f) {
     const s = row.step || 0.01
-    let v = row.from + f * (row.to - row.from)
-    v = Math.round(v / s) * s
-    Config.set(row.key, Number(v.toFixed(4)))
+    const v = Math.round((row.from + f * (row.to - row.from)) / s) * s
+    return Number(v.toFixed(4))
   }
+  function setFrac(f) { Config.set(row.key, valueAt(f)) }
+  // `commit: "release"` writes only when the drag ends, for settings that
+  // re-lay out Settings itself (the scale) and would move the slider away
+  // from the pointer mid-drag. The label still follows the drag.
+  readonly property bool onRelease: row.commit === "release"
+  readonly property real shown: onRelease && slider.dragging ? valueAt(slider.pos) : value
 
   implicitHeight: col.implicitHeight + Tk.padding.large + Tk.padding.largeIncreased
 
@@ -40,10 +45,12 @@ ConnectedRect {
         Layout.fillWidth: true
         spacing: Tk.spacing.small
         MText { Layout.fillWidth: true; text: root.row.where ? root.row.where + " · " + root.row.label : root.row.label; elide: Text.ElideRight }
-        MText { text: root.fmt(root.value); color: Colours.m3outline }
+        MText { text: root.fmt(root.shown); color: Colours.m3outline }
       }
       MSlider {
+        id: slider
         Layout.fillWidth: true
+        interactionOnMove: !root.onRelease
         implicitHeight: Tk.padding.medium * 2
         radius: Tk.rounding.small
         value: root.frac

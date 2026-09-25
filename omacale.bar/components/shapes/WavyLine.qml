@@ -6,7 +6,7 @@ import "../.."
 // scrolls while `running`; its phase is continuous across value changes.
 Item {
   id: root
-  property real lineWidth: 6
+  property real lineWidth: Tk.px(6)
   property real frequency: 5          // waves across fullLength
   property real fullLength: width
   property real amplitude: lineWidth * 0.5

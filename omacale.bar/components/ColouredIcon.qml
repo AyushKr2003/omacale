@@ -7,7 +7,7 @@ Item {
   id: root
   property alias source: img.source
   property color colour: Colours.m3tertiary
-  property real implicitSize: 20
+  property real implicitSize: Tk.px(20)
 
   implicitWidth: implicitSize
   implicitHeight: implicitSize

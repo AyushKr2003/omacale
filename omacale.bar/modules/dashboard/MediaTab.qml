@@ -20,11 +20,11 @@ Item {
     if (t === "n" && player.canGoNext) player.next()
     else if (t === "p" && player.canGoPrevious) player.previous()
   }
-  readonly property int sectionWidth: 300
-  readonly property int coverSize: 200
+  readonly property int sectionWidth: Tk.px(300)
+  readonly property int coverSize: Tk.px(200)
 
-  implicitWidth: 1000
-  implicitHeight: 320
+  implicitWidth: Tk.px(1000)
+  implicitHeight: Tk.px(320)
 
   // The visualiser only runs while this tab is on screen and music plays.
   readonly property bool wantVis: active && visible && playing && Config.o.dashboard.visualiser
@@ -56,7 +56,7 @@ Item {
         property real vy: bg.srand(4, 18)
         property real vr: bg.rand(-12, 12)
         readonly property int ci: Math.floor(Math.random() * 4)
-        implicitSize: 36 + (index / 14) * (124 - 36)
+        implicitSize: Tk.px(36 + (index / 14) * (124 - 36))
         width: implicitSize; height: implicitSize
         shape: bg.pool[Math.floor(Math.random() * bg.pool.length)]
         color: [Colours.m3primaryContainer, Colours.m3secondaryContainer, Colours.m3tertiaryContainer, Colours.m3outlineVariant][ci]
@@ -93,7 +93,7 @@ Item {
       readonly property real cx: width / 2
       readonly property real cy: height / 2
       readonly property real gap: Tk.spacing.medium
-      readonly property real barWidth: 360 / Sys.visBars - Tk.spacing.small / 4
+      readonly property real barWidth: Tk.px(360) / Sys.visBars - Tk.spacing.small / 4
       readonly property real maxMag: (root.sectionWidth - root.coverSize) / 2 - gap
 
       Shape {
@@ -190,7 +190,7 @@ Item {
             spacing: Tk.spacing.small
             MText {
               id: posLabel
-              Layout.preferredWidth: 44
+              Layout.preferredWidth: Tk.px(44)
               horizontalAlignment: Text.AlignHCenter
               text: details.fmt(seek.dragging ? seek.pos * details.len : (root.player ? root.player.position : -1))
               color: Colours.m3onSurfaceVariant
@@ -199,7 +199,7 @@ Item {
             MSlider {
               id: seek
               Layout.fillWidth: true
-              implicitHeight: 12
+              implicitHeight: Tk.px(12)
               wavy: true
               animateWave: root.playing
               waveFrequency: 5
@@ -210,7 +210,7 @@ Item {
               onMoved: v => { if (root.player && root.player.canSeek) root.player.position = v * details.len }
             }
             MText {
-              Layout.preferredWidth: 44
+              Layout.preferredWidth: Tk.px(44)
               horizontalAlignment: Text.AlignHCenter
               text: details.unknownLen ? "--:--" : details.fmt(details.len)
               color: Colours.m3onSurfaceVariant
@@ -305,13 +305,13 @@ Item {
               Behavior on opacity { Anim { type: "effects" } }
               Rectangle {
                 Layout.alignment: Qt.AlignHCenter
-                implicitWidth: 60 + Tk.padding.medium * 2; implicitHeight: implicitWidth
+                implicitWidth: Tk.px(60) + Tk.padding.medium * 2; implicitHeight: implicitWidth
                 radius: width / 2
                 color: Colours.m3primaryContainer
                 MShape {
                   id: loadShape
                   anchors.centerIn: parent
-                  implicitSize: 60
+                  implicitSize: Tk.px(60)
                   shape: ["cookie9", "softBurst", "pentagon", "gem", "sunny"][loadShape.k % 5]
                   property int k: 0
                   color: Colours.m3onPrimaryContainer
@@ -394,7 +394,7 @@ Item {
           SplitSelect {
             Layout.alignment: Qt.AlignHCenter
             menuOnTop: true
-            minLeftWidth: root.sectionWidth - Tk.padding.medium - 38
+            minLeftWidth: root.sectionWidth - Tk.padding.medium - Tk.px(38)
             fallbackIcon: "music_off"
             fallbackText: "No players"
             items: Sys.players.map(p => ({ icon: "animated_images", text: Sys.playerName(p), value: p }))

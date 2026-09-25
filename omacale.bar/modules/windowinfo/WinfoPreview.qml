@@ -44,7 +44,7 @@ Item {
           Layout.alignment: Qt.AlignHCenter
           text: "No active client"
           color: Colours.m3outline
-          font.pointSize: 28
+          font.pointSize: Tk.font(28)
           weight: Font.Medium
         }
         MText {

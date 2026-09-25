@@ -20,7 +20,7 @@ Item {
   property real waveFrequency: 8
   property bool wavePaused: false
   property int waveDuration: 2000
-  property real implicitSize: 60
+  property real implicitSize: Tk.px(60)
   // Not readonly: animated
   property real clampedVal: Math.max(1 / 360, Math.min(1, isNaN(value) ? 0 : value))
   property real waveAmplitude: wavy ? 0.5 : 0

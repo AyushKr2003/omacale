@@ -59,7 +59,7 @@ ColumnLayout {
     ColumnLayout {
       id: col
       x: (flick.width - width) / 2
-      width: Math.min(800, flick.width)
+      width: Math.min(Tk.px(800), flick.width)
       spacing: Tk.spacing.extraSmall / 2
 
       Repeater {

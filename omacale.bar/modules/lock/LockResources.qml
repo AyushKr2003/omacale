@@ -79,7 +79,7 @@ Rectangle {
           anchors.centerIn: parent
           text: `${Math.round(Sys.cpuTemp)}°`
           color: parent.hot ? Colours.m3onErrorContainer : Colours.m3secondary
-          font.pointSize: Tk.title.medium * Math.max(0.6, cpu.width / 112)
+          font.pointSize: Tk.title.medium * Math.max(0.6, cpu.width / Tk.px(112))
           weight: Font.Medium
           axes: ({ "ROND": 25, "wdth": 50 })
         }
@@ -159,7 +159,7 @@ Rectangle {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
-          lineWidth: Math.max(3, shape.implicitSize / 22)
+          lineWidth: Math.max(Tk.px(3), shape.implicitSize / 22)
           frequency: 3
           color: res.fillColour
           running: res.fillValue > 0

@@ -165,8 +165,8 @@ ColumnLayout {
         anchors.fill: parent
         source: "file://" + Quickshell.env("HOME") + "/.face"
         fillMode: Image.PreserveAspectCrop
-        sourceSize.width: 512
-        sourceSize.height: 512
+        sourceSize.width: Tk.px(512)
+        sourceSize.height: Tk.px(512)
         cache: false
       }
 

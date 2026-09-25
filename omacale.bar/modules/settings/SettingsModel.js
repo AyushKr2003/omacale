@@ -7,7 +7,7 @@
 //   section  { text }
 //   toggle   { key, label, subtext }
 //   stepper  { key, label, subtext, from, to, step }
-//   slider   { key, label, icon, from, to, step, unit: "%" | "x" | "px" }
+//   slider   { key, label, icon, from, to, step, unit: "%" | "x" | "px", commit?: "release" }
 //   select   { key, label, subtext, options: [{ value, label, icon }] }
 //   text     { key, label, subtext, placeholder }
 //   nav      { icon, label, subtext, page, status? }
@@ -18,7 +18,7 @@
 var pages = [
   {
     id: "style", label: "Wallpaper & style", icon: "palette", category: "appearance",
-    description: "Palette, scheme, transparency",
+    description: "Palette, scheme, transparency, scale",
     rows: [
       { type: "custom", comp: "preview" },
       { type: "section", text: "Colours" },
@@ -46,7 +46,27 @@ var pages = [
       { type: "section", text: "Transparency" },
       { type: "toggle", key: "appearance.transparency.enabled", label: "Transparency", subtext: "Translucent frame and drawers with background blur" },
       { type: "slider", key: "appearance.transparency.base", label: "Surface opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
-      { type: "slider", key: "appearance.transparency.layers", label: "Card opacity", icon: "layers", from: 0.1, to: 1, step: 0.01, unit: "%" }
+      { type: "slider", key: "appearance.transparency.layers", label: "Card opacity", icon: "layers", from: 0.1, to: 1, step: 0.01, unit: "%" },
+      { type: "section", text: "Scale" },
+      { type: "select", key: "appearance.scale.source", label: "Interface scale", subtext: "Default follows Omarchy's font size", options: [
+        { value: "omarchy", label: "Default", icon: "sync" },
+        { value: "custom", label: "Custom", icon: "tune" }
+      ] },
+      // Presets rather than a slider: Settings re-lays itself out at the new
+      // size, which would pull a slider out from under the pointer.
+      { type: "select", key: "appearance.scale.ui", when: { key: "appearance.scale.source", value: "custom" }, label: "Size", subtext: "Text, icons, spacing, the bar and the drawers", options: [
+        { value: "0.75", label: "75%" },
+        { value: "0.85", label: "85%" },
+        { value: "0.9", label: "90%" },
+        { value: "1", label: "100%" },
+        { value: "1.1", label: "110%" },
+        { value: "1.25", label: "125%" },
+        { value: "1.5", label: "150%" }
+      ] },
+      { type: "slider", key: "appearance.scale.font", label: "Text size", icon: "format_size", from: 0.5, to: 1.5, step: 0.05, unit: "x", commit: "release" },
+      { type: "slider", key: "appearance.scale.padding", label: "Padding", icon: "padding", from: 0.5, to: 1.5, step: 0.05, unit: "x", commit: "release" },
+      { type: "slider", key: "appearance.scale.spacing", label: "Spacing", icon: "space_bar", from: 0.5, to: 1.5, step: 0.05, unit: "x", commit: "release" },
+      { type: "slider", key: "appearance.scale.rounding", label: "Rounding", icon: "rounded_corner", from: 0, to: 1.5, step: 0.05, unit: "x", commit: "release" }
     ]
   },
   {
@@ -161,7 +181,7 @@ var subpages = {
       { type: "section", text: "Popups" },
       { type: "custom", comp: "notifs" },
       { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows" },
-      { type: "slider", key: "notifs.popups.width", label: "Popup width", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
+      { type: "slider", key: "notifs.popups.width", label: "Popup width (at 100% scale)", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Notifications" },
       { type: "toggle", key: "notifs.openExpanded", label: "Open expanded", subtext: "Show notification groups and popups expanded by default" },
       { type: "stepper", key: "notifs.groupPreviewNum", label: "Group preview count", subtext: "Notifications shown per group before collapsing", from: 1, to: 10, step: 1 }
@@ -400,7 +420,7 @@ var subpages = {
     rows: [
       { type: "section", text: "General" },
       { type: "toggle", key: "sidebar.enabled", label: "Enabled", subtext: "Enable notification sidebar drawer" },
-      { type: "slider", key: "sidebar.width", label: "Sidebar width", icon: "dock_to_right", from: 320, to: 600, step: 10, unit: "px" }
+      { type: "slider", key: "sidebar.width", label: "Sidebar width (at 100% scale)", icon: "dock_to_right", from: 320, to: 600, step: 10, unit: "px" }
     ]
   },
   utilities: {
@@ -408,7 +428,7 @@ var subpages = {
     rows: [
       { type: "section", text: "General" },
       { type: "toggle", key: "utilities.enabled", label: "Enabled", subtext: "Enable quick toggles and utilities drawer" },
-      { type: "slider", key: "utilities.width", label: "Utilities width", icon: "tune", from: 320, to: 600, step: 10, unit: "px" },
+      { type: "slider", key: "utilities.width", label: "Utilities width (at 100% scale)", icon: "tune", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Quick toggles" },
       { type: "toggle", key: "utilities.toggles.wifi", label: "Wi-Fi" },
       { type: "toggle", key: "utilities.toggles.bluetooth", label: "Bluetooth" },

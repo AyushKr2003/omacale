@@ -16,7 +16,7 @@ Item {
   // Caelestia Strings.percentOne: one decimal, dropped when whole ("100%").
   function pct(v) { return isNaN(v) ? "..." : (Math.round(v * 1000) / 10) + "%" }
 
-  implicitWidth: anyShown ? content.implicitWidth : 700
+  implicitWidth: anyShown ? content.implicitWidth : Tk.px(700)
   implicitHeight: anyShown ? content.implicitHeight : placeholder.implicitHeight + Tk.padding.extraLarge * 2
 
   // ----------------------------------------------------- placeholder
@@ -86,7 +86,7 @@ Item {
     property real temperature
     color: Colours.m3surfaceContainer
     radius: Tk.rounding.extraLarge
-    implicitWidth: 400
+    implicitWidth: Tk.px(400)
     implicitHeight: Math.max(tempProg.height + detailsCol.implicitHeight + Tk.spacing.large, usageShape.height + usageLabel.implicitHeight) + Tk.padding.large * 2
 
     CircularProgress {
@@ -125,14 +125,14 @@ Item {
         }
         MText { text: Math.round(hero.temperature) + "°C"; font.pointSize: Tk.body.medium }
       }
-      MProgress { implicitWidth: 200; implicitHeight: Tk.padding.small; value: hero.temperature / 100; fgColour: hero.accent }
+      MProgress { implicitWidth: Tk.px(200); implicitHeight: Tk.padding.small; value: hero.temperature / 100; fgColour: hero.accent }
     }
     MShape {
       id: usageShape
       anchors.right: parent.right; anchors.bottom: parent.bottom
       anchors.margins: Tk.padding.medium
-      implicitSize: 100
-      width: 100; height: 100
+      implicitSize: Tk.px(100)
+      width: Tk.px(100); height: Tk.px(100)
       color: Colours.m3secondaryContainer
       shape: hero.usage >= 0.8 ? "softBurst" : hero.usage >= 0.4 ? "sunny" : "cookie4"
       MText { id: usageLabel; anchors.bottom: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "Usage"; color: Colours.m3onSurfaceVariant }
@@ -175,7 +175,7 @@ Item {
           }
         }
         ColumnLayout {
-          Layout.minimumWidth: 160
+          Layout.minimumWidth: Tk.px(160)
           spacing: Tk.spacing.extraSmall
           MText { text: "Storage"; font.pointSize: Tk.title.medium; weight: Font.Medium }
           MText { text: storage.disk ? Sys.fmtBytes(storage.disk.used) + " / " + Sys.fmtBytes(storage.disk.total) : "No disks detected"; font.pointSize: Tk.body.large; color: storage.accent }
@@ -198,8 +198,8 @@ Item {
   component NetworkCard: Rectangle {
     color: Colours.m3surfaceContainer
     radius: Tk.rounding.extraLarge
-    implicitWidth: 390
-    implicitHeight: 220
+    implicitWidth: Tk.px(390)
+    implicitHeight: Tk.px(220)
     ColumnLayout {
       anchors.fill: parent
       anchors.margins: Tk.padding.large
@@ -293,8 +293,8 @@ Item {
     Behavior on animPerc { Anim {} }
     color: Colours.m3secondaryContainer
     radius: Tk.rounding.large
-    implicitWidth: root.cfg.showCpu || root.gpuShown || root.cfg.showStorage || root.cfg.showMemory ? 150 : 400
-    implicitHeight: 160
+    implicitWidth: root.cfg.showCpu || root.gpuShown || root.cfg.showStorage || root.cfg.showMemory ? Tk.px(150) : Tk.px(400)
+    implicitHeight: Tk.px(160)
     clip: true
     layer.enabled: true
     layer.effect: ShaderMaskEffect { maskItem: tankMask }

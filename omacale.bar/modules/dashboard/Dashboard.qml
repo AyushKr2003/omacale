@@ -70,7 +70,7 @@ Item {
     x: root.margins
     y: Math.max(0, root.margins - Tk.border)
     width: root.width - root.margins * 2
-    implicitHeight: Tk.sizes.tabIndicatorSpacing + tabRow.implicitHeight + 5 + Tk.sizes.tabIndicatorHeight + 1
+    implicitHeight: Tk.sizes.tabIndicatorSpacing + tabRow.implicitHeight + Tk.px(5) + Tk.sizes.tabIndicatorHeight + 1
 
     RowLayout {
       id: tabRow
@@ -127,7 +127,7 @@ Item {
       id: indicator
       readonly property real slot: tabBar.width / root.tabs.length
       readonly property Item cur: tabRep.count > root.tab ? tabRep.itemAt(root.tab) : null
-      y: tabRow.y + tabRow.implicitHeight + 5
+      y: tabRow.y + tabRow.implicitHeight + Tk.px(5)
       height: Tk.sizes.tabIndicatorHeight
       width: cur ? cur.contentWidth : slot
       x: slot * root.tab + (slot - width) / 2
@@ -240,12 +240,12 @@ Item {
       ColumnLayout {
         anchors.centerIn: parent
         spacing: 0
-        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Sys.hour(clock.date); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
-        MText { Layout.alignment: Qt.AlignHCenter; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }
-        MText { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "mm"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
-        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 28 * 0.9 }
-        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "ss"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: 28; weight: Font.DemiBold }
-        MText { visible: root.h12; Layout.alignment: Qt.AlignHCenter; text: Qt.formatTime(clock.date, "AP"); color: Colours.m3primary; font.family: Tk.clock; font.pointSize: 18; weight: Font.DemiBold }
+        MText { Layout.alignment: Qt.AlignHCenter; Layout.bottomMargin: -Tk.headline.medium * 0.4; text: Sys.hour(clock.date); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: Tk.font(28); weight: Font.DemiBold }
+        MText { Layout.alignment: Qt.AlignHCenter; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: Tk.font(28) * 0.9 }
+        MText { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "mm"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: Tk.font(28); weight: Font.DemiBold }
+        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: "•••"; color: Colours.m3primary; font.family: Tk.clock; font.pointSize: Tk.font(28) * 0.9 }
+        MText { visible: root.cfg.clockSeconds; Layout.alignment: Qt.AlignHCenter; Layout.topMargin: -Tk.headline.medium * 0.4; text: Qt.formatTime(clock.date, "ss"); color: Colours.m3secondary; font.family: Tk.clock; font.pointSize: Tk.font(28); weight: Font.DemiBold }
+        MText { visible: root.h12; Layout.alignment: Qt.AlignHCenter; text: Qt.formatTime(clock.date, "AP"); color: Colours.m3primary; font.family: Tk.clock; font.pointSize: Tk.font(18); weight: Font.DemiBold }
       }
     }
 
@@ -323,7 +323,7 @@ Item {
           anchors.fill: parent
           source: "file://" + Quickshell.env("HOME") + "/.face"
           fillMode: Image.PreserveAspectCrop
-          sourceSize.width: 256; sourceSize.height: 256
+          sourceSize.width: Tk.px(256); sourceSize.height: Tk.px(256)
           cache: false
         }
         MIcon {
@@ -359,14 +359,14 @@ Item {
       id: bubble1
       anchors.left: pfpBox.right; anchors.top: bubble2.bottom
       anchors.leftMargin: Tk.spacing.small; anchors.topMargin: -Tk.spacing.extraSmall
-      width: 10; height: 10; radius: 5
+      width: Tk.px(10); height: Tk.px(10); radius: width / 2
       color: Colours.m3secondaryContainer
     }
     Rectangle {
       id: bubble2
       anchors.left: bubble1.right; anchors.verticalCenter: wm.bottom
       anchors.leftMargin: Tk.spacing.extraSmall
-      width: 15; height: 15; radius: 7.5
+      width: Tk.px(15); height: Tk.px(15); radius: width / 2
       color: Colours.m3secondaryContainer
     }
     Rectangle {
@@ -449,8 +449,8 @@ Item {
       opacity: calRoot.animOpacity
       transform: Translate { x: calRoot.animTranslate }
       columns: 7
-      columnSpacing: 3
-      rowSpacing: 3
+      columnSpacing: Tk.px(3)
+      rowSpacing: Tk.px(3)
       readonly property real cellW: (width - columnSpacing * 6) / 7
       readonly property int offset: (calRoot.shown.getDay() + 6) % 7
       readonly property int days: new Date(calRoot.year, calRoot.month + 1, 0).getDate()
@@ -534,7 +534,7 @@ Item {
         anchors.fill: parent
         source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
         fillMode: Image.PreserveAspectCrop
-        sourceSize.width: 256; sourceSize.height: 256
+        sourceSize.width: Tk.px(256); sourceSize.height: Tk.px(256)
         layer.enabled: true
         layer.effect: ShaderMaskEffect { maskItem: coverMask }
       }

@@ -27,7 +27,7 @@ ConnectedRect {
         subtext: root.seed === "" ? "Following the Omarchy theme accent" : "Custom " + root.seed.toUpperCase()
       }
       Rectangle {
-        width: 132; height: 36; radius: height / 2
+        width: Tk.px(132); height: Tk.px(36); radius: height / 2
         color: Colours.m3surfaceContainerHighest
         border.width: hex.activeFocus ? 2 : 0
         border.color: Colours.m3primary
@@ -39,7 +39,7 @@ ConnectedRect {
           MTextField {
             id: hex
             anchors.verticalCenter: parent.verticalCenter
-            width: 80
+            width: Tk.px(80)
             text: root.seed.replace("#", "")
             maximumLength: 6
             font.family: Tk.mono; font.pointSize: Tk.body.small
@@ -78,7 +78,7 @@ ConnectedRect {
           required property var modelData
           required property int index
           Layout.fillWidth: true
-          implicitHeight: 44
+          implicitHeight: Tk.px(44)
           color: modelData.c
           topLeftRadius: index === 0 ? height / 2 : Tk.rounding.extraSmall
           bottomLeftRadius: topLeftRadius
@@ -98,11 +98,11 @@ ConnectedRect {
     property string label
     property string icon: ""
     readonly property bool selected: root.seed.toLowerCase() === value
-    width: 56; height: 62
+    width: Tk.px(56); height: Tk.px(62)
     Rectangle {
       id: ring
       anchors.horizontalCenter: parent.horizontalCenter
-      width: 44; height: 44
+      width: Tk.px(44); height: Tk.px(44)
       radius: sw.selected ? Tk.rounding.medium : width / 2
       color: "transparent"
       border.width: sw.selected ? 2 : 0
@@ -110,7 +110,7 @@ ConnectedRect {
       Behavior on radius { Anim {} }
       Rectangle {
         anchors.centerIn: parent
-        width: sw.selected ? 32 : 40; height: width
+        width: sw.selected ? Tk.px(32) : Tk.px(40); height: width
         radius: sw.selected ? Tk.rounding.small : width / 2
         color: sw.colour
         Behavior on width { Anim {} }
@@ -128,7 +128,7 @@ ConnectedRect {
     }
     MText {
       anchors.top: ring.bottom
-      anchors.topMargin: 2
+      anchors.topMargin: Tk.px(2)
       anchors.horizontalCenter: parent.horizontalCenter
       text: sw.label
       font.pointSize: Tk.label.small

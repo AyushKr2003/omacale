@@ -32,14 +32,14 @@ Item {
 
   readonly property var active: items.find(i => i.value === current) || items[0] || null
   implicitWidth: row.implicitWidth
-  implicitHeight: 40
+  implicitHeight: Tk.px(40)
 
   Row {
     id: row
     spacing: 2
     Rectangle {
       id: main
-      height: 40
+      height: Tk.px(40)
       width: Math.max(root.minLeftWidth, mainRow.implicitWidth + root.horizontalPadding * 2)
       color: root.disabled ? root.disabledColour : root.colour
       Behavior on color { CAnim {} }
@@ -67,7 +67,7 @@ Item {
     }
     Rectangle {
       id: chev
-      height: 40; width: 36
+      height: Tk.px(40); width: Tk.px(36)
       color: root.disabled ? root.disabledColour : (root.expanded && !root.filled ? Colours.m3secondary : root.colour)
       topRightRadius: height / 2; bottomRightRadius: height / 2
       topLeftRadius: root.expanded ? height / 2 : Tk.rounding.extraSmall; bottomLeftRadius: topLeftRadius
@@ -88,11 +88,11 @@ Item {
   Rectangle {
     id: menu
     z: 50
-    width: Math.max(row.width, 200)
+    width: Math.max(row.width, Tk.px(200))
     x: row.width - width
     readonly property real fullHeight: menuCol.implicitHeight + Tk.padding.small * 2
     height: root.expanded ? fullHeight : 0
-    y: root.menuOnTop ? -height - 6 : row.height + 6
+    y: root.menuOnTop ? -height - Tk.px(6) : row.height + Tk.px(6)
     opacity: root.expanded ? 1 : 0
     visible: height > 1
     radius: Tk.rounding.large
@@ -116,7 +116,7 @@ Item {
           id: mi
           required property var modelData
           readonly property bool sel: root.active && modelData.value === root.active.value
-          width: menuCol.width; height: 44; radius: height / 2
+          width: menuCol.width; height: Tk.px(44); radius: height / 2
           color: sel ? Colours.m3secondaryContainer : "transparent"
           StateLayer { color: Colours.m3onSurface; onClicked: { root.selected(mi.modelData.value); root.expanded = false } }
           Row {

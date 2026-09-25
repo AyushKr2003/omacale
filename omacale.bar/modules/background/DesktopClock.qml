@@ -101,7 +101,7 @@ Item {
 
       Rectangle {
         Layout.fillHeight: true
-        Layout.preferredWidth: 4 * root.clockScale
+        Layout.preferredWidth: Tk.px(4) * root.clockScale
         Layout.topMargin: Tk.spacing.large * root.clockScale
         Layout.bottomMargin: Tk.spacing.large * root.clockScale
         radius: Tk.rounding.full

@@ -217,8 +217,8 @@ Rectangle {
         id: progress
 
         anchors.centerIn: appIcon
-        width: appIcon.width + 4
-        height: appIcon.height + 4
+        width: appIcon.width + Tk.px(4)
+        height: appIcon.height + Tk.px(4)
         preferredRendererType: Shape.CurveRenderer
         visible: root.modelData ? NotifService.popupDeadline(root.modelData) > 0 : false
 

@@ -19,7 +19,7 @@ ConnectedRect {
     // Caelestia TextFieldRow: an outlined field, 250 wide, capped at half the row.
     OutlinedField {
       id: field
-      Layout.preferredWidth: 250
+      Layout.preferredWidth: Tk.px(250)
       Layout.maximumWidth: root.width / 2
       Layout.alignment: Qt.AlignVCenter
       verticalPadding: Tk.padding.small

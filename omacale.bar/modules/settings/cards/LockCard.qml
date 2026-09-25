@@ -37,7 +37,7 @@ ColumnLayout {
         spacing: Tk.spacing.large
 
         MShape {
-          implicitSize: 56
+          implicitSize: Tk.px(56)
           shape: root.drawing ? "cookie9" : "circle"
           color: root.drawing ? Colours.m3primaryContainer : Colours.m3surfaceContainerHighest
 

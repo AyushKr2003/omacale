@@ -218,7 +218,7 @@ ColumnLayout {
     signal accepted()
     function focusInput() { input.forceActiveFocus() }
 
-    implicitHeight: 40
+    implicitHeight: Tk.px(40)
     radius: height / 2
     color: Colours.m3surfaceContainerHighest
     border.width: input.activeFocus ? 2 : 0
