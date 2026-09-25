@@ -376,11 +376,14 @@ Item {
         }
         // Caelestia ActiveWindow: two titles cross-fade when the text changes.
         property Item current: title1
+        // A step above Caelestia's body.small, which read small beside the
+        // status icons. Measured and drawn at the same size.
+        readonly property int titleSize: Tk.font(13)
         TextMetrics {
           id: metrics
           text: activeWin.title
           font.family: Tk.sans
-          font.pointSize: Tk.body.small
+          font.pointSize: activeWin.titleSize
           font.letterSpacing: 1.4
           elide: Qt.ElideRight
           elideWidth: Math.max(0, activeWin.maxLen)
@@ -398,6 +401,7 @@ Item {
           anchors.horizontalCenter: winIcon.horizontalCenter
           width: implicitHeight
           height: implicitWidth
+          font.pointSize: activeWin.titleSize
           font.letterSpacing: 1.4
           color: Colours.m3primary
           opacity: activeWin.current === t ? 1 : 0
