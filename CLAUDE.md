@@ -94,7 +94,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Audio (`AudioService`) | `Quickshell.Services.Pipewire` as Omarchy's `plugins/panels/audio`; `omarchy-audio-sink-availability`, `omarchy-audio-output-sink` (volume on the sink behind a tuning), `omarchy-audio-{output,input}-set-default` |
 | Default apps (Settings › Apps) | `omarchy-default-{terminal,browser,editor}` (no arg prints the current one) |
 | Bar scroll volume / brightness | `omarchy-audio-output-volume +N`, `omarchy-brightness-display +N%` (Omarchy's OSD and sink resolution) |
-| Keep awake | `~/.local/state/omarchy/indicators/stay-awake`, `omarchy-shell idle enable/disable` |
+| Keep awake | `~/.local/state/omarchy/indicators/stay-awake`, `omarchy-toggle-idle stay-awake/allow-idle` (what SUPER+CTRL+I runs; note `omarchy-shell idle enable` means *allow* idle) |
 | System update (`UpdateService`) | `omarchy-update-available` every 6h (exit 0 = pending), `omarchy-launch-floating-terminal-with-presentation omarchy-update` detached, re-checked once `$XDG_RUNTIME_DIR/omarchy-update.lock` is free |
 | Screen recording | `omarchy capture screenrecording [--stop-recording]` |
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |

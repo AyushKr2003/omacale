@@ -18,16 +18,18 @@ QtObject {
     else enable()
   }
 
+  // The same command SUPER+CTRL+I runs (`omarchy toggle idle`); Omarchy's
+  // idle service follows the indicator file it writes. Not `omarchy-shell
+  // idle enable/disable`: those mean *allow* idle / stay awake, the reverse
+  // of what they read as, and pairing them with the file undid every click.
   function enable() {
-    enabled = true
-    enabledSince = new Date()
-    run("mkdir -p \"$HOME/.local/state/omarchy/indicators\" && touch \"$HOME/.local/state/omarchy/indicators/stay-awake\" && omarchy-shell idle enable 2>/dev/null || true")
+    setEnabled(true)
+    run("omarchy-toggle-idle stay-awake >/dev/null")
   }
 
   function disable() {
-    enabled = false
-    enabledSince = null
-    run("rm -f \"$HOME/.local/state/omarchy/indicators/stay-awake\" && omarchy-shell idle disable 2>/dev/null || true")
+    setEnabled(false)
+    run("omarchy-toggle-idle allow-idle >/dev/null")
   }
 
   // Keep awake is the presence of Omarchy's indicator file, so read it
