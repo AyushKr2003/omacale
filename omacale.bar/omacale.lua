@@ -62,6 +62,61 @@ local vars = {
 local shadow_colour = string.format("rgba(000000%02x)",
   math.floor(math.min(1, 0.275 / vars.windowOpacity) * 255 + 0.5))
 
+-- ── Omacale's scale ─────────────────────────────────────────────────────────
+-- The gaps and the window rounding follow Omacale's UI scale, so windows keep
+-- their place in the frame at any size. The values above are the 1x ones.
+--
+-- Rounding is concentric with the frame: a window sits gaps_out inside the
+-- frame's inner corner, so its corner is that radius minus the gap (outer =
+-- inner + gap). 25px frame - 10px gap = 15px at 1x. A lone window's wider
+-- gap would want a smaller radius still, but Hyprland's rounding is global.
+--
+-- The shell (services/HyprLook.qml) writes its spacing scale and frame
+-- rounding to $XDG_STATE_HOME/omacale/hypr.lua, read here on every load, and
+-- calls omacale_apply() with the same table when they change, so a change
+-- lands at once and survives `hyprctl reload`. Without the file (no Omacale
+-- shell yet) everything stays at 1x.
+
+local base = {
+  windowGapsIn = vars.windowGapsIn,
+  windowGapsOut = vars.windowGapsOut,
+  workspaceGaps = vars.workspaceGaps,
+  singleWindowGapsOut = vars.singleWindowGapsOut,
+  frameRounding = vars.windowRounding + vars.windowGapsOut,
+}
+
+local function omacale_scaled(s)
+  s = type(s) == "table" and s or {}
+  local sp = tonumber(s.spacing) or 1
+  if sp ~= sp or sp < 0 or sp > 4 then sp = 1 end
+  local frame = tonumber(s.frameRounding) or base.frameRounding
+  if frame ~= frame or frame < 0 or frame > 200 then frame = base.frameRounding end
+  local function px(x) return math.floor(x * sp + 0.5) end
+  local out = {
+    windowGapsIn = px(base.windowGapsIn),
+    windowGapsOut = px(base.windowGapsOut),
+    workspaceGaps = px(base.workspaceGaps),
+    singleWindowGapsOut = px(base.singleWindowGapsOut),
+  }
+  out.windowRounding = math.max(0, math.floor(frame + 0.5) - out.windowGapsOut)
+  return out
+end
+
+local state_dir = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/omacale"
+local state_ok, state = pcall(dofile, state_dir .. "/hypr.lua")
+for k, v in pairs(omacale_scaled(state_ok and state or nil)) do vars[k] = v end
+
+-- Global, so the shell can reach it through `hyprctl eval`.
+function omacale_apply(s)
+  local v = omacale_scaled(s)
+  hl.config({
+    general = { gaps_in = v.windowGapsIn, gaps_out = v.windowGapsOut, gaps_workspaces = v.workspaceGaps },
+    decoration = { rounding = v.windowRounding },
+  })
+  hl.workspace_rule({ workspace = "w[tv1]s[false]", gaps_out = v.singleWindowGapsOut })
+  hl.workspace_rule({ workspace = "f[1]s[false]", gaps_out = v.singleWindowGapsOut })
+end
+
 -- ── General / decoration (general.lua, decoration.lua) ──────────────────────
 
 hl.config({

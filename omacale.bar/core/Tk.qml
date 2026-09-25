@@ -14,8 +14,8 @@ QtObject {
   // Omacale adds: Omarchy's own shell.toml scale by default ([font] base-size
   // / 12, and [spacing] scale for gaps), or the user's. Unlike Caelestia the
   // master also scales `sizes` and the bar, so a smaller UI gets narrower
-  // drawers. Frame settings (border, rounding, smoothing) are user px and
-  // don't scale.
+  // drawers. The frame's thickness and smoothing are user px and don't
+  // scale; its corner rounding follows roundScale.
   readonly property QtObject scaleCfg: Config.o.appearance.scale
   readonly property bool followOmarchy: scaleCfg.source !== "custom"
   // Reach-ins into Omarchy's Commons/Style.qml; 1.0 if they ever go away.
@@ -82,7 +82,9 @@ QtObject {
 
   // Frame / bar (user-configurable)
   readonly property int border: Config.o.border.thickness
-  readonly property int borderRounding: Config.o.border.rounding
+  // The frame's corner is a rounding, so it follows the rounding scale;
+  // Hyprland's window rounding is derived from it (services/HyprLook.qml).
+  readonly property int borderRounding: Math.round(Config.o.border.rounding * roundScale)
   readonly property int smoothing: Config.o.border.smoothing
   readonly property int barInner: px(40)
   readonly property int barWidth: barInner + 2 * Math.max(padding.small, border)

@@ -26,6 +26,7 @@ ColumnLayout {
   property var groups: []       // { title, vars: [{ name, raw, opt, uses }] }
   property int animations: 0
   property var live: ({})       // hyprland option -> current value
+  property var raws: ({})       // vars name -> its 1x value in omacale.lua
   property bool loaded: false   // omacale.lua is dofile'd from looknfeel.lua
   property bool tried: false
   property string toast: ""
@@ -77,6 +78,8 @@ ColumnLayout {
     }
   }
   Timer { id: reprobe; interval: 600; onTriggered: if (root.opts.length) optProbe.running = true }
+  // HyprLook pushes a scale change to Hyprland ~400ms later; read it back after.
+  Connections { target: HyprLook; function onArgsChanged() { reprobe.interval = 1200; reprobe.restart() } }
   Timer { id: toastTimer; interval: 2600; onTriggered: root.toast = "" }
 
   // vars table -> groups (by its "-- Heading" comments); hl.config() keys
@@ -116,12 +119,19 @@ ColumnLayout {
       v.opt = optOf[v.name] || ""
       v.uses = lines.filter(l => /^(hl|o)\.\w+\(/.test(l) && new RegExp("vars\\." + v.name + "\\b").test(l)).map(subst)
     }))
+    root.raws = raws
     groups = out.filter(g => g.vars.length)
     animations = lines.filter(l => /^hl\.animation\(/.test(l)).length
     reprobe.restart()
   }
 
-  function value(v) { return v.raw === "true" ? true : v.raw === "false" ? false : parseFloat(v.raw) }
+  // Gaps and window rounding follow the UI scale (HyprLook / omacale_scaled),
+  // so what Hyprland should run is the scaled value, not the file's 1x one.
+  function value(v) {
+    if (v.raw === "true") return true
+    if (v.raw === "false") return false
+    return HyprLook.scaled(v.name, parseFloat(v.raw), parseFloat(raws.windowGapsOut))
+  }
   function applied(v) {
     if (!(v.opt in live)) return false
     const a = value(v), b = live[v.opt]
@@ -136,7 +146,7 @@ ColumnLayout {
   function snippet(v) {
     if (!v.opt) return v.uses.join("\n")
     const keys = v.opt.split(":")
-    return "hl.config({ " + keys.map(k => k + " = ").join("{ ").replace(/= $/, "= " + v.raw) + " }".repeat(keys.length - 1) + " })"
+    return "hl.config({ " + keys.map(k => k + " = ").join("{ ").replace(/= $/, "= " + String(value(v))) + " }".repeat(keys.length - 1) + " })"
   }
 
   function copy(text, what) {

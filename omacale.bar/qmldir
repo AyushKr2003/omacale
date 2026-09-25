@@ -18,6 +18,7 @@ Dashboard 1.0 modules/dashboard/Dashboard.qml
 singleton GameMode 1.0 services/GameMode.qml
 IconButton 1.0 components/controls/IconButton.qml
 IdleInhibitCard 1.0 modules/utilities/IdleInhibitCard.qml
+singleton HyprLook 1.0 services/HyprLook.qml
 singleton IdleService 1.0 services/IdleService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
 singleton KbService 1.0 services/KbService.qml

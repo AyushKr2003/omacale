@@ -75,7 +75,7 @@ var pages = [
     rows: [
       { type: "section", text: "Frame" },
       { type: "slider", key: "border.thickness", label: "Border thickness", icon: "border_outer", from: 0, to: 30, step: 1, unit: "px" },
-      { type: "slider", key: "border.rounding", label: "Corner rounding", icon: "rounded_corner", from: 0, to: 48, step: 1, unit: "px" },
+      { type: "slider", key: "border.rounding", label: "Corner rounding (at 100% scale)", icon: "rounded_corner", from: 0, to: 48, step: 1, unit: "px" },
       { type: "slider", key: "border.smoothing", label: "Drawer blending", icon: "join", from: 2, to: 40, step: 1, unit: "px" },
       { type: "toggle", key: "appearance.shadow", label: "Shadow", subtext: "Soft shadow under the frame and drawers" },
       { type: "section", text: "Motion" },

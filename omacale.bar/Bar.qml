@@ -22,7 +22,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.33.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.34.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -449,6 +449,9 @@ Item {
   // keep their clones in step with Omarchy updates (services/Handover.qml).
   readonly property bool lockHandover: LockService.installed
   readonly property bool notifHandover: NotifHandover.installed
+  // Keeps Hyprland's gaps and window rounding in step with the UI scale
+  // through omacale.lua (services/HyprLook.qml). Referenced to create it.
+  readonly property string hyprLook: HyprLook.args
 
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to
