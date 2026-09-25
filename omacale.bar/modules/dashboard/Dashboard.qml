@@ -67,6 +67,12 @@ Item {
   // --------------------------------------------------------------- tabs
   Item {
     id: tabBar
+    // A lane of its own for the drawer cursor: h/l walk the tabs and stop at
+    // the ends rather than falling into the page, and j/k from the page come
+    // back up onto the open tab, not whichever tab sits above -- landing on
+    // a tab opens it.
+    readonly property bool navRow: true
+    function navEnter() { return root.navTabStop() }
     x: root.margins
     y: Math.max(0, root.margins - Tk.border)
     width: root.width - root.margins * 2
@@ -163,6 +169,9 @@ Item {
       contentHeight: strip.implicitHeight
       contentX: root.page.x
       Behavior on contentX { Anim {} }
+      // How far the strip still has to slide: the cursor aims at the page
+      // where it will settle, not where it is mid-animation.
+      readonly property real navShiftX: contentX - root.page.x
       onContentXChanged: {
         if (!moving) return
         const dx = contentX - root.page.x

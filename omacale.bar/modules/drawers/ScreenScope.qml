@@ -121,6 +121,13 @@ Scope {
     drawerKeyNav.handle(e)
   }
 
+  // After another surface of ours unmaps (the toasts), whatever holds the
+  // keyboard takes it again: a primed one re-primes, the rest re-grab.
+  function retakeKeys() {
+    if (popoutKeys || barFocus || drawerKeys) win.primeFocus()
+    else if (win.grabWanted) win.regrab()
+  }
+
   function toggleBarFocus() {
     if (barFocus) { barFocus = false; return }
     closeAll()
@@ -312,6 +319,12 @@ Scope {
     // Only the cards themselves take input; everything else on this surface
     // is click-through, so the overlay never eats a press.
     mask: Region { item: toastStack }
+
+    // Taking this surface down makes Hyprland hand the keyboard to a window,
+    // even from a panel that holds it: opening the sidebar over a toast (the
+    // toasts get out of its way) or the last toast timing out under an open
+    // drawer left h/j/k/l going to the window behind. Take the keys back.
+    onVisibleChanged: if (!visible) scope.retakeKeys()
 
     NotifPopups {
       id: toastStack

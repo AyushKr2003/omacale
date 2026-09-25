@@ -46,6 +46,9 @@ Rectangle {
     return Math.round(Math.max(imageSize, headerHeight + listHeight) + Tk.padding.medium * 2)
   }
 
+  // The drawer cursor finds the group's stops again by this after a rebuild.
+  readonly property string navKey: "group:" + appName
+
   function toggleExpand(expand) { NotifService.setExpanded(appName, expand) }
   function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p }
   function iconUrl(p) { return p.indexOf("/") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
@@ -209,6 +212,9 @@ Rectangle {
             // does what the notification's open action does -- or, with none,
             // expands the group -- and x dismisses it.
             readonly property bool navTarget: !closing
+            // Every change to the notifications rebuilds these rows, so the
+            // cursor finds its row again by the record, not the delegate.
+            readonly property string navKey: modelData ? "notif:" + modelData.id + ":" + modelData.timestamp : ""
             property bool focused: false
             function navActivate() {
               if (row.modelData.execArgv) {

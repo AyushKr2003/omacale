@@ -130,6 +130,7 @@ Rectangle {
             id: action
             required property var modelData
             property bool copied: false
+            readonly property string navKey: root.modelData ? "notif:" + root.modelData.id + ":" + root.modelData.timestamp + ":" + modelData.kind : ""
 
             Layout.fillWidth: true
             Layout.fillHeight: true
