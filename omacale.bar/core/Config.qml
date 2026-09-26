@@ -27,7 +27,14 @@ QtObject {
     const parts = key.split(".")
     let obj = o
     for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]]
-    if (obj[parts[parts.length - 1]] !== value) obj[parts[parts.length - 1]] = value
+    if (obj[parts[parts.length - 1]] !== value) {
+      obj[parts[parts.length - 1]] = value
+      // A set() is never the file being read back, so it is always saved --
+      // even in the 300ms after a load that onAdapterUpdated ignores, which
+      // is when a handover installed at startup clears its fallback mark.
+      if (loaded)
+        saveTimer.restart()
+    }
   }
   function defaultOf(key) { return D.get(D.values, key) }
   function isDefault(key) { return get(key) === defaultOf(key) }
@@ -233,6 +240,7 @@ QtObject {
         property bool recolourLogo: true
         property bool blur: true
         property bool autoFellBack: false
+        property string fellBackVersion: ""
       }
       property JsonObject utilities: JsonObject {
         property bool enabled: true
@@ -285,6 +293,7 @@ QtObject {
           property int width: 430
         }
         property bool autoFellBack: false
+        property string fellBackVersion: ""
       }
       property JsonObject services: JsonObject {
         property int mediaUpdateInterval: 500

@@ -18,6 +18,9 @@ Handover {
 
   script: String(Qt.resolvedUrl("../scripts/lock-screen")).replace("file://", "")
   configKey: "lock"
+  // A clone that failed to load keeps the lock service down until the shell
+  // restarts, so a repair of one restarts it (scripts/lock-screen --heal).
+  installArgs: ["install", "--heal"]
   title: "Lock screen"
   stockPaths: [
     Quickshell.env("OMARCHY_PATH") + "/shell/plugins/lock/Service.qml",
@@ -53,4 +56,5 @@ Handover {
   }
   onReadyChanged: maybeInstall()
   onWantedChanged: maybeInstall()
+  onFellBackChanged: maybeInstall()
 }

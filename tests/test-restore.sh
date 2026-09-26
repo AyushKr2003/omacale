@@ -250,7 +250,7 @@ case "$1 $2" in
   "notifications ping") [[ -f $HOME/notif-broken ]] && exit 1; echo ok ;;
   "notifications popupsHidden") [[ -f $HOME/notif-broken ]] && exit 1; echo yes ;;
   "lock isLocked") echo false ;;
-  "lock status") [[ -f $HOME/lock-broken ]] && { echo '{"locked":false,"passwordPam":false}'; exit 0; }; echo '{"locked":false,"passwordPam":true}' ;;
+  "lock status") [[ -f $HOME/lock-dead ]] && exit 1; [[ -f $HOME/lock-broken ]] && { echo '{"locked":false,"passwordPam":false}'; exit 0; }; echo '{"locked":false,"passwordPam":true}' ;;
   *) exit 1 ;;
 esac
 SH
@@ -260,8 +260,9 @@ SH
 SH
   printf '#!/bin/bash\nrm -rf "$HOME/.config/omarchy/plugins/$1"\n' > "$H/bin/omarchy-plugin-remove"
   printf '#!/bin/bash\nexit 0\n' > "$H/bin/omarchy-plugin-enable"
+  printf '#!/bin/bash\ntouch "$HOME/restarted"\n' > "$H/bin/omarchy-restart-shell"
   chmod +x "$H/bin/"*
-  hv() { env HOME="$H" USER=tester OMARCHY_PATH="$fake" PATH="$H/bin:$PATH" OMACALE_HEALTH_TRIES=0 "$@"; }
+  hv() { env HOME="$H" USER=tester OMARCHY_PATH="$fake" PATH="$H/bin:$PATH" OMACALE_HEALTH_TRIES=0 OMACALE_HEAL_DELAY=0 "$@"; }
   # Clones as `omarchy plugin clone` leaves them: stock files + an identity.
   nclone="$plugins/tester.notifications"; lclone="$plugins/tester.lock"
   cp -r "$fake/shell/plugins/notifications" "$nclone"
@@ -328,6 +329,30 @@ print(','.join(m.stale_files('$lclone')))"; }
   check "stock view kept as StockLockView"       cmp -s "$fake/shell/plugins/lock/LockView.qml" "$lclone/StockLockView.qml"
   check "capabilities follow stock"              jq -e '.omarchy.capabilities | index("newcap")' "$lclone/manifest.json" >/dev/null
   check "identity stays the clone's"             jq -e '.id == "tester.lock" and .omarchy.clonedFrom == "omarchy.lock"' "$lclone/manifest.json" >/dev/null
+  # A clone whose wrapper didn't fit this Omarchy: its service never loaded,
+  # and only a shell restart loads the repaired one (--heal).
+  healed() { for _ in 1 2 3 4 5 6 7 8 9 10; do [[ -f $H/restarted ]] && return 0; sleep 0.1; done; return 1; }
+  unhealed() { sleep 0.5; test ! -f "$H/restarted"; }
+  old_wrapper() { sed -i 's/omacale:lock-view v[0-9]*/omacale:lock-view v1/' "$lclone/LockView.qml"; rm -f "$H/restarted"; }
+  touch "$H/lock-dead"; old_wrapper
+  hv python3 "$scripts/lock-screen" install >/dev/null 2>&1
+  check "a repair without --heal doesn't restart" unhealed
+  old_wrapper
+  hv python3 "$scripts/lock-screen" install --heal >/dev/null 2>&1
+  check "a repair under a dead lock service restarts the shell" healed
+  rm -f "$H/restarted"
+  hv python3 "$scripts/lock-screen" install --heal >/dev/null 2>&1
+  check "nothing to repair, no restart"          unhealed
+  rm "$H/lock-dead"; old_wrapper
+  hv python3 "$scripts/lock-screen" install --heal >/dev/null 2>&1
+  check "a running lock service is never restarted under" unhealed
+  touch "$H/lock-dead"; old_wrapper
+  wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
+  check "the watchdog heals a dead clone rather than dropping it" grep -qx 'action:    healing' <<<"$wd"
+  check "  (and restarts the shell)"             healed
+  check "  (clone kept)"                         test -d "$lclone"
+  rm "$H/lock-dead"
+
   touch "$H/lock-broken"
   wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
   check "a lock without PAM is handed back"      grep -qx 'action:    fellback' <<<"$wd"

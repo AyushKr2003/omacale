@@ -28,7 +28,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.34.5"
+VERSION="0.34.6"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -172,12 +172,14 @@ notif_script() {
 }
 
 # Turning the handover on without turning the setting on would install it and
-# still draw Omarchy's view, so the two go together.
+# still draw Omarchy's view, so the two go together. An install also clears
+# the watchdog's fallback mark, as installing from Settings does; left set, it
+# keeps the watchdog off the new clone for good.
 set_lock_setting() {
   local on="$1" file="$settings_dir/settings.json"
   mkdir -p -- "$settings_dir"
   if [[ -f $file ]]; then
-    jq --argjson on "$on" '.lock = ((.lock // {}) + { enabled: $on })' "$file" | write_atomic "$file"
+    jq --argjson on "$on" '.lock = ((.lock // {}) + { enabled: $on } + (if $on then { autoFellBack: false } else {} end))' "$file" | write_atomic "$file"
   else
     jq -n --argjson on "$on" '{ lock: { enabled: $on } }' | write_atomic "$file"
   fi
@@ -504,8 +506,16 @@ cmd_install() {
   if (( offline || dry_run )); then
     say "  ${d}skipped (the lock screen is optional)${z}"
   elif lock_handover_on; then
-    ok "lock screen already handed over to Omacale"
-    lock_clone=true
+    # Re-synced on every run, not left as it is: the wrapper in the clone is
+    # the *previous* Omacale's, and one that doesn't fit this Omarchy is a
+    # lock service that doesn't load at all. The shell restart below loads it.
+    if lock_script install >/dev/null; then
+      ok "lock screen handed over to Omacale (clone re-synced)"
+      lock_clone=true; set_lock_setting true
+    else
+      warn "the lock handover no longer fits this Omarchy; giving the lock screen back to Omarchy"
+      lock_script remove >/dev/null || warn "could not give it back; run: $dest_plugin/scripts/lock-screen remove"
+    fi
   else
     local want_lock="$lock_choice"
     if [[ -z $want_lock ]]; then

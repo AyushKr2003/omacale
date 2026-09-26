@@ -47,8 +47,27 @@ QtObject {
 
   // The watchdog handed the plugin back to Omarchy. Kept in Config so the
   // next shell start doesn't install it again straight into the same fault;
-  // installing from Settings clears it.
+  // installing from Settings clears it. It holds only for the Omacale version
+  // it happened under: an upgrade may be the fix (a wrapper that didn't fit
+  // this Omarchy), so a new version gets one try, and if that breaks too the
+  // watchdog falls back again and records it. Until the manifest is read,
+  // any mark counts.
   readonly property bool fellBack: !!Config.get(configKey + ".autoFellBack")
+    && (version === "" || Config.get(configKey + ".fellBackVersion") === version)
+
+  // This Omacale's version, from its manifest.
+  property string version: ""
+  property FileView manifest: FileView {
+    path: String(Qt.resolvedUrl("../manifest.json")).replace("file://", "")
+    printErrors: false
+    onLoaded: {
+      try {
+        root.version = JSON.parse(text()).version || ""
+      } catch (e) {
+        root.version = ""
+      }
+    }
+  }
 
   // After anything that may have changed which daemon or view is running.
   signal changed
@@ -143,11 +162,12 @@ QtObject {
         }
         if (action === "fellback") {
           Config.set(root.configKey + ".autoFellBack", true)
+          Config.set(root.configKey + ".fellBackVersion", root.version)
           // Through whichever daemon is up by then -- after a notification
           // fallback that is Omarchy's own, back a moment after the removal.
           Quickshell.execDetached(["bash", "-c", "sleep 3; notify-send -a Omacale -u critical \"$1\" \"$2\"", "notify",
             root.title + " handed back to Omarchy",
-            "After an Omarchy update, Omacale's version stopped working (" + root.lastReason + "). Omarchy's own is back; reinstall from Omacale's settings once Omacale is updated."])
+            "After an Omarchy update, Omacale's version stopped working (" + root.lastReason + "). Omarchy's own is back; the next Omacale update tries again, or reinstall from Omacale's settings."])
         }
       }
     }

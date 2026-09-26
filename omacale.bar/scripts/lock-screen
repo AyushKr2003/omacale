@@ -28,7 +28,10 @@ reshapes that contract the script refuses rather than leave the machine with
 a lock screen that cannot load.
 
   lock-screen install    clone (if needed) + refresh; the shell picks the
-                         clone up live, so --restart is only for installers
+                         clone up live, so --restart is only for installers.
+                         --heal: if the lock service isn't running (a clone
+                         that failed to load) and this repaired it, restart
+                         the shell, the only thing that loads it again
   lock-screen remove     give the lock back to Omarchy
   lock-screen status     report what is in place (parsable, key: value)
   lock-screen health     is the lock service answering, with PAM? (exit 0/1)
@@ -191,7 +194,34 @@ def restart_shell():
     run(["omarchy-restart-shell"])
 
 
-def install(restart=False):
+def service_dead():
+    """The shell answers but no lock service does: the clone's Service.qml
+    failed to load (a wrapper that doesn't fit this Omarchy)."""
+    return handover.shell_up() and handover.ipc("lock", "status") is None
+
+
+# Set once install() has started a --heal restart.
+healing = False
+
+
+def restart_shell_detached():
+    # Run from inside the shell (LockService), so this process dies with it;
+    # the restart has to outlive both, or it kills the shell and never
+    # launches the new one. The files just written set off a hot reload of
+    # the clone, and a shell killed mid-reload has segfaulted; let it settle.
+    subprocess.Popen(
+        ["bash", "-c", f"sleep {os.environ.get('OMACALE_HEAL_DELAY', '4')}; exec omarchy-restart-shell"],
+        start_new_session=True,
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def install(restart=False, heal=False):
+    # Omarchy never retries a service that failed to load (and QML caches the
+    # failed component), so a clone repaired under a dead lock service stays
+    # dead until the shell restarts. With no lock service there is no lock to
+    # lose, so --heal restarts it.
+    dead = heal and service_dead()
     for name in ("Service.qml", "LockView.qml"):
         if not os.path.isfile(os.path.join(STOCK_DIR, name)):
             fail(f"{STOCK_DIR}/{name} is missing; is this Omarchy?")
@@ -232,6 +262,11 @@ def install(restart=False):
     print(f"lock view: {view_state(target)} ({plugin_id})" + ("" if changed else " (already in place)"))
     if restart:
         restart_shell()
+    elif dead and changed:
+        global healing
+        healing = True
+        print("the lock service was not running; restarting the shell to load the repaired clone")
+        restart_shell_detached()
     return 0
 
 
@@ -348,12 +383,18 @@ def watchdog():
             action = "skipped-locked"
         else:
             try:
-                install()
+                install(heal=True)
                 action = "synced"
             except SystemExit:
                 # check_contract refused (its reason is on stderr): the old
                 # clone keeps running and the health check decides.
                 action = "refused"
+
+    if healing:
+        # The shell is going down under this check; the next start checks
+        # the repaired clone.
+        print("action:    healing")
+        return 0
 
     verdict, reason = handover.checked(probe)
     if verdict == "fail":
@@ -376,7 +417,7 @@ def main(argv):
     # never needed here; installers that want a clean slate can ask for one.
     restart = "--restart" in rest
     if action == "install":
-        return install(restart)
+        return install(restart, heal="--heal" in rest)
     if action == "remove":
         return remove(restart)
     if action == "status":
