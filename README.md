@@ -41,6 +41,13 @@ cd omacale
 
 The installer copies the plugin to `~/.config/omarchy/plugins/omacale.bar`, makes it the active bar, and records your previous setup so it can be restored.
 
+To update, pull and run the installer again. It upgrades in place: new plugin files, the notification and lock-screen handovers rebuilt for your Omarchy, and a shell restart. Your settings are kept, and `./uninstall.sh` still restores the setup from before the first install.
+
+```bash
+git pull
+./install.sh
+```
+
 | Command | Purpose |
 |---|---|
 | `./uninstall.sh` | Restore your previous bar exactly |

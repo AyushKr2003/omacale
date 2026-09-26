@@ -28,7 +28,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.34.6"
+VERSION="0.35.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -183,6 +183,13 @@ set_lock_setting() {
   else
     jq -n --argjson on "$on" '{ lock: { enabled: $on } }' | write_atomic "$file"
   fi
+}
+
+# The watchdog's "handed back" mark, cleared when a handover is reinstalled.
+clear_fell_back() {
+  local key="$1" file="$settings_dir/settings.json"
+  [[ -f $file ]] || return 0
+  jq --arg k "$key" 'if has($k) then .[$k].autoFellBack = false else . end' "$file" | write_atomic "$file"
 }
 
 bar_layer_present() { hyprctl layers -j 2>/dev/null | grep -q '"namespace": *"omacale"'; }
@@ -383,7 +390,7 @@ cmd_install() {
     need omarchy; need omarchy-shell
     shell_running || fail "the Omarchy shell is not running; start it first (omarchy restart shell)"
   fi
-  installed_state && fail "already installed. Run 'omacale uninstall' first, or 'omacale status'."
+  if installed_state; then cmd_upgrade; return; fi
   if [[ -f $shell_json ]]; then json_ok "$shell_json" || fail "$shell_json is not valid JSON; refusing to touch it"; fi
 
   step "Omacale $VERSION — install"
@@ -606,6 +613,74 @@ cmd_install() {
   say "  Settings          : omarchy-shell omacale settings   (or right-click the logo)"
   say "  Keybindings       : $script_dir/omacale binds"
   say "  Undo everything   : ${b}omacale uninstall${z}"
+}
+
+# ------------------------------------------------------------------ upgrade
+
+# `install` over an existing install: new plugin files, the handovers the user
+# accepted rebuilt by this version, a fresh shell. The install record and its
+# snapshot are left alone, so uninstall still restores the setup from before
+# the *first* install; settings are the user's and are kept.
+cmd_upgrade() {
+  local from; from="$(jq -r '.version // "?"' "$state_file")"
+  local dev; dev="$(jq -r '.devLink // false' "$state_file")"
+  step "Omacale $from → $VERSION — upgrade"
+
+  step "Plugin files"
+  if [[ -L $dest_plugin ]]; then
+    ok "symlinked to $(readlink -- "$dest_plugin") (--dev); nothing to copy"
+  elif [[ -d $dest_plugin && "$(jq -r '.id // empty' "$dest_plugin/manifest.json" 2>/dev/null)" != "$PLUGIN_ID" ]]; then
+    fail "$dest_plugin does not look like Omacale's plugin; not overwriting it"
+  else
+    local stage="$state_dir/stage.$$"
+    # Staged outside the watched plugins folder and swapped in by rename, so
+    # the shell never loads a half-copied tree and a failed copy keeps the old.
+    local old="$state_dir/old.$$"
+    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' '$old' && cp -r --no-preserve=ownership -- '$src_plugin' '$stage' && { [[ ! -e '$dest_plugin' ]] || mv -T -- '$dest_plugin' '$old'; } && mv -T -- '$stage' '$dest_plugin' && rm -rf -- '$old'"
+    (( dry_run )) || ok "plugin files updated"
+  fi
+  shell_call shell rescanPlugins
+
+  # Rebuilt by this version's scripts (lock_script/notif_script read the copy
+  # just put in place). One the watchdog handed back is tried again: the
+  # fault may be what this version fixes, and the watchdog still guards it.
+  step "Handovers"
+  if (( offline || dry_run )); then
+    say "  ${d}skipped${z}"
+  else
+    if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
+      if notif_script install --no-restart >/dev/null; then
+        clear_fell_back notifs; ok "notification popups: clone rebuilt"
+      else
+        warn "notification popups: the handover no longer fits this Omarchy; Omarchy keeps its own toasts"
+      fi
+    fi
+    if [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]]; then
+      if lock_script install >/dev/null; then
+        set_lock_setting true; ok "lock screen: clone rebuilt"
+      else
+        warn "lock screen: the handover no longer fits this Omarchy; giving it back to Omarchy"
+        lock_script remove >/dev/null || warn "could not give it back; run: $dest_plugin/scripts/lock-screen remove"
+        jq '.installedLockClone = false' "$state_file" | write_atomic "$state_file"
+      fi
+    fi
+  fi
+
+  if (( ! dry_run )); then
+    jq --arg v "$VERSION" '.version = $v' "$state_file" | write_atomic "$state_file"
+  fi
+
+  step "Restart"
+  if (( offline || dry_run || no_restart )); then
+    say "  ${d}skipped; new code loads on the next: omarchy restart shell${z}"
+  else
+    # The QML engine caches plugin types for the life of the process, and a
+    # lock service that failed to load is only retried by a fresh shell.
+    omarchy restart shell >/dev/null 2>&1 || warn "shell restart failed; run: omarchy restart shell"
+    wait_for bar_layer_present 15 && ok "Omacale $VERSION is on screen" || warn "bar not visible after restart; run: omarchy restart shell"
+  fi
+  [[ $dev == true ]] && say "  ${d}(installed with --dev: the plugin follows this checkout)${z}"
+  step "Done"
 }
 
 # ---------------------------------------------------------------- uninstall
