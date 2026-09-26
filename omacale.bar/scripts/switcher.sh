@@ -16,6 +16,9 @@ set -uo pipefail
 state="$HOME/.local/state/omarchy/current"
 omarchy="${OMARCHY_PATH:-/usr/share/omarchy}"
 media='.*\.(jpe?g|png|gif|bmp|webp|mp4|m4v|mov|webm|mkv|avi)$'
+# Omarchy 4.0.x (stable) draws still backgrounds only; BackgroundMedia is what
+# later versions play video through.
+[[ -f $omarchy/shell/Ui/BackgroundMedia.qml ]] || media='.*\.(jpe?g|png|gif|bmp|webp)$'
 
 walls() {
   local theme dirs cache rows

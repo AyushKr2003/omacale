@@ -40,6 +40,7 @@ DEPENDS = [
     ("default/omarchy/launcher.hides", "launcher hidden apps: AppService"),
     ("shell/Ui/PluginBarApi.qml", "hosted bar widgets: BarWidgetSlot, PluginBarFacade"),
     ("shell/Ui/KeyboardPanel.qml", "hosted widget panels: BarWidgetSlot's gap fix, keyboard focus"),
+    ("bin/omarchy-capture-screenrecording", "recording state: RecordService marker location (markerProbe)"),
     ("shell/Commons/Style.qml", "UI scale: Tk.omarchyFont / omarchySpacing (fontScale, spacingScale), Bar.pluginIconScale"),
 ]
 

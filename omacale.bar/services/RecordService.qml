@@ -100,9 +100,22 @@ QtObject {
   // without anything having to poll for it.
   readonly property string runtimeDir:
     Quickshell.env("XDG_RUNTIME_DIR") || (Quickshell.env("HOME") + "/.local/state/omarchy")
+  // Omarchy 4.0.x (stable) writes the marker to a fixed /tmp name instead;
+  // later versions moved it into the runtime dir. Ask the installed script
+  // which one it uses rather than watching both, since /tmp is noisy.
+  property string markerDir: runtimeDir
+  property Process markerProbe: Process {
+    running: true
+    command: ["bash", "-c", 'f=$(command -v omarchy-capture-screenrecording) && grep -q \'="/tmp/omarchy-screenrecord-filename"\' "$f"']
+    onExited: code => {
+      if (code !== 0) return
+      root.markerDir = "/tmp"
+      root.markerSettle.restart()
+    }
+  }
 
   property FileView marker: FileView {
-    path: root.runtimeDir + "/omarchy-screenrecord-filename"
+    path: root.markerDir + "/omarchy-screenrecord-filename"
     printErrors: false
     // The marker can outlive a recorder that crashed, so its presence is
     // confirmed against the process; its absence is conclusive on its own.
@@ -118,7 +131,7 @@ QtObject {
     onTriggered: root.marker.reload()
   }
   property FileView markerWatcher: FileView {
-    path: root.runtimeDir
+    path: root.markerDir
     watchChanges: true
     printErrors: false
     onFileChanged: root.markerSettle.restart()

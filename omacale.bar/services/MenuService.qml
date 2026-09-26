@@ -58,17 +58,24 @@ QtObject {
 
   function loadEngine() {
     // Only the calls this UI makes; every one of them is MenuModel's.
+    //
+    // Omarchy 4.0.x (stable) predates `disabled:` guards: it has no
+    // isDisabled, and its displayRow takes no disabledResults, so called with
+    // the newer arguments every row came back with no id and drew blank.
+    // `hasDisabled` picks the signature the installed engine has; without it
+    // nothing is ever disabled, as in that Omarchy's own menu.
     const src = 'import QtQuick\nimport "MenuModel.js" as M\nQtObject {\n'
+      + '  readonly property bool hasDisabled: typeof M.isDisabled === "function"\n'
       + '  function parse(raw) { return M.parseMenuJsonc(raw) }\n'
       + '  function merge(a, b) { return M.mergeMenuSources(a, b) }\n'
       + '  function mergeApps(i, o, rows) { return M.mergeAppRows(i, o, rows) }\n'
       + '  function swapProvider(i, o, id, rows) { return M.swapProviderRows(i, o, id, rows) }\n'
       + '  function guardScript(i) { return M.guardScript(i) }\n'
       + '  function isVisible(i, o, w, e) { return M.isVisible(i, o, w, e) }\n'
-      + '  function isDisabled(d, e) { return M.isDisabled(d, e) }\n'
+      + '  function isDisabled(d, e) { return hasDisabled ? M.isDisabled(d, e) : false }\n'
       + '  function matchesQuery(e, q, v) { return M.matchesQuery(e, q, v) }\n'
       + '  function searchScore(i, e, q) { return M.searchScore(i, e, q) }\n'
-      + '  function displayRow(i, o, c, d, e, det, s) { return M.displayRow(i, o, c, d, e, det, s) }\n'
+      + '  function displayRow(i, o, c, d, e, det, s) { return hasDisabled ? M.displayRow(i, o, c, d, e, det, s) : M.displayRow(i, o, c, e, det, s) }\n'
       + '  function pathFor(i, id) { return M.pathFor(i, id) }\n'
       + '  function parentPathFor(i, id) { return M.parentPathFor(i, id) }\n'
       + '  function isDescendantOf(i, id, a) { return M.isDescendantOf(i, id, a) }\n'

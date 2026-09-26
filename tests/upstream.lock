@@ -17,7 +17,8 @@
     "default/omarchy/launcher.hides": "91ed5019f97ec093d19fbab1b945ec4643a36577c862ced6caf9f1316c8ac0f4",
     "shell/Ui/PluginBarApi.qml": "91964a42b92c58476a4f961df35148d4c94071344ef1a69eab1563d1496705a7",
     "shell/Ui/KeyboardPanel.qml": "96245f2da8d38baa0017caa285d596c485bd19a3a4d2cd1675bee9d84ffba42d",
-    "shell/Commons/Style.qml": "f5901092617ae62645597199270afd4dfb0644d596bdfff16e1834fca6ad7243"
+    "shell/Commons/Style.qml": "f5901092617ae62645597199270afd4dfb0644d596bdfff16e1834fca6ad7243",
+    "bin/omarchy-capture-screenrecording": "068cecec4981c6f85ba4796788405ab863469857a4ead2ad71dbf7e27ee54880"
   },
   "barContract": [
     "barHidden",
