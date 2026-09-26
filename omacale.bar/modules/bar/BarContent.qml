@@ -301,9 +301,24 @@ Item {
     } else if (pluginPill.expanded && !collapsePluginsTimer.running) collapsePluginsTimer.start()
   }
 
+  // The drawers' MouseArea takes every wheel over the bar, so a capped tray
+  // never sees one and is scrolled from here (the plugin pill has its own
+  // wheel catcher, see pluginPill).
+  function scrollList(flick, y, dy) {
+    const p = mapToItem(flick, 0, y)
+    if (!flick.visible || !flick.interactive || p.y < 0 || p.y > flick.height) return false
+    scrollBy(flick, dy)
+    return true
+  }
+  function scrollBy(flick, dy) {
+    const step = (cellRef.implicitHeight + Tk.spacing.medium / 2) * dy / 120
+    flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - step))
+  }
+
   function handleWheel(y, dy) {
     const ws = mapToItem(workspaces, 0, y)
     if (ws.y >= 0 && ws.y <= workspaces.height) { workspaces.scroll(dy); return }
+    if (trayPill.visible && scrollList(trayFlick, y, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
     // speaker tuning and show Omarchy's OSD.
     const svc = Config.o.services
@@ -975,6 +990,7 @@ Item {
 
     // More widgets than fit scroll rather than being cut off.
     MFlickable {
+      id: pluginFlick
       anchors.fill: parent
       contentWidth: width
       contentHeight: pluginCol.implicitHeight
@@ -1027,6 +1043,18 @@ Item {
             onClicked: { collapsePluginsTimer.stop(); pluginPill.expanded = !pluginPill.expanded }
           }
         }
+      }
+    }
+
+    // Omarchy's WidgetButton takes every wheel, so hosted widgets would eat
+    // the scroll of an overfull pill. Wheel only: clicks and hover go through,
+    // and while the pill fits the wheel is left to the widget.
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.NoButton
+      onWheel: e => {
+        if (!pluginFlick.interactive) { e.accepted = false; return }
+        root.scrollBy(pluginFlick, e.angleDelta.y)
       }
     }
   }
