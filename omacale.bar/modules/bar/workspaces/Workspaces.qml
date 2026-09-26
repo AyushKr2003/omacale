@@ -39,6 +39,25 @@ Rectangle {
   // resolving one re-evaluates once it exists.
   property int listGen: 0
 
+  // Set by the bar when a short screen has no room for the window icons: the
+  // clock, status icons and power must stay on screen, the icons can go.
+  property bool iconsFit: true
+  // Worked out from the workspaces, not measured, so both are the same
+  // whether or not the icons are shown and the bar can decide on them.
+  readonly property real bareHeight: shown * (Tk.barInner - Tk.padding.small)
+    + (shown - 1) * Tk.spacing.extraSmall + Tk.padding.extraSmall * 2
+  readonly property real iconsHeight: {
+    if (!cfg.showWindows || cfg.maxWindowIcons <= 0) return 0
+    let h = 0
+    for (let i = 0; i < shown; i++) {
+      const o = wsObject(groupOffset + i + 1)
+      const n = Math.min(o && o.toplevels ? o.toplevels.values.length : 0, cfg.maxWindowIcons)
+      if (n > 0) h += n * iconRef.implicitHeight + Tk.padding.extraSmall
+    }
+    return h
+  }
+  MIcon { id: iconRef; visible: false; topPadding: -Tk.spacing.extraSmall / 2; text: "terminal" }
+
   implicitWidth: Tk.barInner
   implicitHeight: list.implicitHeight + Tk.padding.extraSmall * 2
   radius: width / 2
@@ -128,7 +147,7 @@ Rectangle {
           readonly property real cell: Tk.barInner - Tk.padding.small
 
           width: list.width
-          readonly property bool hasWindows: occupied && root.cfg.showWindows && root.cfg.maxWindowIcons > 0
+          readonly property bool hasWindows: occupied && root.iconsFit && root.cfg.showWindows && root.cfg.maxWindowIcons > 0
           height: col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0)
           Behavior on height { Anim {} }
 

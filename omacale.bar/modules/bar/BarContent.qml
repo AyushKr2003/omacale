@@ -24,14 +24,26 @@ Item {
   // ------------------------------------------------------ space budget
   // The active window title is the bar's flexible space. The tray and the
   // plugins pill share what's left above its minimum, instead of each taking
-  // a fixed share: title + tray + plugins is the same whatever they collapse
-  // to, so the budget doesn't move when they do. When the tray's full list
+  // a fixed share. The budget is the column's height less everything that
+  // doesn't give way, worked out rather than read back from the layout, so it
+  // doesn't move when the tray or plugins collapse. When the tray's full list
   // and the plugins' pinned widgets don't fit, the tray goes compact first;
-  // the plugins pill then scrolls. Status icons and the clock never shrink.
+  // the plugins pill then scrolls, pinned widgets too. On a short screen the
+  // workspaces' window icons go before the tray and plugins reach their
+  // minimum. The logo, clock, status icons and power never shrink, so they
+  // are never pushed off the bottom.
   readonly property real titleMin: cfg.activeWindow.enabled ? Tk.barInner * 3 : Tk.barInner
-  readonly property real budget: Math.max(0, titleArea.height
-    + (pluginPlace.visible ? pluginPlace.height : 0)
-    + (trayPill.visible ? trayPill.height : 0) - titleMin)
+  readonly property real fixedHeight: {
+    const rows = [logoRow, workspaces, titleArea, pluginPlace, trayPill, clockPill, statusPill, powerItem]
+    const n = rows.filter(r => r.visible).length
+    return (logoRow.visible ? logoRow.implicitHeight : 0) + workspaces.bareHeight + clockPill.implicitHeight
+      + (statusPill.visible ? statusPill.implicitHeight : 0) + (powerItem.visible ? powerItem.implicitHeight : 0)
+      + col.spacing * Math.max(0, n - 1)
+  }
+  readonly property real flexRoom: col.height - fixedHeight - titleMin
+  readonly property real flexMin: (trayPill.visible ? trayPill.collapsedHeight : 0) + (pluginPlace.visible ? pluginPill.minHeight : 0)
+  readonly property bool windowIconsFit: flexRoom - flexMin >= workspaces.iconsHeight
+  readonly property real budget: Math.max(0, flexRoom - (windowIconsFit ? workspaces.iconsHeight : 0))
   readonly property bool trayOverBudget: trayPill.visible && trayPill.fullHeight + pluginPill.collapsedHeight > budget
   readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedHeight : trayPill.fullHeight
 
@@ -314,6 +326,7 @@ Item {
     // even width and the slot odd, so AlignHCenter would put it on a half
     // pixel and blur it.
     Item {
+      id: logoRow
       visible: root.cfg.logo
       Layout.fillWidth: true
       implicitHeight: logo.height
@@ -340,6 +353,7 @@ Item {
       id: workspaces
       Layout.alignment: Qt.AlignHCenter
       screen: root.screen
+      iconsFit: root.windowIconsFit
     }
 
     // ------------------------------------------ active window (centred)
@@ -938,8 +952,11 @@ Item {
     x: col.x + pluginPlace.x
     y: col.y + pluginPlace.y
     width: Tk.barInner
+    // Scrolled down to a single cell, pinned widgets included, when even they
+    // don't fit: the pill gives way before the clock and status icons do.
+    readonly property real minHeight: pluginCol.topPadding + pluginCol.bottomPadding + cellRef.implicitHeight
     // Capped by the space budget, leaving the tray its (collapsed) share.
-    implicitHeight: anyShown ? Math.min(Math.max(collapsedHeight, root.budget - root.trayReserve), pluginCol.implicitHeight) : 0
+    implicitHeight: anyShown ? Math.min(Math.max(minHeight, root.budget - root.trayReserve), pluginCol.implicitHeight) : 0
     height: implicitHeight
     radius: width / 2
     color: Colours.m3surfaceContainer
