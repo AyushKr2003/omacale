@@ -29,21 +29,33 @@ Item {
   // doesn't move when the tray or plugins collapse. When the tray's full list
   // and the plugins' pinned widgets don't fit, the tray goes compact first;
   // the plugins pill then scrolls, pinned widgets too. On a short screen the
-  // workspaces' window icons go before the tray and plugins reach their
-  // minimum. The logo, clock, status icons and power never shrink, so they
-  // are never pushed off the bottom.
+  // clock's calendar icon, then the workspaces' window icons, go before the
+  // tray and plugins reach their minimum. The logo, clock, status icons and
+  // power never shrink, so they are never pushed off the bottom.
   readonly property real titleMin: cfg.activeWindow.enabled ? Tk.barInner * 3 : Tk.barInner
   readonly property real fixedHeight: {
     const rows = [logoRow, workspaces, titleArea, pluginPlace, trayPill, clockPill, statusPill, powerItem]
     const n = rows.filter(r => r.visible).length
-    return (logoRow.visible ? logoRow.implicitHeight : 0) + workspaces.bareHeight + clockPill.implicitHeight
+    return (logoRow.visible ? logoRow.implicitHeight : 0) + workspaces.bareHeight
+      + clockPill.implicitHeight - (calIcon.visible ? calendarHeight : 0)
       + (statusPill.visible ? statusPill.implicitHeight : 0) + (powerItem.visible ? powerItem.implicitHeight : 0)
       + col.spacing * Math.max(0, n - 1)
   }
   readonly property real flexRoom: col.height - fixedHeight - titleMin
   readonly property real flexMin: (trayPill.visible ? trayPill.collapsedHeight : 0) + (pluginPlace.visible ? pluginPill.minHeight : 0)
-  readonly property bool windowIconsFit: flexRoom - flexMin >= workspaces.iconsHeight
-  readonly property real budget: Math.max(0, flexRoom - (windowIconsFit ? workspaces.iconsHeight : 0))
+  // Both worked out whether or not they are shown, so hiding one can't
+  // bring it straight back.
+  readonly property real calendarHeight: cfg.clock.showIcon ? calIcon.implicitHeight + clockCol.spacing : 0
+  // Set a tick late rather than bound: the clock's height, and so
+  // fixedHeight, reads the icon's visibility, which reads this.
+  property bool calendarFits: true
+  function refitCalendar() { calendarFits = flexRoom - flexMin >= calendarHeight + workspaces.iconsHeight }
+  onFlexRoomChanged: Qt.callLater(refitCalendar)
+  onFlexMinChanged: Qt.callLater(refitCalendar)
+  onCalendarHeightChanged: Qt.callLater(refitCalendar)
+  Connections { target: workspaces; function onIconsHeightChanged() { Qt.callLater(root.refitCalendar) } }
+  readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarHeight : 0) >= workspaces.iconsHeight
+  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarHeight : 0) - (windowIconsFit ? workspaces.iconsHeight : 0))
   readonly property bool trayOverBudget: trayPill.visible && trayPill.fullHeight + pluginPill.collapsedHeight > budget
   readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedHeight : trayPill.fullHeight
 
@@ -623,7 +635,8 @@ Item {
           color: Colours.m3tertiary
         }
         MIcon {
-          visible: root.cfg.clock.showIcon
+          id: calIcon
+          visible: root.cfg.clock.showIcon && root.calendarFits
           Layout.alignment: Qt.AlignHCenter
           text: "calendar_month"
           color: Colours.m3tertiary
