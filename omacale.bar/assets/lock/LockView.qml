@@ -1,4 +1,4 @@
-// omacale:lock-view v3
+// omacale:lock-view v4
 //
 // Written into the clone of Omarchy's lock plugin by
 // omacale.bar/scripts/lock-screen. Omarchy's own view is kept beside it as
@@ -88,8 +88,9 @@ Item {
     id: stock
 
     StockLockView {
+      id: stockView
+
       backgroundPath: root.backgroundPath
-      videoPosterPath: root.videoPosterPath
       backgroundVersion: root.backgroundVersion
       fingerprintConfigured: root.fingerprintConfigured
       authenticatingPassword: root.authenticatingPassword
@@ -105,6 +106,17 @@ Item {
       onPasswordTextEdited: password => root.passwordTextEdited(password)
       onClearFailureRequested: root.clearFailureRequested()
       onWakeRequested: root.wakeRequested()
+
+      // Omarchy's view only has a video poster since the OWE lock feed
+      // (2026-09-18). Assigning it directly is a load error on an older
+      // Omarchy, and a broken view takes Service.qml -- and the lock IPC --
+      // down with it.
+      Binding {
+        target: stockView
+        property: "videoPosterPath"
+        value: root.videoPosterPath
+        when: "videoPosterPath" in stockView
+      }
     }
   }
 }
