@@ -206,12 +206,21 @@ gone = svc.replace('LockView {', 'SomethingElse {')
 print('missing=' + ','.join(sorted(m.view_usage(svc) - m.view_provides(tpl))))
 print('added=' + ','.join(sorted(m.view_usage(grown) - m.view_provides(tpl))))
 print('none=' + ','.join(sorted(m.view_usage(gone))))
+view = open('$lock_stock'.replace('Service.qml', 'LockView.qml')).read()
+# A v4.0.x view: none of what Omarchy's view gained since.
+old = '\n'.join(l for l in view.splitlines() if not any(n in l for n in ('displaysBlank', 'powerSaverActive', 'videoPosterPath')))
+print('onstock=' + ','.join(sorted(m.view_usage(tpl, 'StockLockView') - m.view_provides(view))))
+print('onold=' + ','.join(sorted(m.view_usage(tpl, 'StockLockView') - m.view_provides(old))))
+print('onbad=' + ','.join(sorted(m.view_usage(tpl.replace('passwordText: root.passwordText', 'passwordText: root.passwordText\n      brandNew: 1'), 'StockLockView') - m.view_provides(view))))
 PY
   lock_out="$(python3 -c "$lock_probe" 2>/dev/null)"
   check "the contract probe ran"               test -n "$lock_out"
   check "wrapper meets the service's contract" grep -qx 'missing=' <<<"$lock_out"
   check "a new upstream property is caught"    grep -qx 'added=brandNew' <<<"$lock_out"
   check "a service with no LockView is caught" grep -qx 'none=' <<<"$lock_out"
+  check "wrapper only sets what Omarchy's view has" grep -qx 'onstock=' <<<"$lock_out"
+  check "wrapper loads on a v4.0.x view"       grep -qx 'onold=' <<<"$lock_out"
+  check "a wrapper setting a missing property is caught" grep -qx 'onbad=brandNew' <<<"$lock_out"
   check "wrapper keeps Omarchy's view as the fallback" grep -q 'StockLockView' "$wrapper"
   # A relative directory import of omacale.bar would make a removed or broken
   # Omacale a lock screen that cannot load; the wrapper loads it by URL.

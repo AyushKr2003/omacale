@@ -1,4 +1,4 @@
-// omacale:lock-view v4
+// omacale:lock-view v5
 //
 // Written into the clone of Omarchy's lock plugin by
 // omacale.bar/scripts/lock-screen. Omarchy's own view is kept beside it as
@@ -84,6 +84,14 @@ Item {
     sourceComponent: stock
   }
 
+  // What Omarchy's view gained after v4.0.x: the blanking pair on
+  // 2026-09-09, the video poster with the OWE lock feed on 2026-09-20.
+  // Assigning one the installed view lacks is a load error, and a broken view
+  // takes Service.qml -- and with it the lock IPC and the lock itself -- down,
+  // so these are bound only where the view has them. Everything assigned
+  // directly below is in every Omarchy 4 (lock-screen checks that too).
+  readonly property var stockOptional: ["displaysBlank", "powerSaverActive", "videoPosterPath"]
+
   Component {
     id: stock
 
@@ -98,8 +106,6 @@ Item {
       failedAttempts: root.failedAttempts
       inputEnabled: root.inputEnabled
       loadBackground: root.loadBackground
-      displaysBlank: root.displaysBlank
-      powerSaverActive: root.powerSaverActive
       passwordText: root.passwordText
 
       onSubmitPassword: password => root.submitPassword(password)
@@ -107,15 +113,10 @@ Item {
       onClearFailureRequested: root.clearFailureRequested()
       onWakeRequested: root.wakeRequested()
 
-      // Omarchy's view only has a video poster since the OWE lock feed
-      // (2026-09-18). Assigning it directly is a load error on an older
-      // Omarchy, and a broken view takes Service.qml -- and the lock IPC --
-      // down with it.
-      Binding {
-        target: stockView
-        property: "videoPosterPath"
-        value: root.videoPosterPath
-        when: "videoPosterPath" in stockView
+      Component.onCompleted: {
+        for (const name of root.stockOptional)
+          if (name in stockView)
+            stockView[name] = Qt.binding(() => root[name])
       }
     }
   }

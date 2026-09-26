@@ -51,7 +51,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:lock-view v4"
+MARKER = "omacale:lock-view v5"
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -123,12 +123,14 @@ def view_state(target):
 #
 # Service.qml drives its view through property assignments and signal
 # handlers inside `LockView { ... }`. The wrapper has to accept every one of
-# them, or the whole lock plugin fails to load.
+# them, or the whole lock plugin fails to load. The same holds the other way:
+# whatever the wrapper sets on `StockLockView { ... }` must exist on the
+# installed Omarchy's view, which is older than Omacale's on a stable release.
 
-def view_usage(service_qml):
-    """Every property and signal handler Service.qml sets on its LockView."""
+def view_usage(service_qml, block="LockView"):
+    """Every property and signal handler a file sets on its `block` item."""
     names = set()
-    for match in re.finditer(r"\bLockView\s*\{", service_qml):
+    for match in re.finditer(rf"\b{block}\s*\{{", service_qml):
         depth = 0
         i = match.end() - 1
         for j in range(i, len(service_qml)):
@@ -163,7 +165,7 @@ def view_provides(template_qml):
     return names
 
 
-def check_contract(service_qml, template_qml):
+def check_contract(service_qml, template_qml, stock_view_qml):
     used = view_usage(service_qml)
     if not used:
         fail(f"{STOCK_DIR}/Service.qml has no LockView block; refusing to patch a lock plugin this script does not recognise")
@@ -173,6 +175,13 @@ def check_contract(service_qml, template_qml):
             "Omarchy's lock service now drives its view with "
             + ", ".join(missing)
             + ".\nUpdate assets/lock/LockView.qml (and LockUi.qml) to match before installing."
+        )
+    missing = sorted(view_usage(template_qml, "StockLockView") - view_provides(stock_view_qml))
+    if missing:
+        fail(
+            "Omarchy's lock view has no "
+            + ", ".join(missing)
+            + ".\nBind those in assets/lock/LockView.qml only where the view has them (stockOptional)."
         )
 
 
@@ -191,10 +200,12 @@ def install(restart=False):
 
     with open(os.path.join(STOCK_DIR, "Service.qml")) as f:
         service_qml = f.read()
+    with open(os.path.join(STOCK_DIR, "LockView.qml")) as f:
+        stock_view_qml = f.read()
     with open(TEMPLATE) as f:
         template_qml = f.read()
 
-    check_contract(service_qml, template_qml)
+    check_contract(service_qml, template_qml, stock_view_qml)
 
     target = clone_dir()
     if target is None:

@@ -118,6 +118,22 @@ Item {
         anchors.fill: parent
         source: Quickshell.env("OMARCHY_PATH") + "/shell/Ui/BackgroundMedia.qml"
       }
+
+      // Omarchy 4.0.x has no BackgroundMedia; its own view drew the still
+      // with a plain Image (v4.0.4 plugins/lock/LockView.qml), and so does
+      // this. A video there has no poster, so it keeps the surface colour.
+      Image {
+        anchors.fill: parent
+        visible: media.status === Loader.Error
+        source: visible && !root.video && root.view && root.view.loadBackground && root.view.backgroundPath
+          ? "file://" + String(root.view.backgroundPath).split("/").map(encodeURIComponent).join("/") + "?v=" + root.view.backgroundVersion
+          : ""
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        cache: false
+        sourceSize.width: width
+        sourceSize.height: height
+      }
     }
 
     // A missing or unreadable BackgroundMedia leaves the surface colour, so
