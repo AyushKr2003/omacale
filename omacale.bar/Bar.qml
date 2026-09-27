@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import qs.Commons
 
 // Omacale — entry point of the `omacale.bar` bar plugin. The Omarchy shell
@@ -22,7 +23,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.35.12"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.36.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -369,6 +370,19 @@ Item {
     onTriggered: {
       if (root.tooltipTarget && root.tooltipTarget.visible) root.tooltipShown = true
       else root.clearTooltip()
+    }
+  }
+
+  // Caelestia's Lock.qml warm-up: the first screen capture of a session loads
+  // its backend asynchronously, and if the lock's is that first one it lands
+  // after Hyprland has locked and been refused. One throwaway capture at
+  // start means the lock's is never the first (modules/lock/LockUi.qml).
+  Loader {
+    active: Config.o.lock.enabled && !Config.o.lock.useWallpaper && Quickshell.screens.length > 0
+    asynchronous: true
+    onLoaded: active = false
+    sourceComponent: ScreencopyView {
+      captureSource: Quickshell.screens[0]
     }
   }
 

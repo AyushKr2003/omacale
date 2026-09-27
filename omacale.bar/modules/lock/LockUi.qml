@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Window
 import Quickshell
+import Quickshell.Wayland
 import "../.."
 
 // Omacale's lock screen — a port of Caelestia's modules/lock/LockSurface.qml.
@@ -85,6 +87,18 @@ Item {
   readonly property bool video: /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(view ? String(view.backgroundPath || "") : "")
   // Omarchy's `feedActive`: a blanked display shows nothing, so a video must
   // not keep decoding through it.
+  // The ShellScreen this surface is on, for the screen capture. The wrapper
+  // doesn't pass Omarchy's `lockSurface.screen` down, so it is found by the
+  // name of the screen the window sits on.
+  readonly property var shellScreen: {
+    const screens = Quickshell.screens
+    for (let i = 0; i < screens.length; i++)
+      if (screens[i].name === Screen.name)
+        return screens[i]
+    return null
+  }
+  readonly property bool captured: capture.item !== null && capture.item.hasContent
+
   readonly property bool feedActive: video && !!view && view.loadBackground && !view.displaysBlank && !view.powerSaverActive
 
   Item {
@@ -160,7 +174,7 @@ Item {
       id: feed
 
       anchors.fill: parent
-      active: root.feedActive && !!root.view.feedSurfaceUrl
+      active: root.feedActive && !!root.view.feedSurfaceUrl && !root.captured
       source: active ? root.view.feedSurfaceUrl : ""
       visible: status === Loader.Ready
     }
@@ -168,8 +182,43 @@ Item {
     // Omarchy's darkening over video, for legibility.
     Rectangle {
       anchors.fill: parent
-      visible: root.video
+      visible: root.video && !root.captured
       color: "#22000000"
+    }
+
+    // Caelestia's default background (LockSurface.qml `screencopyBackground`):
+    // one frame of what this screen showed, taken as the surface appears --
+    // Hyprland refuses captures once the lock is confirmed, and the live
+    // flag would only ever see the lock itself. Built only while on screen,
+    // since the preview's LockUi exists all session. Until (or unless) the
+    // frame lands -- a display that is off, a capture refused -- the
+    // wallpaper above shows instead. Always blurred, whatever `lock.blur`
+    // says: a sharp copy of the desktop would show it to anyone at the
+    // machine.
+    Item {
+      anchors.fill: parent
+      visible: root.captured
+
+      layer.enabled: true
+      layer.effect: MultiEffect {
+        autoPaddingEnabled: false
+        blurEnabled: true
+        blur: 1
+        blurMax: 64
+        blurMultiplier: 1
+      }
+
+      Loader {
+        id: capture
+
+        anchors.fill: parent
+        active: root.onScreen && !Config.o.lock.useWallpaper && !!root.shellScreen
+
+        sourceComponent: ScreencopyView {
+          captureSource: root.shellScreen
+          live: false
+        }
+      }
     }
   }
 

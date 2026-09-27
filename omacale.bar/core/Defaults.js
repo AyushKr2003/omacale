@@ -49,7 +49,7 @@ var values = {
   lock: {
     enabled: false,
     weather: true, fetch: true, media: true, resources: true, notifs: true,
-    hideNotifs: false, recolourLogo: true, blur: true,
+    hideNotifs: false, recolourLogo: true, blur: true, useWallpaper: false,
     // Set when the watchdog gave the lock back to Omarchy after an update
     // broke it (services/Handover.qml), with the Omacale version it broke
     // under; reinstalling from Settings clears it, and a newer Omacale

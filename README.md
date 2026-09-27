@@ -156,7 +156,7 @@ Architecture, conventions and design tokens are documented in [`CLAUDE.md`](CLAU
 ## Limitations
 
 - Volume and brightness use Omarchy's on-screen display.
-- The lock screen shows your wallpaper, not a blurred snapshot of the desktop. With a video wallpaper, the blur applies to its still frame only.
+- The lock screen shows a blurred snapshot of the screen, as Caelestia does. If the snapshot can't be taken (the display is off, say), it falls back to the wallpaper, as it does with **Use the wallpaper** on. With a video wallpaper, the blur applies to its still frame only.
 - Notifications support their default action only; there are no inline replies.
 
 ## Credits

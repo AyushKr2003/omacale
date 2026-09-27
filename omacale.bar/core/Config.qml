@@ -239,6 +239,7 @@ QtObject {
         property bool hideNotifs: false
         property bool recolourLogo: true
         property bool blur: true
+        property bool useWallpaper: false
         property bool autoFellBack: false
         property string fellBackVersion: ""
       }

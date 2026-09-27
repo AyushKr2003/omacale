@@ -378,7 +378,8 @@ var subpages = {
       { type: "section", text: "Privacy" },
       { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
       { type: "section", text: "Appearance" },
-      { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur what is behind the lock card" },
+      { type: "toggle", key: "lock.useWallpaper", when: { key: "lock.enabled", value: true }, label: "Use the wallpaper", subtext: "Show the wallpaper behind the lock instead of a blurred copy of the screen" },
+      { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur the wallpaper behind the lock card; the screen copy is always blurred" },
       { type: "toggle", key: "lock.recolourLogo", when: { key: "lock.enabled", value: true }, label: "Recolour the logo", subtext: "Tint the fetch card's logo with the scheme" }
     ]
   },
