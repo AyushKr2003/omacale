@@ -82,6 +82,18 @@ Item {
 
   // -------------------------------------------------- inner blob frame
   Rectangle { id: outerMask; anchors.fill: parent; radius: root.isWindow ? 0 : Tk.rounding.extraLarge; visible: false; layer.enabled: true }
+  // Nexus draws its frame in surfaceContainerLow around an m3surface page,
+  // but it is a window of its own; here the panel floats in the shell's
+  // frame, so its frame takes the bar's m3surface and the page is set a
+  // step down into it instead.
+  Rectangle {
+    x: root.holeX
+    y: root.frameSide
+    width: root.width - root.holeX - root.frameSide
+    height: root.height - root.frameSide * 2
+    radius: Tk.rounding.large
+    color: Colours.m3surfaceContainerLowest
+  }
   Item {
     anchors.fill: parent
     layer.enabled: true
@@ -94,7 +106,7 @@ Item {
       property real holeRadius: Tk.rounding.large
       property real panelRadius: Tk.rounding.medium
       property rect hole: Qt.rect(root.holeX, root.frameSide, root.width - root.holeX - root.frameSide, root.height - root.frameSide * 2)
-      property color color: Colours.m3surfaceContainerLow
+      property color color: Colours.m3surface
       property rect r0: Qt.rect(winBtnRect.x, winBtnRect.y, winBtnRect.width, winBtnRect.height)
       property rect r1: Qt.rect(0, 0, 0, 0)
       property rect r2: Qt.rect(0, 0, 0, 0)
