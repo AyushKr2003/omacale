@@ -260,14 +260,15 @@ Item {
     height: root.contentH
     clip: true
 
-    // Caelestia launcher/AppList.qml, with the edge fade of Caelestia's
-    // VerticalFadeListView (as Settings' pages have) while it can scroll.
+    // Caelestia launcher/AppList.qml, with the edge fade of Omarchy's menu
+    // (as Settings' pages have) while it can scroll.
     FadeListView {
       id: list
       visible: root.listMode
       width: Tk.sizes.launcherItemWidth
       height: root.listH
       clip: true
+      fadeSize: Tk.px(28)
       model: ScriptModel {
         values: root.results
         onValuesChanged: { list.currentIndex = 0; root.settleCursor(); root.disarmPointer() }
@@ -290,8 +291,11 @@ Item {
         Anim { type: "effects"; property: "opacity"; to: 1 }
       }
       highlightFollowsCurrentItem: false
-      preferredHighlightBegin: 0
-      preferredHighlightEnd: height
+      // Omarchy's menu `revealCursor`: the selected row stops short of the
+      // edge, clear of the fade, with the next row peeking past it; the
+      // first and last rows still reach the edges, where there is no fade.
+      preferredHighlightBegin: fadeSize
+      preferredHighlightEnd: height - fadeSize
       highlightRangeMode: ListView.ApplyRange
       highlight: Rectangle {
         radius: Tk.rounding.large

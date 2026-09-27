@@ -230,6 +230,7 @@ Item {
       Layout.bottomMargin: -bottomMargin
       topMargin: Tk.padding.large
       bottomMargin: Tk.padding.large
+      fadeSize: Tk.px(28)
       contentHeight: navCol.implicitHeight
       ColumnLayout {
         id: navCol

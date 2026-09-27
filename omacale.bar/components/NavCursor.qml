@@ -217,11 +217,13 @@ QtObject {
       if (p.flickableDirection === Flickable.HorizontalFlick) continue
       if (p.contentHeight <= p.height + 0.5) continue
       const y = t.mapToItem(p.contentItem, 0, 0).y
-      const pad = Tk.padding.medium
+      // Clear of a fading view's edge band, so the stop is never under it.
+      const pad = Math.max(Tk.padding.medium, p.fadeSize || 0)
+      const top = -(p.topMargin || 0)
       let to = p.contentY
       if (y - pad < to) to = y - pad
       else if (y + t.height + pad > to + p.height) to = y + t.height + pad - p.height
-      p.contentY = Math.max(0, Math.min(p.contentHeight - p.height, to))
+      p.contentY = Math.max(top, Math.min(p.contentHeight + (p.bottomMargin || 0) - p.height, to))
       return
     }
   }

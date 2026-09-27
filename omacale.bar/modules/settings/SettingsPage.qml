@@ -54,6 +54,7 @@ ColumnLayout {
     Layout.topMargin: -topMargin
     topMargin: Tk.padding.large
     bottomMargin: Tk.padding.extraLarge
+    fadeSize: Tk.px(28)
     contentHeight: col.implicitHeight
 
     ColumnLayout {
