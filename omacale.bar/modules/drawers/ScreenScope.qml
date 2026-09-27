@@ -441,18 +441,18 @@ Scope {
     // Dashboard (top centre)
     readonly property real dw: (dash && dash.implicitWidth) || Tk.px(854)
     readonly property real dh: dash ? dash.implicitHeight : 0
-    readonly property real dx: ax + (aw - dw) / 2
+    readonly property real dx: ax + Math.round((aw - dw) / 2)
     readonly property real dy: ay + (-dh - 5) * Math.max(0, dOff)
     // Launcher (bottom centre)
     readonly property real lw: launch ? launch.implicitWidth : 0
     property real lh: launch ? launch.implicitHeight : 0
-    readonly property real lx: ax + (aw - lw) / 2
+    readonly property real lx: ax + Math.round((aw - lw) / 2)
     readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
     // Session (right centre)
     readonly property real sw: sess ? sess.implicitWidth : 0
     readonly property real sh: sess ? sess.implicitHeight : 0
     readonly property real sx: ax + aw - sw + (sw + 5) * Math.max(0, sOff)
-    readonly property real sy: ay + (ah - sh) / 2
+    readonly property real sy: ay + Math.round((ah - sh) / 2)
     // Popout (left, beside the bar)
     // Caelestia's ClipWrapper places the popout from the page's final size
     // (nonAnimHeight), so it moves straight to its spot while the size
@@ -491,8 +491,8 @@ Scope {
     readonly property real nfh: nexus ? nexus.implicitHeight : 0
     readonly property real nw: nfw * (1 - 0.55 * nOff)
     readonly property real nh: nfh * (1 - 0.8 * nOff)
-    readonly property real nx: ax + (aw - nw) / 2
-    readonly property real ny: ay + (ah - nh) / 2
+    readonly property real nx: ax + Math.round((aw - nw) / 2)
+    readonly property real ny: ay + Math.round((ah - nh) / 2)
     // Overview — the same grow as Settings. In the middle it floats; at the
     // top or bottom (Settings › Panels › Overview › Position) it grows out of
     // that frame edge instead, as the dashboard and launcher do.
@@ -505,8 +505,8 @@ Scope {
     readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
     readonly property real ow: ofw * (1 - 0.55 * oOff)
     readonly property real oh: ofh * (1 - 0.8 * oOff)
-    readonly property real ox: ax + (aw - ow) / 2
-    readonly property real oy: oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - oh - oGap : ay + (ah - oh) / 2
+    readonly property real ox: ax + Math.round((aw - ow) / 2)
+    readonly property real oy: oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - oh - oGap : ay + Math.round((ah - oh) / 2)
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: ax + aw - sbw + (sbw + 5) * sbOff
