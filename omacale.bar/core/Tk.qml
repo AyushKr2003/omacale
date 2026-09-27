@@ -31,6 +31,18 @@ QtObject {
   // A size with no Caelestia token, at the UI scale.
   function px(n) { return Math.round(n * uiScale) }
   function font(n) { return Math.max(1, Math.round(n * fontScale)) }
+  // Caelestia's padding and spacing are all multiples of 4, so at 1x every
+  // sum, half and centring offset lands on a whole pixel. Rounded one by one
+  // at another scale they turn odd (0.85: 3/7/10/14), and everything centred
+  // in them, or offset by half of one (`padding.small / 2`), sits on a half
+  // pixel and blurs. Snapping to even pixels keeps them whole; at 1x it is
+  // the identity.
+  function even(n, scale) { return Math.max(2, 2 * Math.round(n * scale / 2)) }
+  // Material Symbols is drawn on a 4px grid (20/24/40/48 optical sizes), and
+  // Caelestia's icon sizes are those pixel sizes in points (48 / 1.33, ...).
+  // Keep them there: a multiple of 3pt is a multiple of 4px at 96dpi. A
+  // 13pt icon (0.85 × 15) is 17.33px and every edge of the glyph is soft.
+  function iconPt(n) { return Math.max(3, 3 * Math.round(n * fontScale / 3)) }
   readonly property QtObject rounding: QtObject {
     readonly property int extraSmall: Math.round(4 * tk.roundScale)
     readonly property int small: Math.round(8 * tk.roundScale)
@@ -43,23 +55,23 @@ QtObject {
     readonly property int full: 1000
   }
   readonly property QtObject spacing: QtObject {
-    readonly property int extraSmall: Math.round(4 * tk.spaceScale)
-    readonly property int small: Math.round(8 * tk.spaceScale)
-    readonly property int medium: Math.round(12 * tk.spaceScale)
-    readonly property int large: Math.round(16 * tk.spaceScale)
-    readonly property int largeIncreased: Math.round(20 * tk.spaceScale)
-    readonly property int extraLarge: Math.round(28 * tk.spaceScale)
-    readonly property int extraLargeIncreased: Math.round(32 * tk.spaceScale)
+    readonly property int extraSmall: tk.even(4, tk.spaceScale)
+    readonly property int small: tk.even(8, tk.spaceScale)
+    readonly property int medium: tk.even(12, tk.spaceScale)
+    readonly property int large: tk.even(16, tk.spaceScale)
+    readonly property int largeIncreased: tk.even(20, tk.spaceScale)
+    readonly property int extraLarge: tk.even(28, tk.spaceScale)
+    readonly property int extraLargeIncreased: tk.even(32, tk.spaceScale)
   }
   readonly property QtObject padding: QtObject {
-    readonly property int extraSmall: Math.round(4 * tk.padScale)
-    readonly property int small: Math.round(8 * tk.padScale)
-    readonly property int medium: Math.round(12 * tk.padScale)
-    readonly property int large: Math.round(16 * tk.padScale)
-    readonly property int largeIncreased: Math.round(20 * tk.padScale)
-    readonly property int extraLarge: Math.round(28 * tk.padScale)
-    readonly property int extraLargeIncreased: Math.round(32 * tk.padScale)
-    readonly property int extraExtraLarge: Math.round(48 * tk.padScale)
+    readonly property int extraSmall: tk.even(4, tk.padScale)
+    readonly property int small: tk.even(8, tk.padScale)
+    readonly property int medium: tk.even(12, tk.padScale)
+    readonly property int large: tk.even(16, tk.padScale)
+    readonly property int largeIncreased: tk.even(20, tk.padScale)
+    readonly property int extraLarge: tk.even(28, tk.padScale)
+    readonly property int extraLargeIncreased: tk.even(32, tk.padScale)
+    readonly property int extraExtraLarge: tk.even(48, tk.padScale)
   }
 
   // Families (bundled fonts are loaded by Bar.qml).
@@ -74,10 +86,10 @@ QtObject {
   readonly property QtObject body: QtObject { readonly property int large: tk.font(16); readonly property int medium: tk.font(14); readonly property int small: tk.font(12) }
   readonly property QtObject label: QtObject { readonly property int large: tk.font(14); readonly property int medium: tk.font(12); readonly property int small: tk.font(11) }
   readonly property QtObject iconSize: QtObject {
-    readonly property int extraLarge: tk.font(36)
-    readonly property int large: tk.font(24)
-    readonly property int medium: tk.font(18)
-    readonly property int small: tk.font(15)
+    readonly property int extraLarge: tk.iconPt(36)
+    readonly property int large: tk.iconPt(24)
+    readonly property int medium: tk.iconPt(18)
+    readonly property int small: tk.iconPt(15)
   }
 
   // Frame / bar (user-configurable)
