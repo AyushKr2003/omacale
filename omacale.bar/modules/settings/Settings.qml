@@ -188,7 +188,7 @@ Item {
         anchors.left: sIcon.right
         anchors.leftMargin: Tk.spacing.medium
         anchors.right: clearBtn.left
-        anchors.rightMargin: Tk.spacing.small
+        anchors.rightMargin: Tk.spacing.medium
         anchors.verticalCenter: parent.verticalCenter
         font.pointSize: Tk.body.large
         clip: true
@@ -248,7 +248,7 @@ Item {
             Layout.fillWidth: true
             Layout.topMargin: index !== 0 && catStart ? Tk.spacing.medium : 0
             implicitHeight: { const h = il.implicitHeight + Tk.padding.large * 2; return h % 2 ? h + 1 : h }
-            color: current ? Colours.m3secondaryContainer : Colours.m3surfaceContainerHigh
+            color: current ? Colours.m3secondaryContainer : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
             topLeftRadius: r || (catStart ? Tk.rounding.extraLarge : Tk.rounding.extraSmall)
             topRightRadius: topLeftRadius
             bottomLeftRadius: r || (catEnd ? Tk.rounding.extraLarge : Tk.rounding.extraSmall)

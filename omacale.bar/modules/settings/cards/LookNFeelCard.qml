@@ -194,7 +194,7 @@ ColumnLayout {
         }
         ColumnLayout {
           Layout.fillWidth: true
-          spacing: 2
+          spacing: 0
           RowLayout {
             spacing: Tk.spacing.medium
             MText { text: "Caelestia look'n'feel"; font.pointSize: Tk.title.small; weight: Font.Medium }

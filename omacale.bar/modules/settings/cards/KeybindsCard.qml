@@ -100,7 +100,7 @@ ColumnLayout {
         }
         ColumnLayout {
           Layout.fillWidth: true
-          spacing: 2
+          spacing: 0
           MText { text: "Omarchy-style keybindings"; font.pointSize: Tk.title.small; weight: Font.Medium }
           MText {
             Layout.fillWidth: true
