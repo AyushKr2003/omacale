@@ -49,7 +49,11 @@ Item {
   readonly property int navWidth: Math.min(Tk.px(600), Math.round(width / 3))
   readonly property int frameSide: Tk.padding.medium
   readonly property real holeX: navWidth + Tk.padding.large * 2
-  implicitHeight: Math.round(screenHeight * 0.7)
+  // Caelestia NexusTokens heightMult (0.7 of the screen), under the UI scale
+  // as the lock card is (Tk.sizes.lockHeightMult): everything inside -- the
+  // nav, the 800px content cap, the rows -- shrinks with it, so a panel that
+  // didn't left a scaled-down page adrift in a 1x-sized frame.
+  implicitHeight: Math.round(screenHeight * Math.min(0.9, 0.7 * Tk.uiScale))
   implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - Tk.barWidth - Tk.px(80))
 
   // Keys (ScreenScope's drawer cursor): set by the drawer; the pop-out window
