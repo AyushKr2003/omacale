@@ -215,6 +215,9 @@ Item {
           readonly property bool shown: root.shownRows.indexOf(root.rowOf(wsId)) >= 0
           readonly property bool focused: wsId === root.activeId
           readonly property bool dropping: root.dropTarget === wsId
+          // Counted from the windows the overview draws, so the number goes
+          // exactly when a preview covers the tile.
+          readonly property bool occupied: root.wins.some(t => t.lastIpcObject.workspace.id === wsId)
 
           x: root.cellX(wsId)
           y: root.cellY(wsId)
@@ -233,6 +236,9 @@ Item {
 
           MText {
             anchors.centerIn: parent
+            // The number sits behind the previews and would show through the
+            // gaps between them, so it only labels an empty workspace.
+            visible: !tile.occupied
             text: tile.wsId
             font.family: Tk.clock
             font.pointSize: Math.max(Tk.body.small, Math.round(tile.height / 4))
