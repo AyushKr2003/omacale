@@ -142,7 +142,10 @@ MouseArea {
   // the cursor reads on any background, not only where a 10% veil shows.
   FocusRing {
     target: root
-    innerRadius: root.clamp(root.topLeftRadius)
+    topLeftInner: root.clamp(root.topLeftRadius)
+    topRightInner: root.clamp(root.topRightRadius)
+    bottomLeftInner: root.clamp(root.bottomLeftRadius)
+    bottomRightInner: root.clamp(root.bottomRightRadius)
     shown: root.focused && root.showFocus
   }
 }

@@ -53,6 +53,13 @@ Rectangle {
   function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p }
   function iconUrl(p) { return p.indexOf("/") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
 
+  // A lone row is one line under the header, so the card is what reads as
+  // the notification: ring the card (inside it, since it clips) rather than
+  // a line whose outline would cut through the app name.
+  property Item focusedRow: null
+  readonly property bool cardRing: shown.length === 1
+  FocusRing { target: root; inset: true; innerRadius: root.radius; shown: root.cardRing && root.focusedRow !== null; z: 10 }
+
   radius: Tk.rounding.large
   color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
   clip: true
@@ -223,7 +230,8 @@ Rectangle {
               } else root.toggleExpand(!root.expanded)
             }
             function navDelete() { close() }
-            FocusRing { target: row; innerRadius: Tk.rounding.large; shown: row.focused; z: 5 }
+            onFocusedChanged: if (focused) root.focusedRow = row; else if (root.focusedRow === row) root.focusedRow = null
+            FocusRing { target: row; innerRadius: Tk.rounding.large; shown: row.focused && !root.cardRing; z: 5 }
 
             width: list.width
             implicitHeight: notif.implicitHeight
