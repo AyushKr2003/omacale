@@ -13,7 +13,12 @@ Item {
 
   property bool shown: false
   property real screenHeight: 0
-  property real barZone: 0
+  // The frame's inner height: the screen less its top and bottom zones.
+  property real innerHeight: 0
+  // What the frame reserves on the left, right and bottom edges.
+  property real zoneLeft: 0
+  property real zoneRight: 0
+  property real zoneBottom: 0
 
   readonly property var cfg: Config.o.background.visualiser
   readonly property bool wantCava: shown && AudioService.hasPlayback
@@ -34,12 +39,12 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    anchors.bottomMargin: Tk.border - root.offset
-    anchors.rightMargin: Tk.border
-    anchors.leftMargin: root.barZone + Tk.spacing.small * root.cfg.spacing
+    anchors.bottomMargin: root.zoneBottom - root.offset
+    anchors.rightMargin: root.zoneRight
+    anchors.leftMargin: root.zoneLeft + Tk.spacing.small * root.cfg.spacing
     // The full inner height of Caelestia's bars item; the window is only its
     // bottom 40%, which is all the bars ever reach.
-    height: root.screenHeight - Tk.border * 2
+    height: root.innerHeight
 
     visible: root.opacity > 0
     values: Sys.visValues.length ? Sys.visValues : root.zeros

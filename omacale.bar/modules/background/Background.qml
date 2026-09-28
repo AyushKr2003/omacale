@@ -23,17 +23,26 @@ Scope {
   id: root
 
   required property var screen
-  // The bar's exclusive zone, which the visualiser starts beside.
+  // The bar's exclusive zone, which the visualiser starts beside, and the edge
+  // it is on.
   property real barZone: 0
+  property string barPos: "left"
   readonly property var cfg: Config.o.background
   readonly property var monitor: Hyprland.monitorFor(screen)
+
+  // What each screen edge reserves: the frame's border, or the bar's zone.
+  readonly property real zoneLeft: barPos === "left" ? barZone : Tk.border
+  readonly property real zoneRight: barPos === "right" ? barZone : Tk.border
+  readonly property real zoneTop: barPos === "top" ? barZone : Tk.border
+  readonly property real zoneBottom: barPos === "bottom" ? barZone : Tk.border
 
   // ------------------------------------------------------------ clock
   // Room around the card for the drop shadow to spread into.
   readonly property int shadowPad: Tk.padding.extraLargeIncreased
   // Caelestia's clockLoader margins, measured from the screen edges.
   readonly property int clockMargin: Tk.padding.extraLargeIncreased
-  readonly property int clockLeftMargin: Tk.padding.extraLargeIncreased + Tk.barInner + Math.max(Tk.padding.small, Tk.border)
+  // The bar's own breadth, kept clear on its edge whether or not it is shown.
+  readonly property int barExtra: Tk.barInner + Math.max(Tk.padding.small, Tk.border)
 
   property bool restacking: false
   function restackClock() {
@@ -67,10 +76,10 @@ Scope {
       // Caelestia's *-center / middle-* placement.
       anchors { top: clockWin.atTop; bottom: clockWin.atBottom; left: clockWin.atLeft; right: clockWin.atRight }
       margins {
-        top: root.clockMargin - root.shadowPad
-        bottom: root.clockMargin - root.shadowPad
-        left: root.clockLeftMargin - root.shadowPad
-        right: root.clockMargin - root.shadowPad
+        top: root.clockMargin - root.shadowPad + (root.barPos === "top" ? root.barExtra : 0)
+        bottom: root.clockMargin - root.shadowPad + (root.barPos === "bottom" ? root.barExtra : 0)
+        left: root.clockMargin - root.shadowPad + (root.barPos === "left" ? root.barExtra : 0)
+        right: root.clockMargin - root.shadowPad + (root.barPos === "right" ? root.barExtra : 0)
       }
 
       implicitWidth: Math.ceil(clockItem.implicitWidth) + root.shadowPad * 2
@@ -129,7 +138,7 @@ Scope {
       // Caelestia's bars fill the screen inside the border and rise at most
       // 40% of that, so only the bottom of the screen is ever drawn on.
       anchors { bottom: true; left: true; right: true }
-      implicitHeight: root.visParked ? 1 : Math.ceil((root.screen.height - Tk.border * 2) * 0.4 + Tk.border)
+      implicitHeight: root.visParked ? 1 : Math.ceil((root.screen.height - root.zoneTop - root.zoneBottom) * 0.4 + root.zoneBottom)
 
       // Created hidden, so it slides in like Caelestia's does.
       property bool entered: false
@@ -142,7 +151,10 @@ Scope {
         visible: !root.visParked
         anchors.fill: parent
         screenHeight: root.screen.height
-        barZone: root.barZone
+        innerHeight: root.screen.height - root.zoneTop - root.zoneBottom
+        zoneLeft: root.zoneLeft
+        zoneRight: root.zoneRight
+        zoneBottom: root.zoneBottom
         shown: visWin.entered && root.visWanted
       }
     }

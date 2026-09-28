@@ -98,6 +98,9 @@ QtObject {
   // Hyprland's window rounding is derived from it (services/HyprLook.qml).
   readonly property int borderRounding: Math.round(Config.o.border.rounding * roundScale)
   readonly property int smoothing: Config.o.border.smoothing
+  // The edge the bar is on, set by Bar.qml from the host's resolved position.
+  property string barEdge: "left"
+  readonly property bool barVertical: barEdge === "left" || barEdge === "right"
   readonly property int barInner: px(40)
   readonly property int barWidth: barInner + 2 * Math.max(padding.small, border)
 

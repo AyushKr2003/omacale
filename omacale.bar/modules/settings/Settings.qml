@@ -54,7 +54,7 @@ Item {
   // nav, the 800px content cap, the rows -- shrinks with it, so a panel that
   // didn't left a scaled-down page adrift in a 1x-sized frame.
   implicitHeight: Math.round(screenHeight * Math.min(0.9, 0.7 * Tk.uiScale))
-  implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - Tk.barWidth - Tk.px(80))
+  implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - (Tk.barVertical ? Tk.barWidth : Tk.border) - Tk.px(80))
 
   // Keys (ScreenScope's drawer cursor): set by the drawer; the pop-out window
   // has none. Escape stays Settings' own, below. / searches, Backspace goes

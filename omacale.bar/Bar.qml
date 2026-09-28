@@ -19,11 +19,30 @@ Item {
 
   // Mirrors `omarchy toggle bar` so the frame hides like the stock bar.
   property bool barHidden: false
+
+  // The edge the bar is on, which the host (`shell.bar.position`, read for the
+  // plugin bar state and by KeyboardPanel / PopupCard) and every hosted widget
+  // (`bar.position` / `bar.vertical`) are told. Omacale's own setting; "omarchy"
+  // follows the position Omarchy's Style > Bar > Position writes to shell.json.
+  readonly property string position: {
+    const p = Config.o.bar.position
+    const edges = ["left", "right", "top", "bottom"]
+    if (p === "omarchy") {
+      const o = barConfig ? barConfig.position : ""
+      return edges.indexOf(o) >= 0 ? o : "top"
+    }
+    return edges.indexOf(p) >= 0 ? p : "left"
+  }
+  readonly property bool vertical: position === "left" || position === "right"
+  Binding { target: Tk; property: "barEdge"; value: root.position }
+  // The bar's breadth in px, for the host (Omarchy's notification service sizes
+  // itself around a visible bar with it).
+  readonly property int barSize: barHidden ? 0 : Tk.barWidth
   // Polled by Sys, which the lock screen shares.
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.36.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.37.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -208,14 +227,18 @@ Item {
     return fallback
   }
 
-  // The third-party widgets in the plugin pill that have a panel, top to
-  // bottom as they are drawn on that screen.
+  // The third-party widgets in the plugin pill that have a panel, in the order
+  // they are drawn on that screen: top to bottom on a column, left to right on
+  // a row.
   function panelOrder(screenName) {
     var s = scopeFor(screenName)
     if (!s) return []
     return pluginSlots.filter(slot => slot && slot.shown && slotScreen(slot) === s.screen.name
         && slot.activeItem && typeof slot.activeItem.open === "function")
-      .sort((a, b) => a.mapToItem(null, 0, 0).y - b.mapToItem(null, 0, 0).y)
+      .sort((a, b) => {
+        const pa = a.mapToItem(null, 0, 0), pb = b.mapToItem(null, 0, 0)
+        return vertical ? pa.y - pb.y : pa.x - pb.x
+      })
       .map(slot => slot.moduleName)
   }
 

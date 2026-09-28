@@ -17,9 +17,26 @@ Item {
   required property var screen
   required property var host
   required property var scope
+  // A column on the left or right edge; a row on the top or bottom one.
+  property bool vertical: true
 
   readonly property int vPadding: Tk.padding.large
   readonly property var cfg: Config.o.bar
+  readonly property real gap: Tk.spacing.medium
+
+  // "Along" is the bar's own axis: a height on a column, a width on a row.
+  // Nothing below measures a bar item in x or y without going through these.
+  readonly property int crossAlign: vertical ? Qt.AlignHCenter : Qt.AlignVCenter
+  function along(item) { return vertical ? item.implicitHeight : item.implicitWidth }
+  function apos(item) { return vertical ? item.y : item.x }
+  function alen(item) { return vertical ? item.height : item.width }
+  // A point `a` along the bar, in `item`'s coordinates.
+  function pointOn(item, a) { return vertical ? mapToItem(item, 0, a) : mapToItem(item, a, 0) }
+  function pointAlong(p) { return vertical ? p.y : p.x }
+  // The middle of `item` along the bar, in the bar's coordinates.
+  function centreOf(item) {
+    return vertical ? item.mapToItem(root, 0, item.height / 2).y : item.mapToItem(root, item.width / 2, 0).x
+  }
 
   // ------------------------------------------------------ space budget
   // The active window title is the bar's flexible space. The tray and the
@@ -33,54 +50,55 @@ Item {
   // tray and plugins reach their minimum. The logo, clock, status icons and
   // power never shrink, so they are never pushed off the bottom.
   readonly property real titleMin: cfg.activeWindow.enabled ? Tk.barInner * 3 : Tk.barInner
-  readonly property real fixedHeight: {
+  readonly property real fixedLen: {
     const rows = [logoRow, workspaces, titleArea, pluginPlace, trayPill, clockPill, statusPill, powerItem]
     const n = rows.filter(r => r.visible).length
-    return (logoRow.visible ? logoRow.implicitHeight : 0) + workspaces.bareHeight
-      + clockPill.implicitHeight - (calIcon.visible ? calendarHeight : 0)
-      + (statusPill.visible ? statusPill.implicitHeight : 0) + (powerItem.visible ? powerItem.implicitHeight : 0)
-      + col.spacing * Math.max(0, n - 1)
+    return (logoRow.visible ? along(logoRow) : 0) + workspaces.bareSize
+      + along(clockPill) - (calIconShown ? calendarLen : 0)
+      + (statusPill.visible ? along(statusPill) : 0) + (powerItem.visible ? along(powerItem) : 0)
+      + gap * Math.max(0, n - 1)
   }
-  readonly property real flexRoom: col.height - fixedHeight - titleMin
-  readonly property real flexMin: (trayPill.visible ? trayPill.collapsedHeight : 0) + (pluginPlace.visible ? pluginPill.minHeight : 0)
+  readonly property real flexRoom: alen(col) - fixedLen - titleMin
+  readonly property real flexMin: (trayPill.visible ? trayPill.collapsedLen : 0) + (pluginPlace.visible ? pluginPill.minLen : 0)
   // Both worked out whether or not they are shown, so hiding one can't
   // bring it straight back.
-  readonly property real calendarHeight: cfg.clock.showIcon ? calIcon.implicitHeight + clockCol.spacing : 0
-  // Set a tick late rather than bound: the clock's height, and so
-  // fixedHeight, reads the icon's visibility, which reads this.
+  readonly property real calendarLen: cfg.clock.showIcon ? (vertical ? calIcon.implicitHeight + clockCol.spacing : calIconH.implicitWidth + clockRow.spacing) : 0
+  // Set a tick late rather than bound: the clock's size, and so
+  // fixedLen, reads the icon's visibility, which reads this.
   property bool calendarFits: true
-  function refitCalendar() { calendarFits = flexRoom - flexMin >= calendarHeight + workspaces.iconsHeight }
+  readonly property bool calIconShown: cfg.clock.showIcon && calendarFits
+  function refitCalendar() { calendarFits = flexRoom - flexMin >= calendarLen + workspaces.iconsSize }
   onFlexRoomChanged: Qt.callLater(refitCalendar)
   onFlexMinChanged: Qt.callLater(refitCalendar)
-  onCalendarHeightChanged: Qt.callLater(refitCalendar)
-  Connections { target: workspaces; function onIconsHeightChanged() { Qt.callLater(root.refitCalendar) } }
-  readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarHeight : 0) >= workspaces.iconsHeight
-  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarHeight : 0) - (windowIconsFit ? workspaces.iconsHeight : 0))
-  readonly property bool trayOverBudget: trayPill.visible && trayPill.fullHeight + pluginPill.collapsedHeight > budget
-  readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedHeight : trayPill.fullHeight
+  onCalendarLenChanged: Qt.callLater(refitCalendar)
+  Connections { target: workspaces; function onIconsSizeChanged() { Qt.callLater(root.refitCalendar) } }
+  readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= workspaces.iconsSize
+  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? workspaces.iconsSize : 0))
+  readonly property bool trayOverBudget: trayPill.visible && trayPill.fullLen + pluginPill.collapsedLen > budget
+  readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedLen : trayPill.fullLen
 
-  // Popout lookup for a y coordinate on the bar (Caelestia Bar.checkPopout).
-  function popoutAt(y) {
-    const p = mapToItem(statusCol, 0, y)
-    if (cfg.popouts.statusIcons && p.y >= -statusPill.anchorsPad && p.y <= statusCol.height + statusPill.anchorsPad) {
+  // Popout lookup for a position `a` along the bar (Caelestia Bar.checkPopout).
+  function popoutAt(a) {
+    const p = pointAlong(pointOn(statusCol, a))
+    if (cfg.popouts.statusIcons && p >= -statusPill.anchorsPad && p <= alen(statusCol) + statusPill.anchorsPad) {
       for (let i = 0; i < statusCol.children.length; i++) {
         const c = statusCol.children[i]
         if (!c.visible || !c.popout) continue
-        if (p.y >= c.y - 3 && p.y <= c.y + c.height + 3)
-          return { name: c.popout, center: c.mapToItem(root, 0, c.height / 2).y }
+        if (p >= apos(c) - 3 && p <= apos(c) + alen(c) + 3)
+          return { name: c.popout, center: centreOf(c) }
       }
     }
-    const t = mapToItem(trayCol, 0, y)
-    if (cfg.popouts.tray && trayPill.visible && (!trayPill.compact || trayPill.expanded) && t.y >= 0 && t.y <= trayCol.height) {
+    const t = pointAlong(pointOn(trayCol, a))
+    if (cfg.popouts.tray && trayPill.visible && (!trayPill.compact || trayPill.expanded) && t >= 0 && t <= alen(trayCol)) {
       for (let i = 0; i < trayRep.count; i++) {
         const it = trayRep.itemAt(i)
-        if (t.y >= it.y - 4 && t.y <= it.y + it.height + 4)
-          return { name: "traymenu", index: i, item: it.modelData, center: it.mapToItem(root, 0, it.height / 2).y }
+        if (t >= apos(it) - 4 && t <= apos(it) + alen(it) + 4)
+          return { name: "traymenu", index: i, item: it.modelData, center: centreOf(it) }
       }
     }
-    const w = mapToItem(activeWin, 0, y)
-    if (cfg.popouts.activeWindow && activeWin.visible && w.y >= 0 && w.y <= activeWin.height && Sys.activeToplevel)
-      return { name: "activewindow", center: activeWin.mapToItem(root, 0, activeWin.height / 2).y }
+    const w = pointAlong(pointOn(activeWin, a))
+    if (cfg.popouts.activeWindow && activeWin.visible && w >= 0 && w <= alen(activeWin) && Sys.activeToplevel)
+      return { name: "activewindow", center: centreOf(activeWin) }
     return null
   }
 
@@ -221,16 +239,17 @@ Item {
     property real end: 0
     // Where the target is now; re-read when anything above it moves.
     readonly property rect r: {
-      void (col.y + titleArea.height + trayPill.height + pluginPill.height + statusPill.height + workspaces.height)
+      void (col.y + col.x + titleArea.height + titleArea.width + trayPill.height + trayPill.width
+        + pluginPill.height + pluginPill.width + statusPill.height + statusPill.width + workspaces.height + workspaces.width)
       if (!target) return Qt.rect(0, 0, 0, 0)
       const p = target.mapToItem(root, 0, 0)
       return Qt.rect(p.x, p.y, target.width, target.height)
     }
     function run() {
       if (!target) return
-      const w = width
-      const h = r.height + pad * 2
-      const s = Math.round(r.y + r.height / 2 - h / 2), e = s + Math.round(h)
+      const h = (root.vertical ? r.height : r.width) + pad * 2
+      const mid = root.vertical ? r.y + r.height / 2 : r.x + r.width / 2
+      const s = Math.round(mid - h / 2), e = s + Math.round(h)
       if (opacity === 0) { startAnim.stop(); endAnim.stop(); start = s; end = e; return }
       const up = s < start
       const lead = Tk.durations.defaultSpatial, trailing = lead * 1.5
@@ -246,11 +265,12 @@ Item {
 
     readonly property bool shown: root.keyMode && !!target
     z: 10
-    width: Tk.barInner
-    x: Math.round((root.width - width) / 2)
-    y: start
-    height: Math.max(0, end - start)
-    radius: width / 2
+    // Along the bar it runs from start to end; across it is the pills' width.
+    x: root.vertical ? Math.round((root.width - width) / 2) : start
+    y: root.vertical ? start : Math.round((root.height - height) / 2)
+    width: root.vertical ? Tk.barInner : Math.max(0, end - start)
+    height: root.vertical ? Math.max(0, end - start) : Tk.barInner
+    radius: Tk.barInner / 2
     color: Qt.alpha(Colours.m3primary, 0.14)
     border.width: 2
     border.color: Colours.m3primary
@@ -263,7 +283,7 @@ Item {
     Behavior on border.color { CAnim {} }
   }
 
-  // The popouts the status group offers, top to bottom, as the user sees
+  // The popouts the status group offers, in bar order, as the user sees
   // them: what Omarchy's `togglePanelAt right N` counts (Bar.panelWidgetIdAt).
   // The microphone opens the same popout as the speaker, so it counts once.
   function statusPopouts() {
@@ -281,15 +301,15 @@ Item {
   // with the icon off still opens).
   function popoutCenterFor(name) {
     if (name === "traymenu" && cursorStop && cursorStop.kind === "tray")
-      return cursorStop.item.mapToItem(root, 0, cursorStop.item.height / 2).y
+      return centreOf(cursorStop.item)
     if (name === "activewindow" && activeWin.visible)
-      return activeWin.mapToItem(root, 0, activeWin.height / 2).y
+      return centreOf(activeWin)
     for (let i = 0; i < statusCol.children.length; i++) {
       const c = statusCol.children[i]
       if (c.visible && c.popout === name)
-        return c.mapToItem(root, 0, c.height / 2).y
+        return centreOf(c)
     }
-    return height / 2
+    return vertical ? height / 2 : width / 2
   }
 
   // Which collapsible group the pointer is over, from ScreenScope (Caelestia
@@ -299,15 +319,15 @@ Item {
   // Open while the pointer is on the group; ScreenScope drives this.
   readonly property bool groupsExpanded: trayPill.expanded || pluginPill.expanded
 
-  function hoverAt(y, onBar) {
-    const t = mapToItem(trayPill, 0, y)
-    if (onBar && trayPill.visible && t.y >= 0 && t.y <= trayPill.height) {
+  function hoverAt(a, onBar) {
+    const t = pointAlong(pointOn(trayPill, a))
+    if (onBar && trayPill.visible && t >= 0 && t <= alen(trayPill)) {
       collapseTrayTimer.stop()
       if (trayPill.compact) trayPill.expanded = true
     } else if (trayPill.expanded && !collapseTrayTimer.running) collapseTrayTimer.start()
 
-    const p = mapToItem(pluginPill, 0, y)
-    if (onBar && pluginPill.visible && p.y >= 0 && p.y <= pluginPill.height) {
+    const p = pointAlong(pointOn(pluginPill, a))
+    if (onBar && pluginPill.visible && p >= 0 && p <= alen(pluginPill)) {
       collapsePluginsTimer.stop()
       if (pluginPill.overflowCount > 0) pluginPill.expanded = true
     } else if (pluginPill.expanded && !collapsePluginsTimer.running) collapsePluginsTimer.start()
@@ -316,37 +336,45 @@ Item {
   // The drawers' MouseArea takes every wheel over the bar, so a capped tray
   // never sees one and is scrolled from here (the plugin pill has its own
   // wheel catcher, see pluginPill).
-  function scrollList(flick, y, dy) {
-    const p = mapToItem(flick, 0, y)
-    if (!flick.visible || !flick.interactive || p.y < 0 || p.y > flick.height) return false
+  function scrollList(flick, a, dy) {
+    const p = pointAlong(pointOn(flick, a))
+    if (!flick.visible || !flick.interactive || p < 0 || p > alen(flick)) return false
     scrollBy(flick, dy)
     return true
   }
   function scrollBy(flick, dy) {
-    const step = (cellRef.implicitHeight + Tk.spacing.medium / 2) * dy / 120
-    flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - step))
+    const step = ((vertical ? cellRef.implicitHeight : cellRef.implicitWidth) + Tk.spacing.medium / 2) * dy / 120
+    if (vertical) flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - step))
+    else flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - step))
   }
 
-  function handleWheel(y, dy) {
-    const ws = mapToItem(workspaces, 0, y)
-    if (ws.y >= 0 && ws.y <= workspaces.height) { workspaces.scroll(dy); return }
-    if (trayPill.visible && scrollList(trayFlick, y, dy)) return
+  function handleWheel(a, dy) {
+    const ws = pointAlong(pointOn(workspaces, a))
+    if (ws >= 0 && ws <= alen(workspaces)) { workspaces.scroll(dy); return }
+    if (trayPill.visible && scrollList(trayFlick, a, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
     // speaker tuning and show Omarchy's OSD.
     const svc = Config.o.services
-    if (y < height / 2) { if (cfg.scroll.volume) Quickshell.execDetached(["omarchy-audio-output-volume", (dy > 0 ? "+" : "-") + svc.volumeStep]) }
+    if (a < alen(root) / 2) { if (cfg.scroll.volume) Quickshell.execDetached(["omarchy-audio-output-volume", (dy > 0 ? "+" : "-") + svc.volumeStep]) }
     else if (cfg.scroll.brightness) Quickshell.execDetached(["omarchy-brightness-display", dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-"])
   }
 
   SystemClock { id: clock; precision: root.cfg.clock.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }
   PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
-  ColumnLayout {
+  GridLayout {
     id: col
     anchors.fill: parent
-    anchors.topMargin: root.vPadding
-    anchors.bottomMargin: root.vPadding
-    spacing: Tk.spacing.medium
+    // Padded at its two ends along the bar.
+    anchors.topMargin: root.vertical ? root.vPadding : 0
+    anchors.bottomMargin: root.vertical ? root.vPadding : 0
+    anchors.leftMargin: root.vertical ? 0 : root.vPadding
+    anchors.rightMargin: root.vertical ? 0 : root.vPadding
+    columns: root.vertical ? 1 : -1
+    rows: root.vertical ? -1 : 1
+    flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+    rowSpacing: root.gap
+    columnSpacing: root.gap
 
     // ---------------------------------------------------------- logo
     // Full-width row so the icon is centred with a rounded x: the bar is an
@@ -355,11 +383,14 @@ Item {
     Item {
       id: logoRow
       visible: root.cfg.logo
-      Layout.fillWidth: true
-      implicitHeight: logo.height
+      Layout.fillWidth: root.vertical
+      Layout.fillHeight: !root.vertical
+      implicitWidth: root.vertical ? 0 : Tk.barInner
+      implicitHeight: root.vertical ? logo.height : 0
       LogoIcon {
         id: logo
         x: Math.round((parent.width - width) / 2)
+        y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
         width: Math.round(Tk.body.large * 1.2)
         height: width
         value: root.cfg.logoIcon
@@ -378,7 +409,8 @@ Item {
     // ---------------------------------------------------- workspaces
     Workspaces {
       id: workspaces
-      Layout.alignment: Qt.AlignHCenter
+      Layout.alignment: root.crossAlign
+      vertical: root.vertical
       screen: root.screen
       iconsFit: root.windowIconsFit
     }
@@ -400,17 +432,26 @@ Item {
           const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
           return parts.length > 1 ? parts[parts.length - 1].trim() : t
         }
-        readonly property real maxLen: parent.height - winIcon.height - Tk.spacing.small
+        // The room the title has beside the icon, along the bar.
+        readonly property real maxLen: root.vertical ? parent.height - winIcon.height - Tk.spacing.small
+          : parent.width - winIcon.width - Tk.spacing.small
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(winIcon.implicitWidth, metrics.height)
-        height: winIcon.implicitHeight + Tk.spacing.small + Math.min(metrics.width, maxLen)
-        Behavior on height { Anim {} }
+        // A column turns the title a quarter and stacks it under the icon; a
+        // row leaves it upright beside the icon.
+        width: root.vertical ? Math.max(winIcon.implicitWidth, metrics.height)
+          : winIcon.implicitWidth + Tk.spacing.small + Math.min(metrics.width, maxLen)
+        height: root.vertical ? winIcon.implicitHeight + Tk.spacing.small + Math.min(metrics.width, maxLen)
+          : Math.max(winIcon.implicitHeight, metrics.height)
+        Behavior on height { enabled: root.vertical; Anim {} }
+        Behavior on width { enabled: !root.vertical; Anim {} }
 
         MIcon {
           id: winIcon
-          anchors.horizontalCenter: parent.horizontalCenter
+          // Centred across the bar (by x/y: see Workspaces `list`).
+          x: root.vertical ? Math.round((parent.width - width) / 2) : 0
+          y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
           animate: true
           text: Sys.appIcon(activeWin.tl && activeWin.tl.wayland ? activeWin.tl.wayland.appId : "", "desktop_windows")
           color: Colours.m3primary
@@ -437,17 +478,17 @@ Item {
         }
         component Title: MText {
           id: t
-          anchors.top: winIcon.bottom
-          anchors.topMargin: Tk.spacing.small
-          anchors.horizontalCenter: winIcon.horizontalCenter
-          width: implicitHeight
-          height: implicitWidth
+          // Under the icon on a column, beside it on a row.
+          x: root.vertical ? winIcon.x + Math.round((winIcon.width - width) / 2) : winIcon.x + winIcon.width + Tk.spacing.small
+          y: root.vertical ? winIcon.y + winIcon.height + Tk.spacing.small : winIcon.y + Math.round((winIcon.height - height) / 2)
+          width: root.vertical ? implicitHeight : implicitWidth
+          height: root.vertical ? implicitWidth : implicitHeight
           font.pointSize: activeWin.titleSize
           font.letterSpacing: 1.4
           color: Colours.m3primary
           opacity: activeWin.current === t ? 1 : 0
           Behavior on opacity { Anim { type: "effects" } }
-          transform: Rotation { angle: 90; origin.x: t.implicitHeight / 2; origin.y: t.implicitHeight / 2 }
+          transform: Rotation { angle: root.vertical ? 90 : 0; origin.x: t.implicitHeight / 2; origin.y: t.implicitHeight / 2 }
         }
         Title { id: title1; Component.onCompleted: text = metrics.elidedText }
         Title { id: title2 }
@@ -462,9 +503,9 @@ Item {
     // placeholder instead also lets the layout drop its spacing.
     Item {
       id: pluginPlace
-      Layout.alignment: Qt.AlignHCenter
-      implicitWidth: Tk.barInner
-      implicitHeight: pluginPill.implicitHeight
+      Layout.alignment: root.crossAlign
+      implicitWidth: root.vertical ? Tk.barInner : pluginPill.implicitWidth
+      implicitHeight: root.vertical ? pluginPill.implicitHeight : Tk.barInner
       visible: pluginPill.visible && pluginPill.anyShown
     }
 
@@ -475,33 +516,38 @@ Item {
     // shared space budget (see "space budget" below) when the tray doesn't fit.
     Rectangle {
       id: trayPill
-      Layout.alignment: Qt.AlignHCenter
+      Layout.alignment: root.crossAlign
       readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive
         && root.cfg.tray.hiddenIcons.indexOf(i.id) < 0)
       readonly property bool bg: root.cfg.tray.background
       readonly property int padding: bg ? Tk.padding.medium : Tk.padding.extraSmall
       readonly property int spacingN: bg ? Tk.spacing.medium : Tk.spacing.extraSmall
       visible: root.cfg.tray.enabled && trayItems.length > 0
-      implicitWidth: Tk.barInner
 
       readonly property bool compact: root.cfg.tray.compact || root.trayOverBudget
       property bool expanded: false
       onCompactChanged: if (!compact) expanded = false
 
-      // Caelestia's nonAnimHeight, with the expanded list capped to the budget.
-      readonly property real fullHeight: trayCol.implicitHeight + padding * 2
-      readonly property real collapsedHeight: Math.max(bg ? width : 0, expandTrayIcon.implicitHeight + (bg ? Tk.padding.extraSmall : 0) + padding)
-      implicitHeight: {
+      // The size along the bar. Caelestia's nonAnimHeight, with the expanded
+      // list capped to the budget.
+      readonly property real chevronLen: root.vertical ? expandTrayIcon.implicitHeight : expandTrayIcon.implicitWidth
+      readonly property real listLen: root.vertical ? trayCol.implicitHeight : trayCol.implicitWidth
+      readonly property real fullLen: listLen + padding * 2
+      readonly property real collapsedLen: Math.max(bg ? Tk.barInner : 0, chevronLen + (bg ? Tk.padding.extraSmall : 0) + padding)
+      readonly property real sizeLen: {
         if (!visible) return 0
-        if (!compact) return fullHeight
-        if (!expanded) return collapsedHeight
-        return Math.max(collapsedHeight, Math.min(expandTrayIcon.implicitHeight + trayCol.implicitHeight + spacingN + (bg ? Tk.padding.extraSmall : 0) + padding,
-          root.budget - pluginPill.implicitHeight))
+        if (!compact) return fullLen
+        if (!expanded) return collapsedLen
+        return Math.max(collapsedLen, Math.min(chevronLen + listLen + spacingN + (bg ? Tk.padding.extraSmall : 0) + padding,
+          root.budget - root.along(pluginPill)))
       }
+      implicitWidth: root.vertical ? Tk.barInner : sizeLen
+      implicitHeight: root.vertical ? sizeLen : Tk.barInner
       radius: Tk.rounding.full
       color: bg ? Colours.m3surfaceContainer : "transparent"
       clip: true
-      Behavior on implicitHeight { Anim {} }
+      Behavior on implicitHeight { enabled: root.vertical; Anim {} }
+      Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
 
       // The tray menu keeps it open; closing the menu lets it fold again.
       Connections {
@@ -517,18 +563,24 @@ Item {
       // Scrolls when an expanded tray is capped by the budget.
       MFlickable {
         id: trayFlick
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.topMargin: trayPill.padding
-        height: Math.max(0, parent.height - trayPill.padding - (trayPill.compact ? expandTrayIcon.implicitHeight + trayPill.spacingN : trayPill.padding))
-        contentHeight: trayCol.implicitHeight
-        interactive: contentHeight > height + 0.5
+        x: root.vertical ? 0 : trayPill.padding
+        y: root.vertical ? trayPill.padding : 0
+        // What is left along the bar once the padding and the chevron have theirs.
+        readonly property real room: Math.max(0, (root.vertical ? parent.height : parent.width) - trayPill.padding
+          - (trayPill.compact ? trayPill.chevronLen + trayPill.spacingN : trayPill.padding))
+        width: root.vertical ? parent.width : room
+        height: root.vertical ? room : parent.height
+        contentWidth: root.vertical ? width : trayCol.implicitWidth
+        contentHeight: root.vertical ? trayCol.implicitHeight : height
+        interactive: root.vertical ? contentHeight > height + 0.5 : contentWidth > width + 0.5
         clip: true
 
-        Column {
+        Grid {
           id: trayCol
-          anchors.horizontalCenter: parent.horizontalCenter
+          // Centred across the bar.
+          x: root.vertical ? Math.round((parent.width - width) / 2) : 0
+          y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
+          columns: root.vertical ? 1 : 1000
           spacing: Tk.spacing.small
           opacity: !trayPill.compact || trayPill.expanded ? 1 : 0
           Behavior on opacity { Anim { type: "effects" } }
@@ -578,10 +630,10 @@ Item {
       MIcon {
         id: expandTrayIcon
         visible: trayPill.compact
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: trayPill.bg ? Tk.padding.extraSmall : 0
-        text: "expand_less"
+        // At the far end of the pill, centred across it.
+        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - (trayPill.bg ? Tk.padding.extraSmall : 0)
+        y: root.vertical ? parent.height - height - (trayPill.bg ? Tk.padding.extraSmall : 0) : Math.round((parent.height - height) / 2)
+        text: root.vertical ? "expand_less" : "chevron_left"
         size: Tk.iconSize.medium
         color: Colours.m3onSurfaceVariant
         rotation: trayPill.expanded ? 180 : 0
@@ -597,10 +649,11 @@ Item {
     // --------------------------------------------------------- clock
     Rectangle {
       id: clockPill
-      Layout.alignment: Qt.AlignHCenter
-      implicitWidth: Tk.barInner
-      implicitHeight: clockCol.implicitHeight + (root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall) * 2
-      radius: width / 2
+      Layout.alignment: root.crossAlign
+      readonly property real pad: root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall
+      implicitWidth: root.vertical ? Tk.barInner : clockRow.implicitWidth + pad * 2
+      implicitHeight: root.vertical ? clockCol.implicitHeight + pad * 2 : Tk.barInner
+      radius: (root.vertical ? width : height) / 2
       color: root.cfg.clock.background ? Colours.m3surfaceContainer : "transparent"
       readonly property bool h12: Sys.h12
       MouseArea {
@@ -614,9 +667,54 @@ Item {
       }
       // Caelestia bar/components/Clock.qml: body.small x1.1 digits, squeezed
       // or stretched on the width axis so hours and minutes line up.
+      // Caelestia KDE's horizontal clock (bar/components/Clock.qml): the icon,
+      // the date, then hours:minutes on one line.
+      RowLayout {
+        id: clockRow
+        anchors.centerIn: parent
+        visible: !root.vertical
+        spacing: Tk.spacing.extraSmall
+        MIcon {
+          id: calIconH
+          visible: root.calIconShown
+          Layout.alignment: Qt.AlignVCenter
+          text: "calendar_month"
+          color: Colours.m3tertiary
+        }
+        MText {
+          visible: root.cfg.clock.showDate
+          Layout.alignment: Qt.AlignVCenter
+          text: Qt.formatDate(clock.date, "ddd d")
+          font.pointSize: Tk.body.small
+          color: Colours.m3tertiary
+        }
+        Rectangle {
+          visible: root.cfg.clock.showDate
+          Layout.alignment: Qt.AlignVCenter
+          implicitWidth: 1
+          implicitHeight: Tk.px(16)
+          color: Colours.m3outlineVariant
+        }
+        MText {
+          Layout.alignment: Qt.AlignVCenter
+          text: Sys.hour(clock.date) + ":" + Qt.formatTime(clock.date, "mm") + (root.cfg.clock.showSeconds ? ":" + Qt.formatTime(clock.date, "ss") : "")
+          font.pointSize: Tk.body.small * 1.1
+          axes: ({ "ROND": 25 })
+          color: Colours.m3tertiary
+        }
+        MText {
+          visible: clockPill.h12
+          Layout.alignment: Qt.AlignVCenter
+          text: Qt.formatTime(clock.date, "AP").toLowerCase()
+          font.pointSize: Tk.body.small * 0.9
+          color: Colours.m3tertiary
+        }
+      }
+
       ColumnLayout {
         id: clockCol
         anchors.centerIn: parent
+        visible: root.vertical
         spacing: Tk.spacing.extraSmall
         readonly property real size: Tk.body.small * 1.1
         function fit(text, metricWidth) {
@@ -636,7 +734,7 @@ Item {
         }
         MIcon {
           id: calIcon
-          visible: root.cfg.clock.showIcon && root.calendarFits
+          visible: root.calIconShown
           Layout.alignment: Qt.AlignHCenter
           text: "calendar_month"
           color: Colours.m3tertiary
@@ -683,25 +781,32 @@ Item {
         || RecordService.running || st.notifications
         || (st.lockStatus && (root.host.capsLock || root.host.numLock || lockStatus.visible))
         || st.audio || st.microphone || st.kbLayout || st.network || st.bluetooth || st.battery
-      Layout.alignment: Qt.AlignHCenter
-      implicitWidth: Tk.barInner
-      implicitHeight: statusCol.implicitHeight + Tk.padding.medium * 2
-      radius: width / 2
+      Layout.alignment: root.crossAlign
+      implicitWidth: root.vertical ? Tk.barInner : statusCol.implicitWidth + Tk.padding.medium * 2
+      implicitHeight: root.vertical ? statusCol.implicitHeight + Tk.padding.medium * 2 : Tk.barInner
+      radius: (root.vertical ? width : height) / 2
       color: Colours.m3surfaceContainer
       clip: true
-      Behavior on implicitHeight { Anim {} }
+      Behavior on implicitHeight { enabled: root.vertical; Anim {} }
+      Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
 
-      Column {
+      // Every icon sits in its own cell, centred across the bar. Filled from
+      // the pill's far end, so a new one grows in from the inner side.
+      GridLayout {
         id: statusCol
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Tk.padding.medium
-        spacing: Tk.spacing.medium / 2
+        readonly property real gapPx: Tk.spacing.medium / 2
+        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - Tk.padding.medium
+        y: root.vertical ? parent.height - height - Tk.padding.medium : Math.round((parent.height - height) / 2)
+        columns: root.vertical ? 1 : -1
+        rows: root.vertical ? -1 : 1
+        flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+        rowSpacing: gapPx
+        columnSpacing: gapPx
 
         // Keep awake indicator
         MIcon {
           visible: root.cfg.status.keepAwake && IdleService.enabled
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           text: "coffee"
           color: Colours.m3secondary
           fill: 1
@@ -716,7 +821,7 @@ Item {
         MIcon {
           readonly property string popout: "update"
           visible: root.cfg.status.update && UpdateService.available
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: UpdateService.running ? "downloading" : "system_update_alt"
           color: Colours.m3primary
@@ -731,7 +836,7 @@ Item {
         // Screen recording active indicator
         MIcon {
           visible: RecordService.running
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           text: "fiber_manual_record"
           color: Colours.m3error
           fill: 1
@@ -752,7 +857,7 @@ Item {
         // has a target; filled with unread notifications, outlined when empty.
         MIcon {
           visible: root.cfg.status.notifications
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: NotifService.dnd ? "notifications_off" : NotifService.count > 0 ? "notifications_unread" : "notifications"
           color: NotifService.dnd ? Colours.m3error : Colours.m3secondary
@@ -766,23 +871,28 @@ Item {
 
         // caps/num lock (Caelestia status/LockStatus.qml): each grows in
         // and fades/scales its own icon.
-        Column {
+        GridLayout {
           id: lockStatus
           readonly property string popout: "lockstatus"
           readonly property bool caps: root.host.capsLock
           readonly property bool num: root.host.numLock
-          property real gap: caps && num ? statusCol.spacing : 0
-          property real capsHeight: caps ? capsIcon.implicitHeight : 0
-          property real numHeight: num ? numIcon.implicitHeight : 0
-          anchors.horizontalCenter: parent.horizontalCenter
-          visible: root.cfg.status.lockStatus && (capsHeight > 0.5 || numHeight > 0.5)
-          spacing: Math.round(gap)
+          property real gap: caps && num ? statusCol.gapPx : 0
+          // How much of the bar each icon takes, along it.
+          property real capsLen: caps ? (root.vertical ? capsIcon.implicitHeight : capsIcon.implicitWidth) : 0
+          property real numLen: num ? (root.vertical ? numIcon.implicitHeight : numIcon.implicitWidth) : 0
+          Layout.alignment: Qt.AlignCenter
+          visible: root.cfg.status.lockStatus && (capsLen > 0.5 || numLen > 0.5)
+          columns: root.vertical ? 1 : -1
+          rows: root.vertical ? -1 : 1
+          flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+          rowSpacing: Math.round(gap)
+          columnSpacing: Math.round(gap)
           Behavior on gap { Anim { type: "slowEffects" } }
-          Behavior on capsHeight { Anim { type: "slowEffects" } }
-          Behavior on numHeight { Anim { type: "slowEffects" } }
+          Behavior on capsLen { Anim { type: "slowEffects" } }
+          Behavior on numLen { Anim { type: "slowEffects" } }
           Item {
-            implicitWidth: capsIcon.implicitWidth
-            implicitHeight: Math.round(lockStatus.capsHeight)
+            implicitWidth: root.vertical ? capsIcon.implicitWidth : Math.round(lockStatus.capsLen)
+            implicitHeight: root.vertical ? Math.round(lockStatus.capsLen) : capsIcon.implicitHeight
             MIcon {
               id: capsIcon
               anchors.centerIn: parent
@@ -797,8 +907,8 @@ Item {
             }
           }
           Item {
-            implicitWidth: numIcon.implicitWidth
-            implicitHeight: Math.round(lockStatus.numHeight)
+            implicitWidth: root.vertical ? numIcon.implicitWidth : Math.round(lockStatus.numLen)
+            implicitHeight: root.vertical ? Math.round(lockStatus.numLen) : numIcon.implicitHeight
             MIcon {
               id: numIcon
               anchors.centerIn: parent
@@ -819,7 +929,7 @@ Item {
           readonly property real vol: sink && sink.audio ? sink.audio.volume : 0
           readonly property bool muted: !sink || !sink.audio || sink.audio.muted
           visible: root.cfg.status.audio
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: muted ? "no_sound" : vol >= 0.5 ? "volume_up" : vol > 0 ? "volume_down" : "volume_mute"
           color: Colours.m3secondary
@@ -833,7 +943,7 @@ Item {
           // "Only while recording" keeps it out of the way until an app
           // actually opens the microphone.
           visible: root.cfg.status.microphone && (!root.cfg.status.microphoneInUseOnly || AudioService.capturing)
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: muted ? "mic_off" : "mic"
           color: Colours.m3secondary
@@ -846,7 +956,7 @@ Item {
         MText {
           readonly property string popout: "kblayout"
           visible: root.cfg.status.kbLayout
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: root.cfg.status.kbLayout ? KbService.code : ""
           color: Colours.m3secondary
@@ -856,20 +966,24 @@ Item {
         MIcon {
           readonly property string popout: "network"
           visible: root.cfg.status.network
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: Sys.ethernet ? "cable" : Sys.wifi ? Sys.networkIcon(Sys.strength) : "wifi_off"
           color: Colours.m3secondary
         }
-        Column {
+        GridLayout {
           readonly property string popout: "bluetooth"
           // "Only when connected" hides the idle bluetooth glyph.
           visible: root.cfg.status.bluetooth && (!root.cfg.status.bluetoothConnectedOnly
             || Bluetooth.devices.values.some(d => d.connected))
-          anchors.horizontalCenter: parent.horizontalCenter
-          spacing: Tk.spacing.medium / 2
+          Layout.alignment: Qt.AlignCenter
+          columns: root.vertical ? 1 : -1
+          rows: root.vertical ? -1 : 1
+          flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+          rowSpacing: statusCol.gapPx
+          columnSpacing: statusCol.gapPx
           MIcon {
-            anchors.horizontalCenter: parent.horizontalCenter
+            Layout.alignment: Qt.AlignCenter
             animate: true
             readonly property var adapter: Bluetooth.defaultAdapter
             text: !adapter || !adapter.enabled ? "bluetooth_disabled"
@@ -880,7 +994,7 @@ Item {
             model: Bluetooth.devices.values.filter(d => d.state !== BluetoothDeviceState.Disconnected)
             MIcon {
               required property var modelData
-              anchors.horizontalCenter: parent.horizontalCenter
+              Layout.alignment: Qt.AlignCenter
               text: Sys.bluetoothIcon(modelData.icon)
               color: Colours.m3secondary
               fill: 1
@@ -900,7 +1014,7 @@ Item {
           readonly property var dev: UPower.displayDevice
           readonly property bool laptop: dev && dev.isLaptopBattery
           readonly property bool charging: dev && [UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].indexOf(dev.state) >= 0
-          anchors.horizontalCenter: parent.horizontalCenter
+          Layout.alignment: Qt.AlignCenter
           animate: true
           text: !laptop ? (PowerProfiles.profile === PowerProfile.PowerSaver ? "energy_savings_leaf"
                          : PowerProfiles.profile === PowerProfile.Performance ? "rocket_launch" : "balance")
@@ -915,7 +1029,7 @@ Item {
     Item {
       id: powerItem
       visible: root.cfg.power
-      Layout.alignment: Qt.AlignHCenter
+      Layout.alignment: root.crossAlign
       implicitWidth: powerIcon.implicitHeight + Tk.padding.small
       implicitHeight: powerIcon.implicitHeight
       Item {
@@ -946,14 +1060,17 @@ Item {
     id: pluginPill
     readonly property var pluginsList: root.host.thirdPartyPlugins || []
     readonly property var unpinned: root.cfg.plugins.unpinned
-    readonly property bool anyShown: pluginCol.implicitHeight - pluginCol.topPadding - pluginCol.bottomPadding > 0.5
+    // The padding at each end of the list, along the bar.
+    readonly property real endPad: Tk.padding.medium
+    readonly property real listLen: root.vertical ? pluginCol.implicitHeight : pluginCol.implicitWidth
+    readonly property bool anyShown: listLen - endPad * 2 > 0.5
     property bool expanded: false
     onOverflowCountChanged: if (overflowCount === 0) expanded = false
 
     // Counted by hand: Repeater.itemAt is not a binding dependency, so every
     // slot asks for a recount when its size, content or pin changes.
     property int overflowCount: 0
-    property real pinnedHeight: 0
+    property real pinnedLen: 0
     function recount() { countTimer.restart() }
     Timer {
       id: countTimer
@@ -963,34 +1080,37 @@ Item {
         for (let i = 0; i < pluginRep.count; i++) {
           const slot = pluginRep.itemAt(i)
           if (!slot || !slot.shown) continue
-          if (slot.pinned) h += Math.round(slot.visualHeight) + pluginCol.spacing
+          if (slot.pinned) h += Math.round(slot.visualLen) + pluginCol.gapPx
           else n++
         }
         pluginPill.overflowCount = n
-        pluginPill.pinnedHeight = h
+        pluginPill.pinnedLen = h
       }
     }
-    // The pill's height with the overflow closed: what the budget plans for.
-    readonly property real collapsedHeight: overflowCount === 0 && pinnedHeight === 0 ? 0
-      : pluginCol.topPadding + pluginCol.bottomPadding + pinnedHeight
-        + (overflowCount > 0 ? overflowIcon.implicitHeight : -pluginCol.spacing)
+    // The pill's size along the bar with the overflow closed: what the budget plans for.
+    readonly property real collapsedLen: overflowCount === 0 && pinnedLen === 0 ? 0
+      : endPad * 2 + pinnedLen
+        + (overflowCount > 0 ? (root.vertical ? overflowIcon.implicitHeight : overflowIcon.implicitWidth) : -pluginCol.gapPx)
 
     visible: root.cfg.plugins.enabled !== false && pluginsList.length > 0
     opacity: anyShown ? 1 : 0
     x: col.x + pluginPlace.x
     y: col.y + pluginPlace.y
-    width: Tk.barInner
     // Scrolled down to a single cell, pinned widgets included, when even they
     // don't fit: the pill gives way before the clock and status icons do.
-    readonly property real minHeight: pluginCol.topPadding + pluginCol.bottomPadding + cellRef.implicitHeight
+    readonly property real minLen: endPad * 2 + (root.vertical ? cellRef.implicitHeight : cellRef.implicitWidth)
     // Capped by the space budget, leaving the tray its (collapsed) share.
-    implicitHeight: anyShown ? Math.min(Math.max(minHeight, root.budget - root.trayReserve), pluginCol.implicitHeight) : 0
+    readonly property real sizeLen: anyShown ? Math.min(Math.max(minLen, root.budget - root.trayReserve), listLen) : 0
+    implicitWidth: root.vertical ? Tk.barInner : sizeLen
+    implicitHeight: root.vertical ? sizeLen : Tk.barInner
+    width: implicitWidth
     height: implicitHeight
-    radius: width / 2
+    radius: (root.vertical ? width : height) / 2
     color: Colours.m3surfaceContainer
     clip: true
 
-    Behavior on implicitHeight { Anim {} }
+    Behavior on implicitHeight { enabled: root.vertical; Anim {} }
+    Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
 
     Timer {
       id: collapsePluginsTimer
@@ -1005,16 +1125,21 @@ Item {
     MFlickable {
       id: pluginFlick
       anchors.fill: parent
-      contentWidth: width
-      contentHeight: pluginCol.implicitHeight
-      interactive: contentHeight > height + 0.5
+      contentWidth: root.vertical ? width : pluginCol.implicitWidth
+      contentHeight: root.vertical ? pluginCol.implicitHeight : height
+      interactive: root.vertical ? contentHeight > height + 0.5 : contentWidth > width + 0.5
 
-      Column {
+      Grid {
         id: pluginCol
-        width: parent.width
-        topPadding: Tk.padding.medium
-        bottomPadding: Tk.padding.medium
-        spacing: Tk.spacing.medium / 2
+        readonly property real gapPx: Tk.spacing.medium / 2
+        width: root.vertical ? parent.width : implicitWidth
+        height: root.vertical ? implicitHeight : parent.height
+        columns: root.vertical ? 1 : 1000
+        topPadding: root.vertical ? pluginPill.endPad : 0
+        bottomPadding: root.vertical ? pluginPill.endPad : 0
+        leftPadding: root.vertical ? 0 : pluginPill.endPad
+        rightPadding: root.vertical ? 0 : pluginPill.endPad
+        spacing: gapPx
 
         Repeater {
           id: pluginRep
@@ -1025,11 +1150,12 @@ Item {
             pinned: pluginPill.unpinned.indexOf(moduleName) < 0
             entry: modelData
             host: root.host
-            cellHeight: cellRef.implicitHeight
+            vertical: root.vertical
+            cellLen: root.vertical ? cellRef.implicitHeight : cellRef.implicitWidth
             collapsed: !pinned && !pluginPill.expanded
             onShownChanged: pluginPill.recount()
             onPinnedChanged: pluginPill.recount()
-            onVisualHeightChanged: pluginPill.recount()
+            onVisualLenChanged: pluginPill.recount()
             Component.onCompleted: pluginPill.recount()
             Component.onDestruction: pluginPill.recount()
           }
@@ -1037,13 +1163,13 @@ Item {
 
         // Caelestia's tray chevron, for the widgets that aren't pinned.
         Item {
-          width: parent.width
-          height: pluginPill.overflowCount > 0 ? overflowIcon.implicitHeight : 0
+          width: root.vertical ? parent.width : (pluginPill.overflowCount > 0 ? overflowIcon.implicitWidth : 0)
+          height: root.vertical ? (pluginPill.overflowCount > 0 ? overflowIcon.implicitHeight : 0) : parent.height
           MIcon {
             id: overflowIcon
             anchors.centerIn: parent
             visible: pluginPill.overflowCount > 0
-            text: "expand_less"
+            text: root.vertical ? "expand_less" : "chevron_left"
             size: Tk.iconSize.medium
             color: Colours.m3onSurfaceVariant
             rotation: pluginPill.expanded ? 180 : 0

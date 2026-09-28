@@ -195,8 +195,15 @@ var subpages = {
     title: "Taskbar",
     rows: [
       { type: "section", text: "Behaviour" },
+      { type: "select", key: "bar.position", label: "Position", subtext: "Which edge of the screen the bar sits on. Omarchy follows Style \u203a Bar \u203a Position", options: [
+        { value: "left", label: "Left", icon: "align_horizontal_left" },
+        { value: "right", label: "Right", icon: "align_horizontal_right" },
+        { value: "top", label: "Top", icon: "vertical_align_top" },
+        { value: "bottom", label: "Bottom", icon: "vertical_align_bottom" },
+        { value: "omarchy", label: "Omarchy", icon: "sync_alt" }
+      ] },
       { type: "toggle", key: "bar.persistent", label: "Persistent", subtext: "Keep the bar visible at all times" },
-      { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches the left edge" },
+      { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches its edge" },
       { type: "section", text: "Components" },
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
       { type: "nav", icon: "web_asset", label: "Active window", subtext: "Title display, popout", page: "activeWindow" },

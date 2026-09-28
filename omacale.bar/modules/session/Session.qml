@@ -6,11 +6,15 @@ Column {
   id: root
 
   property bool active: false
+  // On the left of the screen, with a right-hand bar: the frame's border is
+  // then on its left.
+  property bool mirror: false
   signal dismissed()
   readonly property var cfg: Config.o.session
 
   padding: Tk.padding.large
-  rightPadding: Math.max(0, padding - Tk.border)
+  leftPadding: mirror ? Math.max(0, padding - Tk.border) : padding
+  rightPadding: mirror ? padding : Math.max(0, padding - Tk.border)
   spacing: Tk.spacing.large
 
   // Deferred: built on demand, it is still being created (not yet in the

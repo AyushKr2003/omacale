@@ -15,8 +15,10 @@ Item {
   property var scope
   property bool active: false
 
-  // The frame already supplies `border` of the inset on top and right.
+  // The frame already supplies `border` of the inset on top and right (left,
+  // with a right-hand bar, which puts the drawer on the left).
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
+  readonly property bool mirror: !!scope && scope.mirror
 
   // Keys (ScreenScope's drawer cursor): d toggles do not disturb, Shift+X
   // clears everything the way the clear-all button does.
@@ -30,9 +32,9 @@ Item {
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.leftMargin: Tk.padding.large
+    anchors.leftMargin: root.mirror ? root.edgePad : Tk.padding.large
     anchors.topMargin: root.edgePad
-    anchors.rightMargin: root.edgePad
+    anchors.rightMargin: root.mirror ? Tk.padding.large : root.edgePad
 
     ColumnLayout {
       anchors.fill: parent

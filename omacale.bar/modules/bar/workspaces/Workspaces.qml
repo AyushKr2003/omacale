@@ -17,6 +17,9 @@ Rectangle {
   id: root
 
   required property var screen
+  // A column on a left or right bar, a row on a top or bottom one; everything
+  // measured "along" the bar is a height in the first and a width in the second.
+  property bool vertical: true
   readonly property var monitor: Hyprland.monitorFor(screen)
   readonly property var cfg: Config.o.bar.workspaces
   readonly property int shown: Math.max(1, cfg.shown)
@@ -44,27 +47,35 @@ Rectangle {
   property bool iconsFit: true
   // Worked out from the workspaces, not measured, so both are the same
   // whether or not the icons are shown and the bar can decide on them.
-  readonly property real bareHeight: shown * (Tk.barInner - Tk.padding.small)
+  readonly property real bareSize: shown * (Tk.barInner - Tk.padding.small)
     + (shown - 1) * Tk.spacing.extraSmall + Tk.padding.extraSmall * 2
-  readonly property real iconsHeight: {
+  readonly property real iconsSize: {
     if (!cfg.showWindows || cfg.maxWindowIcons <= 0) return 0
     let h = 0
     for (let i = 0; i < shown; i++) {
       const o = wsObject(groupOffset + i + 1)
       const n = Math.min(o && o.toplevels ? o.toplevels.values.length : 0, cfg.maxWindowIcons)
-      if (n > 0) h += n * iconRef.implicitHeight + Tk.padding.extraSmall
+      if (n > 0) h += n * (vertical ? iconRef.implicitHeight : iconRef.implicitWidth) + Tk.padding.extraSmall
     }
     return h
   }
-  MIcon { id: iconRef; visible: false; topPadding: -Tk.spacing.extraSmall / 2; text: "terminal" }
+  // A window icon is pulled in against the workspace shape on the flow's axis.
+  MIcon {
+    id: iconRef
+    visible: false
+    topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
+    leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
+    text: "terminal"
+  }
 
-  implicitWidth: Tk.barInner
-  implicitHeight: list.implicitHeight + Tk.padding.extraSmall * 2
-  radius: width / 2
+  implicitWidth: vertical ? Tk.barInner : list.implicitWidth + Tk.padding.extraSmall * 2
+  implicitHeight: vertical ? list.implicitHeight + Tk.padding.extraSmall * 2 : Tk.barInner
+  radius: (vertical ? width : height) / 2
   color: Colours.m3surfaceContainer
-  Behavior on implicitHeight { Anim {} }
+  Behavior on implicitHeight { enabled: root.vertical; Anim {} }
+  Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
 
-  // The workspace cells, top to bottom, for the bar focus mode's cursor.
+  // The workspace cells, in bar order, for the bar focus mode's cursor.
   function navItems() {
     const out = []
     for (let i = 0; i < rep.count; i++) {
@@ -123,12 +134,16 @@ Rectangle {
       blurMax: 32
     }
 
-    Column {
+    Grid {
       id: list
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.margins: Tk.padding.extraSmall
+      // Placed by x/y/width/height rather than anchors: a binding that
+      // resolves to `undefined` doesn't reliably clear an anchor, and the bar
+      // turns from a column into a row while it runs.
+      x: Tk.padding.extraSmall
+      y: Tk.padding.extraSmall
+      width: root.vertical ? parent.width - Tk.padding.extraSmall * 2 : implicitWidth
+      height: root.vertical ? implicitHeight : parent.height - Tk.padding.extraSmall * 2
+      columns: root.vertical ? 1 : 1000
       spacing: Tk.spacing.extraSmall
 
       Repeater {
@@ -146,10 +161,11 @@ Rectangle {
           readonly property color fg: focused || occupied || root.cfg.occupiedBg ? Colours.m3onSurface : Colours.m3outlineVariant
           readonly property real cell: Tk.barInner - Tk.padding.small
 
-          width: list.width
           readonly property bool hasWindows: occupied && root.iconsFit && root.cfg.showWindows && root.cfg.maxWindowIcons > 0
-          height: col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0)
-          Behavior on height { Anim {} }
+          width: root.vertical ? list.width : col.implicitWidth + (hasWindows ? Tk.padding.extraSmall : 0)
+          height: root.vertical ? col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0) : list.height
+          Behavior on height { enabled: root.vertical; Anim {} }
+          Behavior on width { enabled: !root.vertical; Anim {} }
 
           function pickShape() {
             shape.shape = focused ? root.focusedShapes[Math.floor(Math.random() * root.focusedShapes.length)]
@@ -162,13 +178,15 @@ Rectangle {
             root.listGen++
           }
 
-          Column {
+          Grid {
             id: col
-            width: parent.width
+            width: root.vertical ? ws.width : implicitWidth
+            height: root.vertical ? implicitHeight : ws.height
+            columns: root.vertical ? 1 : 1000
             spacing: 0
             Item {
-              width: parent.width
-              height: ws.cell
+              width: root.vertical ? col.width : ws.cell
+              height: root.vertical ? ws.cell : col.height
               MText {
                 anchors.centerIn: parent
                 visible: root.cfg.display === "numbers"
@@ -192,8 +210,10 @@ Rectangle {
               model: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : []
               MIcon {
                 required property var modelData
-                width: col.width
-                topPadding: -Tk.spacing.extraSmall / 2
+                width: root.vertical ? col.width : implicitWidth
+                height: root.vertical ? implicitHeight : col.height
+                topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
+                leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
                 text: Sys.appIcon(modelData.wayland ? modelData.wayland.appId : (modelData.lastIpcObject || {}).class, "terminal")
                 color: Colours.m3onSurfaceVariant
                 opacity: 0
@@ -225,11 +245,11 @@ Rectangle {
         required property var modelData
         readonly property var a: rep.itemAt(modelData[0])
         readonly property var b: rep.itemAt(modelData[1])
-        x: list.x
-        y: a ? list.y + a.y : 0
-        width: list.width
-        height: a && b ? b.y + b.height - a.y : 0
-        radius: width / 2
+        x: root.vertical ? list.x : a ? list.x + a.x : 0
+        y: root.vertical ? (a ? list.y + a.y : 0) : list.y
+        width: root.vertical ? list.width : a && b ? b.x + b.width - a.x : 0
+        height: root.vertical ? (a && b ? b.y + b.height - a.y : 0) : list.height
+        radius: Math.min(width, height) / 2
         color: Colours.m3secondaryContainer
         z: -1
       }
@@ -237,6 +257,7 @@ Rectangle {
 
     ActiveIndicator {
       visible: root.cfg.activeIndicator
+      vertical: root.vertical
       list: list
       target: {
         root.listGen  // re-run once the delegates exist
@@ -269,13 +290,14 @@ Rectangle {
     sourceComponent: Item {
       Rectangle {
         anchors.fill: parent
-        radius: width / 2
+        radius: Math.min(width, height) / 2
         color: Qt.alpha(Colours.m3scrim, Colours.light ? 0 : 0.2)
       }
 
       SpecialWorkspaces {
         anchors.fill: parent
         anchors.margins: Tk.padding.extraSmall
+        vertical: root.vertical
         monitor: root.monitor
         focusedShapes: root.focusedShapes
         onWheel: dy => root.scroll(dy)

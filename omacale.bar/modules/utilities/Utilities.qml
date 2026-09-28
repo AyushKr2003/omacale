@@ -13,15 +13,17 @@ Item {
   property var scope
   property bool active: false
 
-  // The frame already supplies `border` of the inset on the right and bottom.
+  // The frame already supplies `border` of the inset on the right and bottom
+  // (left and bottom, with a right-hand bar).
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
+  readonly property bool mirror: !!scope && scope.mirror
   readonly property var navRoots: [root]
 
   implicitHeight: col.implicitHeight + Tk.padding.large + edgePad
 
   ColumnLayout {
     id: col
-    x: Tk.padding.large
+    x: root.mirror ? root.edgePad : Tk.padding.large
     y: Tk.padding.large
     width: root.width - Tk.padding.large - root.edgePad
     spacing: Tk.spacing.medium

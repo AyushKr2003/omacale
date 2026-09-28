@@ -99,6 +99,9 @@ QtObject {
         property int smoothing: 20
       }
       property JsonObject bar: JsonObject {
+        // left | right | top | bottom, or "omarchy" to follow Omarchy's own
+        // bar position (shell.json, `omarchy bar position`).
+        property string position: "left"
         property bool persistent: true
         property bool showOnHover: true
         property bool logo: true

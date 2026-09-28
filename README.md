@@ -12,7 +12,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
 - **Material 3 colours** generated from your Omarchy theme.
-- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own.
+- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it.
 - **Launcher**: apps, calculator (`>calc`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
 - **Dashboard**: weather, calendar, system resources, and media with synced lyrics.
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
@@ -82,7 +82,7 @@ git pull
 | `SUPER + SHIFT + ESCAPE` | Session menu |
 | `SUPER + CTRL + 0` | Bar focus: move through the bar with the keyboard |
 | `SUPER + CTRL + W` / `B` / `P` / `A` | Network / Bluetooth / Power / Audio popout (Omarchy's own keys) |
-| `SUPER + CTRL + 1..9` | Third-party bar widgets, top to bottom (Omarchy's own keys) |
+| `SUPER + CTRL + 1..9` | Third-party bar widgets, in bar order (Omarchy's own keys) |
 
 ### Keyboard navigation
 

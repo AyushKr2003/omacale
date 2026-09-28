@@ -8,7 +8,8 @@ import "../.."
 
 // Everything on one monitor, laid out like Caelestia's drawers window: a
 // full-screen layer whose background is one SDF blob (frame + drawers, with a
-// soft shadow), the bar on the left, and drawers that grow out of the frame.
+// soft shadow), the bar on one of its edges (the left, in Caelestia), and
+// drawers that grow out of the frame.
 Scope {
   id: scope
 
@@ -17,6 +18,15 @@ Scope {
   readonly property var screen: modelData
   readonly property var monitor: Hyprland.monitorFor(screen)
   readonly property var cfg: Config.o
+
+  // The edge the bar is on (Bar.position). Caelestia itself only draws it on
+  // the left; the other edges follow Caelestia KDE's drawers: the panel area is
+  // inset by the bar on its edge, and a right-hand bar mirrors the drawers that
+  // live on the right (session, sidebar, utilities, toasts) over to the left,
+  // out of the popouts' way.
+  readonly property string barPos: host.position
+  readonly property bool barVert: barPos === "left" || barPos === "right"
+  readonly property bool mirror: barPos === "right"
 
   // ---------------------------------------------------------- state
   property bool launcher: false
@@ -188,7 +198,7 @@ Scope {
     if (!cfg.bar.persistent) barHover = true
     win.primeFocus()
   }
-  // The status group's popouts that have an icon on the bar, top to bottom.
+  // The status group's popouts that have an icon on the bar, in bar order.
   function statusPopouts() { return bar.statusPopouts() }
   // Tab in a keyboard popout: the next status popout down the bar, wrapping
   // (from one that isn't a status popout, the first or last).
@@ -219,7 +229,7 @@ Scope {
       // popout; the IPC opens it straight away, centred on the bar.
       if (name === "windowInfo") {
         if (scope.popout === "winfo") scope.popout = ""
-        else { scope.popoutCenter = scope.screen.height / 2; scope.popout = "winfo" }
+        else { scope.popoutCenter = scope.barVert ? scope.screen.height / 2 : scope.screen.width / 2; scope.popout = "winfo" }
         return
       }
       if (name === "launcher" && scope.cfg.launcher.enabled) {
@@ -293,15 +303,20 @@ Scope {
     implicitHeight: 1
     color: "transparent"
   }
-  Reserve { anchors.left: true; exclusiveZone: scope.cfg.bar.persistent && !scope.barOff ? Tk.barWidth : Tk.border }
-  Reserve { anchors.top: true; exclusiveZone: Tk.border }
-  Reserve { anchors.right: true; exclusiveZone: Tk.border }
-  Reserve { anchors.bottom: true; exclusiveZone: Tk.border }
+  // What an edge reserves: the frame's border, or the bar's breadth on its own.
+  function zoneFor(edge) {
+    return edge === barPos && cfg.bar.persistent && !barOff ? Tk.barWidth : Tk.border
+  }
+  Reserve { anchors.left: true; exclusiveZone: scope.zoneFor("left") }
+  Reserve { anchors.top: true; exclusiveZone: scope.zoneFor("top") }
+  Reserve { anchors.right: true; exclusiveZone: scope.zoneFor("right") }
+  Reserve { anchors.bottom: true; exclusiveZone: scope.zoneFor("bottom") }
 
   // Desktop clock and visualiser, under the windows (Caelestia's background).
   Background {
     screen: scope.screen
-    barZone: scope.cfg.bar.persistent && !scope.barOff ? Tk.barWidth : Tk.border
+    barPos: scope.barPos
+    barZone: scope.zoneFor(scope.barPos)
   }
 
   // ----------------------------------------------- notification toasts
@@ -316,6 +331,9 @@ Scope {
   // other drawers are, so each toast is a card of its own with an elevation
   // shadow, sitting where the frame's top-right inner corner is.
   readonly property real toastInset: Tk.border + Math.max(0, Math.min(Tk.padding.large - Tk.border, Tk.padding.large))
+  // Toasts sit in the top-right corner, the top-left one when the bar is on the
+  // right (Caelestia KDE's auto position), and below a bar on the top edge.
+  readonly property real toastTop: toastInset + (barPos === "top" ? Math.max(0, win.bw - Tk.border) : 0)
 
   PanelWindow {
     id: toastWin
@@ -349,14 +367,14 @@ Scope {
     NotifPopups {
       id: toastStack
 
-      anchors.top: parent.top
-      anchors.right: parent.right
-      anchors.topMargin: scope.toastInset
-      anchors.rightMargin: scope.toastInset
+      // In the corner by x/y: an anchor that a binding clears doesn't reliably
+      // let go, and the bar can move to the other side while the shell runs.
+      x: scope.mirror ? scope.toastInset : parent.width - width - scope.toastInset
+      y: scope.toastTop
 
       width: implicitWidth
       height: implicitHeight
-      maxHeight: Math.max(0, scope.screen.height - scope.toastInset * 2)
+      maxHeight: Math.max(0, scope.screen.height - scope.toastTop - scope.toastInset)
       // The notification centre shows the same notifications in full, so the
       // toasts get out of its way (Caelestia's Notifs.shouldShowPopup).
       suppressed: scope.sidebar
@@ -418,13 +436,27 @@ Scope {
     property real barProg: !scope.barOff && (scope.cfg.bar.persistent || scope.barHover) ? 1 : 0
     Behavior on barProg { Anim {} }
 
+    // The frame's breadth on the bar's edge (bw) and on the others (bt).
     readonly property real bw: (Tk.border + (Tk.barWidth - Tk.border) * barProg) * (1 - fs)
     readonly property real bt: Tk.border * (1 - fs)
     // Panel area (Caelestia's Panels item)
-    readonly property real ax: bw
-    readonly property real ay: bt
-    readonly property real aw: width - bw - bt
-    readonly property real ah: height - 2 * bt
+    readonly property real ax: scope.barPos === "left" ? bw : bt
+    readonly property real ay: scope.barPos === "top" ? bw : bt
+    readonly property real aw: width - ax - (scope.barPos === "right" ? bw : bt)
+    readonly property real ah: height - ay - (scope.barPos === "bottom" ? bw : bt)
+
+    // Drawers on the right of the screen (the left, with a right-hand bar):
+    // where one of width w sits, off = 0 open to 1 away, and the part of the
+    // area it shows, which is what the input mask and the shader rect keep.
+    function sideX(w, off) {
+      return scope.mirror ? ax - (w + 5) * Math.max(0, off) : ax + aw - w + (w + 5) * Math.max(0, off)
+    }
+    function sideMaskX(x) { return scope.mirror ? ax : x }
+    function sideMaskW(x, w) { return scope.mirror ? Math.max(0, x + w - ax) : Math.max(0, ax + aw - x) }
+    // The rect that stretches to keep touching its frame edge while the
+    // spatial curve overshoots.
+    function sideRectX(x) { return scope.mirror ? Math.min(x, ax) : x }
+    function sideRectW(x, w) { return scope.mirror ? x + w - Math.min(x, ax) : Math.max(w, ax + aw - x) }
 
     // -------------------------------------------------- drawer motion
     property real dOff: scope.dashboard ? 0 : 1
@@ -470,9 +502,9 @@ Scope {
     // Session (right centre)
     readonly property real sw: sess ? sess.implicitWidth : 0
     readonly property real sh: sess ? sess.implicitHeight : 0
-    readonly property real sx: ax + aw - sw + (sw + 5) * Math.max(0, sOff)
+    readonly property real sx: sideX(sw, sOff)
     readonly property real sy: ay + Math.round((ah - sh) / 2)
-    // Popout (left, beside the bar)
+    // Popout (against the bar's edge, beside its icon)
     // Caelestia's ClipWrapper places the popout from the page's final size
     // (nonAnimHeight), so it moves straight to its spot while the size
     // animates; placing it from the animated `ph` made it drift.
@@ -494,17 +526,37 @@ Scope {
     readonly property bool pAnimate: pOff < 1 && pSettled
     Behavior on pw { enabled: win.pAnimate; Anim {} }
     Behavior on ph { enabled: win.pAnimate; Anim {} }
-    property real py: {
-      const off = scope.popoutCenter - bt - phTarget / 2
-      return ay + Math.max(0, Math.min(off, ah - phTarget))
+    // Along the bar: centred on its icon, kept inside the panel area.
+    property real pa: {
+      const size = scope.barVert ? phTarget : pwTarget
+      const lo = scope.barVert ? ay : ax
+      const span = scope.barVert ? ah : aw
+      return Math.max(lo, Math.min(scope.popoutCenter - size / 2, lo + span - size))
     }
-    Behavior on py { enabled: win.pAnimate; Anim {} }
-    // A popout pressed against the top or bottom of the panel area grows out of
-    // that frame edge too: it reaches into the frame so its corner there is
-    // square and the frame flares into it, as the dashboard and launcher do.
-    readonly property bool pTouchTop: py <= ay + 0.5
-    readonly property bool pTouchBottom: py + ph >= ay + ah - 0.5
-    readonly property real px: ax + (-pw - 5) * Math.max(0, pOff)
+    Behavior on pa { enabled: win.pAnimate; Anim {} }
+    // A popout pressed against either end of the panel area grows out of that
+    // frame edge too: it reaches into the frame so its corner there is square
+    // and the frame flares into it, as the dashboard and launcher do.
+    readonly property bool pTouchA: pa <= (scope.barVert ? ay : ax) + 0.5
+    readonly property bool pTouchB: scope.barVert ? pa + ph >= ay + ah - 0.5 : pa + pw >= ax + aw - 0.5
+    // Across the bar: out of its edge, sliding in from behind it.
+    readonly property real px: scope.barVert ? (scope.barPos === "left" ? ax + (-pw - 5) * Math.max(0, pOff) : ax + aw - pw + (pw + 5) * Math.max(0, pOff)) : pa
+    readonly property real py: scope.barVert ? pa : (scope.barPos === "top" ? ay + (-ph - 5) * Math.max(0, pOff) : ay + ah - ph + (ph + 5) * Math.max(0, pOff))
+    // What of it the panel area shows.
+    readonly property real pcx: Math.max(ax, px)
+    readonly property real pcy: Math.max(ay, py)
+    readonly property real pcw: Math.max(0, Math.min(ax + aw, px + pw) - pcx)
+    readonly property real pch: Math.max(0, Math.min(ay + ah, py + ph) - pcy)
+    // The shader rect: it reaches 20% behind the bar so it never detaches, and
+    // into the frame where it touches an end.
+    readonly property real prx: px - (scope.barPos === "left" ? pw * 0.2 : 0) - (!scope.barVert && pTouchA ? bt : 0)
+    readonly property real pry: py - (scope.barPos === "top" ? ph * 0.2 : 0) - (scope.barVert && pTouchA ? bt : 0)
+    readonly property real prw: scope.barVert ? pw * 1.2 : pw + (pTouchA ? bt : 0) + (pTouchB ? bt : 0)
+    readonly property real prh: scope.barVert ? ph + (pTouchA ? bt : 0) + (pTouchB ? bt : 0) : ph * 1.2
+    // The frame edges it grows out of, as an attach bitmask (1 top, 2 right,
+    // 4 bottom, 8 left).
+    readonly property int pAttach: (scope.barPos === "left" ? 8 : scope.barPos === "right" ? 2 : scope.barPos === "top" ? 1 : 4)
+      + (pTouchA ? (scope.barVert ? 1 : 8) : 0) + (pTouchB ? (scope.barVert ? 4 : 2) : 0)
     // Settings (floating, centred) — grows out of a small pill.
     readonly property real nfw: nexus ? nexus.implicitWidth : 0
     readonly property real nfh: nexus ? nexus.implicitHeight : 0
@@ -528,7 +580,7 @@ Scope {
     readonly property real oy: oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - oh - oGap : ay + Math.round((ah - oh) / 2)
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
-    readonly property real sbx: ax + aw - sbw + (sbw + 5) * sbOff
+    readonly property real sbx: sideX(sbw, sbOff)
     readonly property real sby: ay
     // Anchored to the utilities' top edge, as Caelestia's Sidebar.Wrapper.
     readonly property real sbh: Math.max(0, Math.min(ah, uy - ay))
@@ -542,9 +594,9 @@ Scope {
         easing.bezierCurve: scope.sidebar ? Tk.curves.standardAccel : Tk.curves.standardDecel
       }
     }
-    readonly property real uw: Math.max(0, ax + aw - sbx) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
+    readonly property real uw: sideMaskW(sbx, sbw) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
     readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : Tk.px(450)
-    readonly property real ux: ax + aw - uw
+    readonly property real ux: scope.mirror ? ax : ax + aw - uw
     readonly property real uy: ay + ah - uh + (uh + 5) * uOff
     // Caelestia's PanelBg: the corners they share square up and their fillet
     // is dropped once the sidebar is (nearly) in place.
@@ -561,10 +613,10 @@ Scope {
       intersection: win.modal ? Intersection.Combine : Intersection.Xor
       Region { intersection: Intersection.Subtract; x: win.dx; y: win.ay; width: win.dVis && !win.modal ? win.dw : 0; height: win.dVis ? Math.max(0, win.dy + win.dh - win.ay) : 0 }
       Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.modal ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.sx; y: win.sy; width: win.sVis && !win.modal ? Math.max(0, win.ax + win.aw - win.sx) : 0; height: win.sVis ? win.sh : 0 }
-      Region { intersection: Intersection.Subtract; x: win.ax; y: win.py; width: win.pVis && !win.modal ? Math.max(0, win.px + win.pw - win.ax) : 0; height: win.pVis ? win.ph : 0 }
-      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.modal ? Math.max(0, win.ax + win.aw - win.ux) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.sbx; y: win.sby; width: win.sbVis && !win.modal ? Math.max(0, win.ax + win.aw - win.sbx) : 0; height: win.sbVis ? win.sbh : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sx); y: win.sy; width: win.sVis && !win.modal ? win.sideMaskW(win.sx, win.sw) : 0; height: win.sVis ? win.sh : 0 }
+      Region { intersection: Intersection.Subtract; x: win.pcx; y: win.pcy; width: win.pVis && !win.modal ? win.pcw : 0; height: win.pVis ? win.pch : 0 }
+      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sbx); y: win.sby; width: win.sbVis && !win.modal ? win.sideMaskW(win.sbx, win.sbw) : 0; height: win.sbVis ? win.sbh : 0 }
     }
 
     // Hyprland hands the keyboard to a window on the workspace you switch to,
@@ -668,20 +720,23 @@ Scope {
         property rect r1: win.lVis ? Qt.rect(win.lx, win.ly, win.lw, win.lh) : Qt.rect(0, 0, 0, 0)
         property rect r2: win.sVis ? Qt.rect(win.sx, win.sy, win.sw, win.sh) : Qt.rect(0, 0, 0, 0)
         // Popout background reaches 20% behind the bar so it never detaches.
-        property rect r3: win.pVis ? Qt.rect(win.px - win.pw * 0.2, win.py - (win.pTouchTop ? win.bt : 0), win.pw * 1.2, win.ph + (win.pTouchTop ? win.bt : 0) + (win.pTouchBottom ? win.bt : 0)) : Qt.rect(0, 0, 0, 0)
+        property rect r3: win.pVis ? Qt.rect(win.prx, win.pry, win.prw, win.prh) : Qt.rect(0, 0, 0, 0)
         property rect r4: win.nVis ? Qt.rect(win.nx, win.ny, win.nw, win.nh) : Qt.rect(0, 0, 0, 0)
         // Sidebar and utilities stretch to keep touching their frame edges
         // while their spatial curve overshoots; the sidebar overlaps the
         // utilities by 2px so the join never shows a seam.
         property rect r5: win.uVis ? Qt.rect(win.ux, win.uy, win.uw, Math.max(win.uh, win.ay + win.ah - win.uy)) : Qt.rect(0, 0, 0, 0)
-        property rect r6: win.sbVis ? Qt.rect(win.sbx, win.sby, Math.max(win.sbw, win.ax + win.aw - win.sbx), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
+        property rect r6: win.sbVis ? Qt.rect(win.sideRectX(win.sbx), win.sby, win.sideRectW(win.sbx, win.sbw), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
         // The overview floats like Settings (attach 0) unless it is attached
         // to the top (1) or bottom (4) frame edge.
         property rect r7: win.oVis ? Qt.rect(win.ox, win.oy, win.ow, win.oh) : Qt.rect(0, 0, 0, 0)
         // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
-        property vector4d attachA: Qt.vector4d(1, 4, 2, 8 + (win.pTouchTop ? 1 : 0) + (win.pTouchBottom ? 4 : 0))
-        property vector4d attachB: Qt.vector4d(0, 6, 3, !win.oAttached ? 0 : win.oPos === "top" ? 1 : 4)
+        // The right-hand drawers grow out of the left edge instead (attach 8) when
+        // the bar is on the right.
+        property vector4d attachA: Qt.vector4d(1, 4, scope.mirror ? 8 : 2, win.pAttach)
+        property vector4d attachB: Qt.vector4d(0, scope.mirror ? 12 : 6, scope.mirror ? 9 : 3, !win.oAttached ? 0 : win.oPos === "top" ? 1 : 4)
         property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
+        property real mirror: scope.mirror ? 1 : 0
 
         Behavior on color { CAnim {} }
       }
@@ -695,26 +750,53 @@ Scope {
       acceptedButtons: win.fs > 0 ? Qt.NoButton : Qt.AllButtons
       property point dragStart
 
-      function inPopout(x, y) {
-        return x < win.px + win.pw + Tk.borderRounding && y >= win.py - Tk.borderRounding && y <= win.py + win.ph + Tk.borderRounding
+      // How far a point is from the bar's screen edge, and where it is along
+      // the bar: the two axes the bar's hit tests work in.
+      function barDepth(x, y) {
+        return scope.barPos === "left" ? x : scope.barPos === "right" ? win.width - x : scope.barPos === "top" ? y : win.height - y
       }
-      // Caelestia inBottomPanel(utilities, isCorner = true).
+      function barAlong(x, y) { return scope.barVert ? y : x }
+      // A popout, and the bar between it and its edge.
+      function inPopout(x, y) {
+        const r = Tk.borderRounding
+        const inX = x >= win.px - r && x <= win.px + win.pw + r
+        const inY = y >= win.py - r && y <= win.py + win.ph + r
+        if (scope.barPos === "left") return x < win.px + win.pw + r && inY
+        if (scope.barPos === "right") return x > win.px - r && inY
+        if (scope.barPos === "top") return y < win.py + win.ph + r && inX
+        return y > win.py - r && inX
+      }
+      // Caelestia inBottomPanel(utilities, isCorner = true), measured from the
+      // panel area's bottom edge.
+      // With the bar along the bottom the corner stops at the bar, and gives way
+      // to a popout above it: the status icons sit under this corner.
       function inBottomUtil(x, y) {
         const visibleH = win.uh * (1 - win.uOff)
-        return y > win.height - Math.max(Tk.border, 2, win.bt + visibleH) - Tk.borderRounding && x >= win.ux - Tk.borderRounding && x <= win.ux + win.uw + Tk.borderRounding
+        if (scope.barPos === "bottom" && (y > win.ay + win.ah || (win.pVis && inPopout(x, y)))) return false
+        return y > win.ay + win.ah - visibleH - Tk.borderRounding && x >= win.ux - Tk.borderRounding && x <= win.ux + win.uw + Tk.borderRounding
       }
+      // The dashboard hovers from the panel area's top edge (below a bar on the
+      // top edge, whose own strip belongs to its popouts).
       function inTopDash(x, y) {
         const visibleH = win.dh * (1 - win.dOff)
-        return y < Math.max(Tk.border, 2, win.bt + visibleH) && x >= win.dx - Tk.borderRounding && x <= win.dx + win.dw + Tk.borderRounding
+        const top = scope.barPos === "top" ? win.ay : 0
+        return y >= top && y < Math.max(win.ay + visibleH, top + 2) && x >= win.dx - Tk.borderRounding && x <= win.dx + win.dw + Tk.borderRounding
       }
+      // The right-hand drawers' side: is a press or drag at x on it.
+      function nearSideEdge(x) {
+        return scope.mirror ? x < win.ax + Tk.borderRounding : x > win.ax + win.aw - Tk.borderRounding
+      }
+      // A drag's distance toward the middle of the screen from the right-hand
+      // drawers' edge (away from it, with a right-hand bar).
+      function sideInward(dx) { return scope.mirror ? dx : -dx }
 
       onPressed: e => {
         dragStart = Qt.point(e.x, e.y)
         // A click on the scrim (outside the settings panel) closes it.
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
         if (scope.overview && !(e.x >= win.ox && e.x <= win.ox + win.ow && e.y >= win.oy && e.y <= win.oy + win.oh)) scope.overview = false
-        if (scope.sidebar && e.x < win.sbx) scope.sidebar = false
-        if (scope.utilities && !scope.sidebar && (e.x < win.ux || e.y < win.uy)) scope.utilities = false
+        if (scope.sidebar && (scope.mirror ? e.x > win.sbx + win.sbw : e.x < win.sbx)) scope.sidebar = false
+        if (scope.utilities && !scope.sidebar && ((scope.mirror ? e.x > win.ux + win.uw : e.x < win.ux) || e.y < win.uy)) scope.utilities = false
       }
       onContainsMouseChanged: {
         if (containsMouse) return
@@ -724,27 +806,29 @@ Scope {
         if (!scope.popoutSticky) scope.popout = ""
         scope.barHover = false
       }
-      onWheel: e => { if (!scope.barOff && e.x < win.bw) bar.handleWheel(e.y, e.angleDelta.y) }
+      onWheel: e => { if (!scope.barOff && barDepth(e.x, e.y) < win.bw) bar.handleWheel(barAlong(e.x, e.y), e.angleDelta.y) }
       onPositionChanged: e => {
         if (win.fs > 0 || scope.settings) return
         const x = e.x, y = e.y, dx = x - dragStart.x, dy = y - dragStart.y
 
-        // Auto-hiding bar: reveal at the left edge, hide once well away.
+        // Auto-hiding bar: reveal at the bar's edge, hide once well away.
         if (!scope.cfg.bar.persistent && !scope.barOff) {
-          if (scope.cfg.bar.showOnHover && x <= Math.max(Tk.border, 2)) scope.barHover = true
-          else if (x > Tk.barWidth + Tk.borderRounding && !(scope.popout !== "" && inPopout(x, y))) scope.barHover = false
-          if (pressed && dragStart.x <= Math.max(Tk.border, 2) && dx > 20) scope.barHover = true
+          const depth = barDepth(x, y)
+          if (scope.cfg.bar.showOnHover && depth <= Math.max(Tk.border, 2)) scope.barHover = true
+          else if (depth > Tk.barWidth + Tk.borderRounding && !(scope.popout !== "" && inPopout(x, y))) scope.barHover = false
+          const drag = scope.barPos === "left" ? dx : scope.barPos === "right" ? -dx : scope.barPos === "top" ? dy : -dy
+          if (pressed && barDepth(dragStart.x, dragStart.y) <= Math.max(Tk.border, 2) && drag > 20) scope.barHover = true
         }
 
-        // Session: drag in from the right edge.
-        if (scope.cfg.session.enabled && pressed && dragStart.x > win.ax + win.aw - Tk.borderRounding && Math.abs(y - (win.sy + win.sh / 2)) < win.sh / 2 + Tk.borderRounding) {
-          if (dx < -scope.cfg.session.dragThreshold) scope.session = true
-          else if (dx > scope.cfg.session.dragThreshold) scope.session = false
+        // Session: drag in from the right-hand edge.
+        if (scope.cfg.session.enabled && pressed && nearSideEdge(dragStart.x) && Math.abs(y - (win.sy + win.sh / 2)) < win.sh / 2 + Tk.borderRounding) {
+          if (sideInward(dx) > scope.cfg.session.dragThreshold) scope.session = true
+          else if (sideInward(dx) < -scope.cfg.session.dragThreshold) scope.session = false
         }
-        // Sidebar: drag in from top-right edge, or drag right to close
-        if ((!scope.cfg.sidebar || scope.cfg.sidebar.enabled) && pressed && !scope.sidebar && dragStart.x > win.ax + win.aw - Tk.borderRounding && y < win.sy && dx < -30) {
+        // Sidebar: drag in from the top of that edge, or drag back out to close
+        if ((!scope.cfg.sidebar || scope.cfg.sidebar.enabled) && pressed && !scope.sidebar && nearSideEdge(dragStart.x) && y < win.sy && sideInward(dx) > 30) {
           scope.sidebar = true
-        } else if (pressed && scope.sidebar && dragStart.x >= win.sbx && dx > 40) {
+        } else if (pressed && scope.sidebar && (scope.mirror ? dragStart.x <= win.sbx + win.sbw : dragStart.x >= win.sbx) && sideInward(dx) < -40) {
           scope.sidebar = false
           if (scope.utilShortcut) scope.utilities = false
         }
@@ -777,12 +861,12 @@ Scope {
       // Bar popouts and the collapsible groups (compact tray, plugin
       // overflow), for a pointer at window coordinates x, y.
       function updatePointer(x, y) {
-        const onBar = x < win.bw && win.barProg > 0.5
-        bar.hoverAt(y, onBar)
+        const onBar = barDepth(x, y) < win.bw && win.barProg > 0.5
+        bar.hoverAt(barAlong(x, y), onBar)
 
         if (scope.popoutHeld) return
         if (onBar) {
-          const p = bar.popoutAt(y)
+          const p = bar.popoutAt(barAlong(x, y))
           if (p) {
             if (p.name === "traymenu") {
               if (scope.popout !== "traymenu" || scope.trayItem !== p.item) { scope.trayItem = p.item; scope.popout = ""; scope.popout = "traymenu" }
@@ -823,9 +907,12 @@ Scope {
 
       BarContent {
         id: bar
-        x: win.bw - Tk.barWidth
-        width: Tk.barWidth
-        height: win.height
+        // Slides in from its edge as the frame's breadth on it grows.
+        x: scope.barPos === "left" ? win.bw - Tk.barWidth : scope.barPos === "right" ? win.width - win.bw : 0
+        y: scope.barPos === "top" ? win.bw - Tk.barWidth : scope.barPos === "bottom" ? win.height - win.bw : 0
+        width: scope.barVert ? Tk.barWidth : win.width
+        height: scope.barVert ? win.height : Tk.barWidth
+        vertical: scope.barVert
         opacity: Math.min(1 - win.fs, win.barProg)
         visible: opacity > 0
         screen: scope.screen
@@ -849,8 +936,13 @@ Scope {
             return Qt.point(0, 0)
           }
         }
-        x: Tk.barWidth + Tk.spacing.small
-        y: Math.max(Tk.padding.medium, Math.min(targetPt.y - height / 2, win.height - height - Tk.padding.medium))
+        // Beside the widget, away from the bar's edge.
+        x: scope.barVert
+          ? (scope.barPos === "left" ? Tk.barWidth + Tk.spacing.small : win.width - Tk.barWidth - Tk.spacing.small - width)
+          : Math.max(Tk.padding.medium, Math.min(targetPt.x - width / 2, win.width - width - Tk.padding.medium))
+        y: scope.barVert
+          ? Math.max(Tk.padding.medium, Math.min(targetPt.y - height / 2, win.height - height - Tk.padding.medium))
+          : (scope.barPos === "top" ? Tk.barWidth + Tk.spacing.small : win.height - Tk.barWidth - Tk.spacing.small - height)
         z: 999
         implicitWidth: tipText.implicitWidth + Tk.padding.medium * 2
         implicitHeight: tipText.implicitHeight + Tk.padding.small * 2
@@ -871,14 +963,15 @@ Scope {
 
       // ---- popout
       Item {
-        x: win.ax
-        y: win.py
-        width: Math.max(0, win.px + win.pw - win.ax)
-        height: win.ph
+        x: win.pcx
+        y: win.pcy
+        width: win.pcw
+        height: win.pch
         visible: win.pVis
         clip: true
         Item {
-          x: win.px - win.ax
+          x: win.px - win.pcx
+          y: win.py - win.pcy
           width: win.pw
           height: win.ph
           opacity: 1 - win.pOff
@@ -954,6 +1047,7 @@ Scope {
         active: scope.session || win.sVis
         focus: scope.session
         sourceComponent: Session {
+          mirror: scope.mirror
           x: win.sx
           y: win.sy
           visible: win.sVis

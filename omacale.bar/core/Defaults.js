@@ -18,6 +18,7 @@ var values = {
   },
   border: { thickness: 10, rounding: 25, smoothing: 20 },
   bar: {
+    position: "left",
     persistent: true,
     showOnHover: true,
     logo: true,

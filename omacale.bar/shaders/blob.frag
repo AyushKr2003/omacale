@@ -28,6 +28,8 @@ layout(std140, binding = 0) uniform buf {
     vec4 attachB;     // 1 top, 2 right, 4 bottom, 8 left (r4..r7)
     vec2 join;        // sidebar (r6) over utilities (r5), as Caelestia's PanelBg:
                       // x scales the corners they share, y > 0.5 drops their fillet
+    float mirror;     // > 0.5: those two drawers sit on the left (a right-hand bar),
+                      // so the corners they share are their right ones
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -91,9 +93,15 @@ vec4 cornerRadii(int i, vec2 hs) {
     if (bottom) { c.y = 0.0; c.z = 0.0; }
     if (left) { c.z = 0.0; c.w = 0.0; }
     // The sidebar's bottom-left and the utilities' top-left corner flatten as
-    // the two drawers join, so their shared left side is one straight edge.
-    if (i == 5) c.w *= join.x;
-    if (i == 6) c.z *= join.x;
+    // the two drawers join, so their shared left side is one straight edge;
+    // on the left of the screen it is their right side.
+    if (mirror > 0.5) {
+        if (i == 5) c.x *= join.x;
+        if (i == 6) c.y *= join.x;
+    } else {
+        if (i == 5) c.w *= join.x;
+        if (i == 6) c.z *= join.x;
+    }
     return c;
 }
 

@@ -51,6 +51,11 @@ ColumnLayout {
         readonly property real u: card.u
         readonly property real bw: Tk.barWidth * s
         readonly property real bt: Tk.border * s
+        // The frame's breadth on each edge: the bar's on its own, the border's elsewhere.
+        readonly property real il: Tk.barEdge === "left" ? bw : bt
+        readonly property real ir: Tk.barEdge === "right" ? bw : bt
+        readonly property real it: Tk.barEdge === "top" ? bw : bt
+        readonly property real ib: Tk.barEdge === "bottom" ? bw : bt
         readonly property real dw: 860 * u
         readonly property real dh: 360 * u
         layer.enabled: Config.o.appearance.shadow
@@ -63,9 +68,9 @@ ColumnLayout {
           property real smoothing: Tk.smoothing * parent.s
           property real holeRadius: Tk.borderRounding * parent.s
           property real panelRadius: Tk.rounding.extraLarge * parent.s
-          property rect hole: Qt.rect(parent.bw, parent.bt, width - parent.bw - parent.bt, height - 2 * parent.bt)
+          property rect hole: Qt.rect(parent.il, parent.it, width - parent.il - parent.ir, height - parent.it - parent.ib)
           property color color: Colours.m3surface
-          property rect r0: Qt.rect(parent.bw + (width - parent.bw - parent.bt - parent.dw) / 2, parent.bt, parent.dw, parent.dh)
+          property rect r0: Qt.rect(parent.il + (width - parent.il - parent.ir - parent.dw) / 2, parent.it, parent.dw, parent.dh)
           property rect r1: Qt.rect(0, 0, 0, 0)
           property rect r2: Qt.rect(0, 0, 0, 0)
           property rect r3: Qt.rect(0, 0, 0, 0)
@@ -76,44 +81,57 @@ ColumnLayout {
           property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
         }
 
-        // mini bar
-        Column {
-          x: (parent.bw - width) / 2
-          y: 16 * parent.u
-          spacing: 12 * parent.u
-          width: 40 * parent.u
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 19 * card.u; height: width; radius: 4 * card.u; color: Colours.m3tertiary }
-          Rectangle {
-            width: parent.width; height: 5 * 36 * card.u + 8 * card.u
-            radius: width / 2
-            color: Colours.m3surfaceContainer
-            Rectangle { x: 4 * card.u; y: 4 * card.u; width: parent.width - 8 * card.u; height: 32 * card.u; radius: width / 2; color: Colours.m3primary }
-            Column {
-              y: 4 * card.u + 32 * card.u + 4 * card.u
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: 4 * card.u
-              Repeater { model: 4; Item { width: 32 * card.u; height: 32 * card.u
-                Rectangle { anchors.centerIn: parent; width: (index === 0 ? 11 : 8) * card.u; height: width; radius: index === 0 ? 2 * card.u : width / 2; color: index === 0 ? Colours.m3onSurface : Colours.m3outlineVariant } } }
+        // mini bar: a strip along the left edge, turned a quarter for the top and
+        // bottom ones (its start stays at the left) and moved across for the
+        // right and bottom.
+        Item {
+          id: miniBar
+          readonly property bool vert: Tk.barVertical
+          width: parent.bw
+          height: vert ? parent.height : parent.width
+          transformOrigin: Item.TopLeft
+          rotation: vert ? 0 : -90
+          x: Tk.barEdge === "right" ? parent.width - parent.bw : 0
+          y: Tk.barEdge === "top" ? parent.bw : Tk.barEdge === "bottom" ? parent.height : 0
+
+          Column {
+            x: (miniBar.width - width) / 2
+            y: 16 * card.u
+            spacing: 12 * card.u
+            width: 40 * card.u
+            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 19 * card.u; height: width; radius: 4 * card.u; color: Colours.m3tertiary }
+            Rectangle {
+              width: parent.width; height: 5 * 36 * card.u + 8 * card.u
+              radius: width / 2
+              color: Colours.m3surfaceContainer
+              Rectangle { x: 4 * card.u; y: 4 * card.u; width: parent.width - 8 * card.u; height: 32 * card.u; radius: width / 2; color: Colours.m3primary }
+              Column {
+                y: 4 * card.u + 32 * card.u + 4 * card.u
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 4 * card.u
+                Repeater { model: 4; Item { width: 32 * card.u; height: 32 * card.u
+                  Rectangle { anchors.centerIn: parent; width: (index === 0 ? 11 : 8) * card.u; height: width; radius: index === 0 ? 2 * card.u : width / 2; color: index === 0 ? Colours.m3onSurface : Colours.m3outlineVariant } } }
+              }
             }
           }
-        }
-        Column {
-          x: (parent.bw - width) / 2
-          anchors.bottom: parent.bottom
-          anchors.bottomMargin: 16 * parent.u
-          spacing: 12 * parent.u
-          width: 40 * parent.u
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: 40 * card.u; radius: 4 * card.u; color: Qt.alpha(Colours.m3tertiary, 0.8) }
-          Rectangle { width: parent.width; height: 110 * card.u; radius: width / 2; color: Colours.m3surfaceContainer
-            Column { anchors.centerIn: parent; spacing: 10 * card.u
-              Repeater { model: 3; Rectangle { width: 16 * card.u; height: width; radius: width / 2; color: Colours.m3secondary } } } }
-          Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: width; radius: width / 2; color: Colours.m3error }
+          Column {
+            x: (miniBar.width - width) / 2
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 16 * card.u
+            spacing: 12 * card.u
+            width: 40 * card.u
+            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: 40 * card.u; radius: 4 * card.u; color: Qt.alpha(Colours.m3tertiary, 0.8) }
+            Rectangle { width: parent.width; height: 110 * card.u; radius: width / 2; color: Colours.m3surfaceContainer
+              Column { anchors.centerIn: parent; spacing: 10 * card.u
+                Repeater { model: 3; Rectangle { width: 16 * card.u; height: width; radius: width / 2; color: Colours.m3secondary } } } }
+            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; width: 18 * card.u; height: width; radius: width / 2; color: Colours.m3error }
+          }
         }
 
         // mini dashboard cards
         Grid {
-          x: parent.bw + (parent.width - parent.bw - parent.bt - parent.dw) / 2 + 16 * card.u
-          y: parent.bt + 70 * card.u
+          x: parent.il + (parent.width - parent.il - parent.ir - parent.dw) / 2 + 16 * card.u
+          y: parent.it + 70 * card.u
           columns: 3
           spacing: 12 * card.u
           Rectangle { width: 275 * card.u; height: 120 * card.u; radius: 42 * card.u; color: Colours.m3surfaceContainer

@@ -31,7 +31,7 @@ PathView {
   readonly property bool pair: numItems === 2
   readonly property int numItems: {
     // Screen width - 4x outer rounding - 2x bar (cause centered)
-    const maxWidth = screenWidth - Tk.borderRounding * 4 - Tk.barWidth * 2
+    const maxWidth = screenWidth - Tk.borderRounding * 4 - (Tk.barVertical ? Tk.barWidth * 2 : Tk.border * 4)
     if (maxWidth <= 0) return 0
 
     const maxItemsOnScreen = Math.floor(maxWidth / itemWidth)

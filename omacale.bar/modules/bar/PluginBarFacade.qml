@@ -17,8 +17,8 @@ QtObject {
   readonly property color background: Colours.m3surfaceContainer
   readonly property color urgent: Colours.m3error
   readonly property string fontFamily: Tk.mono
-  readonly property string position: "left"
-  readonly property bool vertical: true
+  readonly property string position: host ? host.position : "left"
+  readonly property bool vertical: host ? host.vertical : true
   // WidgetButton uses barSize as the extent of its icon slot. Widgets are
   // laid out in Omarchy's units and scaled up to Omacale's icon size (see
   // Bar.pluginIconScale), so this is the 40px pill measured in those units.

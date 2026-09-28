@@ -20,6 +20,8 @@ Item {
   id: root
 
   required property var monitor
+  // A column on a left or right bar, a row on a top or bottom one.
+  property bool vertical: true
   readonly property var cfg: Config.o.bar.workspaces
   property var focusedShapes: []
   readonly property string display: cfg.specialDisplay
@@ -44,7 +46,11 @@ Item {
     .filter(w => w.name.startsWith("special:") && w.monitor === root.monitor)
     .map(w => w.id)
   readonly property int activeIdx: wsIds.indexOf(activeSpecialId)
-  readonly property real maxViewY: Math.max(0, view.height - height)
+  // How far the list is scrolled along the bar (<= 0), and how far it can be.
+  property real scrollPos: 0
+  readonly property real viewLen: vertical ? view.height : view.width
+  readonly property real rootLen: vertical ? height : width
+  readonly property real maxScroll: Math.max(0, viewLen - rootLen)
   // See Workspaces.qml `listGen`: `rep.count` is the model size before the
   // delegates exist and `rep.itemAt()` is not a dependency, so without this the
   // tertiary pill and the scroll-into-view resolve to null once and stay there.
@@ -59,30 +65,37 @@ Item {
 
   function ensureVisible(animate) {
     if (!activeWs) return
-    const top = activeWs.y, bottom = top + activeWs.height
-    let target = view.y
+    const top = vertical ? activeWs.y : activeWs.x
+    const bottom = top + (vertical ? activeWs.height : activeWs.width)
+    let target = scrollPos
     if (top < -target) target = -top
-    else if (bottom > -target + height) target = -(bottom - height)
-    target = clamp(target, -maxViewY, 0)
-    if (target === view.y) return
+    else if (bottom > -target + rootLen) target = -(bottom - rootLen)
+    target = clamp(target, -maxScroll, 0)
+    if (target === scrollPos) return
     if (animate === false) {
-      viewYBehavior.enabled = false
-      view.y = target
-      viewYBehavior.enabled = true
+      scrollBehavior.enabled = false
+      scrollPos = target
+      scrollBehavior.enabled = true
     } else {
-      viewYAnim.type = "spatial"
-      view.y = target
-      viewYAnim.type = "fastEffects"
+      scrollAnim.type = "spatial"
+      scrollPos = target
+      scrollAnim.type = "fastEffects"
     }
   }
+  Behavior on scrollPos {
+    id: scrollBehavior
+    Anim { id: scrollAnim; type: "fastEffects" }
+  }
   onActiveWsChanged: ensureVisible()
-  onHeightChanged: ensureVisible(false)
-  onMaxViewYChanged: ensureVisible()
+  onRootLenChanged: ensureVisible(false)
+  onMaxScrollChanged: ensureVisible()
   Component.onCompleted: ensureVisible(false)
   Connections {
     target: root.activeWs
     function onYChanged() { root.ensureVisible() }
     function onHeightChanged() { root.ensureVisible() }
+    function onXChanged() { root.ensureVisible() }
+    function onWidthChanged() { root.ensureVisible() }
   }
 
   layer.enabled: true
@@ -102,45 +115,48 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      radius: width / 2
+      radius: Math.min(width, height) / 2
       gradient: Gradient {
+        orientation: root.vertical ? Gradient.Vertical : Gradient.Horizontal
         GradientStop { position: 0; color: "transparent" }
         GradientStop { position: 0.2; color: "white" }
         GradientStop { position: 0.8; color: "white" }
         GradientStop { position: 1; color: "transparent" }
       }
     }
+    // The half at each end that stays solid while the list is scrolled to it.
     Rectangle {
-      anchors.top: parent.top
-      anchors.left: parent.left
-      anchors.right: parent.right
-      height: parent.height / 2
-      radius: width / 2
-      opacity: view.y < -Tk.padding.extraSmall ? 0 : 1
+      x: 0
+      y: 0
+      width: root.vertical ? parent.width : parent.width / 2
+      height: root.vertical ? parent.height / 2 : parent.height
+      radius: Math.min(width, height) / 2
+      opacity: root.scrollPos < -Tk.padding.extraSmall ? 0 : 1
       Behavior on opacity { Anim { type: "effects" } }
     }
     Rectangle {
-      anchors.bottom: parent.bottom
-      anchors.left: parent.left
-      anchors.right: parent.right
-      height: parent.height / 2
-      radius: width / 2
-      opacity: view.y > -root.maxViewY + Tk.padding.extraSmall ? 0 : 1
+      x: root.vertical ? 0 : parent.width - width
+      y: root.vertical ? parent.height - height : 0
+      width: root.vertical ? parent.width : parent.width / 2
+      height: root.vertical ? parent.height / 2 : parent.height
+      radius: Math.min(width, height) / 2
+      opacity: root.scrollPos > -root.maxScroll + Tk.padding.extraSmall ? 0 : 1
       Behavior on opacity { Anim { type: "effects" } }
     }
   }
 
-  Column {
+  Grid {
     id: view
-    anchors.left: parent.left
-    anchors.right: parent.right
+    // Scrolled along the bar, filling it across (see Workspaces `list` for why
+    // this is not anchored).
+    x: root.vertical ? 0 : root.scrollPos
+    y: root.vertical ? root.scrollPos : 0
+    width: root.vertical ? parent.width : implicitWidth
+    height: root.vertical ? implicitHeight : parent.height
+    columns: root.vertical ? 1 : 1000
     spacing: Tk.spacing.small
     onHeightChanged: root.ensureVisible()
-
-    Behavior on y {
-      id: viewYBehavior
-      Anim { id: viewYAnim; type: "fastEffects" }
-    }
+    onWidthChanged: root.ensureVisible()
 
     Repeater {
       id: rep
@@ -171,20 +187,23 @@ Item {
         onFocusedChanged: pickShape()
         onOccupiedChanged: if (!focused) pickShape()
 
-        width: view.width
-        height: col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0)
-        Behavior on height { Anim {} }
+        width: root.vertical ? view.width : col.implicitWidth + (hasWindows ? Tk.padding.extraSmall : 0)
+        height: root.vertical ? col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0) : view.height
+        Behavior on height { enabled: root.vertical; Anim {} }
+        Behavior on width { enabled: !root.vertical; Anim {} }
         opacity: 0
         Component.onCompleted: { opacity = 1; pickShape(); root.listGen++ }
         Behavior on opacity { Anim { type: "effects" } }
 
-        Column {
+        Grid {
           id: col
-          width: parent.width
+          width: root.vertical ? ws.width : implicitWidth
+          height: root.vertical ? implicitHeight : ws.height
+          columns: root.vertical ? 1 : 1000
           spacing: 0
           Item {
-            width: parent.width
-            height: Tk.barInner - Tk.padding.small
+            width: root.vertical ? col.width : Tk.barInner - Tk.padding.small
+            height: root.vertical ? Tk.barInner - Tk.padding.small : col.height
             MIcon {
               anchors.centerIn: parent
               visible: ws.icon !== ""
@@ -197,7 +216,7 @@ Item {
               id: shape
               anchors.centerIn: parent
               visible: root.display === "shapes"
-              implicitSize: parent.height
+              implicitSize: Tk.barInner - Tk.padding.small
               color: ws.fg
               scale: ws.focused ? 2 / 3 : ws.occupied ? 1 / 3 : 1 / 4
               Behavior on scale { Anim {} }
@@ -215,8 +234,10 @@ Item {
             model: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : []
             MIcon {
               required property var modelData
-              width: col.width
-              topPadding: -Tk.spacing.extraSmall / 2
+              width: root.vertical ? col.width : implicitWidth
+              height: root.vertical ? implicitHeight : col.height
+              topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
+              leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
               text: Sys.appIcon(modelData.wayland ? modelData.wayland.appId : (modelData.lastIpcObject || {}).class, "terminal")
               color: Colours.m3onSurfaceVariant
               opacity: 0
@@ -231,6 +252,7 @@ Item {
 
   ActiveIndicator {
     visible: root.cfg.activeIndicator
+    vertical: root.vertical
     list: view
     target: root.activeWs
     color: Colours.m3tertiary
@@ -238,21 +260,22 @@ Item {
   }
 
   MouseArea {
-    property real startY
-    property real startViewY
+    property real startPos
+    property real startScroll
     property bool dragging
 
     anchors.fill: parent
     cursorShape: Qt.PointingHandCursor
 
-    onPressed: e => { startY = e.y; startViewY = view.y; dragging = false }
+    onPressed: e => { startPos = root.vertical ? e.y : e.x; startScroll = root.scrollPos; dragging = false }
     onPositionChanged: e => {
-      if (!dragging && Math.abs(e.y - startY) > drag.threshold) dragging = true
-      if (dragging) view.y = root.clamp(startViewY + (e.y - startY), -root.maxViewY, 0)
+      const p = root.vertical ? e.y : e.x
+      if (!dragging && Math.abs(p - startPos) > drag.threshold) dragging = true
+      if (dragging) root.scrollPos = root.clamp(startScroll + (p - startPos), -root.maxScroll, 0)
     }
     onClicked: e => {
       if (dragging) return
-      const it = view.childAt(e.x, e.y - view.y)
+      const it = view.childAt(root.vertical ? e.x : e.x - root.scrollPos, root.vertical ? e.y - root.scrollPos : e.y)
       Sys.toggleSpecial(it && it.wsId !== undefined ? it.name : "scratchpad")
     }
     onWheel: e => root.wheel(e.angleDelta.y)

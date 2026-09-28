@@ -7,15 +7,18 @@ import "../.."
 // barWidgetRegistry, injecting the PluginBarFacade as `bar`.
 // Includes a compatibility adapter that repairs positioning and geometry for
 // widgets using Omarchy's KeyboardPanel or PopupCard, ensuring the popup opens
-// directly next to Omacale's vertical bar and matches Caelestia M3 styling.
+// directly next to Omacale's bar, on whichever edge it is, and matches
+// Caelestia M3 styling.
 //
 // Sizing. The widget is laid out in Omarchy's own units (barSize, iconSlot,
 // iconCanvas) and scaled by host.pluginIconScale, so its mark is drawn at the
 // size of Omacale's status icons whatever the plugin hardcodes. Three shapes:
-//   icon    - fits the bar's breadth: one status-icon cell (cellHeight), or
-//             its own height when it is a taller vertical stack.
-//   rotated - a short horizontal label (e.g. "ELIZA ▮"): drawn whole and
-//             turned 90°, as Caelestia turns the active window title.
+//   icon    - fits the bar's breadth: one status-icon cell (cellLen), or
+//             its own length when it is a longer stack.
+//   rotated - a short horizontal label (e.g. "ELIZA ▮") on a column: drawn
+//             whole and turned 90°, as Caelestia turns the active window
+//             title. On a row (a top or bottom bar) it is a "label" instead,
+//             drawn upright.
 //   proxy   - too long to read turned: a host icon stands in, and the real
 //             item stays underneath as the popup anchor and click target.
 Item {
@@ -23,11 +26,14 @@ Item {
 
   required property var entry
   required property var host
+  // A slot in a column (left or right bar) or in a row (top or bottom bar).
+  property bool vertical: true
   // One facade per slot, not per plugin id: a widget on each monitor gets its
   // own click targets and popout, and the facade dies with the widget.
   readonly property var bar: facade
-  // Height of one status icon (an MIcon at the default size), from the pill.
-  property real cellHeight: Tk.body.small * 2
+  // The size of one status icon (an MIcon at the default size) along the bar,
+  // from the pill.
+  property real cellLen: Tk.body.small * 2
 
   readonly property string moduleName: host.entryId(entry)
   readonly property var moduleSettings: host.entrySettings(entry)
@@ -51,9 +57,10 @@ Item {
 
   readonly property real iconScale: host.pluginIconScale
   readonly property real logicalBreadth: host.pluginBarSize
-  readonly property real logicalCell: cellHeight / iconScale
-  // Longest label that is still turned rather than replaced, in bar widths.
-  readonly property real maxRotatedSpan: 3
+  readonly property real logicalCell: cellLen / iconScale
+  // Longest label that is still turned (in a column) rather than replaced, in
+  // bar widths; on a row a label is drawn upright and can run longer.
+  readonly property real maxRotatedSpan: vertical ? 3 : 8
 
   readonly property real naturalWidth: activeItem ? Math.max(0, Number(activeItem.implicitWidth) || 0) : 0
   readonly property real naturalHeight: activeItem ? Math.max(0, Number(activeItem.implicitHeight) || 0) : 0
@@ -67,7 +74,7 @@ Item {
   // only show a fragment, so it gets the stand-in icon.
   readonly property bool labelOverflows: {
     var b = primaryButton
-    if (!b || "iconComponent" in b || !b.text) return false
+    if (!vertical || !b || "iconComponent" in b || !b.text) return false
     var margin = Number(b.scaledHorizontalMargin) || 0
     return labelProbe.implicitWidth + margin * 2 > logicalBreadth + 1
   }
@@ -87,10 +94,17 @@ Item {
     return b.concealed === true || b.hasVisualContent === false || Number(b.opacity) <= 0.01
   }
 
+  // icon: fits the bar's breadth; label: a short text, turned in a column and
+  // upright in a row; proxy: too long for either.
   readonly property string shape: {
     if (labelOverflows) return "proxy"
-    if (naturalWidth <= logicalBreadth + 0.5) return "icon"
-    if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "rotated"
+    if (vertical) {
+      if (naturalWidth <= logicalBreadth + 0.5) return "icon"
+      if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "rotated"
+      return "proxy"
+    }
+    if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth + 0.5) return "icon"
+    if (naturalHeight <= logicalBreadth + 0.5 && naturalWidth <= logicalBreadth * maxRotatedSpan) return "label"
     return "proxy"
   }
   readonly property bool compactProxy: shape === "proxy" || placeholder
@@ -108,24 +122,32 @@ Item {
   // with nothing to show gets a zero-height slot, which Column skips.
   readonly property bool shown: activeItem !== null && activeItem.visible
     && (!buttonHidden || pinned)
-  readonly property real stageWidth: shape === "icon" ? logicalBreadth : naturalWidth
+  // An icon button is iconSlot long on the bar's axis on an Omarchy bar (tall
+  // in a column, wide in a row): give it one uniform cell. Anything longer is a
+  // stack and keeps its own length.
+  readonly property real stageWidth: {
+    if (shape !== "icon") return vertical ? naturalWidth : Math.max(1, naturalWidth)
+    if (vertical) return logicalBreadth
+    return naturalWidth > Style.bar.iconSlot + 1 ? naturalWidth : logicalCell
+  }
   readonly property real stageHeight: {
     if (shape !== "icon") return Math.max(1, naturalHeight)
-    // An icon button is iconSlot tall on a vertical Omarchy bar: give it one
-    // uniform cell. Anything taller is a stack and keeps its own height.
+    if (!vertical) return logicalBreadth
     return naturalHeight > Style.bar.iconSlot + 1 ? naturalHeight : logicalCell
   }
-  readonly property real visualHeight: placeholder ? cellHeight
-    : shape === "icon" ? stageHeight * iconScale
-    : shape === "rotated" ? naturalWidth * iconScale
-    : cellHeight
+  // How much of the bar the slot takes, along it.
+  readonly property real visualLen: placeholder ? cellLen
+    : shape === "icon" ? (vertical ? stageHeight : stageWidth) * iconScale
+    : shape === "rotated" || shape === "label" ? naturalWidth * iconScale
+    : cellLen
 
   // Unpinned and the pill's overflow closed: the widget keeps running (its
   // state, IPC and popups stay alive), it just takes no room.
   property bool collapsed: false
 
-  implicitWidth: Tk.barInner
-  implicitHeight: shown && !collapsed ? Math.round(visualHeight) : 0
+  readonly property real takenLen: shown && !collapsed ? Math.round(visualLen) : 0
+  implicitWidth: vertical ? Tk.barInner : takenLen
+  implicitHeight: vertical ? takenLen : Tk.barInner
   width: implicitWidth
   height: implicitHeight
   // Scaling, turning and the proxy never let a widget paint over its
@@ -274,17 +296,40 @@ Item {
     compatibilityCard = findCompatibilityCard(compatibilityPanel)
   }
 
+  // The card sits against the bar's edge, a gap off it, and is centred on the
+  // slot along the bar. Both are worked out in the space KeyboardPanel uses
+  // (the bar window's content item), and measured from the slot's own middle,
+  // not KeyboardPanel's anchorScreenPos: that is the widget's (0,0), which a
+  // scaled or turned widget moves to a corner.
+  readonly property real hostedCardW: Math.max(340, compatibilityPanel ? Number(compatibilityPanel.contentWidth) || 340 : 340)
+  readonly property point hostedCentre: {
+    if (!cardSurfaceActive) return Qt.point(0, 0)
+    var win = compatibilityPanel.anchorWindow
+    var space = win && win.contentItem ? win.contentItem : null
+    return root.mapToItem(space, root.width / 2, root.height / 2)
+  }
+  readonly property real hostedScreenW: {
+    var win = compatibilityPanel ? compatibilityPanel.anchorWindow : null
+    return (compatibilityPanel ? Number(compatibilityPanel.screenW) : 0) || (win ? Number(win.width) : 0) || 1920
+  }
+  readonly property real hostedScreenH: {
+    var win = compatibilityPanel ? compatibilityPanel.anchorWindow : null
+    return (compatibilityPanel ? Number(compatibilityPanel.screenH) : 0) || (win ? Number(win.height) : 0) || 1080
+  }
+  readonly property real hostedCardX: {
+    if (!cardSurfaceActive) return 0
+    var edge = Tk.barWidth + Tk.spacing.medium
+    if (host.position === "left") return edge
+    if (host.position === "right") return hostedScreenW - hostedCardW - edge
+    return Math.round(Math.max(Tk.padding.medium, Math.min(hostedCentre.x - hostedCardW / 2, hostedScreenW - hostedCardW - Tk.padding.medium)))
+  }
   readonly property real hostedCardY: {
     if (!cardSurfaceActive) return 0
     var cardH = Number(compatibilityCard.height) || 300
-    // Map the slot's own centre, not KeyboardPanel's anchorScreenPos: that is
-    // the widget's (0,0), which a scaled or turned widget moves to a corner.
-    // Same space KeyboardPanel uses (the bar window's content item).
-    var win = compatibilityPanel.anchorWindow
-    var space = win && win.contentItem ? win.contentItem : null
-    var centre = root.mapToItem(space, 0, root.height / 2).y
-    var scrH = Number(compatibilityPanel.screenH) || (win ? Number(win.height) : 0) || 1080
-    return Math.round(Math.max(Tk.padding.medium, Math.min(centre - cardH / 2, scrH - cardH - Tk.padding.medium)))
+    var edge = Tk.barWidth + Tk.spacing.medium
+    if (host.position === "top") return edge
+    if (host.position === "bottom") return hostedScreenH - cardH - edge
+    return Math.round(Math.max(Tk.padding.medium, Math.min(hostedCentre.y - cardH / 2, hostedScreenH - cardH - Tk.padding.medium)))
   }
 
   readonly property bool cardSurfaceActive: compatibilityPanel !== null && compatibilityCard !== null && (compatibilityPanel.open || compatibilityCard.opacity > 0)
@@ -298,8 +343,10 @@ Item {
   // it fixes all three: barW + gap becomes the real bar edge plus a gap. If
   // the anchor window is ever bar-sized, this leaves a plain gap behind.
   readonly property real panelGap: {
-    const barW = compatibilityPanel ? Number(compatibilityPanel.barW) || 0 : 0
-    return Math.round(Tk.barWidth + Tk.spacing.medium - barW)
+    // The window's width on a column, its height on a row: KeyboardPanel takes
+    // whichever is across the bar for the bar's own size.
+    const across = compatibilityPanel ? Number(vertical ? compatibilityPanel.barW : compatibilityPanel.barH) || 0 : 0
+    return Math.round(Tk.barWidth + Tk.spacing.medium - across)
   }
   Binding {
     target: root.compatibilityPanel
@@ -309,16 +356,15 @@ Item {
     restoreMode: Binding.RestoreNone
   }
 
-  // Anchor the popup card directly next to Omacale's vertical bar
+  // Anchor the popup card directly next to Omacale's bar, and along the bar
+  // with the widget icon
   Binding {
     target: root.compatibilityCard
     property: "x"
-    value: Tk.barWidth + Tk.spacing.medium
+    value: root.hostedCardX
     when: root.cardSurfaceActive
     restoreMode: Binding.RestoreNone
   }
-
-  // Align the popup card vertically with the widget icon
   Binding {
     target: root.compatibilityCard
     property: "y"
@@ -333,7 +379,7 @@ Item {
   Binding {
     target: root.compatibilityCard
     property: "width"
-    value: Math.max(340, root.compatibilityPanel ? Number(root.compatibilityPanel.contentWidth) || 340 : 340)
+    value: root.hostedCardW
     when: root.cardSurfaceActive
     restoreMode: Binding.RestoreNone
   }
