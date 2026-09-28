@@ -31,6 +31,16 @@ Scope {
   // bottom-right corner they close once the cursor leaves (Caelestia Interactions).
   property bool utilShortcut: false
   property bool barHover: false
+  // `omarchy toggle bar` (SUPER+SHIFT+SPACE) takes the bar column away and
+  // nothing else: the frame, the reserved edges and every drawer stay, as in
+  // Caelestia's non-persistent bar at rest. What points at the bar (its
+  // popouts, its focus mode, the hover reveal, the wheel) is off meanwhile.
+  readonly property bool barOff: host.barHidden
+  onBarOffChanged: if (barOff) {
+    barFocus = false
+    popout = ""
+    barHover = false
+  }
   property string popout: ""
   property real popoutCenter: 0
   property var trayItem: null
@@ -129,6 +139,7 @@ Scope {
   }
 
   function toggleBarFocus() {
+    if (barOff) return
     if (barFocus) { barFocus = false; return }
     closeAll()
     barFocus = true
@@ -169,6 +180,7 @@ Scope {
   // Open a bar popout with the keyboard (Bar.summonBarWidget, IPC popout).
   // Opens, never toggles: the host asks isBarWidgetOpen first.
   function openPopoutKeys(name) {
+    if (barOff) return
     if (session) session = false
     popoutCenter = bar.popoutCenterFor(name)
     popoutKeys = true
@@ -245,13 +257,22 @@ Scope {
   }
 
   // ------------------------------------------------------ fullscreen
+  // Real fullscreen only (`fullscreen` 2), Caelestia's test in
+  // ContentWindow.qml. Not the workspace's `hasfullscreen`, which is also true
+  // for a maximized window (SUPER+ALT+F, "Full width"): that one leaves our
+  // top-layer surface and the reserved edges alone, so the frame stays.
   readonly property bool hasFullscreen: {
     const ws = monitor ? monitor.activeWorkspace : null
-    return !!(ws && ws.lastIpcObject && ws.lastIpcObject.hasfullscreen)
+    return !!(ws && ws.toplevels.values.some(t => t.lastIpcObject && t.lastIpcObject.fullscreen > 1))
   }
   Connections {
     target: Hyprland
-    function onRawEvent(e) { if (e.name === "fullscreen" || e.name === "workspace" || e.name === "closewindow") Hyprland.refreshWorkspaces() }
+    function onRawEvent(e) {
+      if (e.name === "fullscreen" || e.name === "workspace" || e.name === "closewindow") {
+        Hyprland.refreshWorkspaces()
+        Hyprland.refreshToplevels()
+      }
+    }
   }
   onHasFullscreenChanged: {
     launcher = false
@@ -266,14 +287,13 @@ Scope {
   // --------------------------------------------- reserved screen edges
   component Reserve: PanelWindow {
     screen: scope.screen
-    visible: !scope.host.barHidden
     WlrLayershell.namespace: "omacale-reserve"
     mask: Region {}
     implicitWidth: 1
     implicitHeight: 1
     color: "transparent"
   }
-  Reserve { anchors.left: true; exclusiveZone: scope.cfg.bar.persistent ? Tk.barWidth : Tk.border }
+  Reserve { anchors.left: true; exclusiveZone: scope.cfg.bar.persistent && !scope.barOff ? Tk.barWidth : Tk.border }
   Reserve { anchors.top: true; exclusiveZone: Tk.border }
   Reserve { anchors.right: true; exclusiveZone: Tk.border }
   Reserve { anchors.bottom: true; exclusiveZone: Tk.border }
@@ -281,7 +301,7 @@ Scope {
   // Desktop clock and visualiser, under the windows (Caelestia's background).
   Background {
     screen: scope.screen
-    barZone: scope.host.barHidden ? 0 : scope.cfg.bar.persistent ? Tk.barWidth : Tk.border
+    barZone: scope.cfg.bar.persistent && !scope.barOff ? Tk.barWidth : Tk.border
   }
 
   // ----------------------------------------------- notification toasts
@@ -372,7 +392,6 @@ Scope {
     id: win
 
     screen: scope.screen
-    visible: !scope.host.barHidden
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omacale"
@@ -396,7 +415,7 @@ Scope {
       sourceComponent: WallLuminance {}
     }
     // Auto-hiding bar (Caelestia's non-persistent bar).
-    property real barProg: scope.cfg.bar.persistent || scope.barHover ? 1 : 0
+    property real barProg: !scope.barOff && (scope.cfg.bar.persistent || scope.barHover) ? 1 : 0
     Behavior on barProg { Anim {} }
 
     readonly property real bw: (Tk.border + (Tk.barWidth - Tk.border) * barProg) * (1 - fs)
@@ -705,13 +724,13 @@ Scope {
         if (!scope.popoutSticky) scope.popout = ""
         scope.barHover = false
       }
-      onWheel: e => { if (e.x < win.bw) bar.handleWheel(e.y, e.angleDelta.y) }
+      onWheel: e => { if (!scope.barOff && e.x < win.bw) bar.handleWheel(e.y, e.angleDelta.y) }
       onPositionChanged: e => {
         if (win.fs > 0 || scope.settings) return
         const x = e.x, y = e.y, dx = x - dragStart.x, dy = y - dragStart.y
 
         // Auto-hiding bar: reveal at the left edge, hide once well away.
-        if (!scope.cfg.bar.persistent) {
+        if (!scope.cfg.bar.persistent && !scope.barOff) {
           if (scope.cfg.bar.showOnHover && x <= Math.max(Tk.border, 2)) scope.barHover = true
           else if (x > Tk.barWidth + Tk.borderRounding && !(scope.popout !== "" && inPopout(x, y))) scope.barHover = false
           if (pressed && dragStart.x <= Math.max(Tk.border, 2) && dx > 20) scope.barHover = true

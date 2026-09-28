@@ -23,7 +23,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.36.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.36.1"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -220,6 +220,8 @@ Item {
   }
 
   function openBarWidget(id, screenName) {
+    // Bar hidden: nothing to open a bar panel from.
+    if (barHidden) return false
     var t = widgetTargets[id]
     var s = scopeFor(screenName)
     if (t && s) {
@@ -271,6 +273,7 @@ Item {
   // Omacale's own popouts have their letter hotkeys. "" when there is none,
   // and the host then does nothing.
   function panelWidgetIdAt(section, index) {
+    if (barHidden) return ""
     var ids = panelOrder(focusedScreen())
     var n = parseInt(index, 10)
     return n >= 1 && n <= ids.length ? ids[n - 1] : ""
