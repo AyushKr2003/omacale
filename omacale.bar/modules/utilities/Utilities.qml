@@ -17,6 +17,8 @@ Item {
   // (left and bottom, with a right-hand bar).
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
   readonly property bool mirror: !!scope && scope.mirror
+  // A bottom bar puts this drawer above the sidebar, against the top frame.
+  readonly property bool flip: !!scope && scope.flipV
   readonly property var navRoots: [root]
 
   implicitHeight: col.implicitHeight + Tk.padding.large + edgePad
@@ -24,7 +26,7 @@ Item {
   ColumnLayout {
     id: col
     x: root.mirror ? root.edgePad : Tk.padding.large
-    y: Tk.padding.large
+    y: root.flip ? root.edgePad : Tk.padding.large
     width: root.width - Tk.padding.large - root.edgePad
     spacing: Tk.spacing.medium
 
@@ -62,9 +64,14 @@ Item {
       Rectangle {
         anchors.fill: parent
         anchors.margins: -Tk.padding.large
-        anchors.rightMargin: -Tk.padding.large - Tk.border
-        anchors.bottomMargin: -Tk.padding.large - Tk.border
-        topLeftRadius: Tk.rounding.extraLarge
+        anchors.leftMargin: root.mirror ? -Tk.padding.large - Tk.border : -Tk.padding.large
+        anchors.rightMargin: root.mirror ? -Tk.padding.large : -Tk.padding.large - Tk.border
+        anchors.topMargin: root.flip ? -Tk.padding.large - Tk.border : -Tk.padding.large
+        anchors.bottomMargin: root.flip ? -Tk.padding.large : -Tk.padding.large - Tk.border
+        topLeftRadius: root.flip || root.mirror ? 0 : Tk.rounding.extraLarge
+        topRightRadius: !root.flip && root.mirror ? Tk.rounding.extraLarge : 0
+        bottomLeftRadius: root.flip && !root.mirror ? Tk.rounding.extraLarge : 0
+        bottomRightRadius: root.flip && root.mirror ? Tk.rounding.extraLarge : 0
         color: Colours.m3scrim
         opacity: 0.5
       }

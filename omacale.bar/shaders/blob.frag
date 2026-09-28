@@ -30,6 +30,8 @@ layout(std140, binding = 0) uniform buf {
                       // x scales the corners they share, y > 0.5 drops their fillet
     float mirror;     // > 0.5: those two drawers sit on the left (a right-hand bar),
                       // so the corners they share are their right ones
+    float flipV;      // > 0.5: utilities above the sidebar (a bottom bar), so the
+                      // corners they share are utilities' bottom and the sidebar's top
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -95,7 +97,10 @@ vec4 cornerRadii(int i, vec2 hs) {
     // The sidebar's bottom-left and the utilities' top-left corner flatten as
     // the two drawers join, so their shared left side is one straight edge;
     // on the left of the screen it is their right side.
-    if (mirror > 0.5) {
+    if (flipV > 0.5) {
+        if (i == 5) c.z *= join.x;
+        if (i == 6) c.w *= join.x;
+    } else if (mirror > 0.5) {
         if (i == 5) c.x *= join.x;
         if (i == 6) c.y *= join.x;
     } else {

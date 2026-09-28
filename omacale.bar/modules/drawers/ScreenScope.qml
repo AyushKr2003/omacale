@@ -27,6 +27,10 @@ Scope {
   readonly property string barPos: host.position
   readonly property bool barVert: barPos === "left" || barPos === "right"
   readonly property bool mirror: barPos === "right"
+  // A bottom bar puts utilities on top and the notification sidebar under it
+  // (the other way round from every other edge), so the bar's popouts and the
+  // utilities' hover corner don't share the bottom-right of the screen.
+  readonly property bool flipV: barPos === "bottom"
 
   // ---------------------------------------------------------- state
   property bool launcher: false
@@ -581,9 +585,9 @@ Scope {
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: sideX(sbw, sbOff)
-    readonly property real sby: ay
+    readonly property real sby: scope.flipV ? Math.min(ay + ah, uy + uh) : ay
     // Anchored to the utilities' top edge, as Caelestia's Sidebar.Wrapper.
-    readonly property real sbh: Math.max(0, Math.min(ah, uy - ay))
+    readonly property real sbh: scope.flipV ? Math.max(0, ay + ah - sby) : Math.max(0, Math.min(ah, uy - ay))
     // Utilities (bottom right), sliding up out of the bottom edge like
     // Caelestia's Utilities.Wrapper. While the sidebar is open it takes the
     // sidebar's visible width, so the two drawers share one straight side.
@@ -597,7 +601,13 @@ Scope {
     readonly property real uw: sideMaskW(sbx, sbw) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
     readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : Tk.px(450)
     readonly property real ux: scope.mirror ? ax : ax + aw - uw
-    readonly property real uy: ay + ah - uh + (uh + 5) * uOff
+    readonly property real uy: scope.flipV ? ay - (uh + 5) * Math.max(0, uOff) : ay + ah - uh + (uh + 5) * uOff
+    // The part of it the panel area shows, and its shader rect, which keeps
+    // touching its frame edge (the bottom, or the top when flipped).
+    readonly property real uMaskY: scope.flipV ? Math.max(ay, uy) : uy
+    readonly property real uMaskH: scope.flipV ? Math.max(0, uy + uh - uMaskY) : Math.max(0, ay + ah - uy)
+    readonly property real uRectY: scope.flipV ? Math.min(uy, ay) : uy
+    readonly property real uRectH: scope.flipV ? uy + uh - uRectY : Math.max(uh, ay + ah - uy)
     // Caelestia's PanelBg: the corners they share square up and their fillet
     // is dropped once the sidebar is (nearly) in place.
     readonly property real joinRound: Math.max(0, Math.min(1, sbOff / 0.3))
@@ -615,7 +625,7 @@ Scope {
       Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.modal ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
       Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sx); y: win.sy; width: win.sVis && !win.modal ? win.sideMaskW(win.sx, win.sw) : 0; height: win.sVis ? win.sh : 0 }
       Region { intersection: Intersection.Subtract; x: win.pcx; y: win.pcy; width: win.pVis && !win.modal ? win.pcw : 0; height: win.pVis ? win.pch : 0 }
-      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uy; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? Math.max(0, win.ay + win.ah - win.uy) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.ux; y: win.uMaskY; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? win.uMaskH : 0 }
       Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sbx); y: win.sby; width: win.sbVis && !win.modal ? win.sideMaskW(win.sbx, win.sbw) : 0; height: win.sbVis ? win.sbh : 0 }
     }
 
@@ -725,8 +735,8 @@ Scope {
         // Sidebar and utilities stretch to keep touching their frame edges
         // while their spatial curve overshoots; the sidebar overlaps the
         // utilities by 2px so the join never shows a seam.
-        property rect r5: win.uVis ? Qt.rect(win.ux, win.uy, win.uw, Math.max(win.uh, win.ay + win.ah - win.uy)) : Qt.rect(0, 0, 0, 0)
-        property rect r6: win.sbVis ? Qt.rect(win.sideRectX(win.sbx), win.sby, win.sideRectW(win.sbx, win.sbw), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
+        property rect r5: win.uVis ? Qt.rect(win.ux, win.uRectY, win.uw, win.uRectH) : Qt.rect(0, 0, 0, 0)
+        property rect r6: win.sbVis ? Qt.rect(win.sideRectX(win.sbx), win.sby - (scope.flipV ? 2 : 0), win.sideRectW(win.sbx, win.sbw), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
         // The overview floats like Settings (attach 0) unless it is attached
         // to the top (1) or bottom (4) frame edge.
         property rect r7: win.oVis ? Qt.rect(win.ox, win.oy, win.ow, win.oh) : Qt.rect(0, 0, 0, 0)
@@ -734,9 +744,12 @@ Scope {
         // The right-hand drawers grow out of the left edge instead (attach 8) when
         // the bar is on the right.
         property vector4d attachA: Qt.vector4d(1, 4, scope.mirror ? 8 : 2, win.pAttach)
-        property vector4d attachB: Qt.vector4d(0, scope.mirror ? 12 : 6, scope.mirror ? 9 : 3, !win.oAttached ? 0 : win.oPos === "top" ? 1 : 4)
+        // Utilities grows out of the bottom (the top, flipped) and the sidebar
+        // out of the other.
+        property vector4d attachB: Qt.vector4d(0, (scope.mirror ? 8 : 2) + (scope.flipV ? 1 : 4), (scope.mirror ? 8 : 2) + (scope.flipV ? 4 : 1), !win.oAttached ? 0 : win.oPos === "top" ? 1 : 4)
         property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
         property real mirror: scope.mirror ? 1 : 0
+        property real flipV: scope.flipV ? 1 : 0
 
         Behavior on color { CAnim {} }
       }
@@ -768,12 +781,13 @@ Scope {
       }
       // Caelestia inBottomPanel(utilities, isCorner = true), measured from the
       // panel area's bottom edge.
-      // With the bar along the bottom the corner stops at the bar, and gives way
-      // to a popout above it: the status icons sit under this corner.
+      // The utilities' hover corner: the bottom of the panel area, or its top
+      // when a bottom bar has put them there.
       function inBottomUtil(x, y) {
         const visibleH = win.uh * (1 - win.uOff)
-        if (scope.barPos === "bottom" && (y > win.ay + win.ah || (win.pVis && inPopout(x, y)))) return false
-        return y > win.ay + win.ah - visibleH - Tk.borderRounding && x >= win.ux - Tk.borderRounding && x <= win.ux + win.uw + Tk.borderRounding
+        const inX = x >= win.ux - Tk.borderRounding && x <= win.ux + win.uw + Tk.borderRounding
+        if (scope.flipV) return y < win.ay + visibleH + Tk.borderRounding && inX
+        return y > win.ay + win.ah - visibleH - Tk.borderRounding && inX
       }
       // The dashboard hovers from the panel area's top edge (below a bar on the
       // top edge, whose own strip belongs to its popouts).
@@ -796,7 +810,7 @@ Scope {
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
         if (scope.overview && !(e.x >= win.ox && e.x <= win.ox + win.ow && e.y >= win.oy && e.y <= win.oy + win.oh)) scope.overview = false
         if (scope.sidebar && (scope.mirror ? e.x > win.sbx + win.sbw : e.x < win.sbx)) scope.sidebar = false
-        if (scope.utilities && !scope.sidebar && ((scope.mirror ? e.x > win.ux + win.uw : e.x < win.ux) || e.y < win.uy)) scope.utilities = false
+        if (scope.utilities && !scope.sidebar && ((scope.mirror ? e.x > win.ux + win.uw : e.x < win.ux) || (scope.flipV ? e.y > win.uy + win.uh : e.y < win.uy))) scope.utilities = false
       }
       onContainsMouseChanged: {
         if (containsMouse) return
@@ -826,7 +840,7 @@ Scope {
           else if (sideInward(dx) < -scope.cfg.session.dragThreshold) scope.session = false
         }
         // Sidebar: drag in from the top of that edge, or drag back out to close
-        if ((!scope.cfg.sidebar || scope.cfg.sidebar.enabled) && pressed && !scope.sidebar && nearSideEdge(dragStart.x) && y < win.sy && sideInward(dx) > 30) {
+        if ((!scope.cfg.sidebar || scope.cfg.sidebar.enabled) && pressed && !scope.sidebar && nearSideEdge(dragStart.x) && (scope.flipV ? y > win.sy + win.sh : y < win.sy) && sideInward(dx) > 30) {
           scope.sidebar = true
         } else if (pressed && scope.sidebar && (scope.mirror ? dragStart.x <= win.sbx + win.sbw : dragStart.x >= win.sbx) && sideInward(dx) < -40) {
           scope.sidebar = false

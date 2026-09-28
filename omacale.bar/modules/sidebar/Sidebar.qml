@@ -19,6 +19,9 @@ Item {
   // with a right-hand bar, which puts the drawer on the left).
   readonly property real edgePad: Math.max(0, Tk.padding.large - Tk.border)
   readonly property bool mirror: !!scope && scope.mirror
+  // A bottom bar puts the utilities above this drawer: the frame is then under
+  // it, and the hairline where the two join is over it.
+  readonly property bool flip: !!scope && scope.flipV
 
   // Keys (ScreenScope's drawer cursor): d toggles do not disturb, Shift+X
   // clears everything the way the clear-all button does.
@@ -33,12 +36,21 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.leftMargin: root.mirror ? root.edgePad : Tk.padding.large
-    anchors.topMargin: root.edgePad
+    anchors.topMargin: root.flip ? 0 : root.edgePad
+    anchors.bottomMargin: root.flip ? root.edgePad : 0
     anchors.rightMargin: root.mirror ? Tk.padding.large : root.edgePad
 
     ColumnLayout {
       anchors.fill: parent
       spacing: Tk.spacing.medium
+
+      Rectangle {
+        visible: root.flip
+        Layout.bottomMargin: Tk.padding.large - Tk.spacing.medium
+        Layout.fillWidth: true
+        implicitHeight: 1
+        color: Colours.layer(Colours.m3outlineVariant)
+      }
 
       Rectangle {
         Layout.fillWidth: true
@@ -53,6 +65,7 @@ Item {
       }
 
       Rectangle {
+        visible: !root.flip
         Layout.topMargin: Tk.padding.large - Tk.spacing.medium
         Layout.fillWidth: true
         implicitHeight: 1
