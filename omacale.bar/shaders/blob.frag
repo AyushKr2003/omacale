@@ -197,7 +197,17 @@ void main() {
     float kFrame = clamp(min(k, minThick - 1.0), 1.0, k);
     float dFrame = smaxSharpA(dOuter, -dInner, kFrame);
 
-    merged = smin(merged, dFrame, k);
+    // Between the launcher (r1) and the clipboard preview (r8) the two frame
+    // fillets would overlap and meet in a point; in that gap the fillet is
+    // half the gap wide, so the two arcs meet flat on the frame as one U.
+    float kFrameJoin = k;
+    if (d[1] < 1e9 && d[8] < 1e9 && pixel.y > innerC.y) {
+        vec4 lo = r1.x <= r8.x ? r1 : r8;
+        vec4 hi = r1.x <= r8.x ? r8 : r1;
+        float gapL = lo.x + lo.z, gapR = hi.x;
+        if (pixel.x > gapL && pixel.x < gapR) kFrameJoin = clamp((gapR - gapL) * 0.5, 1.0, k);
+    }
+    merged = smin(merged, dFrame, kFrameJoin);
 
     float fw = max(fwidth(merged), 0.0001);
     float alpha = 1.0 - smoothstep(-fw, fw, merged);

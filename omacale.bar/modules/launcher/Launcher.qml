@@ -140,9 +140,14 @@ Item {
     root.dismissed()
   }
   function clipDelete() {
-    if (!clipRow) return
-    keepIndex = Math.min(list.currentIndex, results.length - 2)
-    ClipboardService.remove(clipRow.index)
+    if (clipRow) clipDeleteAt(clipRow, list.currentIndex)
+  }
+  // A row's own delete button (PR #1298's ClipboardItem): the cursor stays
+  // on its row, or moves up one if the row removed was above it.
+  function clipDeleteAt(r, at) {
+    const cur = list.currentIndex
+    keepIndex = Math.max(0, Math.min(at < cur ? cur - 1 : cur, results.length - 2))
+    ClipboardService.remove(r.index)
   }
   function clipClear() {
     if (ClipboardService.history.length > 0) clipConfirm = true
@@ -445,6 +450,8 @@ Item {
         ClipboardItem {
           visible: item.isClip
           row: item.isClip ? item.modelData : null
+          current: list.currentIndex === item.index
+          onDeleteRequested: root.clipDeleteAt(item.modelData, item.index)
           anchors.fill: parent
           anchors.leftMargin: Tk.padding.medium
           anchors.rightMargin: Tk.padding.medium

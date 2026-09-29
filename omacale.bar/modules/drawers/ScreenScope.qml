@@ -515,7 +515,11 @@ Scope {
     property var cpRow: null
     readonly property real cpPadH: Tk.padding.large * 2
     readonly property real cpPadV: Tk.padding.large + Math.max(0, Tk.padding.large - Tk.border)
-    readonly property real cpMaxW: Math.max(Tk.px(200), Math.min(Tk.px(640), ax + aw - (lx + lw + Tk.spacing.large + Tk.px(4)) - Tk.padding.large) - cpPadH)
+    // The PR's gap is spacing.large + 4. Here it is two frame fillets wide,
+    // so each panel's arc into the frame is full-size and the two meet flat
+    // on it as one round U (blob.frag narrows them if it is ever less).
+    readonly property real cpGap: Tk.smoothing * 2
+    readonly property real cpMaxW: Math.max(Tk.px(200), Math.min(Tk.px(640), ax + aw - (lx + lw + cpGap) - Tk.padding.large) - cpPadH)
     readonly property real cpMaxH: Math.max(Tk.px(80), lh - cpPadV)
     readonly property size cpFit: cpLoader.item ? cpLoader.item.fit : Qt.size(0, 0)
     readonly property real cpTextW: Tk.px(400) - cpPadH
@@ -523,7 +527,7 @@ Scope {
     property real cph: cpFit.height > 0 ? cpFit.height + cpPadV : lh
     Behavior on cpw { enabled: win.cpOff < 1; Anim {} }
     Behavior on cph { enabled: win.cpOff < 1; Anim {} }
-    readonly property real cpx: lx + lw + Tk.spacing.large + Tk.px(4)
+    readonly property real cpx: lx + lw + cpGap
     readonly property real cpy: ay + ah - cph + (cph + 5) * Math.max(0, cpOff)
     // Session (right centre)
     readonly property real sw: sess ? sess.implicitWidth : 0
