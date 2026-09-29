@@ -470,6 +470,8 @@ Scope {
     property real nOff: scope.settings ? 0 : 1
     property real oOff: scope.overview ? 0 : 1
     property real sbOff: scope.sidebar ? 0 : 1
+    // The clipboard preview, out while the launcher shows clipboard rows.
+    property real cpOff: scope.launcher && launch && launch.previewWanted ? 0 : 1
     property real uOff: (scope.utilities || scope.sidebar) ? 0 : 1
     Behavior on dOff { Anim {} }
     Behavior on lOff { Anim {} }
@@ -478,6 +480,7 @@ Scope {
     Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "emphasized" } }
     Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "emphasized" } }
     Behavior on sbOff { Anim {} }
+    Behavior on cpOff { Anim {} }
     Behavior on uOff { Anim {} }
 
     // Visibility flags
@@ -503,6 +506,15 @@ Scope {
     property real lh: launch ? launch.implicitHeight : 0
     readonly property real lx: ax + Math.round((aw - lw) / 2)
     readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
+    // Clipboard preview (bottom, right of the launcher), Caelestia PR #1298's
+    // ClipboardPreview: its own panel a gap from the launcher, as tall as it.
+    // The last row stays on it while it slides away.
+    readonly property bool cpVis: cpOff < 1
+    property var cpRow: null
+    readonly property real cpw: Tk.px(400)
+    readonly property real cph: lh
+    readonly property real cpx: lx + lw + Tk.spacing.large + Tk.px(4)
+    readonly property real cpy: ay + ah - cph + (cph + 5) * Math.max(0, cpOff)
     // Session (right centre)
     readonly property real sw: sess ? sess.implicitWidth : 0
     readonly property real sh: sess ? sess.implicitHeight : 0
@@ -623,6 +635,7 @@ Scope {
       intersection: win.modal ? Intersection.Combine : Intersection.Xor
       Region { intersection: Intersection.Subtract; x: win.dx; y: win.ay; width: win.dVis && !win.modal ? win.dw : 0; height: win.dVis ? Math.max(0, win.dy + win.dh - win.ay) : 0 }
       Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.modal ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
+      Region { intersection: Intersection.Subtract; x: win.cpx; y: win.cpy; width: win.cpVis && !win.modal ? win.cpw : 0; height: win.cpVis ? Math.max(0, win.ay + win.ah - win.cpy) : 0 }
       Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sx); y: win.sy; width: win.sVis && !win.modal ? win.sideMaskW(win.sx, win.sw) : 0; height: win.sVis ? win.sh : 0 }
       Region { intersection: Intersection.Subtract; x: win.pcx; y: win.pcy; width: win.pVis && !win.modal ? win.pcw : 0; height: win.pVis ? win.pch : 0 }
       Region { intersection: Intersection.Subtract; x: win.ux; y: win.uMaskY; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? win.uMaskH : 0 }
@@ -750,6 +763,8 @@ Scope {
         property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
         property real mirror: scope.mirror ? 1 : 0
         property real flipV: scope.flipV ? 1 : 0
+        property rect r8: win.cpVis ? Qt.rect(win.cpx, win.cpy, win.cpw, win.cph) : Qt.rect(0, 0, 0, 0)
+        property real attach8: 4
 
         Behavior on color { CAnim {} }
       }
@@ -1052,6 +1067,22 @@ Scope {
           maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
           onDismissed: scope.launcher = false
           onOpenSettings: { scope.launcher = false; scope.settings = true }
+          onClipRowChanged: if (clipRow) win.cpRow = clipRow
+        }
+      }
+
+      // ---- clipboard preview (beside the launcher)
+      Loader {
+        active: win.cpVis
+        sourceComponent: ClipboardPreview {
+          x: win.cpx + Tk.padding.large
+          y: win.cpy + Tk.padding.large
+          width: win.cpw - Tk.padding.large * 2
+          height: win.cph - Tk.padding.large - Math.max(0, Tk.padding.large - Tk.border)
+          opacity: 1 - win.cpOff
+          row: win.cpRow
+          onDeleteRequested: if (launch) launch.clipDelete()
+          onClearRequested: if (launch) launch.clipClear()
         }
       }
 

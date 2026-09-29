@@ -13,8 +13,9 @@ import "../../services/Calc.js" as Calc
 // Typing ":" walks the Omarchy menu itself, drawn as launcher rows and backed
 // by Omarchy's own menu engine (MenuService). ">calc " is Caelestia's
 // calculator (items/CalcItem.qml): one row with the answer, Enter copies it.
-// ">clipboard " is Omarchy's clipboard history (ClipboardService), the list
-// with the selected entry's text or image beside it (ClipboardPreview).
+// ">clipboard " is Omarchy's clipboard history (ClipboardService); the
+// selected entry's text or image shows in its own panel beside the launcher
+// (ClipboardPreview, placed by ScreenScope, as Caelestia PR #1298).
 Item {
   id: root
 
@@ -126,6 +127,8 @@ Item {
   // A delete rebuilds the rows; the cursor stays where it was, as Omarchy's
   // removeDisplayIndex keeps it, instead of going back to the top.
   property int keepIndex: -1
+  // ScreenScope slides the preview panel out while this holds.
+  readonly property bool previewWanted: active && clipShown && results.length > 0
   readonly property var clipRow: clipMode && list.currentItem && list.currentItem.modelData
     && list.currentItem.modelData.entryType !== undefined ? list.currentItem.modelData : null
 
@@ -271,13 +274,12 @@ Item {
 
   readonly property int fitRows: Math.floor((maxHeight - searchBox.height - padding * 3 + Tk.spacing.small) / (itemH + Tk.spacing.small))
   // The clipboard keeps its full height while the history is short, so the
-  // preview beside it has room for a long text or a tall image.
+  // preview panel beside it (as tall as the launcher) has room for a long
+  // text or a tall image.
   readonly property int shownRows: Math.max(0, Math.min(cfg.maxShown, clipShown ? cfg.maxShown : results.length, fitRows))
   readonly property real listH: results.length ? (itemH + Tk.spacing.small) * shownRows - Tk.spacing.small : emptyState.implicitHeight
 
-  readonly property real previewW: Math.round(Tk.sizes.launcherItemWidth * 0.8)
-  readonly property real contentW: clipShown ? Tk.sizes.launcherItemWidth + Tk.spacing.large + previewW
-    : listMode ? Tk.sizes.launcherItemWidth
+  readonly property real contentW: listMode ? Tk.sizes.launcherItemWidth
     : Math.max(Tk.sizes.launcherItemWidth * 1.2, carouselView ? carouselView.implicitWidth : 0)
   readonly property real contentH: listMode ? listH : Tk.sizes.launcherWallpaperHeight
 
@@ -528,16 +530,6 @@ Item {
           }
         }
       }
-    }
-
-    ClipboardPreview {
-      visible: root.clipShown && root.results.length > 0
-      x: Tk.sizes.launcherItemWidth + Tk.spacing.large
-      width: root.previewW
-      height: root.listH
-      row: root.clipRow
-      onDeleteRequested: root.clipDelete()
-      onClearRequested: root.clipClear()
     }
 
     Loader {

@@ -3,12 +3,13 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "../.."
 
-// The clipboard's preview pane, beside the list in the launcher's
-// ">clipboard " mode. Omarchy's clipboard panel (plugins/clipboard/
-// Clipboard.qml) splits its card into the list and this: the whole text of
-// the selected entry, or its image. Drawn with Caelestia's surfaces and
-// tokens. `row` is a ClipboardHistory.js displayRows() row.
-Rectangle {
+// The clipboard preview panel: its own drawer beside the launcher while it
+// shows ">clipboard " rows, as Caelestia PR #1298's ClipboardPreview (its
+// background is ScreenScope's r8; this draws only the content). Unlike the
+// PR it shows every entry, not only images: the whole text of the selected
+// entry as Omarchy's clipboard panel does, or its image. `row` is a
+// ClipboardHistory.js displayRows() row.
+Item {
   id: root
 
   property var row: null
@@ -29,15 +30,10 @@ Rectangle {
     return (lines > 1 ? lines + " lines · " : "") + (chars >= 8192 ? "8192+" : chars) + " characters"
   }
 
-  radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
-  clip: true
-
   onRowChanged: text.contentY = 0
 
   ColumnLayout {
     anchors.fill: parent
-    anchors.margins: Tk.padding.medium
     spacing: Tk.spacing.small
     visible: !!root.row
 
@@ -79,7 +75,7 @@ Rectangle {
       Layout.fillWidth: true
       Layout.fillHeight: true
       radius: Tk.rounding.medium
-      color: Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)
+      color: Colours.m3surfaceContainer
       clip: true
 
       Image {
@@ -120,10 +116,10 @@ Rectangle {
     MText {
       Layout.fillWidth: true
       horizontalAlignment: Text.AlignHCenter
-      text: "Enter paste · Shift+Enter copy · Alt+Enter open · Del delete"
+      text: "Enter paste · Shift+Enter copy · Alt+Enter open · Del delete · Shift+Del clear"
       color: Colours.m3outline
       font.pointSize: Tk.label.small
-      elide: Text.ElideRight
+      wrapMode: Text.WordWrap
     }
   }
 }

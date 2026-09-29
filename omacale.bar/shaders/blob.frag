@@ -32,6 +32,8 @@ layout(std140, binding = 0) uniform buf {
                       // so the corners they share are their right ones
     float flipV;      // > 0.5: utilities above the sidebar (a bottom bar), so the
                       // corners they share are utilities' bottom and the sidebar's top
+    vec4 r8;          // the clipboard preview, beside the launcher (r1)
+    float attach8;    // its attach bitmask
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -73,7 +75,8 @@ float attachAt(int i) {
     if (i == 4) return attachB.x;
     if (i == 5) return attachB.y;
     if (i == 6) return attachB.z;
-    return attachB.w;
+    if (i == 7) return attachB.w;
+    return attach8;
 }
 
 // A drawer's corners on the side(s) it grows out of are square: the frame's
@@ -118,29 +121,33 @@ vec4 rectAt(int i) {
     if (i == 4) return r4;
     if (i == 5) return r5;
     if (i == 6) return r6;
-    return r7;
+    if (i == 7) return r7;
+    return r8;
 }
 
 void main() {
     vec2 pixel = qt_TexCoord0 * res;
     float k = smoothing;
 
-    float d[8];
-    for (int i = 0; i < 8; i++) {
+    float d[9];
+    for (int i = 0; i < 9; i++) {
         vec4 r = rectAt(i);
         if (r.z <= 0.5 || r.w <= 0.5) { d[i] = 1e10; continue; }
         d[i] = sdRoundedBox4(pixel, r.xy + r.zw * 0.5, r.zw * 0.5, cornerRadii(i, r.zw * 0.5));
     }
 
     float merged = 1e10;
-    for (int i = 0; i < 8; i++) merged = min(merged, d[i]);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) merged = min(merged, d[i]);
+    for (int i = 0; i < 9; i++) {
         if (d[i] >= 1e9) continue;
-        for (int j = i + 1; j < 8; j++) {
+        for (int j = i + 1; j < 9; j++) {
             if (d[j] >= 1e9 || max(d[i], d[j]) >= k) continue;
             // Two flush edges smooth-min into an outward bulge; joined drawers
             // are excluded from each other, as Caelestia's PanelBg `exclude`.
             if (i == 5 && j == 6 && join.y > 0.5) continue;
+            // The clipboard preview is its own panel beside the launcher, as
+            // Caelestia PR #1298 draws it, not a bulge of it.
+            if (i == 1 && j == 8) continue;
             merged = min(merged, smin(d[i], d[j], k));
         }
     }
@@ -163,7 +170,7 @@ void main() {
     // back so it emerges from a pocket rather than a bump.
     float sinkValue = 0.0;
     float preOff = k * (2.0 - sqrt(2.0)) * 0.5;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 9; i++) {
         if (d[i] >= 1e9) continue;
         vec4 r = rectAt(i);
         vec2 ctr = r.xy + r.zw * 0.5;
