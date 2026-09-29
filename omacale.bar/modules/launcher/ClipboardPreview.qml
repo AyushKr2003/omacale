@@ -26,13 +26,17 @@ Item {
   property real maxW: 0
   property real maxH: 0
   property real textW: 0
+  // The panel's bottom inset is trimmed by the frame border (as every
+  // drawer's frame side is); text gets it back so it sits as far from the
+  // bottom as from the top.
+  readonly property real textBottom: Tk.padding.medium + Tk.padding.large - Math.max(0, Tk.padding.large - Tk.border)
   readonly property real minSide: Tk.px(240)
   readonly property bool imageReady: isImage && image.status === Image.Ready && image.sourceSize.width > 0
   property size fit: Qt.size(0, 0)
   function refit() {
     if (!row) return
     if (!isImage) {
-      if (textW > 0 && maxH > 0) fit = Qt.size(textW, Math.min(maxH, Math.ceil(body.implicitHeight) + Tk.padding.medium * 2))
+      if (textW > 0 && maxH > 0) fit = Qt.size(textW, Math.min(maxH, Math.ceil(body.implicitHeight) + Tk.padding.medium + textBottom))
       return
     }
     if (!imageReady || maxW <= 0 || maxH <= 0) return
@@ -77,6 +81,7 @@ Item {
       visible: !root.isImage
       anchors.fill: parent
       anchors.margins: Tk.padding.medium
+      anchors.bottomMargin: root.textBottom
       fadeSize: Tk.px(20)
       contentWidth: width
       contentHeight: body.implicitHeight
