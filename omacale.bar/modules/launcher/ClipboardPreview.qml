@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Quickshell.Widgets
 import "../.."
 
 // The clipboard preview panel: its own drawer beside the launcher while it
@@ -15,6 +16,28 @@ Item {
 
   readonly property bool isImage: !!row && row.previewImage !== ""
 
+  // An image sizes the panel to its own aspect ratio, as the PR's
+  // targetHeight does (there the height only, 200-600px): fitted inside
+  // maxW x maxH, and small ones raised to minSide on their longer side.
+  // ScreenScope reads `fit` (0x0 for text, which keeps the default size);
+  // while the next image loads the last fit stays, so the panel doesn't jump.
+  property real maxW: 0
+  property real maxH: 0
+  readonly property real minSide: Tk.px(240)
+  readonly property bool imageReady: isImage && image.status === Image.Ready && image.sourceSize.width > 0
+  property size fit: Qt.size(0, 0)
+  function refit() {
+    if (!isImage) { fit = Qt.size(0, 0); return }
+    if (!imageReady || maxW <= 0 || maxH <= 0) return
+    const iw = image.sourceSize.width, ih = image.sourceSize.height
+    const s = Math.min(maxW / iw, maxH / ih, Math.max(1, minSide / Math.max(iw, ih)))
+    fit = Qt.size(Math.round(iw * s), Math.round(ih * s))
+  }
+  onImageReadyChanged: refit()
+  onIsImageChanged: refit()
+  onMaxWChanged: refit()
+  onMaxHChanged: refit()
+
   onRowChanged: text.contentY = 0
 
   // Just the entry: its whole text, or its image, straight on the panel's
@@ -24,15 +47,21 @@ Item {
     visible: !!root.row
     clip: true
 
-    Image {
+    ClippingRectangle {
       visible: root.isImage
       anchors.fill: parent
-      anchors.margins: Tk.padding.small
-      source: root.isImage ? "file://" + root.row.previewImage : ""
-      fillMode: Image.PreserveAspectFit
-      asynchronous: true
-      smooth: true
-      mipmap: true
+      radius: Tk.rounding.medium
+      color: "transparent"
+
+      Image {
+        id: image
+        anchors.fill: parent
+        source: root.isImage ? "file://" + root.row.previewImage : ""
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+        smooth: true
+        mipmap: true
+      }
     }
 
     FadeFlickable {
