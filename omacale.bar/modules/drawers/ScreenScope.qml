@@ -1081,8 +1081,6 @@ Scope {
           height: win.cph - Tk.padding.large - Math.max(0, Tk.padding.large - Tk.border)
           opacity: 1 - win.cpOff
           row: win.cpRow
-          onDeleteRequested: if (launch) launch.clipDelete()
-          onClearRequested: if (launch) launch.clipClear()
         }
       }
 
