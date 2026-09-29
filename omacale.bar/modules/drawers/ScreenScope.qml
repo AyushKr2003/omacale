@@ -507,10 +507,10 @@ Scope {
     readonly property real lx: ax + Math.round((aw - lw) / 2)
     readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
     // Clipboard preview (bottom, right of the launcher), Caelestia PR #1298's
-    // ClipboardPreview: its own panel a gap from the launcher. Text sits in a
-    // panel as tall as the launcher; an image sizes it to its aspect ratio
-    // (ClipboardPreview.fit), up to the room right of the launcher and never
-    // taller than the launcher itself. The last row stays on it while it slides away.
+    // ClipboardPreview: its own panel a gap from the launcher, sized to what
+    // it shows (ClipboardPreview.fit): an image to its aspect ratio, up to the
+    // room right of the launcher; text 400px wide and as tall as the text.
+    // Neither is ever taller than the launcher itself. The last row stays on it while it slides away.
     readonly property bool cpVis: cpOff < 1
     property var cpRow: null
     readonly property real cpPadH: Tk.padding.large * 2
@@ -518,6 +518,7 @@ Scope {
     readonly property real cpMaxW: Math.max(Tk.px(200), Math.min(Tk.px(640), ax + aw - (lx + lw + Tk.spacing.large + Tk.px(4)) - Tk.padding.large) - cpPadH)
     readonly property real cpMaxH: Math.max(Tk.px(80), lh - cpPadV)
     readonly property size cpFit: cpLoader.item ? cpLoader.item.fit : Qt.size(0, 0)
+    readonly property real cpTextW: Tk.px(400) - cpPadH
     property real cpw: cpFit.width > 0 ? cpFit.width + cpPadH : Tk.px(400)
     property real cph: cpFit.height > 0 ? cpFit.height + cpPadV : lh
     Behavior on cpw { enabled: win.cpOff < 1; Anim {} }
@@ -1093,6 +1094,7 @@ Scope {
           row: win.cpRow
           maxW: win.cpMaxW
           maxH: win.cpMaxH
+          textW: win.cpTextW
         }
       }
 

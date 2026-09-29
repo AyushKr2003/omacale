@@ -16,18 +16,25 @@ Item {
 
   readonly property bool isImage: !!row && row.previewImage !== ""
 
-  // An image sizes the panel to its own aspect ratio, as the PR's
+  // The panel is sized to what it shows; ScreenScope reads `fit`, the
+  // content size. An image takes its own aspect ratio, as the PR's
   // targetHeight does (there the height only, 200-600px): fitted inside
-  // maxW x maxH, and small ones raised to minSide on their longer side.
-  // ScreenScope reads `fit` (0x0 for text, which keeps the default size);
-  // while the next image loads the last fit stays, so the panel doesn't jump.
+  // maxW x maxH, and small ones raised to minSide on their longer side;
+  // while the next image loads the last fit stays, so the panel doesn't
+  // jump. Text is textW wide and only as tall as it needs, up to maxH, past
+  // which it is cut off (and scrolls).
   property real maxW: 0
   property real maxH: 0
+  property real textW: 0
   readonly property real minSide: Tk.px(240)
   readonly property bool imageReady: isImage && image.status === Image.Ready && image.sourceSize.width > 0
   property size fit: Qt.size(0, 0)
   function refit() {
-    if (!isImage) { fit = Qt.size(0, 0); return }
+    if (!row) return
+    if (!isImage) {
+      if (textW > 0 && maxH > 0) fit = Qt.size(textW, Math.min(maxH, Math.ceil(body.implicitHeight) + Tk.padding.medium * 2))
+      return
+    }
     if (!imageReady || maxW <= 0 || maxH <= 0) return
     const iw = image.sourceSize.width, ih = image.sourceSize.height
     const s = Math.min(maxW / iw, maxH / ih, Math.max(1, minSide / Math.max(iw, ih)))
@@ -37,8 +44,9 @@ Item {
   onIsImageChanged: refit()
   onMaxWChanged: refit()
   onMaxHChanged: refit()
+  onTextWChanged: refit()
 
-  onRowChanged: text.contentY = 0
+  onRowChanged: { text.contentY = 0; refit() }
 
   // Just the entry: its whole text, or its image, straight on the panel's
   // own surface. Its kind and the keys are left out; the rows say the first.
@@ -77,6 +85,7 @@ Item {
 
       MText {
         id: body
+        onImplicitHeightChanged: root.refit()
         width: text.width
         text: root.row && !root.isImage ? root.row.fullText : ""
         textFormat: Text.PlainText
