@@ -13,7 +13,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
 - **Material 3 colours** generated from your Omarchy theme.
 - **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it.
-- **Launcher**: apps, calculator (`>calc`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
+- **Launcher**: apps, calculator (`>calc`), clipboard history (`>clipboard`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
 - **Dashboard**: weather, calendar, system resources, and media with synced lyrics.
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
 - **Workspace overview** with live previews and drag-and-drop.
@@ -109,6 +109,7 @@ A focus ring appears only when you use the keys, so mouse use is unchanged.
 | Sidebar | `d` do not disturb, `Shift + X` clear all |
 | Settings | `/` search, `Backspace` previous page |
 | Launcher `:` menu | Type to filter; `Enter` / `→` open, `Backspace` / `←` back |
+| Launcher `>clipboard` | Type to filter; `Enter` paste, `Shift + Enter` copy, `Alt + Enter` open, `Delete` remove, `Shift + Delete` clear all |
 
 </details>
 
@@ -116,7 +117,7 @@ A focus ring appears only when you use the keys, so mouse use is unchanged.
 
 ```bash
 omarchy-shell omacale <launcher|dashboard|sidebar|utilities|overview|session|settings|close>
-omarchy-shell omacale <wallpapers|themes|menu|windowInfo|barFocus>
+omarchy-shell omacale <wallpapers|themes|menu|clipboard|windowInfo|barFocus>
 omarchy-shell omacale dashboardTab <dashboard|media|performance|weather>
 omarchy-shell omacale settingsPage <page>
 omarchy-shell omacale popout <network|bluetooth|audio|battery|kblayout|lockstatus|update|activewindow>

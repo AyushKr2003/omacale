@@ -62,5 +62,7 @@ o.bind("SUPER + CTRL + code:19", "Omacale bar focus", "omarchy-shell omacale bar
 -- o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
 -- o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
 -- o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace
+-- Clipboard history in the launcher. Omarchy's clipboard plugin keeps recording it either way.
+-- o.rebind("SUPER + CTRL + V", "Omacale clipboard", "omarchy-shell omacale clipboard")                    -- was: Clipboard manager
 -- Details and actions for the focused window (also the chevron in the bar's active-window popout).
 -- o.bind("SUPER + ALT + I", "Omacale window info", "omarchy-shell omacale windowInfo")

@@ -42,7 +42,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.37.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.38.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -465,6 +465,8 @@ Item {
     }
     // The Omarchy menu, walked inside the launcher (the ":" prefix).
     function menu(): void { root.toggle("launcher", "menu") }
+    // Omarchy's clipboard history, in the launcher (">clipboard ").
+    function clipboard(): void { root.toggle("launcher", "clipboard") }
     // UI scale: "omarchy" follows shell.toml, a number (0.5-2) sets a custom
     // one. Also the way back from a size too broken to use Settings at.
     // Prints the effective scale.

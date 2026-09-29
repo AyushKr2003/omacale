@@ -143,3 +143,6 @@ Background 1.0 modules/background/Background.qml
 DesktopClock 1.0 modules/background/DesktopClock.qml
 Visualiser 1.0 modules/background/Visualiser.qml
 VisualiserBars 1.0 modules/background/VisualiserBars.qml
+ClipboardItem 1.0 modules/launcher/ClipboardItem.qml
+ClipboardPreview 1.0 modules/launcher/ClipboardPreview.qml
+singleton ClipboardService 1.0 services/ClipboardService.qml

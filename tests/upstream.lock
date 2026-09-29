@@ -18,7 +18,12 @@
     "shell/Ui/PluginBarApi.qml": "91964a42b92c58476a4f961df35148d4c94071344ef1a69eab1563d1496705a7",
     "shell/Ui/KeyboardPanel.qml": "96245f2da8d38baa0017caa285d596c485bd19a3a4d2cd1675bee9d84ffba42d",
     "shell/Commons/Style.qml": "f5901092617ae62645597199270afd4dfb0644d596bdfff16e1834fca6ad7243",
-    "bin/omarchy-capture-screenrecording": "068cecec4981c6f85ba4796788405ab863469857a4ead2ad71dbf7e27ee54880"
+    "bin/omarchy-capture-screenrecording": "068cecec4981c6f85ba4796788405ab863469857a4ead2ad71dbf7e27ee54880",
+    "bin/omarchy-clipboard-open": "8776ea6da8601d69f48438fdb1f1d00d67e424792a00b0977bb4391633e09589",
+    "bin/omarchy-clipboard-paste-file": "ab081a13ebe4a70e4830be6b068e7ca6c908e672a0860f7fc14eb9f650cbdd9e",
+    "bin/omarchy-clipboard-paste-text": "b3248e407e0b62521021a53dcfa7416ef32041b23a8b925f4fc01983843e0865",
+    "shell/plugins/clipboard/Clipboard.qml": "815005ef06e377455e339f52b30e620ed316336030fac6acd02d31df6b2ebb45",
+    "shell/plugins/clipboard/ClipboardHistory.js": "57d467477e146f636bb5639dd9badf3bce178eff56bb79acdee8be08b48382c8"
   },
   "barContract": [
     "barHidden",

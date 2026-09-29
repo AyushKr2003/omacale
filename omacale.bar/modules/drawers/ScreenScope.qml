@@ -237,9 +237,9 @@ Scope {
         return
       }
       if (name === "launcher" && scope.cfg.launcher.enabled) {
-        // With a carousel ("wallpaper" / "theme") it opens onto it, and only
-        // closes if that carousel is already showing.
-        const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : arg === "menu" ? "menu" : ""
+        // With a mode ("wallpaper" / "theme" / "menu" / "clipboard") it opens
+        // onto it, and only closes if that mode is already showing.
+        const mode = arg === "wallpaper" ? "wallpapers" : arg === "theme" ? "themes" : arg === "menu" ? "menu" : arg === "clipboard" ? "clipboard" : ""
         if (mode && !(scope.launcher && launch && launch.mode === mode)) { scope.launcher = true; launch.openMode(arg) }
         else scope.launcher = !scope.launcher
       }

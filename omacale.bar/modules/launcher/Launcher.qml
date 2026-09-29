@@ -13,6 +13,8 @@ import "../../services/Calc.js" as Calc
 // Typing ":" walks the Omarchy menu itself, drawn as launcher rows and backed
 // by Omarchy's own menu engine (MenuService). ">calc " is Caelestia's
 // calculator (items/CalcItem.qml): one row with the answer, Enter copies it.
+// ">clipboard " is Omarchy's clipboard history (ClipboardService), the list
+// with the selected entry's text or image beside it (ClipboardPreview).
 Item {
   id: root
 
@@ -29,15 +31,19 @@ Item {
   readonly property string wallPrefix: prefix + "wallpaper "
   readonly property string themePrefix: prefix + "theme "
   readonly property string calcPrefix: prefix + "calc "
+  readonly property string clipPrefix: prefix + "clipboard "
   readonly property string mode: search.text.startsWith(wallPrefix) ? "wallpapers"
                                : search.text.startsWith(themePrefix) ? "themes"
                                : search.text.startsWith(calcPrefix) ? "calc"
+                               : search.text.startsWith(clipPrefix) ? "clipboard"
                                : search.text.startsWith(menuPrefix) ? "menu" : "apps"
   readonly property bool actionMode: mode === "apps" && search.text.startsWith(prefix)
   readonly property bool menuMode: mode === "menu"
   readonly property bool calcMode: mode === "calc"
+  readonly property bool clipMode: mode === "clipboard"
   // The modes that draw into the results list, as opposed to the carousel.
-  readonly property bool listMode: animState === "apps" || animState === "menu" || animState === "calc"
+  readonly property bool listMode: animState === "apps" || animState === "menu" || animState === "calc" || animState === "clipboard"
+  readonly property bool clipShown: animState === "clipboard"
   // Sizes lag `mode` behind a fade, as Caelestia's animState.
   property string animState: mode
   property real screenWidth: 0
@@ -45,8 +51,8 @@ Item {
   readonly property string menuQuery: menuMode ? search.text.slice(menuPrefix.length) : ""
   property string pendingText: ""
 
-  // Open straight into a carousel ("wallpaper" / "theme") or the Omarchy menu
-  // ("menu"), e.g. from IPC.
+  // Open straight into a carousel ("wallpaper" / "theme"), the Omarchy menu
+  // ("menu") or the clipboard ("clipboard"), e.g. from IPC.
   function openMode(kind) {
     const text = kind === "menu" ? menuPrefix : prefix + kind + " "
     if (active) { search.text = text; search.forceActiveFocus() }
@@ -111,12 +117,42 @@ Item {
     root.dismissed()
   }
 
+  // ------------------------------------------------------------- clipboard
+  // Omarchy's clipboard panel keys: Enter pastes into the window the
+  // launcher was opened over, Shift+Enter only copies, Alt+Enter opens the
+  // entry (a link in the browser, text in the editor, an image in the
+  // viewer), Delete removes it and Shift+Delete clears the history.
+  property bool clipConfirm: false
+  // A delete rebuilds the rows; the cursor stays where it was, as Omarchy's
+  // removeDisplayIndex keeps it, instead of going back to the top.
+  property int keepIndex: -1
+  readonly property var clipRow: clipMode && list.currentItem && list.currentItem.modelData
+    && list.currentItem.modelData.entryType !== undefined ? list.currentItem.modelData : null
+
+  function isClipRow(r) { return !!r && r.entryType !== undefined && r.fullText !== undefined }
+  function activateClip(r, mods) {
+    if (mods & Qt.AltModifier) ClipboardService.open(r)
+    else if (mods & Qt.ShiftModifier) ClipboardService.copy(r)
+    else ClipboardService.paste(r)
+    root.dismissed()
+  }
+  function clipDelete() {
+    if (!clipRow) return
+    keepIndex = Math.min(list.currentIndex, results.length - 2)
+    ClipboardService.remove(clipRow.index)
+  }
+  function clipClear() {
+    if (ClipboardService.history.length > 0) clipConfirm = true
+  }
+
   onModeChanged: {
     if (mode === "menu") { menuReset(); MenuService.open("root") }
+    clipConfirm = false
   }
 
   readonly property var actions: [
     { name: "Calculator", comment: "Do simple maths equations", icon: "calculate", autocomplete: "calc" },
+    { name: "Clipboard", comment: "Browse the clipboard history", icon: "content_paste", autocomplete: "clipboard" },
     { name: "Settings", comment: "Open Omacale settings", icon: "settings", settings: true },
     { name: "Lock", comment: "Lock the screen", icon: "lock", cmd: "omarchy system lock", dangerous: true },
     { name: "Logout", comment: "End this session", icon: "logout", cmd: "omarchy system logout", dangerous: true },
@@ -135,6 +171,7 @@ Item {
   readonly property var results: {
     if (menuMode) return MenuService.rows(menuPath, menuQuery)
     if (calcMode) return [calcRow]
+    if (clipMode) return ClipboardService.rows(query)
     const q = (actionMode ? search.text.slice(prefix.length) : search.text).trim().toLowerCase()
     if (actionMode) return actions.filter(a => (cfg.dangerousActions || !a.dangerous) && (!q || a.name.toLowerCase().indexOf(q) >= 0))
     const favs = Config.o.launcher.favouriteApps
@@ -160,9 +197,10 @@ Item {
   // Results are DesktopEntry objects, entries of `actions`, or menu rows.
   function isApp(r) { return !!r && typeof r.execute === "function" }
   function isMenuRow(r) { return !!r && r.itemId !== undefined }
-  function activate(r) {
+  function activate(r, mods) {
     if (!r) return
     if (isMenuRow(r)) { activateMenuRow(r); return }
+    if (isClipRow(r)) { activateClip(r, mods || 0); return }
     // Caelestia CalcItem: copy the answer (qalc's raw result) and close.
     if (r.calc) {
       if (!calcResult || calcResult.error) return
@@ -205,7 +243,7 @@ Item {
 
   // Wallpapers.reload(): a reopened carousel keeps its old list otherwise,
   // since it is not recreated when the search text is unchanged.
-  function opened() { menuReset(); search.text = pendingText; pendingText = ""; list.currentIndex = 0; Qt.callLater(() => search.forceActiveFocus()); Wallpapers.reload() }
+  function opened() { menuReset(); clipConfirm = false; search.text = pendingText; pendingText = ""; list.currentIndex = 0; Qt.callLater(() => search.forceActiveFocus()); Wallpapers.reload() }
   onActiveChanged: {
     if (active) opened()
     else Wallpapers.stopPreview()
@@ -231,11 +269,15 @@ Item {
   readonly property var carouselView: carousel.item
   function currentList() { return listMode ? list : carouselView }
 
-  readonly property int shownRows: Math.max(0, Math.min(cfg.maxShown, results.length,
-                                    Math.floor((maxHeight - searchBox.height - padding * 3 + Tk.spacing.small) / (itemH + Tk.spacing.small))))
+  readonly property int fitRows: Math.floor((maxHeight - searchBox.height - padding * 3 + Tk.spacing.small) / (itemH + Tk.spacing.small))
+  // The clipboard keeps its full height while the history is short, so the
+  // preview beside it has room for a long text or a tall image.
+  readonly property int shownRows: Math.max(0, Math.min(cfg.maxShown, clipShown ? cfg.maxShown : results.length, fitRows))
   readonly property real listH: results.length ? (itemH + Tk.spacing.small) * shownRows - Tk.spacing.small : emptyState.implicitHeight
 
-  readonly property real contentW: listMode ? Tk.sizes.launcherItemWidth
+  readonly property real previewW: Math.round(Tk.sizes.launcherItemWidth * 0.8)
+  readonly property real contentW: clipShown ? Tk.sizes.launcherItemWidth + Tk.spacing.large + previewW
+    : listMode ? Tk.sizes.launcherItemWidth
     : Math.max(Tk.sizes.launcherItemWidth * 1.2, carouselView ? carouselView.implicitWidth : 0)
   readonly property real contentH: listMode ? listH : Tk.sizes.launcherWallpaperHeight
 
@@ -271,7 +313,12 @@ Item {
       fadeSize: Tk.px(28)
       model: ScriptModel {
         values: root.results
-        onValuesChanged: { list.currentIndex = 0; root.settleCursor(); root.disarmPointer() }
+        onValuesChanged: {
+          list.currentIndex = root.keepIndex >= 0 ? root.keepIndex : 0
+          root.keepIndex = -1
+          root.settleCursor()
+          root.disarmPointer()
+        }
       }
       spacing: Tk.spacing.small
       currentIndex: 0
@@ -314,7 +361,8 @@ Item {
         readonly property var app: root.isApp(modelData) ? modelData : null
         readonly property var menuRow: root.isMenuRow(modelData) ? modelData : null
         readonly property bool isCalc: !!modelData && modelData.calc === true
-        readonly property var action: app || menuRow || isCalc ? null : modelData
+        readonly property bool isClip: root.isClipRow(modelData)
+        readonly property var action: app || menuRow || isCalc || isClip ? null : modelData
         width: list.width
         height: root.itemH
 
@@ -392,8 +440,17 @@ Item {
             }
           }
         }
+        ClipboardItem {
+          visible: item.isClip
+          row: item.isClip ? item.modelData : null
+          anchors.fill: parent
+          anchors.leftMargin: Tk.padding.medium
+          anchors.rightMargin: Tk.padding.medium
+          anchors.topMargin: Tk.padding.small
+          anchors.bottomMargin: Tk.padding.small
+        }
         Item {
-          visible: !item.isCalc
+          visible: !item.isCalc && !item.isClip
           anchors.fill: parent
           anchors.leftMargin: Tk.padding.medium
           anchors.rightMargin: Tk.padding.medium
@@ -473,6 +530,16 @@ Item {
       }
     }
 
+    ClipboardPreview {
+      visible: root.clipShown && root.results.length > 0
+      x: Tk.sizes.launcherItemWidth + Tk.spacing.large
+      width: root.previewW
+      height: root.listH
+      row: root.clipRow
+      onDeleteRequested: root.clipDelete()
+      onClearRequested: root.clipClear()
+    }
+
     Loader {
       id: carousel
       active: !root.listMode
@@ -500,21 +567,109 @@ Item {
       spacing: Tk.spacing.medium
       Behavior on opacity { Anim { type: "effects" } }
       Behavior on scale { Anim {} }
-      MIcon { anchors.verticalCenter: parent.verticalCenter; text: emptyState.carouselMode ? "wallpaper_slideshow" : root.menuMode && !MenuService.available ? "error" : "manage_search"; size: Tk.iconSize.extraLarge; color: Colours.m3onSurfaceVariant }
+      readonly property bool clipEmpty: root.clipShown && ClipboardService.history.length === 0
+      MIcon { anchors.verticalCenter: parent.verticalCenter; text: emptyState.carouselMode ? "wallpaper_slideshow" : root.menuMode && !MenuService.available ? "error" : emptyState.clipEmpty ? "content_paste_off" : "manage_search"; size: Tk.iconSize.extraLarge; color: Colours.m3onSurfaceVariant }
       Column {
         anchors.verticalCenter: parent.verticalCenter
         MText {
           text: root.animState === "wallpapers" ? "No wallpapers found" : root.animState === "themes" ? "No themes found"
             : root.menuMode && !MenuService.available ? "Omarchy menu unavailable"
-            : root.menuMode && !MenuService.ready ? "Reading the Omarchy menu…" : "No results"
+            : root.menuMode && !MenuService.ready ? "Reading the Omarchy menu…"
+            : root.clipShown && !ClipboardService.available ? "Omarchy clipboard unavailable"
+            : emptyState.clipEmpty ? "Clipboard history is empty" : "No results"
           color: Colours.m3onSurfaceVariant; font.pointSize: Tk.body.large; weight: Font.Medium
         }
         MText {
           text: root.animState === "wallpapers" && Wallpapers.walls.length === 0
             ? "Try putting some wallpapers in ~/.config/omarchy/backgrounds/" + Wallpapers.currentTheme
             : root.menuMode && !MenuService.available ? "Omarchy's menu engine was not found in " + MenuService.omarchyPath
+            : root.clipShown && !ClipboardService.available ? "Omarchy's clipboard engine was not found in " + ClipboardService.omarchyPath
+            : emptyState.clipEmpty && !ClipboardService.recording ? "Enable the omarchy.clipboard plugin to record history"
+            : emptyState.clipEmpty ? "Copy something and it shows up here"
             : "Try searching for something else"
           color: Colours.m3onSurfaceVariant; font.pointSize: Tk.body.medium
+        }
+      }
+    }
+  }
+
+  // Clear-all confirm over the clipboard, as Utilities' recording delete
+  // dialog (Caelestia utilities/RecordingDeleteModal.qml). Enter confirms and
+  // Escape cancels, from the search field.
+  Loader {
+    anchors.fill: body
+    z: 2
+    opacity: root.clipConfirm ? 1 : 0
+    active: opacity > 0
+    Behavior on opacity { Anim { type: "effects" } }
+
+    sourceComponent: MouseArea {
+      hoverEnabled: true
+      onClicked: root.clipConfirm = false
+
+      Rectangle {
+        anchors.fill: parent
+        radius: Tk.rounding.large
+        color: Colours.m3scrim
+        opacity: 0.5
+      }
+
+      Rectangle {
+        anchors.centerIn: parent
+        width: Math.min(parent.width - Tk.padding.extraLarge, implicitWidth)
+        implicitWidth: dialog.implicitWidth + Tk.padding.extraLarge * 2
+        implicitHeight: dialog.implicitHeight + Tk.padding.extraLarge * 2
+        radius: Tk.rounding.extraLarge
+        color: Colours.palette.m3surfaceContainerHigh
+
+        scale: 0
+        Component.onCompleted: scale = Qt.binding(() => root.clipConfirm ? 1 : 0)
+        Behavior on scale { Anim {} }
+
+        MouseArea { anchors.fill: parent }
+
+        Elevation {
+          anchors.fill: parent
+          radius: parent.radius
+          z: -1
+          level: 3
+        }
+
+        ColumnLayout {
+          id: dialog
+          anchors.fill: parent
+          anchors.margins: Tk.padding.large * 1.5
+          spacing: Tk.spacing.medium
+
+          MText {
+            text: "Clear clipboard history?"
+            font.pointSize: Tk.body.large
+          }
+          MText {
+            Layout.fillWidth: true
+            text: "All " + ClipboardService.history.length + " entries will be removed."
+            color: Colours.m3onSurfaceVariant
+            font.pointSize: Tk.body.small
+            wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+          }
+          RowLayout {
+            Layout.topMargin: Tk.spacing.medium
+            Layout.alignment: Qt.AlignRight
+            spacing: Tk.spacing.medium
+
+            IconTextButton {
+              type: "text"
+              text: "Cancel"
+              fontSize: Tk.body.small
+              onClicked: { root.clipConfirm = false; search.forceActiveFocus() }
+            }
+            IconTextButton {
+              type: "text"
+              text: "Clear"
+              fontSize: Tk.body.small
+              onClicked: { ClipboardService.clear(); root.clipConfirm = false; search.forceActiveFocus() }
+            }
+          }
         }
       }
     }
@@ -581,6 +736,12 @@ Item {
       onTextChanged: list.currentIndex = 0
       Keys.onPressed: function(e) {
         root.disarmPointer()
+        if (root.clipConfirm) {
+          if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) ClipboardService.clear()
+          if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter || e.key === Qt.Key_Escape) root.clipConfirm = false
+          e.accepted = true
+          return
+        }
         if (e.key === Qt.Key_Escape) { root.dismissed(); e.accepted = true }
         else if (e.key === Qt.Key_Down || (e.key === Qt.Key_Tab && !(e.modifiers & Qt.ShiftModifier))
                  || (root.cfg.vimKeybinds && (e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_J || e.key === Qt.Key_N))) { root.stepList(1); e.accepted = true }
@@ -596,8 +757,16 @@ Item {
           root.activate(list.currentItem ? list.currentItem.modelData : null)
           e.accepted = true
         }
+        // Delete removes the entry once there is nothing after the cursor
+        // left to delete, so it still edits the query in the middle of it.
+        else if (root.clipMode && e.key === Qt.Key_Delete && (e.modifiers & Qt.ShiftModifier)) { root.clipClear(); e.accepted = true }
+        else if (root.clipMode && e.key === Qt.Key_Delete && search.cursorPosition === search.text.length) { root.clipDelete(); e.accepted = true }
+        else if (root.clipMode && (e.key === Qt.Key_PageDown || e.key === Qt.Key_PageUp)) {
+          list.currentIndex = Math.max(0, Math.min(root.results.length - 1, list.currentIndex + (e.key === Qt.Key_PageDown ? 6 : -6)))
+          e.accepted = true
+        }
         else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-          if (root.listMode) root.activate(list.currentItem ? list.currentItem.modelData : null)
+          if (root.listMode) root.activate(list.currentItem ? list.currentItem.modelData : null, e.modifiers)
           else if (root.carouselView && root.carouselView.currentItem) root.carouselView.activate(root.carouselView.currentItem.modelData)
           e.accepted = true
         }
