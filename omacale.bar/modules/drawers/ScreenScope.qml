@@ -509,14 +509,14 @@ Scope {
     // Clipboard preview (bottom, right of the launcher), Caelestia PR #1298's
     // ClipboardPreview: its own panel a gap from the launcher. Text sits in a
     // panel as tall as the launcher; an image sizes it to its aspect ratio
-    // (ClipboardPreview.fit), up to the room right of the launcher and the
-    // panel area's height. The last row stays on it while it slides away.
+    // (ClipboardPreview.fit), up to the room right of the launcher and never
+    // taller than the launcher itself. The last row stays on it while it slides away.
     readonly property bool cpVis: cpOff < 1
     property var cpRow: null
     readonly property real cpPadH: Tk.padding.large * 2
     readonly property real cpPadV: Tk.padding.large + Math.max(0, Tk.padding.large - Tk.border)
     readonly property real cpMaxW: Math.max(Tk.px(200), Math.min(Tk.px(640), ax + aw - (lx + lw + Tk.spacing.large + Tk.px(4)) - Tk.padding.large) - cpPadH)
-    readonly property real cpMaxH: Math.min(Tk.px(600), ah - Tk.padding.extraLarge) - cpPadV
+    readonly property real cpMaxH: Math.max(Tk.px(80), lh - cpPadV)
     readonly property size cpFit: cpLoader.item ? cpLoader.item.fit : Qt.size(0, 0)
     property real cpw: cpFit.width > 0 ? cpFit.width + cpPadH : Tk.px(400)
     property real cph: cpFit.height > 0 ? cpFit.height + cpPadV : lh
