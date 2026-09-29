@@ -17,13 +17,11 @@ Item {
 
   onRowChanged: text.contentY = 0
 
-  // Just the entry: its whole text, or its image, on the panel's inner
-  // surface. Its kind and the keys are left out; the rows say the first.
-  Rectangle {
+  // Just the entry: its whole text, or its image, straight on the panel's
+  // own surface. Its kind and the keys are left out; the rows say the first.
+  Item {
     anchors.fill: parent
     visible: !!root.row
-    radius: Tk.rounding.large
-    color: Colours.m3surfaceContainer
     clip: true
 
     Image {
