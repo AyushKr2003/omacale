@@ -857,6 +857,16 @@ Item {
       pushEnter: null; pushExit: null; popEnter: null; popExit: null
       replaceEnter: null; replaceExit: null
 
+      // Hovering another tray icon keeps the page loaded (the name stays
+      // "traymenu"), and initialItem is read only once: start over on the
+      // new item's menu.
+      Connections {
+        target: root
+        function onTrayItemChanged() {
+          stack.replace(null, menuPage.createObject(null, { handle: root.trayItem ? root.trayItem.menu : null }))
+        }
+      }
+
       Component {
         id: menuPage
         Column {
