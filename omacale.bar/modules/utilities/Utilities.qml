@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import "../.."
 
 // Utilities drawer (Caelestia modules/utilities): keep-awake, screen recorder
@@ -12,6 +13,8 @@ Item {
   property var host
   property var scope
   property bool active: false
+  // The x scale of this drawer's deformation (ScreenScope's utilDeform).
+  property real hStretch: 1
 
   // The frame already supplies `border` of the inset on the right and bottom
   // (left and bottom, with a right-hand bar).
@@ -61,19 +64,85 @@ Item {
       hoverEnabled: true
       onClicked: RecordService.confirmDelete = ""
 
-      Rectangle {
+      // The scrim covers the drawer out to the frame's edges, and two fading
+      // fillets carry it along the frame where the drawer's blob curves into
+      // it, so the dim follows the blob's outline. Drawn for utilities in the
+      // bottom-right corner (the frame on its right and bottom), and flipped
+      // to wherever they are.
+      Item {
+        id: scrim
         anchors.fill: parent
-        anchors.margins: -Tk.padding.large
-        anchors.leftMargin: root.mirror ? -Tk.padding.large - Tk.border : -Tk.padding.large
-        anchors.rightMargin: root.mirror ? -Tk.padding.large : -Tk.padding.large - Tk.border
-        anchors.topMargin: root.flip ? -Tk.padding.large - Tk.border : -Tk.padding.large
-        anchors.bottomMargin: root.flip ? -Tk.padding.large : -Tk.padding.large - Tk.border
-        topLeftRadius: root.flip || root.mirror ? 0 : Tk.rounding.extraLarge
-        topRightRadius: !root.flip && root.mirror ? Tk.rounding.extraLarge : 0
-        bottomLeftRadius: root.flip && !root.mirror ? Tk.rounding.extraLarge : 0
-        bottomRightRadius: root.flip && root.mirror ? Tk.rounding.extraLarge : 0
-        color: Colours.m3scrim
+        anchors.leftMargin: -Tk.padding.large - (root.mirror ? Tk.border : 0)
+        anchors.rightMargin: -Tk.padding.large - (root.mirror ? 0 : Tk.border)
+        anchors.topMargin: -Tk.padding.large - (root.flip ? Tk.border : 0)
+        anchors.bottomMargin: -Tk.padding.large - (root.flip ? 0 : Tk.border)
         opacity: 0.5
+        transform: Scale {
+          origin.x: scrim.width / 2
+          origin.y: scrim.height / 2
+          xScale: root.mirror ? -1 : 1
+          yScale: root.flip ? -1 : 1
+        }
+        readonly property real s: Tk.smoothing
+        readonly property real t: Tk.border
+        // How much wider the drawer's blob is than this, while it deforms.
+        readonly property real stretch: (1 - root.hStretch) * width / 2
+
+        Rectangle {
+          anchors.fill: parent
+          anchors.rightMargin: -scrim.stretch
+          // The drawer's overshoot lifts it off the frame for a moment.
+          anchors.bottomMargin: -parent.height * 0.1
+          topLeftRadius: Tk.rounding.extraLarge
+          color: Colours.m3scrim
+        }
+
+        Shape {
+          anchors.fill: parent
+          preferredRendererType: Shape.CurveRenderer
+
+          // Along the bottom of the frame, left of the drawer.
+          ShapePath {
+            strokeWidth: 0
+            startX: -scrim.s * 2
+            startY: scrim.height - scrim.t
+            fillGradient: LinearGradient {
+              x1: -scrim.s * 2
+              x2: 0
+              GradientStop { position: 0; color: Qt.alpha(Colours.m3scrim, 0) }
+              GradientStop { position: 1; color: Colours.m3scrim }
+            }
+            PathLine { relativeX: scrim.s; relativeY: 0 }
+            PathCubic {
+              relativeX: scrim.s; relativeY: -scrim.s
+              relativeControl1X: scrim.s * 0.93; relativeControl1Y: -scrim.s * 0.07
+              relativeControl2X: scrim.s * 0.93; relativeControl2Y: -scrim.s * 0.07
+            }
+            PathLine { relativeX: 0; relativeY: scrim.s + scrim.t }
+            PathLine { relativeX: -scrim.s * 2; relativeY: 0 }
+          }
+
+          // Up the right of the frame, over the drawer.
+          ShapePath {
+            strokeWidth: 0
+            startX: scrim.width - scrim.s - scrim.t + scrim.stretch
+            startY: 0
+            fillGradient: LinearGradient {
+              y1: -scrim.s * 2
+              y2: 0
+              GradientStop { position: 0; color: Qt.alpha(Colours.m3scrim, 0) }
+              GradientStop { position: 1; color: Colours.m3scrim }
+            }
+            PathCubic {
+              relativeX: scrim.s; relativeY: -scrim.s
+              relativeControl1X: scrim.s * 0.93; relativeControl1Y: -scrim.s * 0.07
+              relativeControl2X: scrim.s * 0.93; relativeControl2Y: -scrim.s * 0.07
+            }
+            PathLine { relativeX: 0; relativeY: -scrim.s }
+            PathLine { relativeX: scrim.t; relativeY: 0 }
+            PathLine { relativeX: 0; relativeY: scrim.s * 2 }
+          }
+        }
       }
 
       Rectangle {

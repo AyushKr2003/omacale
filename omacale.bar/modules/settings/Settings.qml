@@ -98,24 +98,16 @@ Item {
     anchors.fill: parent
     layer.enabled: true
     layer.effect: ShaderMaskEffect { maskItem: outerMask }
-    ShaderEffect {
+    // Caelestia nexus/Nexus.qml: a BlobGroup (smoothing rounding.medium)
+    // with the frame (rounding.large) and the window button's tab
+    // (rounding.medium), whose corners in the frame square up by themselves.
+    BlobSurface {
       anchors.fill: parent
-      fragmentShader: Qt.resolvedUrl("../../shaders/blob.frag.qsb")
-      property size res: Qt.size(width, height)
-      property real smoothing: Tk.rounding.medium
-      property real holeRadius: Tk.rounding.large
-      property real panelRadius: Tk.rounding.medium
-      property rect hole: Qt.rect(root.holeX, root.frameSide, root.width - root.holeX - root.frameSide, root.height - root.frameSide * 2)
-      property color color: Colours.m3surface
-      property rect r0: Qt.rect(winBtnRect.x, winBtnRect.y, winBtnRect.width, winBtnRect.height)
-      property rect r1: Qt.rect(0, 0, 0, 0)
-      property rect r2: Qt.rect(0, 0, 0, 0)
-      property rect r3: Qt.rect(0, 0, 0, 0)
-      property rect r4: Qt.rect(0, 0, 0, 0)
-      property rect r5: Qt.rect(0, 0, 0, 0)
-      // Edge each drawer grows out of (0 none, 1 top, 2 right, 3 bottom, 4 left).
-      property vector4d attachA: Qt.vector4d(1, 0, 0, 0)
-      property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
+      smoothing: Tk.rounding.medium
+      frameRadius: Tk.rounding.large
+      radius: Tk.rounding.medium
+      hole: Qt.rect(root.holeX, root.frameSide, root.width - root.holeX - root.frameSide, root.height - root.frameSide * 2)
+      rects: [[winBtnRect.x, winBtnRect.y, winBtnRect.width, winBtnRect.height]]
     }
   }
 

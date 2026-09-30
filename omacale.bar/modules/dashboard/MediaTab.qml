@@ -280,13 +280,43 @@ Item {
             z: 1
             MIcon { text: "lyrics"; size: Tk.iconSize.medium }
             MText { Layout.fillWidth: true; text: "Lyrics"; font.pointSize: Tk.title.medium; weight: Font.Medium }
-            Rectangle {
-              visible: Sys.lyricsState === "ready"
-              implicitWidth: srcText.implicitWidth + Tk.padding.medium * 2
-              implicitHeight: srcText.implicitHeight + Tk.padding.extraSmall * 2
-              radius: height / 2
-              color: Colours.m3secondaryContainer
-              MText { id: srcText; anchors.centerIn: parent; text: "lrclib"; font.pointSize: Tk.label.small; weight: Font.Medium; color: Colours.m3onSecondaryContainer }
+            // Caelestia dashboard/media/LyricsInfo.qml: where the lyrics came
+            // from, in a blob that swells out of the button. There is no
+            // timing offset to show: Omacale has none to adjust.
+            BlobPopup {
+              popupRadius: Tk.rounding.medium
+              Item {
+                implicitWidth: Math.max(lyricInfo.implicitWidth, lyricPlaceholder.implicitWidth)
+                implicitHeight: Math.max(lyricInfo.implicitHeight, lyricPlaceholder.implicitHeight)
+                readonly property bool ready: Sys.lyricsState === "ready"
+                ColumnLayout {
+                  id: lyricInfo
+                  anchors.centerIn: parent
+                  spacing: Tk.spacing.extraSmall
+                  opacity: parent.ready ? 1 : 0
+                  Behavior on opacity { Anim { type: "effects" } }
+                  MText { text: "Backend: LRCLIB"; color: Colours.m3onSurfaceVariant; animate: true }
+                  MText {
+                    Layout.maximumWidth: Tk.px(500)
+                    readonly property var m: Sys.lyricsMatch
+                    text: m ? "Selected candidate: " + [m.title, m.artist, m.album].filter(v => v).join(" | ") : ""
+                    visible: !!m
+                    color: Colours.m3onSurfaceVariant
+                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                    animate: true
+                  }
+                }
+                MText {
+                  id: lyricPlaceholder
+                  anchors.centerIn: parent
+                  opacity: parent.ready ? 0 : 1
+                  Behavior on opacity { Anim { type: "effects" } }
+                  text: Sys.lyricsState === "loading" ? "Loading..." : Config.o.dashboard.lyrics ? "No lyrics found" : "Lyrics are off"
+                  color: Colours.m3onSurfaceVariant
+                  font.pointSize: Tk.body.medium
+                  animate: true
+                }
+              }
             }
           }
 

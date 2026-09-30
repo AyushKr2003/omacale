@@ -451,6 +451,8 @@ QtObject {
   // Synced lyrics from lrclib.net (scripts/lyrics.sh), parsed from LRC.
   property var lyrics: []             // [{ time, text }]
   property string lyricsState: "none" // loading | ready | none
+  // The lrclib record the lyrics came from: { title, artist, album }.
+  property var lyricsMatch: null
   property string _lyricsKey: ""
   readonly property string lyricsKey: player && Config.o.dashboard.lyrics ? (player.trackArtist + "\u0001" + player.trackTitle) : ""
   onLyricsKeyChanged: lyricsDebounce.restart()
@@ -460,6 +462,7 @@ QtObject {
       if (root.lyricsKey === root._lyricsKey) return
       root._lyricsKey = root.lyricsKey
       root.lyrics = []
+      root.lyricsMatch = null
       if (!root.lyricsKey || !root.player.trackTitle) { root.lyricsState = "none"; return }
       root.lyricsState = "loading"
       root.lyricsProbe.running = false
@@ -473,10 +476,17 @@ QtObject {
     stdout: StdioCollector {
       onStreamFinished: {
         const out = []
+        let match = null
         String(text).split("\n").forEach(l => {
+          if (l.startsWith("#match\t")) {
+            const f = l.split("\t")
+            match = { title: f[1] || "", artist: f[2] || "", album: f[3] || "" }
+            return
+          }
           const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/)
           if (m) out.push({ time: parseInt(m[1]) * 60 + parseFloat(m[2]), text: m[3].trim() })
         })
+        root.lyricsMatch = out.length ? match : null
         root.lyrics = out
         root.lyricsState = out.length ? "ready" : "none"
       }

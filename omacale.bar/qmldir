@@ -12,6 +12,9 @@ ColouredIcon 1.0 components/ColouredIcon.qml
 singleton AppService 1.0 services/AppService.qml
 singleton Colours 1.0 core/Colours.qml
 singleton Config 1.0 core/Config.qml
+BlobDeform 1.0 components/shapes/BlobDeform.qml
+BlobPopup 1.0 components/controls/BlobPopup.qml
+BlobSurface 1.0 components/shapes/BlobSurface.qml
 ConnectedRect 1.0 components/shapes/ConnectedRect.qml
 CoverArt 1.0 components/CoverArt.qml
 Dashboard 1.0 modules/dashboard/Dashboard.qml
@@ -45,6 +48,7 @@ QuickToggles 1.0 modules/utilities/QuickToggles.qml
 RecordCard 1.0 modules/utilities/RecordCard.qml
 RecordingList 1.0 modules/utilities/RecordingList.qml
 singleton RecordService 1.0 services/RecordService.qml
+PopupRow 1.0 modules/settings/common/PopupRow.qml
 RowLabel 1.0 modules/settings/common/RowLabel.qml
 RowNav 1.0 modules/settings/rows/RowNav.qml
 RowSelect 1.0 modules/settings/rows/RowSelect.qml

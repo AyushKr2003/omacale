@@ -61,24 +61,13 @@ ColumnLayout {
         layer.enabled: Config.o.appearance.shadow
         layer.effect: MultiEffect { shadowEnabled: true; blurMax: 12; shadowColor: Qt.alpha("black", 0.6) }
 
-        ShaderEffect {
+        BlobSurface {
           anchors.fill: parent
-          fragmentShader: Qt.resolvedUrl("../../../shaders/blob.frag.qsb")
-          property size res: Qt.size(width, height)
-          property real smoothing: Tk.smoothing * parent.s
-          property real holeRadius: Tk.borderRounding * parent.s
-          property real panelRadius: Tk.rounding.extraLarge * parent.s
-          property rect hole: Qt.rect(parent.il, parent.it, width - parent.il - parent.ir, height - parent.it - parent.ib)
-          property color color: Colours.m3surface
-          property rect r0: Qt.rect(parent.il + (width - parent.il - parent.ir - parent.dw) / 2, parent.it, parent.dw, parent.dh)
-          property rect r1: Qt.rect(0, 0, 0, 0)
-          property rect r2: Qt.rect(0, 0, 0, 0)
-          property rect r3: Qt.rect(0, 0, 0, 0)
-          property rect r4: Qt.rect(0, 0, 0, 0)
-          property rect r5: Qt.rect(0, 0, 0, 0)
-          // Edge each drawer grows out of (0 none, 1 top, 2 right, 3 bottom, 4 left).
-          property vector4d attachA: Qt.vector4d(1, 0, 0, 0)
-          property vector4d attachB: Qt.vector4d(0, 0, 0, 0)
+          smoothing: Tk.smoothing * parent.s
+          frameRadius: Tk.borderRounding * parent.s
+          radius: Tk.rounding.extraLarge * parent.s
+          hole: Qt.rect(parent.il, parent.it, width - parent.il - parent.ir, height - parent.it - parent.ib)
+          rects: [[parent.il + (width - parent.il - parent.ir - parent.dw) / 2, parent.it, parent.dw, parent.dh]]
         }
 
         // mini bar: a strip along the left edge, turned a quarter for the top and

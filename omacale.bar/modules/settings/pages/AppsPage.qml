@@ -72,16 +72,52 @@ ColumnLayout {
   SectionHeader { first: true; row: ({ text: "Default applications" }) }
   Repeater {
     model: root.kinds
-    RowSelect {
+    // Caelestia AppsPage DefaultRow: the current app under the label, and a
+    // blob popup of the choices.
+    PopupRow {
+      id: defRow
       required property var modelData
       required property int index
-      Layout.fillWidth: true
+      readonly property var opts: root.options(modelData)
       first: index === 0
       last: index === root.kinds.length - 1
       settings: root.settings
-      row: ({ icon: modelData.icon, label: modelData.label, options: root.options(modelData) })
-      value: root.current[modelData.kind] || ""
-      onPicked: v => root.set(modelData.kind, v)
+      icon: modelData.icon
+      label: modelData.label
+      status: (opts.find(o => o.value === root.current[modelData.kind]) || { label: root.current[modelData.kind] || "" }).label
+
+      ColumnLayout {
+        implicitWidth: Tk.px(300)
+        spacing: 0
+        Repeater {
+          model: defRow.opts
+          StateLayer {
+            id: choice
+            required property var modelData
+            anchors.fill: undefined
+            Layout.fillWidth: true
+            implicitHeight: choiceRow.implicitHeight + Tk.padding.medium * 2
+            radius: Tk.rounding.small
+            disabled: !defRow.popup.open
+            onClicked: {
+              defRow.popup.open = false
+              root.set(defRow.modelData.kind, modelData.value)
+            }
+            RowLayout {
+              id: choiceRow
+              anchors.fill: parent
+              anchors.margins: Tk.padding.medium
+              spacing: Tk.spacing.medium
+              MIcon {
+                text: choice.modelData.value === root.current[defRow.modelData.kind] ? "check" : choice.modelData.icon
+                size: Tk.iconSize.medium
+                color: choice.modelData.value === root.current[defRow.modelData.kind] ? Colours.m3primary : Colours.m3onSurfaceVariant
+              }
+              MText { Layout.fillWidth: true; text: choice.modelData.label; elide: Text.ElideRight }
+            }
+          }
+        }
+      }
     }
   }
 

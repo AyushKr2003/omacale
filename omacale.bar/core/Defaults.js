@@ -9,6 +9,9 @@ var values = {
     variant: "tonalspot",    // M3 dynamic scheme
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
     animScale: 1.0,
+    // Caelestia appearance.deformScale: how much drawers stretch as they
+    // move (0 turns the jelly off).
+    deformScale: 1.0,
     // UI scale. `source` omarchy follows ~/.config/omarchy/shell.toml ([font]
     // base-size, [spacing] scale); custom uses `ui`. font/padding/spacing/rounding
     // are Caelestia's appearance.*.scale, applied on top.

@@ -76,10 +76,11 @@ var pages = [
       { type: "section", text: "Frame" },
       { type: "slider", key: "border.thickness", label: "Border thickness", icon: "border_outer", from: 0, to: 30, step: 1, unit: "px" },
       { type: "slider", key: "border.rounding", label: "Corner rounding (at 100% scale)", icon: "rounded_corner", from: 0, to: 48, step: 1, unit: "px" },
-      { type: "slider", key: "border.smoothing", label: "Drawer blending", icon: "join", from: 2, to: 40, step: 1, unit: "px" },
+      { type: "slider", key: "border.smoothing", label: "Drawer blending (at 100% scale)", icon: "join", from: 2, to: 40, step: 1, unit: "px" },
       { type: "toggle", key: "appearance.shadow", label: "Shadow", subtext: "Soft shadow under the frame and drawers" },
       { type: "section", text: "Motion" },
-      { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "animation", from: 0.25, to: 2, step: 0.05, unit: "x" }
+      { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "animation", from: 0.25, to: 2, step: 0.05, unit: "x" },
+      { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" }
     ]
   },
   {

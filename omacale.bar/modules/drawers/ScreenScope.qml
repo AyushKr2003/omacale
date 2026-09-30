@@ -246,13 +246,17 @@ Scope {
       else if (name === "session" && scope.cfg.session.enabled) scope.session = !scope.session
       else if (name === "settings") {
         // With a page id it opens (never toggles) straight onto that page.
-        if (arg) { scope.popout = ""; scope.settings = true; nexus.go(arg) }
+        if (arg) {
+          // From a popout's settings button: that popout's blob becomes
+          // Settings, travelling to the middle as it grows (Caelestia
+          // bar/popouts/Wrapper.qml detach("any")).
+          if (!scope.settings) win.handOffPopout()
+          scope.popout = ""; scope.settings = true; nexus.go(arg)
+        }
         else scope.settings = !scope.settings
       }
-      else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) {
-        if (scope.session) scope.session = false
-        scope.sidebar = !scope.sidebar
-      }
+      // The session menu stays: it moves over to sit against the sidebar.
+      else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) scope.sidebar = !scope.sidebar
       else if (name === "utilities" && (!scope.cfg.utilities || scope.cfg.utilities.enabled)) {
         if (scope.session) scope.session = false
         scope.utilities = !scope.utilities
@@ -451,28 +455,30 @@ Scope {
 
     // Drawers on the right of the screen (the left, with a right-hand bar):
     // where one of width w sits, off = 0 open to 1 away, and the part of the
-    // area it shows, which is what the input mask and the shader rect keep.
+    // area it shows, which is what the input mask keeps. `off` is not
+    // clamped: the spatial curve overshoots, and the drawer comes a few px
+    // off its wall and back, as Caelestia's do (the blob's corner fill keeps
+    // it joined to the frame meanwhile).
     function sideX(w, off) {
-      return scope.mirror ? ax - (w + 5) * Math.max(0, off) : ax + aw - w + (w + 5) * Math.max(0, off)
+      return scope.mirror ? ax - (w + 5) * off : ax + aw - w + (w + 5) * off
     }
     function sideMaskX(x) { return scope.mirror ? ax : x }
     function sideMaskW(x, w) { return scope.mirror ? Math.max(0, x + w - ax) : Math.max(0, ax + aw - x) }
-    // The rect that stretches to keep touching its frame edge while the
-    // spatial curve overshoots.
-    function sideRectX(x) { return scope.mirror ? Math.min(x, ax) : x }
-    function sideRectW(x, w) { return scope.mirror ? x + w - Math.min(x, ax) : Math.max(w, ax + aw - x) }
 
     // -------------------------------------------------- drawer motion
     property real dOff: scope.dashboard ? 0 : 1
     property real lOff: scope.launcher ? 0 : 1
     property real sOff: scope.session ? 0 : 1
-    property real pOff: scope.popout !== "" ? 0 : 1
+    // A detached popout flies back to the bar before it slides away.
+    property real pOff: scope.popout !== "" || pDet > 0.001 ? 0 : 1
     property real nOff: scope.settings ? 0 : 1
     property real oOff: scope.overview ? 0 : 1
     property real sbOff: scope.sidebar ? 0 : 1
     // The clipboard preview, out while the launcher shows clipboard rows.
     property real cpOff: scope.launcher && launch && launch.previewWanted ? 0 : 1
-    property real uOff: (scope.utilities || scope.sidebar) ? 0 : 1
+    // Utilities give way to the session menu, unless the sidebar holds them
+    // (Caelestia utilities/Wrapper.qml shouldBeActive).
+    property real uOff: (scope.sidebar || (scope.utilities && !scope.session)) ? 0 : 1
     Behavior on dOff { Anim {} }
     Behavior on lOff { Anim {} }
     Behavior on sOff { Anim {} }
@@ -500,12 +506,12 @@ Scope {
     readonly property real dw: (dash && dash.implicitWidth) || Tk.px(854)
     readonly property real dh: dash ? dash.implicitHeight : 0
     readonly property real dx: ax + Math.round((aw - dw) / 2)
-    readonly property real dy: ay + (-dh - 5) * Math.max(0, dOff)
+    readonly property real dy: ay + (-dh - 5) * dOff
     // Launcher (bottom centre)
     readonly property real lw: launch ? launch.implicitWidth : 0
     property real lh: launch ? launch.implicitHeight : 0
     readonly property real lx: ax + Math.round((aw - lw) / 2)
-    readonly property real ly: ay + ah - lh + (lh + 5) * Math.max(0, lOff)
+    readonly property real ly: ay + ah - lh + (lh + 5) * lOff
     // Clipboard preview (bottom, right of the launcher), Caelestia PR #1298's
     // ClipboardPreview: its own panel a gap from the launcher, sized to what
     // it shows (ClipboardPreview.fit): an image to its aspect ratio, up to the
@@ -528,12 +534,22 @@ Scope {
     Behavior on cpw { enabled: win.cpOff < 1; Anim {} }
     Behavior on cph { enabled: win.cpOff < 1; Anim {} }
     readonly property real cpx: lx + lw + cpGap
-    readonly property real cpy: ay + ah - cph + (cph + 5) * Math.max(0, cpOff)
-    // Session (right centre)
+    readonly property real cpy: ay + ah - cph + (cph + 5) * cpOff
+    // Session (right centre). With the sidebar out it sits against the
+    // sidebar instead of the frame, and slides out from behind it, clipped at
+    // its edge (Caelestia Panels.qml sessionWrapper, session/Wrapper.qml
+    // sidebarOffset).
     readonly property real sw: sess ? sess.implicitWidth : 0
     readonly property real sh: sess ? sess.implicitHeight : 0
-    readonly property real sx: sideX(sw, sOff)
+    readonly property real sShift: sbVis ? sbw * (1 - sbOff) : 0
+    readonly property real sHide: sw + 5 + (sbVis ? 14 : 0)
+    readonly property real sx: scope.mirror ? ax + sShift - sHide * sOff : ax + aw - sShift - sw + sHide * sOff
     readonly property real sy: ay + Math.round((ah - sh) / 2)
+    // The session's clip: the panel area short of the sidebar.
+    readonly property real sClipX: scope.mirror ? ax + sShift : ax
+    readonly property real sClipW: Math.max(0, aw - sShift)
+    readonly property real sMaskX: Math.max(sx, sClipX)
+    readonly property real sMaskW: Math.max(0, Math.min(sx + sw, sClipX + sClipW) - sMaskX)
     // Popout (against the bar's edge, beside its icon)
     // Caelestia's ClipWrapper places the popout from the page's final size
     // (nonAnimHeight), so it moves straight to its spot while the size
@@ -550,10 +566,13 @@ Scope {
     Connections {
       target: scope
       function onPopoutChanged() {
+        if (scope.popout !== "") win.pHandoff = false
         if (scope.popout !== "" && win.pOff >= 0.999) { win.pSettled = false; pSettle.restart() }
       }
     }
     readonly property bool pAnimate: pOff < 1 && pSettled
+    property real pFade: scope.popout !== "" ? 1 : 0
+    Behavior on pFade { Anim { type: "effects" } }
     Behavior on pw { enabled: win.pAnimate; Anim {} }
     Behavior on ph { enabled: win.pAnimate; Anim {} }
     // Along the bar: centred on its icon, kept inside the panel area.
@@ -564,36 +583,62 @@ Scope {
       return Math.max(lo, Math.min(scope.popoutCenter - size / 2, lo + span - size))
     }
     Behavior on pa { enabled: win.pAnimate; Anim {} }
-    // A popout pressed against either end of the panel area grows out of that
-    // frame edge too: it reaches into the frame so its corner there is square
-    // and the frame flares into it, as the dashboard and launcher do.
-    readonly property bool pTouchA: pa <= (scope.barVert ? ay : ax) + 0.5
-    readonly property bool pTouchB: scope.barVert ? pa + ph >= ay + ah - 0.5 : pa + pw >= ax + aw - 0.5
-    // Across the bar: out of its edge, sliding in from behind it.
-    readonly property real px: scope.barVert ? (scope.barPos === "left" ? ax + (-pw - 5) * Math.max(0, pOff) : ax + aw - pw + (pw + 5) * Math.max(0, pOff)) : pa
-    readonly property real py: scope.barVert ? pa : (scope.barPos === "top" ? ay + (-ph - 5) * Math.max(0, pOff) : ay + ah - ph + (ph + 5) * Math.max(0, pOff))
+    // Across the bar: out of its edge, sliding in from behind it. A popout
+    // pressed against an end of the panel area squares its corner there by
+    // itself (the blob's corner fill), as Caelestia's does.
+    readonly property real pax: scope.barVert ? (scope.barPos === "left" ? ax + (-pw - 5) * pOff : ax + aw - pw + (pw + 5) * pOff) : pa
+    readonly property real pay: scope.barVert ? pa : (scope.barPos === "top" ? ay + (-ph - 5) * pOff : ay + ah - ph + (ph + 5) * pOff)
+    // Detached (the window info panel): the popout leaves the bar and floats
+    // in the middle of the panel area over a scrim, and on closing flies back
+    // to the bar before it slides in (Caelestia bar/popouts/Wrapper.qml
+    // detach(), ClipWrapper.qml).
+    readonly property bool pDetachWanted: scope.popout === "winfo"
+    property real pDet: pDetachWanted ? 1 : 0
+    Behavior on pDet { Anim {} }
+    readonly property real px: pax + (ax + Math.round((aw - pw) / 2) - pax) * pDet
+    readonly property real py: pay + (ay + Math.round((ah - ph) / 2) - pay) * pDet
     // What of it the panel area shows.
     readonly property real pcx: Math.max(ax, px)
     readonly property real pcy: Math.max(ay, py)
     readonly property real pcw: Math.max(0, Math.min(ax + aw, px + pw) - pcx)
     readonly property real pch: Math.max(0, Math.min(ay + ah, py + ph) - pcy)
-    // The shader rect: it reaches 20% behind the bar so it never detaches, and
-    // into the frame where it touches an end.
-    readonly property real prx: px - (scope.barPos === "left" ? pw * 0.2 : 0) - (!scope.barVert && pTouchA ? bt : 0)
-    readonly property real pry: py - (scope.barPos === "top" ? ph * 0.2 : 0) - (scope.barVert && pTouchA ? bt : 0)
-    readonly property real prw: scope.barVert ? pw * 1.2 : pw + (pTouchA ? bt : 0) + (pTouchB ? bt : 0)
-    readonly property real prh: scope.barVert ? ph + (pTouchA ? bt : 0) + (pTouchB ? bt : 0) : ph * 1.2
-    // The frame edges it grows out of, as an attach bitmask (1 top, 2 right,
-    // 4 bottom, 8 left).
-    readonly property int pAttach: (scope.barPos === "left" ? 8 : scope.barPos === "right" ? 2 : scope.barPos === "top" ? 1 : 4)
-      + (pTouchA ? (scope.barVert ? 1 : 8) : 0) + (pTouchB ? (scope.barVert ? 4 : 2) : 0)
+    // The shader rect reaches 20% behind the bar so the popout never comes
+    // off it, even squashed by its deformation (Caelestia's extraWidth, gone
+    // once detached).
+    readonly property real pExtra: 0.2 * (1 - pDet)
+    readonly property real prx: px - (scope.barPos === "left" ? pw * pExtra : 0)
+    readonly property real pry: py - (scope.barPos === "top" ? ph * pExtra : 0)
+    readonly property real prw: scope.barVert ? pw * (1 + pExtra) : pw
+    readonly property real prh: scope.barVert ? ph : ph * (1 + pExtra)
     // Settings (floating, centred) — grows out of a small pill.
     readonly property real nfw: nexus ? nexus.implicitWidth : 0
     readonly property real nfh: nexus ? nexus.implicitHeight : 0
-    readonly property real nw: nfw * (1 - 0.55 * nOff)
-    readonly property real nh: nfh * (1 - 0.8 * nOff)
-    readonly property real nx: ax + Math.round((aw - nw) / 2)
-    readonly property real ny: ay + Math.round((ah - nh) / 2)
+    // Opened from a popout, it starts as that popout's rect and grows into
+    // place from there, and on closing goes back to the bar and into it;
+    // otherwise it grows out of a small pill in the middle.
+    property var nOrigin: null
+    // The popout whose blob has become Settings: drawn no more, its slide
+    // away left to finish unseen.
+    property bool pHandoff: false
+    function handOffPopout() {
+      if (!pVis || pOff > 0.5 || scope.popout === "" || pDetachWanted) return
+      nOrigin = [prx, pry, prw, prh]
+      pHandoff = true
+    }
+    // The popout's rect slid all the way behind the bar.
+    readonly property var nOriginAway: !nOrigin ? null
+      : scope.barPos === "left" ? [nOrigin[0] - pw - 5, nOrigin[1], nOrigin[2], nOrigin[3]]
+      : scope.barPos === "right" ? [nOrigin[0] + pw + 5, nOrigin[1], nOrigin[2], nOrigin[3]]
+      : scope.barPos === "top" ? [nOrigin[0], nOrigin[1] - ph - 5, nOrigin[2], nOrigin[3]]
+      : [nOrigin[0], nOrigin[1] + ph + 5, nOrigin[2], nOrigin[3]]
+    readonly property var nFrom: nOrigin ? (scope.settings ? nOrigin : nOriginAway) : null
+    function nLerp(a, b) { return a + (b - a) * (1 - nOff) }
+    readonly property real nw: nFrom ? nLerp(nFrom[2], nfw) : nfw * (1 - 0.55 * nOff)
+    readonly property real nh: nFrom ? nLerp(nFrom[3], nfh) : nfh * (1 - 0.8 * nOff)
+    readonly property real nx: nFrom ? nLerp(nFrom[0], ax + Math.round((aw - nfw) / 2)) : ax + Math.round((aw - nw) / 2)
+    readonly property real ny: nFrom ? nLerp(nFrom[1], ay + Math.round((ah - nfh) / 2)) : ay + Math.round((ah - nh) / 2)
+    onNVisChanged: if (!nVis && !scope.settings) nOrigin = null
+    onPOffChanged: if (pOff >= 1) pHandoff = false
     // Overview — the same grow as Settings. In the middle it floats; at the
     // top or bottom (Settings › Panels › Overview › Position) it grows out of
     // that frame edge instead, as the dashboard and launcher do.
@@ -624,19 +669,27 @@ Scope {
         easing.bezierCurve: scope.sidebar ? Tk.curves.standardAccel : Tk.curves.standardDecel
       }
     }
-    readonly property real uw: sideMaskW(sbx, sbw) * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
+    // The sidebar's width including its overshoot, widened by half its
+    // horizontal stretch while it deforms (ContentWindow.qml
+    // utilities.horizontalStretch).
+    readonly property real uHStretch: (sbDeform.m00 - 1) / 2 + 1
+    readonly property real uw: sbw * (1 - sbOff) * uHStretch * sbLerp + Tk.sizes.utilitiesWidth * (1 - sbLerp)
     readonly property real uh: (util && util.implicitHeight > 0) ? util.implicitHeight : Tk.px(450)
     readonly property real ux: scope.mirror ? ax : ax + aw - uw
-    readonly property real uy: scope.flipV ? ay - (uh + 5) * Math.max(0, uOff) : ay + ah - uh + (uh + 5) * uOff
-    // The part of it the panel area shows, and its shader rect, which keeps
-    // touching its frame edge (the bottom, or the top when flipped).
+    readonly property real uy: scope.flipV ? ay - (uh + 5) * uOff : ay + ah - uh + (uh + 5) * uOff
+    // The part of it the panel area shows.
     readonly property real uMaskY: scope.flipV ? Math.max(ay, uy) : uy
     readonly property real uMaskH: scope.flipV ? Math.max(0, uy + uh - uMaskY) : Math.max(0, ay + ah - uy)
-    readonly property real uRectY: scope.flipV ? Math.min(uy, ay) : uy
-    readonly property real uRectH: scope.flipV ? uy + uh - uRectY : Math.max(uh, ay + ah - uy)
-    // Caelestia's PanelBg: the corners they share square up and their fillet
-    // is dropped once the sidebar is (nearly) in place.
+    // The sidebar's shader rect: 2px over the utilities so the join never
+    // shows a seam, and taller by its vertical squash so a deformed sidebar
+    // still reaches them (ContentWindow.qml sidebarBg implicitHeight).
+    readonly property real sbRectH: sbh / Math.max(0.5, sbDeform.m11) + 2
+    readonly property real sbRectY: scope.flipV ? sby + sbh - sbRectH : sby
+    // Caelestia's PanelBg: the corners they share square up over the last
+    // 30% of the sidebar's slide, and their fillet is dropped once it is
+    // within 8% of in place.
     readonly property real joinRound: Math.max(0, Math.min(1, sbOff / 0.3))
+    readonly property bool joinExcluded: sbOff <= 0.08
 
     // ------------------------------------------------------ input mask
 
@@ -650,7 +703,7 @@ Scope {
       Region { intersection: Intersection.Subtract; x: win.dx; y: win.ay; width: win.dVis && !win.modal ? win.dw : 0; height: win.dVis ? Math.max(0, win.dy + win.dh - win.ay) : 0 }
       Region { intersection: Intersection.Subtract; x: win.lx; y: win.ly; width: win.lVis && !win.modal ? win.lw : 0; height: win.lVis ? Math.max(0, win.ay + win.ah - win.ly) : 0 }
       Region { intersection: Intersection.Subtract; x: win.cpx; y: win.cpy; width: win.cpVis && !win.modal ? win.cpw : 0; height: win.cpVis ? Math.max(0, win.ay + win.ah - win.cpy) : 0 }
-      Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sx); y: win.sy; width: win.sVis && !win.modal ? win.sideMaskW(win.sx, win.sw) : 0; height: win.sVis ? win.sh : 0 }
+      Region { intersection: Intersection.Subtract; x: win.sMaskX; y: win.sy; width: win.sVis && !win.modal ? win.sMaskW : 0; height: win.sVis ? win.sh : 0 }
       Region { intersection: Intersection.Subtract; x: win.pcx; y: win.pcy; width: win.pVis && !win.modal ? win.pcw : 0; height: win.pVis ? win.pch : 0 }
       Region { intersection: Intersection.Subtract; x: win.ux; y: win.uMaskY; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? win.uMaskH : 0 }
       Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sbx); y: win.sby; width: win.sbVis && !win.modal ? win.sideMaskW(win.sbx, win.sbw) : 0; height: win.sbVis ? win.sbh : 0 }
@@ -725,13 +778,34 @@ Scope {
     Rectangle {
       anchors.fill: parent
       color: Colours.m3scrim
-      opacity: 0.5 * Math.max(1 - win.nOff, 1 - win.oOff)
+      opacity: 0.5 * Math.max(1 - win.nOff, 1 - win.oOff, Math.min(1, win.pDet))
       visible: opacity > 0
     }
+
+    // ------------------------------------------------------- jelly
+    // Caelestia's BlobRect deformation (ContentWindow.qml PanelBg
+    // deformAmount): each drawer stretches along its motion and wobbles once
+    // as it settles; the same matrix is applied to its content below.
+    BlobDeform { id: dashDeform; amount: 0.1; cx: win.dx + win.dw / 2; cy: win.dy + win.dh / 2 }
+    BlobDeform { id: launchDeform; amount: 0.1; cx: win.lx + win.lw / 2; cy: win.ly + win.lh / 2 }
+    BlobDeform { id: cpDeform; amount: 0.1; cx: win.cpx + win.cpw / 2; cy: win.cpy + win.cph / 2 }
+    BlobDeform { id: sessDeform; amount: 0.2; cx: win.sx + win.sw / 2; cy: win.sy + win.sh / 2 }
+    BlobDeform {
+      id: popDeform
+      amount: win.pDetachWanted ? 0.05 : scope.popout !== "" ? 0.15 : 0.1
+      cx: win.prx + win.prw / 2
+      cy: win.pry + win.prh / 2
+    }
+    BlobDeform { id: nDeform; amount: 0.05; cx: win.nx + win.nw / 2; cy: win.ny + win.nh / 2 }
+    BlobDeform { id: sbDeform; amount: 0.03; cx: win.sbx + win.sbw / 2; cy: win.sbRectY + win.sbRectH / 2 }
+    BlobDeform { id: utilDeform; amount: win.sbVis ? 0.1 : 0.15; cx: win.ux + win.uw / 2; cy: win.uy + win.uh / 2 }
 
     // ---------------------------------------------------- background
     Item {
       anchors.fill: parent
+      // Caelestia draws the blob opaque and fades the whole layer (and so
+      // its shadow) by the surface's alpha.
+      opacity: Colours.m3surface.a
       // Only when there is a shadow to draw. The layer is a screen-sized
       // texture that the frame shader renders into and MultiEffect then
       // blurs; with shadows off that whole round trip produced the same
@@ -743,44 +817,38 @@ Scope {
         shadowColor: Qt.alpha(Colours.m3shadow, 0.7 * Math.max(0, 1 - win.fs))
       }
 
-      ShaderEffect {
+      BlobSurface {
         anchors.fill: parent
-        fragmentShader: Qt.resolvedUrl("../../shaders/blob.frag.qsb")
-
-        property size res: Qt.size(width, height)
-        property real smoothing: Tk.smoothing
-        property real holeRadius: Tk.borderRounding * (1 - win.fs)
-        property real panelRadius: Tk.rounding.extraLarge
-        property rect hole: Qt.rect(win.ax, win.ay, win.aw, win.ah)
-        property color color: Colours.m3surface
-        property rect r0: win.dVis ? Qt.rect(win.dx, win.dy, win.dw, win.dh) : Qt.rect(0, 0, 0, 0)
-        property rect r1: win.lVis ? Qt.rect(win.lx, win.ly, win.lw, win.lh) : Qt.rect(0, 0, 0, 0)
-        property rect r2: win.sVis ? Qt.rect(win.sx, win.sy, win.sw, win.sh) : Qt.rect(0, 0, 0, 0)
-        // Popout background reaches 20% behind the bar so it never detaches.
-        property rect r3: win.pVis ? Qt.rect(win.prx, win.pry, win.prw, win.prh) : Qt.rect(0, 0, 0, 0)
-        property rect r4: win.nVis ? Qt.rect(win.nx, win.ny, win.nw, win.nh) : Qt.rect(0, 0, 0, 0)
-        // Sidebar and utilities stretch to keep touching their frame edges
-        // while their spatial curve overshoots; the sidebar overlaps the
-        // utilities by 2px so the join never shows a seam.
-        property rect r5: win.uVis ? Qt.rect(win.ux, win.uRectY, win.uw, win.uRectH) : Qt.rect(0, 0, 0, 0)
-        property rect r6: win.sbVis ? Qt.rect(win.sideRectX(win.sbx), win.sby - (scope.flipV ? 2 : 0), win.sideRectW(win.sbx, win.sbw), win.sbh + 2) : Qt.rect(0, 0, 0, 0)
-        // The overview floats like Settings (attach 0) unless it is attached
-        // to the top (1) or bottom (4) frame edge.
-        property rect r7: win.oVis ? Qt.rect(win.ox, win.oy, win.ow, win.oh) : Qt.rect(0, 0, 0, 0)
-        // Edges each drawer grows out of, as a bitmask (1 top, 2 right, 4 bottom, 8 left).
-        // The right-hand drawers grow out of the left edge instead (attach 8) when
-        // the bar is on the right.
-        property vector4d attachA: Qt.vector4d(1, 4, scope.mirror ? 8 : 2, win.pAttach)
-        // Utilities grows out of the bottom (the top, flipped) and the sidebar
-        // out of the other.
-        property vector4d attachB: Qt.vector4d(0, (scope.mirror ? 8 : 2) + (scope.flipV ? 1 : 4), (scope.mirror ? 8 : 2) + (scope.flipV ? 4 : 1), !win.oAttached ? 0 : win.oPos === "top" ? 1 : 4)
-        property point join: Qt.point(win.joinRound, win.sbOff <= 0.08 ? 1 : 0)
-        property real mirror: scope.mirror ? 1 : 0
-        property real flipV: scope.flipV ? 1 : 0
-        property rect r8: win.cpVis ? Qt.rect(win.cpx, win.cpy, win.cpw, win.cph) : Qt.rect(0, 0, 0, 0)
-        property real attach8: 4
-
+        hole: Qt.rect(win.ax, win.ay, win.aw, win.ah)
+        frameRadius: Tk.borderRounding * (1 - win.fs)
+        color: Qt.alpha(Colours.m3surface, 1)
         Behavior on color { CAnim {} }
+
+        // r0 dashboard, r1 launcher, r2 session, r3 popout, r4 settings,
+        // r5 utilities, r6 sidebar, r7 overview, r8 clipboard preview.
+        rects: [
+          win.dVis ? [win.dx, win.dy, win.dw, win.dh] : null,
+          win.lVis ? [win.lx, win.ly, win.lw, win.lh] : null,
+          win.sVis ? [win.sx, win.sy, win.sw, win.sh] : null,
+          win.pVis && !win.pHandoff ? [win.prx, win.pry, win.prw, win.prh] : null,
+          win.nVis ? [win.nx, win.ny, win.nw, win.nh] : null,
+          win.uVis ? [win.ux, win.uy, win.uw, win.uh] : null,
+          win.sbVis ? [win.sbx, win.sbRectY, win.sbw, win.sbRectH] : null,
+          win.oVis ? [win.ox, win.oy, win.ow, win.oh] : null,
+          win.cpVis ? [win.cpx, win.cpy, win.cpw, win.cph] : null
+        ]
+        deforms: [dashDeform.vec, launchDeform.vec, sessDeform.vec, popDeform.vec, nDeform.vec,
+                  utilDeform.vec, sbDeform.vec, null, cpDeform.vec]
+        // The corner the sidebar and utilities share flattens as the sidebar
+        // comes in (its left side; the right, with a right-hand bar; the
+        // utilities' bottom and the sidebar's top, with a bottom bar).
+        readonly property real jr: win.joinRound * Tk.rounding.extraLarge
+        corners: [-1, -1, -1, -1, -1,
+          scope.flipV ? [-1, -1, jr, -1] : scope.mirror ? [jr, -1, -1, -1] : [-1, -1, -1, jr],
+          scope.flipV ? [-1, -1, -1, jr] : scope.mirror ? [-1, jr, -1, -1] : [-1, -1, jr, -1]]
+        // The clipboard preview is its own panel beside the launcher, as
+        // Caelestia PR #1298 draws it, not a bulge of it.
+        excluded: win.joinExcluded ? [[1, 8], [5, 6]] : [[1, 8]]
       }
     }
 
@@ -1017,7 +1085,10 @@ Scope {
           y: win.py - win.pcy
           width: win.pw
           height: win.ph
-          opacity: 1 - win.pOff
+          // Caelestia's popout Wrapper fades its content in and out (200ms)
+          // while the popout slides.
+          opacity: win.pHandoff ? 0 : (1 - win.pOff) * win.pFade
+          transform: Matrix4x4 { matrix: popDeform.matrixAt(win.prx + win.prw / 2 - win.px, win.pry + win.prh / 2 - win.py) }
           PopoutContent {
             id: pop
             x: Tk.padding.large
@@ -1054,6 +1125,7 @@ Scope {
           height: win.dh
           visible: win.dVis
           opacity: 1 - win.dOff
+          transform: Matrix4x4 { matrix: dashDeform.matrixAt(win.dw / 2, win.dh / 2) }
           host: scope.host
           active: scope.dashboard
           tab: scope.dashTab
@@ -1076,6 +1148,7 @@ Scope {
           height: win.lh
           visible: win.lVis
           opacity: 1 - win.lOff
+          transform: Matrix4x4 { matrix: launchDeform.matrixAt(win.lw / 2, win.lh / 2) }
           active: scope.launcher
           screenWidth: win.width
           maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
@@ -1095,6 +1168,7 @@ Scope {
           width: win.cpw - win.cpPadH
           height: win.cph - win.cpPadV
           opacity: 1 - win.cpOff
+          transform: Matrix4x4 { matrix: cpDeform.matrixAt(win.cpw / 2 - Tk.padding.large, win.cph / 2 - Tk.padding.large) }
           row: win.cpRow
           maxW: win.cpMaxW
           maxH: win.cpMaxH
@@ -1103,18 +1177,28 @@ Scope {
       }
 
       // ---- session
-      Loader {
-        id: sessLoader
-        active: scope.session || win.sVis
-        focus: scope.session
-        sourceComponent: Session {
-          mirror: scope.mirror
-          x: win.sx
-          y: win.sy
-          visible: win.sVis
-          opacity: 1 - win.sOff
-          active: scope.session
-          onDismissed: scope.session = false
+      // Clipped at the sidebar's edge while the sidebar is out, so the menu
+      // slides out from behind it (Caelestia Panels.qml sessionWrapper clip).
+      Item {
+        x: win.sClipX
+        y: 0
+        width: win.sClipW
+        height: win.height
+        clip: win.sbVis
+        Loader {
+          id: sessLoader
+          active: scope.session || win.sVis
+          focus: scope.session
+          sourceComponent: Session {
+            mirror: scope.mirror
+            x: win.sx - win.sClipX
+            y: win.sy
+            visible: win.sVis
+            opacity: 1 - win.sOff
+            transform: Matrix4x4 { matrix: sessDeform.matrixAt(win.sw / 2, win.sh / 2) }
+            active: scope.session
+            onDismissed: scope.session = false
+          }
         }
       }
 
@@ -1129,6 +1213,7 @@ Scope {
           height: win.sbh
           visible: win.sbVis
           opacity: 1 - win.sbOff
+          transform: Matrix4x4 { matrix: sbDeform.matrixAt(win.sbw / 2, win.sbRectY + win.sbRectH / 2 - win.sby) }
           host: screenScope.host
           scope: screenScope
           active: screenScope.sidebar
@@ -1145,6 +1230,8 @@ Scope {
           width: win.uw
           visible: win.uVis
           opacity: 1 - win.uOff
+          transform: Matrix4x4 { matrix: utilDeform.matrixAt(win.uw / 2, win.uh / 2) }
+          hStretch: utilDeform.m00
           host: screenScope.host
           scope: screenScope
           active: screenScope.utilities || screenScope.sidebar
@@ -1202,6 +1289,7 @@ Scope {
             height: implicitHeight
             opacity: Math.max(0, 1 - win.nOff * 2.5)
             scale: 0.94 + 0.06 * (1 - win.nOff)
+            transform: Matrix4x4 { matrix: nDeform.matrixAt(width / 2, height / 2) }
             active: scope.settings
             screenWidth: scope.screen.width
             screenHeight: scope.screen.height
