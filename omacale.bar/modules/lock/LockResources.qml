@@ -180,9 +180,11 @@ Rectangle {
 
       MText {
         Layout.alignment: Qt.AlignHCenter
-        text: `${(res.value * 100).toFixed(1)}%`
+        // Strings.percentOne: a whole percent.
+        text: `${Math.round(res.value * 100)}%`
         color: res.colour
         font.pointSize: Tk.headline.large * root.fontScale
+        weight: Font.Medium
         axes: ({ "ROND": 25, "wdth": 50 })
       }
     }

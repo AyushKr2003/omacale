@@ -10,11 +10,12 @@ Rectangle {
   property string text
   property string type: "filled"
   property bool disabled: false
-  property bool isRound: true
+  // ButtonBase: not round (rounding.large) unless asked, body.small type.
+  property bool isRound: false
   property bool shapeMorph: false
   property real shapeMorphExpansion: shapeMorph && state.pressed ? 24 : 0
   Behavior on shapeMorphExpansion { Anim { type: "fastSpatial" } }
-  property real fontSize: Tk.body.medium
+  property real fontSize: Tk.body.small
   property int horizontalPadding: Tk.padding.medium
   property int verticalPadding: Tk.padding.small
   property bool fillWidth: false
@@ -25,10 +26,10 @@ Rectangle {
 
   implicitWidth: row.implicitWidth + horizontalPadding * 2
   implicitHeight: row.implicitHeight + verticalPadding * 2
-  radius: state.pressed ? Tk.rounding.small : isRound ? height / 2 : Tk.rounding.large
+  radius: state.pressed ? Tk.rounding.small : isRound ? height / 2 * Math.min(1, Tk.clamp(Tk.scaleCfg.rounding, 0, 4)) : Tk.rounding.large
   color: type === "text" ? "transparent" : disabled ? Qt.alpha(Colours.m3onSurface, 0.1)
     : type === "filled" ? Colours.m3primary : Colours.m3secondaryContainer
-  Behavior on radius { Anim { type: "fastSpatial" } }
+  Behavior on radius { Anim { type: "effects" } }
   Behavior on color { CAnim {} }
 
   StateLayer {
@@ -52,7 +53,8 @@ Rectangle {
     }
     MText {
       Layout.alignment: Qt.AlignVCenter
-      Layout.topMargin: 1
+      // IconTextButton's 1px nudge; a bare TextButton centres its label.
+      Layout.topMargin: root.icon !== "" ? 1 : 0
       text: root.text
       color: root.onColour
       font.pointSize: root.fontSize

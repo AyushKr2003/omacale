@@ -18,6 +18,9 @@ Item {
   property bool focused: false
   // A row that is itself the switch (RowToggle) is the one cursor stop.
   property bool inRow: false
+  // StyledSwitch.cLayer: how many surface layers down the switch sits (a
+  // Settings row is 2), which the unchecked track and handle follow.
+  property int cLayer: 1
   readonly property bool navTarget: !disabled && !inRow
   function navActivate() { toggled(!checked) }
   signal toggled(bool checked)
@@ -31,7 +34,7 @@ Item {
     anchors.fill: parent
     radius: height / 2
     color: root.disabled ? (root.checked ? Qt.alpha(Colours.m3onSurface, 0.12) : Qt.alpha(Colours.m3surfaceContainerHighest, 0.38))
-      : root.checked ? Colours.m3primary : Colours.m3surfaceContainerHighest
+      : root.checked ? Colours.m3primary : Colours.layer(Colours.palette.m3surfaceContainerHighest, root.cLayer)
     Behavior on color { CAnim {} }
 
     // Keyboard focus: M3's switch state layer, a circle around the handle
@@ -55,7 +58,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       x: root.checked ? parent.width - nonAnimWidth - Tk.padding.extraSmall / 2 : Tk.padding.extraSmall / 2
       color: root.disabled ? (root.checked ? Colours.m3surface : Qt.alpha(Colours.m3onSurface, 0.12))
-        : root.checked ? Colours.m3onPrimary : Colours.m3outline
+        : root.checked ? Colours.m3onPrimary : Colours.layer(Colours.m3outline, root.cLayer + 1)
       Behavior on x { Anim { type: "fastSpatial" } }
       Behavior on width { Anim { type: "fastSpatial" } }
       Behavior on color { CAnim {} }

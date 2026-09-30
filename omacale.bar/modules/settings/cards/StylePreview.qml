@@ -135,31 +135,23 @@ ColumnLayout {
     }
   }
 
-  // Theme actions (Caelestia's "Wallpapers" / "Colours" buttons)
-  RowLayout {
+  // Theme actions (Caelestia's "Wallpapers" / "Colours" buttons): a
+  // ButtonRow of big tonal pills that bulge when pressed.
+  ButtonRow {
     Layout.alignment: Qt.AlignHCenter
     spacing: Tk.spacing.small
-    component Action: Rectangle {
-      id: a
-      property string icon
-      property string label
+    component Action: IconTextButton {
       property string cmd
-      implicitWidth: ar.implicitWidth + Tk.padding.large * 2
-      implicitHeight: ar.implicitHeight + Tk.padding.small * 2
-      radius: st.pressed ? Tk.rounding.small : height / 2
-      color: Colours.m3secondaryContainer
-      Behavior on radius { Anim { type: "fastSpatial" } }
-      StateLayer { id: st; color: Colours.m3onSecondaryContainer; onClicked: Sys.run(a.cmd) }
-      Row {
-        id: ar
-        anchors.centerIn: parent
-        spacing: Tk.spacing.small
-        MIcon { anchors.verticalCenter: parent.verticalCenter; text: a.icon; fill: 1; color: Colours.m3onSecondaryContainer }
-        MText { anchors.verticalCenter: parent.verticalCenter; text: a.label; color: Colours.m3onSecondaryContainer; weight: Font.Medium }
-      }
+      type: "tonal"
+      isRound: true
+      shapeMorph: true
+      fontSize: Tk.body.large
+      horizontalPadding: Tk.padding.extraLarge
+      verticalPadding: Tk.padding.medium
+      onClicked: Sys.run(cmd)
     }
-    Action { icon: "wallpaper"; label: "Wallpaper"; cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' }
-    Action { icon: "skip_next"; label: "Next wallpaper"; cmd: "omarchy-theme-bg-next" }
-    Action { icon: "palette"; label: "Theme"; cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' }
+    Action { icon: "wallpaper"; text: "Wallpaper"; cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' }
+    Action { icon: "skip_next"; text: "Next wallpaper"; cmd: "omarchy-theme-bg-next" }
+    Action { icon: "palette"; text: "Theme"; cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' }
   }
 }

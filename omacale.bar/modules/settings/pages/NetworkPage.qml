@@ -14,7 +14,7 @@ ColumnLayout {
   property bool first
   property bool last
 
-  readonly property int maxShown: 8
+  readonly property int maxShown: 5 // Caelestia nexus maxNetworksShown
   property bool showAll: false
   readonly property bool live: !settings || settings.active === undefined || settings.active
 

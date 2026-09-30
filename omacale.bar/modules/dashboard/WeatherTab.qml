@@ -128,7 +128,6 @@ Item {
     spacing: Tk.spacing.small
     MIcon { text: st.icon; size: Tk.iconSize.extraLarge; color: Colours.m3tertiary }
     Column {
-      anchors.verticalCenter: parent.verticalCenter
       MText { text: st.label; color: Colours.m3onSurfaceVariant }
       MText { text: st.value; weight: Font.DemiBold }
     }

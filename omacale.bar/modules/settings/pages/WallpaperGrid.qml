@@ -32,6 +32,7 @@ ColumnLayout {
       icon: "shuffle"
       text: "Random"
       type: "tonal"
+      isRound: true
       shapeMorph: true
       fontSize: Tk.body.large
       horizontalPadding: Tk.padding.extraLarge

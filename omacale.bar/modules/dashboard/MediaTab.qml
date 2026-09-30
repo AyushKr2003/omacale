@@ -226,7 +226,7 @@ Item {
             implicitHeight: playBtn.implicitHeight
             spacing: Tk.spacing.extraSmall
             IconButton {
-              type: "tonal"; icon: "shuffle"; toggle: true
+              type: "tonal"; icon: "shuffle"
               checked: root.player ? root.player.shuffle : false
               iconSize: Tk.iconSize.medium
               iconWeight: Font.Medium
@@ -242,14 +242,13 @@ Item {
               shapeMorph: true
               icon: root.playing ? "pause" : "play_arrow"
               iconSize: Tk.iconSize.large
-              toggle: true; checked: root.playing
-              round: !root.playing
+              checked: root.playing
               disabled: !root.player || !root.player.canTogglePlaying
               onClicked: root.player.togglePlaying()
             }
             IconButton { type: "tonal"; icon: "skip_next"; iconSize: Tk.iconSize.large; shapeMorph: true; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
             IconButton {
-              type: "tonal"; toggle: true
+              type: "tonal"
               icon: root.player && root.player.loopState === MprisLoopState.Track ? "repeat_one" : "repeat"
               checked: root.player ? root.player.loopState !== MprisLoopState.None : false
               iconSize: Tk.iconSize.medium
@@ -269,8 +268,9 @@ Item {
         ColumnLayout {
           Layout.fillHeight: true
           Layout.leftMargin: Tk.padding.medium
-          implicitWidth: root.sectionWidth
-          Layout.preferredWidth: root.sectionWidth
+          // Caelestia's section is sectionWidth including this left margin.
+          implicitWidth: root.sectionWidth - Tk.padding.medium
+          Layout.preferredWidth: root.sectionWidth - Tk.padding.medium
           spacing: Tk.spacing.medium
 
           RowLayout {
@@ -338,15 +338,12 @@ Item {
                 implicitWidth: Tk.px(60) + Tk.padding.medium * 2; implicitHeight: implicitWidth
                 radius: width / 2
                 color: Colours.m3primaryContainer
-                MShape {
-                  id: loadShape
+                // Caelestia's LoadingIndicator, sectionWidth / 5, without the
+                // off-centre pentagon.
+                MorphIndicator {
                   anchors.centerIn: parent
-                  implicitSize: Tk.px(60)
-                  shape: ["cookie9", "softBurst", "pentagon", "gem", "sunny"][loadShape.k % 5]
-                  property int k: 0
-                  color: Colours.m3onPrimaryContainer
-                  Timer { interval: 650; repeat: true; running: loadShape.visible; onTriggered: loadShape.k++ }
-                  RotationAnimation on rotation { from: 0; to: 360; duration: 3000; loops: Animation.Infinite; running: loadShape.visible }
+                  implicitSize: Math.round(root.sectionWidth / 5)
+                  containsIcon: true
                 }
               }
               MText { Layout.alignment: Qt.AlignHCenter; text: "Loading lyrics..."; color: Colours.m3onSurfaceVariant; font.pointSize: Tk.title.medium; weight: Font.Medium }
@@ -378,23 +375,30 @@ Item {
                 layer.enabled: true
                 gradient: Gradient {
                   GradientStop { position: 0; color: "transparent" }
-                  GradientStop { position: 0.12; color: "white" }
-                  GradientStop { position: 0.88; color: "white" }
+                  GradientStop { position: 0.1; color: "white" }
+                  GradientStop { position: 0.9; color: "white" }
                   GradientStop { position: 1; color: "transparent" }
                 }
               }
-              ListView {
+              // Caelestia LyricList: inset by half the fade at each end (and
+              // drawn into it), scrollable, the current line held in the
+              // middle by its own height, moving over durations.large.
+              MListView {
                 id: lyricList
                 anchors.fill: parent
+                anchors.topMargin: parent.height * 0.05
+                anchors.bottomMargin: parent.height * 0.05
+                displayMarginBeginning: anchors.topMargin
+                displayMarginEnd: anchors.bottomMargin
                 model: Sys.lyrics
                 currentIndex: lyricBox.current
                 spacing: Tk.spacing.small
-                interactive: false
-                highlightRangeMode: ListView.StrictlyEnforceRange
-                preferredHighlightBegin: height / 2 - 12
-                preferredHighlightEnd: height / 2 + 12
-                highlightMoveDuration: Tk.durations.defaultSpatial
+                highlightRangeMode: ListView.ApplyRange
+                preferredHighlightBegin: (height - (currentItem ? currentItem.implicitHeight : 0)) / 2
+                preferredHighlightEnd: (height + (currentItem ? currentItem.implicitHeight : 0)) / 2
+                highlightMoveDuration: Tk.durations.large
                 highlightMoveVelocity: -1
+                onModelChanged: Qt.callLater(() => positionViewAtIndex(currentIndex, ListView.Center))
                 delegate: MText {
                   id: line
                   required property var modelData

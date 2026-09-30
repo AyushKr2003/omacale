@@ -40,8 +40,9 @@ ConnectedRect {
         implicitHeight: Tk.padding.medium * 2
         radius: Tk.rounding.small
         value: root.value
-        opacity: root.muted ? 0.5 : 1
-        Behavior on opacity { Anim { type: "effects" } }
+        // Caelestia disables a muted slider (the M3 disabled greys) rather
+        // than dimming it.
+        enabled: !root.muted
         onMoved: v => root.moved(v)
         WheelHandler {
           onWheel: e => {

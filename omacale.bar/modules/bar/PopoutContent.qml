@@ -8,6 +8,7 @@ import Quickshell.Widgets
 import Quickshell.Services.UPower
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
+import Quickshell.Networking
 import "../.."
 
 // Contents of the bar popouts (network, Wi-Fi password, bluetooth, battery,
@@ -31,9 +32,27 @@ Item {
   // Tab / Shift+Tab: the next or previous status popout (ScreenScope).
   signal tabRequested(int direction)
 
-  readonly property Item current: loader.item
+  // Caelestia bar/popouts/Content.qml: each page is its own loader, centred
+  // in the (animating) popout. Switching fades the old page out
+  // (DefaultEffects) and unloads it, and fades the new one in (SlowEffects),
+  // while the popout resizes around them.
+  readonly property var pages: ({
+    network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
+    kblayout: kblayout, lockstatus: lockstatus, update: update, traymenu: traymenu, activewindow: activewindow, winfo: winfo
+  })
+  property Loader activeLoader: loaderA
+  readonly property Item current: activeLoader ? activeLoader.item : null
   implicitWidth: current ? current.implicitWidth : 0
   implicitHeight: current ? current.implicitHeight : 0
+  function showPage(n) {
+    if (activeLoader.page === n) { activeLoader.show(n); return }
+    const next = activeLoader === loaderA ? loaderB : loaderA
+    activeLoader.hide()
+    next.show(n)
+    activeLoader = next
+  }
+  onNameChanged: showPage(name)
+  Component.onCompleted: showPage(name)
 
   // ------------------------------------------------------- keyboard
   //
@@ -139,13 +158,30 @@ Item {
   }
   Keys.onPressed: e => keyNav.handle(e)
 
-  Loader {
-    id: loader
-    anchors.fill: parent
-    sourceComponent: ({
-      network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
-      kblayout: kblayout, lockstatus: lockstatus, update: update, traymenu: traymenu, activewindow: activewindow, winfo: winfo
-    })[root.name] || null
+  PageLoader { id: loaderA }
+  PageLoader { id: loaderB }
+
+  component PageLoader: Loader {
+    id: pl
+    property string page: ""
+    anchors.centerIn: parent
+    sourceComponent: root.pages[page] || null
+    opacity: 0
+    function show(n) {
+      fadeOut.stop()
+      page = n
+      fadeIn.restart()
+    }
+    function hide() {
+      fadeIn.stop()
+      fadeOut.restart()
+    }
+    Anim { id: fadeIn; target: pl; property: "opacity"; to: 1; type: "slowEffects" }
+    SequentialAnimation {
+      id: fadeOut
+      Anim { target: pl; property: "opacity"; to: 0; type: "effects" }
+      ScriptAction { script: pl.page = "" }
+    }
   }
 
   component Heading: MText {
@@ -166,9 +202,24 @@ Item {
     implicitWidth: implicitHeight
     implicitHeight: raIcon.implicitHeight + Tk.padding.extraSmall
     radius: height / 2
+    property bool off: false
     color: Qt.alpha(Colours.m3primary, active ? 1 : 0)
-    StateLayer { color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface; disabled: ra.busy; onClicked: ra.clicked() }
-    MIcon { id: raIcon; anchors.centerIn: parent; animate: true; text: ra.icon; color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface }
+    StateLayer { color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface; disabled: ra.busy || ra.off; onClicked: ra.clicked() }
+    // Caelestia: while connecting, a spinner takes the icon's place.
+    MIcon {
+      id: raIcon
+      anchors.centerIn: parent
+      animate: true
+      text: ra.icon
+      color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface
+      opacity: ra.busy ? 0 : 1
+      Behavior on opacity { Anim { type: "effects" } }
+    }
+    Loader {
+      anchors.fill: parent
+      active: ra.busy
+      sourceComponent: LoadingIndicator { implicitSize: ra.height; colour: ra.active ? Colours.m3onPrimary : Colours.m3primary }
+    }
   }
   // Caelestia's popout footer: a full-width IconTextButton in primaryContainer
   // with extraSmall vertical padding.
@@ -219,15 +270,55 @@ Item {
         function onPasswordSsidChanged() { netCol.askPassword(NetService.networkFor(NetService.passwordSsid)) }
       }
       function navText(t) { if (t === "r") Sys.run("nmcli device wifi rescan") }
-      Heading { text: Sys.ethernet && !Sys.wifi ? "Ethernet" : "Wireless" }
+      // Caelestia Content.qml: an active ethernet link turns the whole
+      // popout into the ethernet view (Network.qml `view`).
+      readonly property bool ethView: Sys.ethernet
+      readonly property var wired: NetService.devices.filter(d => d.type === DeviceType.Wired)
+        .sort((a, b) => (b.connected - a.connected) || String(a.name).localeCompare(String(b.name))).slice(0, 8)
+      Heading { text: netCol.ethView ? "Ethernet" : "Wireless" }
+      Sub {
+        visible: netCol.ethView
+        text: netCol.wired.length + (netCol.wired.length === 1 ? " device available" : " devices available")
+      }
+      Repeater {
+        model: netCol.ethView ? netCol.wired : []
+        RowLayout {
+          id: eth
+          required property var modelData
+          Layout.fillWidth: true
+          Layout.rightMargin: Tk.padding.extraSmall
+          spacing: Tk.spacing.small
+          opacity: 0; scale: 0.7
+          Component.onCompleted: { opacity = 1; scale = 1 }
+          Behavior on opacity { Anim { type: "effects" } }
+          Behavior on scale { Anim {} }
+          MIcon { text: "cable"; color: eth.modelData.connected ? Colours.m3primary : Colours.m3onSurfaceVariant }
+          MText {
+            Layout.leftMargin: Tk.spacing.extraSmall
+            Layout.rightMargin: Tk.spacing.extraSmall
+            Layout.fillWidth: true
+            text: eth.modelData.name || "Unknown"
+            elide: Text.ElideRight
+            font.pointSize: Tk.body.medium
+            weight: eth.modelData.connected ? Font.Medium : Font.Normal
+            color: eth.modelData.connected ? Colours.m3primary : Colours.m3onSurface
+          }
+          RoundAction {
+            icon: eth.modelData.connected ? "link_off" : "link"
+            active: eth.modelData.connected
+            onClicked: Quickshell.execDetached(["nmcli", "device", eth.modelData.connected ? "disconnect" : "connect", eth.modelData.name])
+          }
+        }
+      }
       Toggle {
+        visible: !netCol.ethView
         label: "Enabled"
         checked: NetService.wifiEnabled
         onToggled: c => NetService.setWifiEnabled(c)
       }
-      Sub { text: Sys.networks.length + (Sys.networks.length === 1 ? " network available" : " networks available") }
+      Sub { visible: !netCol.ethView; text: Sys.networks.length + (Sys.networks.length === 1 ? " network available" : " networks available") }
       Repeater {
-        model: Sys.networks.slice(0, 8)
+        model: netCol.ethView ? [] : Sys.networks.slice(0, 8)
         RowLayout {
           id: ap
           required property var modelData
@@ -260,6 +351,7 @@ Item {
             icon: ap.modelData.active ? "link_off" : "link"
             active: ap.modelData.active
             busy: NetService.busy && NetService.actionSsid === ap.modelData.ssid
+            off: !NetService.wifiEnabled
             onClicked: {
               if (!net) return
               if (ap.modelData.active) { NetService.disconnect(net); return }
@@ -272,7 +364,10 @@ Item {
         }
       }
       WideButton {
-        Layout.bottomMargin: Tk.padding.small
+        visible: !netCol.ethView
+        Layout.topMargin: Tk.spacing.small
+        enabled: NetService.wifiEnabled
+        opacity: enabled ? 1 : 0.38
         icon: "wifi_find"; label: "Rescan networks"
         onClicked: Sys.run("nmcli device wifi rescan")
       }
@@ -479,7 +574,9 @@ Item {
               Layout.minimumHeight: Tk.body.medium + Tk.padding.medium * 2
               type: "filled"
               text: wp.connecting ? "Connecting..." : "Connect"
-              disabled: wp.buffer.length === 0 || wp.connecting
+              // Caelestia's `enabled: false`: it stays primary, it just
+              // doesn't take clicks.
+              enabled: wp.buffer.length > 0 && !wp.connecting
               onClicked: wp.connect()
             }
           }
@@ -515,7 +612,8 @@ Item {
           Item { anchors.fill: parent; anchors.margins: -Tk.padding.small; property real radius: width / 2
             StateLayer { color: rb.checked ? Colours.m3onSurface : Colours.m3primary; onClicked: rb.clicked() } }
         }
-        MText { Layout.fillWidth: true; text: rb.label; elide: Text.ElideRight }
+        // A RadioButton: the label selects too, not only the circle.
+        MText { Layout.fillWidth: true; text: rb.label; elide: Text.ElideRight; TapHandler { onTapped: rb.clicked() } }
       }
       Heading { text: "Output device" }
       Repeater {
@@ -533,8 +631,14 @@ Item {
         implicitHeight: Tk.padding.medium * 3
         value: sink && sink.audio ? sink.audio.volume : 0
         onMoved: v => { if (sink && sink.audio) { sink.audio.muted = false; sink.audio.volume = v } }
+        // Caelestia wraps the slider in a wheel area: a step per notch.
+        WheelHandler {
+          acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+          onWheel: e => Quickshell.execDetached(["omarchy-audio-output-volume", (e.angleDelta.y > 0 ? "+" : "-") + Config.o.services.volumeStep])
+        }
       }
-      WideButton { Layout.bottomMargin: Tk.padding.small; icon: "settings"; label: "Open settings"; onClicked: { root.host.toggle("settings", "audio"); root.closeRequested() } }
+      // Caelestia pads the audio popout by padding.medium below its layout.
+      WideButton { Layout.bottomMargin: Tk.padding.medium; icon: "settings"; label: "Open settings"; onClicked: { root.host.toggle("settings", "audio"); root.closeRequested() } }
     }
   }
 
@@ -581,10 +685,18 @@ Item {
             busy: dev.loading
             onClicked: dev.modelData.connected = !dev.modelData.connected
           }
+          // Caelestia Bluetooth.qml: a bonded device gets a delete button.
+          Item {
+            visible: dev.modelData.bonded
+            implicitWidth: implicitHeight
+            implicitHeight: delIcon.implicitHeight + Tk.padding.extraSmall
+            property real radius: Tk.rounding.full
+            StateLayer { onClicked: dev.modelData.forget() }
+            MIcon { id: delIcon; anchors.centerIn: parent; text: "delete" }
+          }
         }
       }
       WideButton {
-        Layout.bottomMargin: Tk.padding.small
         icon: "settings"; label: "Open settings"
         onClicked: { root.host.toggle("settings", "bluetooth"); root.closeRequested() }
       }
@@ -607,7 +719,6 @@ Item {
       implicitWidth: Tk.sizes.batteryWidth
       spacing: Tk.spacing.medium
       MText {
-        Layout.topMargin: Tk.padding.small
         text: dev && dev.isLaptopBattery ? "Remaining: " + Math.round(dev.percentage * 100) + "%" : "No battery detected"
       }
       MText {
@@ -616,6 +727,37 @@ Item {
           if (UPower.onBattery) return dev.timeToEmpty > 0 ? "Time remaining: " + fmt(dev.timeToEmpty) : "Calculating remaining battery life..."
           if (dev.timeToFull > 0) return "Time until charged: " + fmt(dev.timeToFull)
           return Math.round(dev.percentage * 100) === 100 ? "Fully charged!" : "Calculating time until charged..."
+        }
+      }
+      // Caelestia Battery.qml: while the power profile can't run at full
+      // tilt, an error card says why.
+      Loader {
+        Layout.alignment: Qt.AlignHCenter
+        active: PowerProfiles.degradationReason !== PerformanceDegradationReason.None
+        visible: active
+        sourceComponent: Rectangle {
+          implicitWidth: degr.implicitWidth + Tk.padding.medium * 2
+          implicitHeight: degr.implicitHeight + Tk.padding.large
+          color: Colours.m3error
+          radius: Tk.rounding.large
+          Column {
+            id: degr
+            anchors.centerIn: parent
+            Row {
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Tk.spacing.small
+              MIcon { anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -font.pointSize / 10; text: "warning"; color: Colours.m3onError }
+              MText { anchors.verticalCenter: parent.verticalCenter; text: "Performance degraded"; color: Colours.m3onError; font.pointSize: Tk.title.small; weight: Font.Medium }
+              MIcon { anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -font.pointSize / 10; text: "warning"; color: Colours.m3onError }
+            }
+            MText {
+              anchors.horizontalCenter: parent.horizontalCenter
+              color: Colours.m3onError
+              text: PowerProfiles.degradationReason === PerformanceDegradationReason.HighTemperature ? "The device is too hot"
+                : PowerProfiles.degradationReason === PerformanceDegradationReason.LapDetected ? "The device is on a lap"
+                : "Unknown reason"
+            }
+          }
         }
       }
       // Caelestia popouts/Battery.qml: three icon-sized profile targets with
@@ -627,14 +769,14 @@ Item {
         readonly property int current: PowerProfiles.profile === PowerProfile.PowerSaver ? 0 : PowerProfiles.profile === PowerProfile.Performance ? 2 : 1
         readonly property real cell: pRep.count ? pRep.itemAt(0).implicitWidth : 0
         Layout.alignment: Qt.AlignHCenter
-        Layout.bottomMargin: Tk.padding.small
-        implicitWidth: cell * 3 - Tk.padding.small * 3 + Tk.padding.medium * 2 + Tk.spacing.largeIncreased * 2
-        implicitHeight: cell
+        implicitWidth: cell * 3 + Tk.padding.medium * 2 + Tk.spacing.largeIncreased * 2
+        implicitHeight: cell + Tk.padding.small
         radius: height / 2
         color: Colours.m3surfaceContainer
         Rectangle {
           readonly property var cur: pRep.count > profiles.current ? pRep.itemAt(profiles.current) : null
           x: cur ? cur.x : 0
+          y: Math.round((profiles.height - height) / 2)
           width: profiles.cell
           height: profiles.cell
           radius: height / 2
@@ -761,7 +903,6 @@ Item {
         Layout.fillWidth: true
         Layout.rightMargin: Tk.padding.extraSmall
         Layout.topMargin: Tk.spacing.small
-        Layout.bottomMargin: Tk.padding.small
         spacing: Tk.spacing.small
 
         MIcon { text: "keyboard"; color: Colours.m3primary }
@@ -798,8 +939,8 @@ Item {
     id: lockstatus
     ColumnLayout {
       spacing: Tk.spacing.small
-      MText { text: "Capslock: " + (root.host.capsLock ? "Enabled" : "Disabled") }
-      MText { text: "Numlock: " + (root.host.numLock ? "Enabled" : "Disabled") }
+      MText { text: root.host.capsLock ? "Caps lock enabled" : "Caps lock disabled" }
+      MText { text: root.host.numLock ? "Num lock enabled" : "Num lock disabled" }
     }
   }
 
@@ -869,82 +1010,120 @@ Item {
 
       Component {
         id: menuPage
-        Column {
+        // Caelestia TrayMenu.qml SubMenu.
+        Item {
           id: page
           property var handle
           property bool isSub: false
-          width: Tk.sizes.trayMenuWidth
-          spacing: Tk.spacing.small
+          readonly property bool hasChildren: opener.children.values.some(e => !e.isSeparator)
+          property bool shown: false
+          readonly property real padding: Tk.padding.small
+          readonly property real spacing: Tk.spacing.small
+          // A menu with nothing in it collapses the popout, as Caelestia's
+          // (its size cancels the popout's padding).
+          implicitWidth: hasChildren ? Tk.sizes.trayMenuWidth + padding * 2 : -Tk.padding.large * 2
+          implicitHeight: hasChildren ? col.implicitHeight : -Tk.padding.large * 2
+          // Each page pops in: fade on DefaultEffects, scale 0.8 -> 1.
+          opacity: shown ? 1 : 0
+          scale: shown ? 1 : 0.8
+          Component.onCompleted: shown = true
+          StackView.onActivating: shown = true
+          StackView.onDeactivating: shown = false
+          Behavior on opacity { Anim { type: "effects" } }
+          Behavior on scale { Anim {} }
           QsMenuOpener { id: opener; menu: page.handle }
 
-          Rectangle {
-            visible: page.isSub
-            width: backRow.implicitWidth + Tk.padding.small * 2
-            height: backRow.implicitHeight + Tk.padding.small
-            radius: height / 2
-            color: Colours.m3secondaryContainer
-            StateLayer { color: Colours.m3onSecondaryContainer; onClicked: stack.pop() }
-            Row {
-              id: backRow
-              anchors.centerIn: parent
-              spacing: Tk.spacing.small
-              MIcon { text: "chevron_left"; color: Colours.m3onSecondaryContainer }
-              MText { anchors.verticalCenter: parent.verticalCenter; text: "Back"; color: Colours.m3onSecondaryContainer }
-            }
-          }
-          Repeater {
-            model: opener.children
-            Item {
-              id: entry
-              required property var modelData
-              // Menu text without its mnemonic markers (_File, &File).
-              function navLabelText() { return String(modelData.text || "").replace(/[_&]/g, "") }
-              width: page.width
-              height: modelData.isSeparator ? 1 : Math.max(Tk.px(24), label.implicitHeight + Tk.padding.small)
-              Rectangle {
-                visible: entry.modelData.isSeparator
-                anchors.fill: parent
-                color: Colours.m3outlineVariant
-              }
+          Column {
+            id: col
+            padding: page.padding
+            spacing: page.spacing
+            Repeater {
+              model: opener.children
               Item {
-                visible: !entry.modelData.isSeparator
-                anchors.fill: parent
-                property real radius: Tk.rounding.full
-                StateLayer {
-                  disabled: !entry.modelData.enabled
-                  onClicked: {
-                    if (entry.modelData.hasChildren) stack.push(menuPage.createObject(null, { handle: entry.modelData, isSub: true }))
-                    else { entry.modelData.triggered(); root.closeRequested() }
+                id: entry
+                required property var modelData
+                // Menu text without its mnemonic markers (_File, &File).
+                function navLabelText() { return String(modelData.text || "").replace(/[_&]/g, "") }
+                width: Tk.sizes.trayMenuWidth
+                height: modelData.isSeparator ? 1 : label.implicitHeight
+                Rectangle {
+                  visible: entry.modelData.isSeparator
+                  anchors.fill: parent
+                  color: Colours.m3outlineVariant
+                }
+                Item {
+                  visible: !entry.modelData.isSeparator
+                  anchors.fill: parent
+                  StateLayer {
+                    // The veil overhangs the row (Caelestia's negative margins).
+                    anchors.margins: -Tk.padding.extraSmall / 2
+                    anchors.leftMargin: -Tk.padding.small
+                    anchors.rightMargin: -Tk.padding.small
+                    radius: Tk.rounding.full
+                    disabled: !entry.modelData.enabled
+                    onClicked: {
+                      if (entry.modelData.hasChildren) stack.push(menuPage.createObject(null, { handle: entry.modelData, isSub: true }))
+                      else { entry.modelData.triggered(); root.closeRequested() }
+                    }
+                  }
+                  Image {
+                    id: eIcon
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: entry.modelData.icon ? label.implicitHeight : 0
+                    height: width
+                    source: entry.modelData.icon
+                    sourceSize.width: Tk.px(48); sourceSize.height: Tk.px(48)
+                    asynchronous: true
+                  }
+                  MText {
+                    id: label
+                    anchors.left: eIcon.right
+                    anchors.leftMargin: eIcon.width ? Tk.spacing.medium : 0
+                    anchors.right: chev.visible ? chev.left : parent.right
+                    anchors.rightMargin: chev.visible ? Tk.spacing.medium : 0
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: entry.modelData.text
+                    elide: Text.ElideRight
+                    color: entry.modelData.enabled ? Colours.m3onSurface : Colours.m3outline
+                  }
+                  // Caelestia draws only the submenu chevron; a checked entry
+                  // also gets its mark here, so the state isn't lost.
+                  MIcon {
+                    id: chev
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: entry.modelData.hasChildren || entry.modelData.checkState === Qt.Checked
+                    text: entry.modelData.hasChildren ? "chevron_right" : "check"
+                    color: entry.modelData.enabled ? Colours.m3onSurface : Colours.m3outline
                   }
                 }
-                Image {
-                  id: eIcon
-                  anchors.left: parent.left
-                  anchors.leftMargin: Tk.padding.small
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: entry.modelData.icon ? label.implicitHeight : 0
-                  height: width
-                  source: entry.modelData.icon
-                  sourceSize.width: Tk.px(48); sourceSize.height: Tk.px(48)
+              }
+            }
+            // Back, under the entries: a secondary pill that overhangs its
+            // text (more on the right), spacing.extraSmall below the last row.
+            Item {
+              visible: page.isSub
+              width: back.implicitWidth
+              height: visible ? back.implicitHeight + Tk.spacing.extraSmall : 0
+              Item {
+                anchors.bottom: parent.bottom
+                width: back.implicitWidth
+                height: back.implicitHeight
+                Rectangle {
+                  anchors.fill: parent
+                  anchors.margins: -Tk.padding.extraSmall / 2
+                  anchors.leftMargin: -Tk.padding.small
+                  anchors.rightMargin: -Tk.padding.large
+                  radius: Tk.rounding.full
+                  color: Colours.m3secondaryContainer
+                  StateLayer { color: Colours.m3onSecondaryContainer; onClicked: stack.pop() }
                 }
-                MText {
-                  id: label
-                  anchors.left: eIcon.right
-                  anchors.leftMargin: eIcon.width ? Tk.spacing.small : Tk.padding.small
-                  anchors.right: chev.left
+                Row {
+                  id: back
                   anchors.verticalCenter: parent.verticalCenter
-                  text: entry.modelData.text
-                  elide: Text.ElideRight
-                  color: entry.modelData.enabled ? Colours.m3onSurface : Colours.m3outline
-                }
-                MIcon {
-                  id: chev
-                  anchors.right: parent.right
-                  anchors.rightMargin: Tk.padding.small
-                  anchors.verticalCenter: parent.verticalCenter
-                  visible: entry.modelData.hasChildren || entry.modelData.checkState === Qt.Checked
-                  text: entry.modelData.hasChildren ? "chevron_right" : "check"
-                  color: Colours.m3onSurfaceVariant
+                  MIcon { anchors.verticalCenter: parent.verticalCenter; text: "chevron_left"; color: Colours.m3onSecondaryContainer }
+                  MText { anchors.verticalCenter: parent.verticalCenter; text: "Back"; color: Colours.m3onSecondaryContainer }
                 }
               }
             }

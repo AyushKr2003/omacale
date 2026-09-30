@@ -136,6 +136,8 @@ ColumnLayout {
     signal clicked()
 
     radius: Tk.rounding.medium
+    // A StyledRect: its colour fades.
+    Behavior on color { CAnim {} }
     Layout.fillWidth: true
     implicitHeight: buttonLabel.implicitHeight + Tk.padding.small
 

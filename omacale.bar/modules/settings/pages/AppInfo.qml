@@ -44,6 +44,8 @@ ColumnLayout {
       }
     }
     IconTextButton {
+      isRound: true
+      fontSize: Tk.body.medium
       icon: "open_in_new"
       text: "Open"
       type: "tonal"

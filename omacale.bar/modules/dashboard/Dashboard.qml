@@ -12,6 +12,9 @@ Item {
 
   property var host
   property bool active: false
+  // The profile picture was clicked: close and pick a new ~/.face
+  // (Caelestia's facePicker lives outside the dashboard, as ours does).
+  signal faceRequested()
   property int tab: 0
   readonly property var cfg: Config.o.dashboard
   readonly property var allTabs: [
@@ -131,7 +134,9 @@ Item {
     }
     Item {
       id: indicator
-      readonly property real slot: tabBar.width / root.tabs.length
+      // From the settled width (Caelestia nonAnimWidth), so it heads straight
+      // for its slot while the dashboard resizes.
+      readonly property real slot: root.page.implicitWidth / root.tabs.length
       readonly property Item cur: tabRep.count > root.tab ? tabRep.itemAt(root.tab) : null
       y: tabRow.y + tabRow.implicitHeight + Tk.px(5)
       height: Tk.sizes.tabIndicatorHeight
@@ -286,6 +291,8 @@ Item {
   }
 
   component Resource: CircularProgress {
+    // Callers animate the value (Caelestia Resources.qml); the media arc does not.
+    Behavior on clampedVal { Anim {} }
     property string icon
     Layout.fillHeight: true
     implicitSize: height
@@ -316,12 +323,22 @@ Item {
       anchors.left: logoShape.right
       anchors.leftMargin: -(Tk.padding.largeIncreased + Tk.padding.extraLarge) / 2
       width: height
+      property color fallback: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+      Behavior on fallback { CAnim {} }
       MShape {
         id: pfpShape
         anchors.centerIn: parent
         implicitSize: parent.height
         shape: "pill"
-        color: Colours.m3surfaceContainerHighest
+        color: Qt.alpha(pfpBox.fallback, 1)
+        opacity: pfpBox.fallback.a
+      }
+      MouseArea {
+        id: pfpMouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.faceRequested()
       }
       Item {
         anchors.fill: parent
@@ -338,10 +355,29 @@ Item {
         MIcon {
           anchors.centerIn: parent
           visible: pfp.status !== Image.Ready
-          text: "person"
+          text: "person_add"
           size: Tk.iconSize.extraLarge
           fill: 1
+          grade: -2
           color: Colours.m3onSurfaceVariant
+        }
+        // Caelestia's hover: a scrim over the photo and a primary diamond
+        // with person_edit that grows in and dips when pressed.
+        Rectangle {
+          anchors.fill: parent
+          color: Qt.alpha(Colours.m3scrim, pfp.status === Image.Ready ? 0.4 : 0)
+          opacity: pfpMouse.containsMouse ? 1 : 0
+          layer.enabled: opacity < 1
+          Behavior on opacity { Anim { type: "effects" } }
+          MShape {
+            anchors.centerIn: parent
+            implicitSize: parent.height * 0.7
+            shape: "diamond"
+            color: Colours.m3primary
+            scale: pfpMouse.pressed ? 0.9 : pfpMouse.containsMouse ? 1 : 0.7
+            Behavior on scale { Anim { type: "fastSpatial" } }
+            MIcon { anchors.centerIn: parent; text: "person_edit"; size: Tk.iconSize.large; color: Colours.m3onPrimary }
+          }
         }
       }
     }
@@ -360,8 +396,9 @@ Item {
       anchors.left: uptimeShape.right
       anchors.leftMargin: Tk.spacing.small
       anchors.verticalCenter: uptimeShape.verticalCenter
+      anchors.verticalCenterOffset: Math.round(font.pointSize * 0.1)
       text: "up " + Sys.uptime
-      width: uc.width - x - Tk.padding.small
+      width: Tk.sizes.userWidth - x - Tk.padding.extraLarge
       elide: Text.ElideRight
     }
     Rectangle {
@@ -392,7 +429,7 @@ Item {
         anchors.centerIn: parent
         spacing: Tk.spacing.extraSmall
         MIcon { anchors.verticalCenter: parent.verticalCenter; text: "select_window"; size: Tk.body.small; color: Colours.m3onSecondaryContainer }
-        MText { anchors.verticalCenter: parent.verticalCenter; text: "Hyprland..."; color: Colours.m3onSecondaryContainer; axes: ({ "ROND": 25, "slnt": -4 }) }
+        MText { anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: Math.round(font.pointSize * 0.1); text: "Hyprland..."; color: Colours.m3onSecondaryContainer; axes: ({ "ROND": 25, "slnt": -4 }) }
       }
     }
   }
@@ -436,9 +473,17 @@ Item {
       IconButton { type: "text"; icon: "chevron_left"; iconSize: Tk.iconSize.small; iconWeight: Font.Bold; padding: Tk.padding.small; onClicked: calRoot.step(-1) }
       Item {
         Layout.fillWidth: true
+        Layout.fillHeight: true
+        implicitWidth: monthLabel.implicitWidth + Tk.padding.large * 2
         implicitHeight: monthLabel.implicitHeight + Tk.padding.extraSmall * 2
-        property real radius: height / 2
-        StateLayer { color: Colours.m3primary; disabled: calRoot.isCurrent; onClicked: calRoot.shown = new Date(clock.date.getFullYear(), clock.date.getMonth(), 1) }
+        StateLayer {
+          id: monthState
+          color: Colours.m3primary
+          radius: pressed ? Tk.rounding.small : height / 2
+          disabled: calRoot.isCurrent
+          onClicked: calRoot.shown = new Date(clock.date.getFullYear(), clock.date.getMonth(), 1)
+          Behavior on radius { Anim { type: "effects" } }
+        }
         MText {
           id: monthLabel
           opacity: calRoot.animOpacity
@@ -447,11 +492,34 @@ Item {
           text: Qt.formatDate(calRoot.shown, "MMMM yyyy")
           color: Colours.m3primary
           font.pointSize: Tk.title.small
+          font.capitalization: Font.Capitalize
           weight: Font.Medium
         }
       }
       IconButton { type: "text"; icon: "chevron_right"; iconSize: Tk.iconSize.small; iconWeight: Font.Bold; padding: Tk.padding.small; onClicked: calRoot.step(1) }
     }
+    // Caelestia's DayOfWeekRow: the locale's first day and short names, in a
+    // row of its own with the Basic style's 6px above and below.
+    Row {
+      id: daysRow
+      Layout.fillWidth: true
+      topPadding: Tk.px(6)
+      bottomPadding: Tk.px(6)
+      readonly property int first: Qt.locale().firstDayOfWeek
+      Repeater {
+        model: 7
+        MText {
+          required property int index
+          readonly property int weekday: (daysRow.first + index) % 7
+          width: daysRow.width / 7
+          horizontalAlignment: Text.AlignHCenter
+          text: Qt.locale().dayName(weekday, Locale.ShortFormat)
+          weight: Font.Medium
+          color: weekday === 0 || weekday === 6 ? Colours.m3tertiary : Colours.m3onSurface
+        }
+      }
+    }
+    // Caelestia's MonthGrid: always six weeks, so the card never changes height.
     Grid {
       id: grid
       Layout.fillWidth: true
@@ -461,37 +529,27 @@ Item {
       columnSpacing: Tk.px(3)
       rowSpacing: Tk.px(3)
       readonly property real cellW: (width - columnSpacing * 6) / 7
-      readonly property int offset: (calRoot.shown.getDay() + 6) % 7
+      readonly property int offset: (calRoot.shown.getDay() - daysRow.first + 7) % 7
       readonly property int days: new Date(calRoot.year, calRoot.month + 1, 0).getDate()
       readonly property int prevDays: new Date(calRoot.year, calRoot.month, 0).getDate()
-      readonly property int rows: Math.ceil((offset + days) / 7)
       Repeater {
-        model: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        MText {
-          required property string modelData
-          required property int index
-          width: grid.cellW
-          horizontalAlignment: Text.AlignHCenter
-          text: modelData
-          weight: Font.Medium
-          color: index >= 5 ? Colours.m3tertiary : Colours.m3onSurface
-        }
-      }
-      Repeater {
-        model: grid.rows * 7
+        model: 42
         Item {
           required property int index
           readonly property int day: index - grid.offset + 1
           readonly property bool inMonth: day >= 1 && day <= grid.days
           readonly property int shownDay: inMonth ? day : day < 1 ? grid.prevDays + day : day - grid.days
           readonly property bool today: inMonth && calRoot.isCurrent && day === clock.date.getDate()
-          readonly property bool weekend: index % 7 >= 5
+          readonly property int weekday: (daysRow.first + index) % 7
+          readonly property bool weekend: weekday === 0 || weekday === 6
           width: grid.cellW
           height: dayText.implicitHeight + Tk.padding.small
           MShape {
             visible: parent.today
             anchors.centerIn: parent
-            implicitSize: Math.max(parent.height, dayText.implicitWidth) + Tk.padding.extraSmall * 2
+            // Caelestia sets it at today.y - extraSmall - 1: a pixel above centre.
+            anchors.verticalCenterOffset: -1
+            implicitSize: parent.height + Tk.padding.extraSmall * 2
             shape: "sunny"
             color: Colours.m3primary
           }
@@ -505,6 +563,8 @@ Item {
         }
       }
     }
+    // Middle-click anywhere goes back to this month (Caelestia's acceptedButtons).
+    TapHandler { acceptedButtons: Qt.MiddleButton; onTapped: calRoot.shown = new Date(clock.date.getFullYear(), clock.date.getMonth(), 1) }
     WheelHandler { onWheel: e => calRoot.step(e.angleDelta.y > 0 ? -1 : 1) }
   }
 
@@ -529,25 +589,13 @@ Item {
       waveDuration: 2000
       wavePaused: !(root.player && root.player.isPlaying)
     }
-    Rectangle {
+    CoverArt {
       id: cover
       anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
       anchors.margins: Tk.padding.medium + Tk.spacing.extraSmall + prog.thickness
       height: width
-      radius: width / 2
-      color: Colours.m3surfaceContainerHigh
-      clip: true
-      MIcon { anchors.centerIn: parent; text: "art_track"; size: Tk.iconSize.extraLarge; color: Colours.m3onSurfaceVariant; visible: art.status !== Image.Ready }
-      Image {
-        id: art
-        anchors.fill: parent
-        source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
-        fillMode: Image.PreserveAspectCrop
-        sourceSize.width: Tk.px(256); sourceSize.height: Tk.px(256)
-        layer.enabled: true
-        layer.effect: ShaderMaskEffect { maskItem: coverMask }
-      }
-      Rectangle { id: coverMask; anchors.fill: parent; radius: width / 2; visible: false }
+      source: root.player && root.player.trackArtUrl ? root.player.trackArtUrl : ""
+      playing: root.player ? root.player.isPlaying : false
     }
     Column {
       id: info
@@ -561,29 +609,32 @@ Item {
         text: root.player ? (root.player.trackAlbum || "Unknown album") : "No media"; color: Colours.m3outline }
       MText { width: parent.width - Tk.padding.extraLargeIncreased; anchors.horizontalCenter: parent.horizontalCenter; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; animate: true
         text: root.player ? (root.player.trackArtist || "Unknown artist") : "No media"; color: Colours.m3secondary }
-      // Caelestia dash/Media.qml: a ButtonRow, so a pressed button bulges.
-      Item { width: 1; height: Tk.spacing.medium - Tk.spacing.small }
-      ButtonRow {
-        width: parent.width - Tk.padding.large * 2
-        implicitHeight: playBtn.implicitHeight
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: Tk.spacing.extraSmall
-        IconButton { type: "tonal"; icon: "skip_previous"; shapeMorph: true; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
-        IconButton {
-          id: playBtn
-          fillWidth: true
-          shapeMorph: true
-          icon: root.player && root.player.isPlaying ? "pause" : "play_arrow"
-          toggle: true; checked: root.player ? root.player.isPlaying : false
-          disabled: !root.player || !root.player.canTogglePlaying
-          onClicked: root.player.togglePlaying()
-        }
-        IconButton { type: "tonal"; icon: "skip_next"; shapeMorph: true; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
+    }
+    // Caelestia dash/Media.qml: a ButtonRow, so a pressed button bulges,
+    // spacing.medium under the artist.
+    ButtonRow {
+      id: controls
+      anchors.top: info.bottom
+      anchors.left: parent.left; anchors.right: parent.right
+      anchors.topMargin: Tk.spacing.medium
+      anchors.leftMargin: Tk.padding.large; anchors.rightMargin: Tk.padding.large
+      implicitHeight: playBtn.implicitHeight
+      spacing: Tk.spacing.extraSmall
+      IconButton { type: "tonal"; icon: "skip_previous"; shapeMorph: true; disabled: !root.player || !root.player.canGoPrevious; onClicked: root.player.previous() }
+      IconButton {
+        id: playBtn
+        fillWidth: true
+        shapeMorph: true
+        icon: root.player && root.player.isPlaying ? "pause" : "play_arrow"
+        checked: root.player ? root.player.isPlaying : false
+        disabled: !root.player || !root.player.canTogglePlaying
+        onClicked: root.player.togglePlaying()
       }
+      IconButton { type: "tonal"; icon: "skip_next"; shapeMorph: true; disabled: !root.player || !root.player.canGoNext; onClicked: root.player.next() }
     }
     AnimatedImage {
       visible: root.cfg.mediaGif
-      anchors.top: info.bottom
+      anchors.top: controls.bottom
       anchors.bottom: parent.bottom
       anchors.left: parent.left; anchors.right: parent.right
       anchors.margins: Tk.padding.extraLargeIncreased

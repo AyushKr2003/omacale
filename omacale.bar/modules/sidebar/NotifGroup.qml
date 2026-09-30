@@ -12,6 +12,7 @@ Rectangle {
   id: root
 
   property var groupData // { app, appIcon, image, items: [...] }
+  signal linkOpened()
 
   readonly property var items: groupData && groupData.items ? groupData.items : []
   readonly property string appName: groupData ? String(groupData.app || "System") : "System"
@@ -205,7 +206,10 @@ Rectangle {
           delegate: MouseArea {
             id: row
             required property var modelData
-            readonly property real nonAnimHeight: notif.nonAnimHeight
+            // Caelestia NotifGroupList: a closing row gives up its height at
+            // once (the card and the rows under it move up while it slides
+            // out), rather than after the slide.
+            readonly property real nonAnimHeight: closing ? 0 : notif.nonAnimHeight
             property int startY
             property bool closing: false
 
@@ -234,8 +238,10 @@ Rectangle {
             FocusRing { target: row; innerRadius: Tk.rounding.large; shown: row.focused && !root.cardRing; z: 5 }
 
             width: list.width
-            implicitHeight: notif.implicitHeight
-            height: notif.implicitHeight
+            implicitHeight: closing ? 0 : notif.implicitHeight
+            height: implicitHeight
+            clip: closing
+            Behavior on height { enabled: row.closing; Anim {} }
             hoverEnabled: true
             cursorShape: pressed ? Qt.ClosedHandCursor : undefined
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
@@ -272,6 +278,7 @@ Rectangle {
               modelData: row.modelData
               expanded: root.expanded
               onDismissRequested: row.close()
+              onLinkOpened: root.linkOpened()
             }
           }
         }

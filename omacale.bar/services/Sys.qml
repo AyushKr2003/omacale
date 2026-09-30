@@ -228,7 +228,17 @@ QtObject {
     let i = 0
     b = Math.max(0, b || 0)
     while (b >= 1024 && i < u.length - 1) { b /= 1024; i++ }
-    return (i === 0 ? Math.round(b) : b.toFixed(b >= 100 ? 0 : 1)) + " " + u[i] + (perSecond ? "/s" : "")
+    return (i === 0 ? Math.round(b) : b.toFixed(b < 10 ? 1 : 0)) + " " + u[i] + (perSecond ? "/s" : "")
+  }
+  // Caelestia Units.formatKibUsage: both halves scaled to the total's unit,
+  // one decimal with a trailing .0 dropped ("3.4 / 16 GiB").
+  function fmtUsage(used, total) {
+    const u = ["B", "KiB", "MiB", "GiB", "TiB"]
+    let i = 0
+    let t = Math.max(0, total || 0)
+    let d = 1
+    while (t >= 1024 && i < u.length - 1) { t /= 1024; d *= 1024; i++ }
+    return (+(Math.max(0, used || 0) / d).toFixed(1)) + " / " + (+t.toFixed(1)) + " " + u[i]
   }
 
   property Timer resTimer: Timer {

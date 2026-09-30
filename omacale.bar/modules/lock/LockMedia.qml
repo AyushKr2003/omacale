@@ -1,11 +1,13 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Widgets
 import "../.."
 
 // The media card at the bottom left of the lock (Caelestia lock/Media.qml):
 // the cover art washed out behind the surface colour, the track and artist
 // centred on it, and previous / play / next under them.
-Rectangle {
+// A ClippingRectangle, so the full-bleed art keeps to the rounded corners.
+ClippingRectangle {
   id: root
 
   readonly property var player: Sys.player
@@ -13,7 +15,6 @@ Rectangle {
   implicitHeight: layout.implicitHeight + Tk.padding.extraLarge * 2
   radius: Tk.rounding.extraLarge
   color: Colours.m3surfaceContainer
-  clip: true
 
   Image {
     id: art

@@ -91,6 +91,7 @@ Item {
 
     CircularProgress {
       id: tempProg
+      Behavior on clampedVal { Anim {} }
       anchors.left: parent.left; anchors.top: parent.top
       anchors.margins: Tk.padding.large
       fgColour: hero.accent
@@ -136,7 +137,7 @@ Item {
       color: Colours.m3secondaryContainer
       shape: hero.usage >= 0.8 ? "softBurst" : hero.usage >= 0.4 ? "sunny" : "cookie4"
       MText { id: usageLabel; anchors.bottom: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "Usage"; color: Colours.m3onSurfaceVariant }
-      MText { anchors.centerIn: parent; text: root.pct(hero.usage); color: hero.accent; font.pointSize: Tk.headline.small; axes: ({ "ROND": 25, "wdth": 50 }) }
+      MText { anchors.centerIn: parent; text: root.pct(hero.usage); color: hero.accent; font.pointSize: Tk.headline.small; weight: Font.Medium; axes: ({ "ROND": 25, "wdth": 50 }) }
     }
   }
 
@@ -160,6 +161,7 @@ Item {
         Layout.alignment: Qt.AlignHCenter
         spacing: Tk.spacing.large
         CircularProgress {
+          Behavior on clampedVal { Anim {} }
           fgColour: storage.accent
           value: storage.perc
           startAngle: -225; sweepAngle: 270
@@ -178,12 +180,11 @@ Item {
           Layout.minimumWidth: Tk.px(160)
           spacing: Tk.spacing.extraSmall
           MText { text: "Storage"; font.pointSize: Tk.title.medium; weight: Font.Medium }
-          MText { text: storage.disk ? Sys.fmtBytes(storage.disk.used) + " / " + Sys.fmtBytes(storage.disk.total) : "No disks detected"; font.pointSize: Tk.body.large; color: storage.accent }
+          MText { text: storage.disk ? Sys.fmtUsage(storage.disk.used, storage.disk.total) : "No disks detected"; font.pointSize: Tk.body.large; color: storage.accent }
         }
       }
       SplitSelect {
         Layout.alignment: Qt.AlignHCenter
-        Layout.topMargin: Tk.spacing.small
         menuOnTop: true
         minLeftWidth: srow.implicitWidth * 0.6
         fallbackIcon: "storage"
@@ -266,6 +267,7 @@ Item {
         MText { text: "Memory"; font.pointSize: Tk.title.medium; weight: Font.Medium }
       }
       CircularProgress {
+        Behavior on clampedVal { Anim {} }
         Layout.topMargin: Tk.spacing.large
         Layout.alignment: Qt.AlignHCenter
         implicitSize: mCol.implicitHeight + thickness + Tk.padding.largeIncreased * 2
@@ -282,7 +284,7 @@ Item {
           MText { Layout.alignment: Qt.AlignHCenter; text: "Used"; color: Colours.m3onSurfaceVariant }
         }
       }
-      MText { Layout.alignment: Qt.AlignHCenter; text: Sys.memUsedGb.toFixed(1) + " / " + Sys.memTotalGb.toFixed(1) + " GiB"; font.pointSize: Tk.body.medium }
+      MText { Layout.alignment: Qt.AlignHCenter; text: Sys.fmtUsage(Sys.memUsedGb * 1073741824, Sys.memTotalGb * 1073741824); font.pointSize: Tk.body.medium }
     }
   }
 
@@ -365,7 +367,7 @@ Item {
         Behavior on scale { Anim { type: "fastSpatial" } }
         Behavior on opacity { Anim { type: "fastEffects" } }
       }
-      MText { text: root.pct(tc.dev ? tc.dev.percentage : 0); color: tc.accentColour; font.pointSize: Tk.headline.medium }
+      MText { text: root.pct(tc.dev ? tc.dev.percentage : 0); color: tc.accentColour; font.pointSize: Tk.headline.medium; weight: Font.Medium }
     }
   }
 }

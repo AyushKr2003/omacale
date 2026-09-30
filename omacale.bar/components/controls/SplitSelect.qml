@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import "../.."
 
-// Caelestia tonal SplitButton with its menu: [icon label | chevron]. The
-// menu opens above (menuOnTop) or below the button.
+// Caelestia components/controls/SplitButton.qml with its Menu.qml:
+// [icon label | chevron], the menu opening above (menuOnTop) or below the
+// chevron, right-aligned to it.
 Item {
   id: root
   property var items: []            // [{ icon, text, value }]
@@ -14,10 +14,12 @@ Item {
   property bool menuOnTop: true
   property bool disabled: items.length === 0
   property real minLeftWidth: 0
-  property real horizontalPadding: Tk.padding.large
+  property real horizontalPadding: Tk.padding.medium
+  property real verticalPadding: Tk.padding.small
   property bool expanded: false
   // Caelestia SplitButton type: filled (primary) instead of tonal, and a main
-  // half that acts (mainClicked) rather than only showing the selection.
+  // half that acts (mainClicked, Caelestia's `active.clicked()`) rather than
+  // only showing the selection.
   property bool filled: false
   property bool mainClickable: false
   readonly property color colour: filled ? Colours.m3primary : Colours.m3secondaryContainer
@@ -27,104 +29,160 @@ Item {
   readonly property color disabledColour: Qt.alpha(Colours.m3onSurface, 0.1)
   readonly property color disabledTextColour: Qt.alpha(Colours.m3onSurface, 0.38)
   readonly property color contentColour: disabled ? disabledTextColour : textColour
+  readonly property real fullRadius: chev.height / 2 * Math.min(1, Tk.clamp(Tk.scaleCfg.rounding, 0, 4))
   signal selected(var value)
   signal mainClicked()
 
   readonly property var active: items.find(i => i.value === current) || items[0] || null
   implicitWidth: row.implicitWidth
-  implicitHeight: Tk.px(40)
+  implicitHeight: row.implicitHeight
 
   Row {
     id: row
-    spacing: 2
+    spacing: Math.floor(Tk.spacing.extraSmall / 2)
+
     Rectangle {
       id: main
-      height: Tk.px(40)
+      height: chev.height
       width: Math.max(root.minLeftWidth, mainRow.implicitWidth + root.horizontalPadding * 2)
       color: root.disabled ? root.disabledColour : root.colour
       Behavior on color { CAnim {} }
-      topLeftRadius: height / 2; bottomLeftRadius: height / 2
-      topRightRadius: Tk.rounding.extraSmall; bottomRightRadius: Tk.rounding.extraSmall
+      topLeftRadius: root.fullRadius; bottomLeftRadius: root.fullRadius
+      topRightRadius: Tk.rounding.medium / 2; bottomRightRadius: Tk.rounding.medium / 2
+
       StateLayer {
-        visible: root.mainClickable
-        disabled: !root.mainClickable || root.disabled
         color: root.textColour
-        onClicked: root.mainClicked()
+        disabled: root.disabled
+        onClicked: if (root.mainClickable) root.mainClicked()
       }
-      Row {
+      RowLayout {
         id: mainRow
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: Math.floor(root.verticalPadding / 4)
         spacing: Tk.spacing.small
-        MIcon { anchors.verticalCenter: parent.verticalCenter; text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon; fill: 1; color: root.contentColour }
-        MText {
-          anchors.verticalCenter: parent.verticalCenter
-          text: root.active ? (root.active.activeText || root.active.text) : root.fallbackText
-          weight: Font.Medium
-          color: root.contentColour
+        MIcon {
+          Layout.alignment: Qt.AlignVCenter
           animate: true
+          text: root.active ? (root.active.icon || root.fallbackIcon) : root.fallbackIcon
+          fill: 1
+          color: root.contentColour
+        }
+        MText {
+          Layout.alignment: Qt.AlignVCenter
+          Layout.preferredWidth: implicitWidth
+          animate: true
+          text: root.active ? (root.active.activeText || root.active.text) : root.fallbackText
+          color: root.contentColour
+          clip: true
+          Behavior on Layout.preferredWidth { Anim { type: "emphasized" } }
         }
       }
     }
+
     Rectangle {
       id: chev
-      height: Tk.px(40); width: Tk.px(36)
-      color: root.disabled ? root.disabledColour : (root.expanded && !root.filled ? Colours.m3secondary : root.colour)
-      topRightRadius: height / 2; bottomRightRadius: height / 2
-      topLeftRadius: root.expanded ? height / 2 : Tk.rounding.extraSmall; bottomLeftRadius: topLeftRadius
-      Behavior on topLeftRadius { Anim { type: "effects" } }
+      property real rad: root.expanded ? root.fullRadius : Tk.rounding.medium / 2
+      implicitHeight: expandIcon.implicitHeight + root.verticalPadding * 2
+      height: implicitHeight
+      width: height
+      color: root.disabled ? root.disabledColour : root.colour
+      topRightRadius: root.fullRadius; bottomRightRadius: root.fullRadius
+      topLeftRadius: rad; bottomLeftRadius: rad
+      Behavior on rad { Anim {} }
       Behavior on color { CAnim {} }
       StateLayer { color: root.textColour; disabled: root.disabled; onClicked: root.expanded = !root.expanded }
       MIcon {
+        id: expandIcon
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: root.expanded ? 0 : -Math.floor(root.verticalPadding / 4)
         text: "expand_more"
-        size: Tk.iconSize.medium
-        color: root.disabled ? root.disabledTextColour : (root.expanded && !root.filled ? Colours.m3onSecondary : root.textColour)
-        rotation: (root.expanded ? 180 : 0) + (root.menuOnTop ? 180 : 0)
+        color: root.contentColour
+        rotation: root.expanded ? 180 : 0
+        Behavior on anchors.horizontalCenterOffset { Anim {} }
         Behavior on rotation { Anim {} }
       }
     }
   }
 
-  Rectangle {
+  // Caelestia Menu.qml: an elevated surfaceContainerLow card that unfolds
+  // (yScale 0.1 -> 1) from the side against the button.
+  Item {
     id: menu
     z: 50
-    width: Math.max(row.width, Tk.px(200))
+    width: Math.max(Tk.px(200), menuCol.implicitWidth + Tk.padding.extraSmall * 2)
+    height: menuCol.implicitHeight + Tk.padding.extraSmall * 2
     x: row.width - width
-    readonly property real fullHeight: menuCol.implicitHeight + Tk.padding.small * 2
-    height: root.expanded ? fullHeight : 0
-    y: root.menuOnTop ? -height - Tk.px(6) : row.height + Tk.px(6)
+    y: root.menuOnTop ? -height - Tk.spacing.small : row.height + Tk.spacing.small
     opacity: root.expanded ? 1 : 0
-    visible: height > 1
-    radius: Tk.rounding.large
-    // Opaque, as Caelestia's Menu (components/controls/Menu.qml) is: the
-    // m3surface* roles are the tPalette, and a see-through popup leaves the
-    // card's own text legible through the items.
-    color: Colours.palette.m3surfaceContainerHigh
-    clip: true
-    Behavior on height { Anim { type: "fastSpatial" } }
+    visible: opacity > 0
+    layer.enabled: opacity < 1
     Behavior on opacity { Anim { type: "effects" } }
-    layer.enabled: visible
-    layer.effect: MultiEffect { shadowEnabled: true; blurMax: 12; shadowColor: Qt.alpha("black", 0.4) }
-    Column {
+    transform: Scale {
+      yScale: root.expanded ? 1 : 0.1
+      origin.y: root.menuOnTop ? menu.height : 0
+      Behavior on yScale { Anim {} }
+    }
+
+    Elevation { anchors.fill: parent; radius: Tk.rounding.large; level: 2 }
+    Rectangle {
+      anchors.fill: parent
+      radius: Tk.rounding.large
+      color: Colours.palette.m3surfaceContainerLow
+    }
+    // Swallow the wheel and clicks between the items.
+    MouseArea { anchors.fill: parent; hoverEnabled: true; onWheel: e => e.accepted = true }
+
+    ColumnLayout {
       id: menuCol
-      x: Tk.padding.small; y: Tk.padding.small
-      width: parent.width - Tk.padding.small * 2
-      spacing: 2
+      anchors.fill: parent
+      anchors.margins: Tk.padding.extraSmall
+      spacing: 0
       Repeater {
+        id: rep
         model: root.items
         Rectangle {
           id: mi
           required property var modelData
-          readonly property bool sel: root.active && modelData.value === root.active.value
-          width: menuCol.width; height: Tk.px(44); radius: height / 2
-          color: sel ? Colours.m3secondaryContainer : "transparent"
-          StateLayer { color: Colours.m3onSurface; onClicked: { root.selected(mi.modelData.value); root.expanded = false } }
-          Row {
-            anchors.left: parent.left; anchors.leftMargin: Tk.padding.medium
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: Tk.spacing.medium
-            MIcon { anchors.verticalCenter: parent.verticalCenter; text: mi.sel ? "check" : (mi.modelData.icon || ""); color: mi.sel ? Colours.m3onSecondaryContainer : Colours.m3onSurfaceVariant }
-            MText { anchors.verticalCenter: parent.verticalCenter; width: menuCol.width - 60; elide: Text.ElideRight; text: mi.modelData.text; color: mi.sel ? Colours.m3onSecondaryContainer : Colours.m3onSurface }
+          required property int index
+          readonly property bool sel: !!root.active && modelData.value === root.active.value
+          readonly property real outer: Tk.rounding.medium
+          Layout.fillWidth: true
+          implicitWidth: miRow.implicitWidth + Tk.padding.medium * 2
+          implicitHeight: miRow.implicitHeight + Tk.padding.medium * 2
+          radius: sel ? Tk.rounding.medium : Tk.rounding.extraSmall
+          topLeftRadius: index === 0 ? outer : radius
+          topRightRadius: index === 0 ? outer : radius
+          bottomLeftRadius: index === rep.count - 1 ? outer : radius
+          bottomRightRadius: index === rep.count - 1 ? outer : radius
+          color: Qt.alpha(Colours.m3tertiaryContainer, sel ? 1 : 0)
+          Behavior on radius { Anim {} }
+          Behavior on color { CAnim {} }
+          StateLayer {
+            topLeftRadius: parent.topLeftRadius
+            topRightRadius: parent.topRightRadius
+            bottomLeftRadius: parent.bottomLeftRadius
+            bottomRightRadius: parent.bottomRightRadius
+            color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface
+            disabled: !root.expanded
+            onClicked: { root.selected(mi.modelData.value); root.expanded = false }
+          }
+          RowLayout {
+            id: miRow
+            anchors.fill: parent
+            anchors.margins: Tk.padding.medium
+            spacing: Tk.spacing.small
+            MIcon {
+              Layout.alignment: Qt.AlignVCenter
+              text: mi.modelData.icon || ""
+              color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurfaceVariant
+            }
+            MText {
+              Layout.alignment: Qt.AlignVCenter
+              Layout.fillWidth: true
+              elide: Text.ElideRight
+              text: mi.modelData.text
+              color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface
+            }
           }
         }
       }

@@ -36,7 +36,6 @@ Item {
   implicitWidth: implicitSize
   implicitHeight: implicitSize
 
-  Behavior on clampedVal { Anim {} }
   Behavior on waveAmplitude { Anim { type: "effects" } }
   NumberAnimation on waveProgress {
     running: root.visible && root.waveAmplitude > 0

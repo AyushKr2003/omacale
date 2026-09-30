@@ -69,6 +69,7 @@ ColumnLayout {
   }
 
   RowToggle {
+    verticalPadding: Tk.padding.large
     Layout.fillWidth: true
     first: true
     text: "Trusted"
@@ -77,6 +78,7 @@ ColumnLayout {
     onToggled: c => { if (root.dev) root.dev.trusted = c }
   }
   RowToggle {
+    verticalPadding: Tk.padding.large
     Layout.fillWidth: true
     text: "Blocked"
     subtext: "Prevent this device from connecting"
@@ -84,6 +86,7 @@ ColumnLayout {
     onToggled: c => { if (root.dev) root.dev.blocked = c }
   }
   RowToggle {
+    verticalPadding: Tk.padding.large
     Layout.fillWidth: true
     last: true
     text: "Wake allowed"

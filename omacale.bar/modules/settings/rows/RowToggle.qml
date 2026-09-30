@@ -22,7 +22,9 @@ ConnectedRect {
     root.toggled(c)
   }
 
-  implicitHeight: Math.max(lbl.implicitHeight, sw.implicitHeight) + Tk.padding.medium * 2
+  // Caelestia ToggleRow.verticalPadding (the Bluetooth device page uses large).
+  property real verticalPadding: Tk.padding.medium
+  implicitHeight: Math.max(lbl.implicitHeight, sw.implicitHeight) + verticalPadding * 2
 
   StateLayer {
     id: rowState
@@ -35,6 +37,6 @@ ConnectedRect {
     anchors.rightMargin: Tk.padding.largeIncreased
     spacing: Tk.spacing.medium
     RowLabel { id: lbl; Layout.fillWidth: true; text: root.text; subtext: root.subtext; textSize: root.labelSize }
-    MSwitch { id: sw; inRow: true; checked: root.checked; disabled: root.disabled; pressOverride: rowState.pressed; hoverOverride: rowState.containsMouse; onToggled: c => root.flip(c) }
+    MSwitch { id: sw; inRow: true; cLayer: 2; checked: root.checked; disabled: root.disabled; pressOverride: rowState.pressed; hoverOverride: rowState.containsMouse; onToggled: c => root.flip(c) }
   }
 }

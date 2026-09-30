@@ -9,7 +9,7 @@ RowLayout {
   property bool checked
   signal toggled(bool checked)
   Layout.fillWidth: true
-  Layout.rightMargin: Tk.padding.small
+  Layout.rightMargin: Tk.padding.extraSmall
   spacing: Tk.spacing.medium
   MText { Layout.fillWidth: true; text: root.label }
   MSwitch { checked: root.checked; onToggled: c => root.toggled(c) }

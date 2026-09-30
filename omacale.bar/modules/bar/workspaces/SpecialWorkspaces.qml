@@ -177,8 +177,21 @@ Item {
         readonly property var toplevels: obj && obj.toplevels ? obj.toplevels.values : []
         readonly property bool occupied: toplevels.length > 0
         readonly property bool focused: wsId === root.activeSpecialId
-        readonly property color fg: focused || occupied || root.cfg.occupiedBg ? Colours.m3onSurface : Colours.m3outlineVariant
-        readonly property bool hasWindows: occupied && root.cfg.specialShowWindows && root.cfg.maxWindowIcons > 0
+        readonly property color fg: focused || occupied || root.cfg.occupiedBg ? Colours.m3onSurface : Colours.layer(Colours.m3outlineVariant, 2)
+        readonly property bool windowsOn: root.cfg.specialShowWindows && root.cfg.maxWindowIcons > 0
+        readonly property bool hasWindows: occupied && windowsOn
+        readonly property real cell: Tk.barInner - Tk.padding.small
+        // Caelestia's Workspace delegate, as in Workspaces.qml: the windows
+        // list is pulled up 2px whenever icons are on, icons flush.
+        readonly property real targetLen: cell - (windowsOn ? Tk.spacing.extraSmall / 2 : 0)
+          + (hasWindows ? Math.min(toplevels.length, root.cfg.maxWindowIcons) * (root.vertical ? specIconRef.implicitHeight : specIconRef.implicitWidth) + Tk.padding.extraSmall : 0)
+        required property int index
+        readonly property real targetPos: {
+          root.listGen
+          let p = 0
+          for (let i = 0; i < index; i++) { const it = rep.itemAt(i); if (it) p += it.targetLen + Tk.spacing.small }
+          return p
+        }
 
         function pickShape() {
           shape.shape = focused && root.focusedShapes.length ? root.focusedShapes[Math.floor(Math.random() * root.focusedShapes.length)]
@@ -187,57 +200,59 @@ Item {
         onFocusedChanged: pickShape()
         onOccupiedChanged: if (!focused) pickShape()
 
-        width: root.vertical ? view.width : col.implicitWidth + (hasWindows ? Tk.padding.extraSmall : 0)
-        height: root.vertical ? col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0) : view.height
+        width: root.vertical ? view.width : targetLen
+        height: root.vertical ? targetLen : view.height
         Behavior on height { enabled: root.vertical; Anim {} }
         Behavior on width { enabled: !root.vertical; Anim {} }
         opacity: 0
         Component.onCompleted: { opacity = 1; pickShape(); root.listGen++ }
         Behavior on opacity { Anim { type: "effects" } }
 
+        Item {
+          width: root.vertical ? ws.width : ws.cell
+          height: root.vertical ? ws.cell : ws.height
+          MIcon {
+            anchors.centerIn: parent
+            visible: ws.icon !== ""
+            text: ws.icon
+            fill: 1
+            grade: 25
+            color: ws.fg
+          }
+          MShape {
+            id: shape
+            anchors.centerIn: parent
+            visible: root.display === "shapes"
+            implicitSize: ws.cell
+            color: ws.fg
+            scale: ws.focused ? 2 / 3 : ws.occupied ? 1 / 3 : 1 / 4
+            Behavior on scale { Anim {} }
+            Behavior on color { CAnim {} }
+          }
+          MText {
+            anchors.centerIn: parent
+            visible: root.display === "letters"
+            animate: true
+            text: ws.name.charAt(0)
+            font.family: Tk.clock
+            font.pointSize: Tk.body.small
+            color: ws.fg
+          }
+        }
         Grid {
-          id: col
+          x: root.vertical ? 0 : ws.cell - Tk.spacing.extraSmall / 2
+          y: root.vertical ? ws.cell - Tk.spacing.extraSmall / 2 : 0
           width: root.vertical ? ws.width : implicitWidth
           height: root.vertical ? implicitHeight : ws.height
           columns: root.vertical ? 1 : 1000
           spacing: 0
-          Item {
-            width: root.vertical ? col.width : Tk.barInner - Tk.padding.small
-            height: root.vertical ? Tk.barInner - Tk.padding.small : col.height
-            MIcon {
-              anchors.centerIn: parent
-              visible: ws.icon !== ""
-              text: ws.icon
-              fill: 1
-              grade: 25
-              color: ws.fg
-            }
-            MShape {
-              id: shape
-              anchors.centerIn: parent
-              visible: root.display === "shapes"
-              implicitSize: Tk.barInner - Tk.padding.small
-              color: ws.fg
-              scale: ws.focused ? 2 / 3 : ws.occupied ? 1 / 3 : 1 / 4
-              Behavior on scale { Anim {} }
-            }
-            MText {
-              anchors.centerIn: parent
-              visible: root.display === "letters"
-              text: ws.name.charAt(0)
-              font.family: Tk.clock
-              font.pointSize: Tk.body.small
-              color: ws.fg
-            }
-          }
           Repeater {
-            model: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : []
+            model: ScriptModel { values: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : [] }
             MIcon {
               required property var modelData
-              width: root.vertical ? col.width : implicitWidth
-              height: root.vertical ? implicitHeight : col.height
-              topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
-              leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
+              width: root.vertical ? parent.width : implicitWidth
+              height: root.vertical ? implicitHeight : parent.height
+              grade: 0
               text: Sys.appIcon(modelData.wayland ? modelData.wayland.appId : (modelData.lastIpcObject || {}).class, "terminal")
               color: Colours.m3onSurfaceVariant
               opacity: 0
@@ -249,6 +264,8 @@ Item {
       }
     }
   }
+
+  MIcon { id: specIconRef; visible: false; text: "terminal" }
 
   ActiveIndicator {
     visible: root.cfg.activeIndicator

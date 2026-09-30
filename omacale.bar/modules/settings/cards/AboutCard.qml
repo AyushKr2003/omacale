@@ -55,8 +55,9 @@ ColumnLayout {
           colour: Colours.m3onPrimaryContainer
         }
       }
-      MText { Layout.alignment: Qt.AlignHCenter; text: "Omacale"; font.pointSize: Tk.headline.small; weight: Font.Medium; color: Colours.m3primary }
-      MText { Layout.alignment: Qt.AlignHCenter; text: "Caelestia's look, Omarchy's engine · v" + (root.settings ? root.settings.version : ""); color: Colours.m3onSurfaceVariant }
+      // Caelestia AboutPage: the name in headline.large, widened (wdth 110).
+      MText { Layout.alignment: Qt.AlignHCenter; Layout.topMargin: Tk.spacing.small; text: "Omacale"; font.pointSize: Tk.headline.large; weight: Font.Medium; axes: ({ "ROND": 25, "wdth": 110 }) }
+      MText { Layout.alignment: Qt.AlignHCenter; text: "Caelestia's look, Omarchy's engine · v" + (root.settings ? root.settings.version : ""); color: Colours.m3onSurfaceVariant; font.pointSize: Tk.body.medium }
     }
   }
 
@@ -90,25 +91,24 @@ ColumnLayout {
   Action { first: true; icon: "code"; label: "Made by AyushKr2003"; sub: "github.com/AyushKr2003"; onClicked: Qt.openUrlExternally("https://github.com/AyushKr2003") }
   Action { last: true; icon: "favorite"; label: "Design by Caelestia"; sub: "github.com/caelestia-dots/shell · GPL-3.0"; onClicked: Qt.openUrlExternally("https://github.com/caelestia-dots/shell") }
 
-  component Header: MText {
+  // The shared section header (Caelestia nexus/common/SectionHeader).
+  component Header: SectionHeader {
     Layout.fillWidth: true
-    Layout.topMargin: Tk.spacing.largeIncreased
-    Layout.bottomMargin: Tk.spacing.extraSmall
-    Layout.leftMargin: Tk.padding.small
-    color: Colours.m3onSurfaceVariant
-    font.pointSize: Tk.label.medium
   }
   component Info: ConnectedRect {
     property string label
     property string value
     Layout.fillWidth: true
     implicitHeight: il.implicitHeight + Tk.padding.medium * 2
+    // Caelestia nexus/common/InfoRow: the value right-aligned in
+    // onSurfaceVariant, never wider than half the row.
     RowLayout {
       id: il
       anchors.left: parent.left; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
       anchors.leftMargin: Tk.padding.largeIncreased; anchors.rightMargin: Tk.padding.largeIncreased
-      MText { Layout.fillWidth: true; text: parent.parent.label }
-      MText { text: parent.parent.value; color: Colours.m3outline; animate: true }
+      spacing: Tk.spacing.medium
+      MText { Layout.fillWidth: true; text: parent.parent.label; elide: Text.ElideRight }
+      MText { Layout.maximumWidth: parent.parent.width / 2; horizontalAlignment: Text.AlignRight; text: parent.parent.value; color: Colours.m3onSurfaceVariant; elide: Text.ElideRight; animate: true }
     }
   }
   component Action: ConnectedRect {

@@ -107,8 +107,8 @@ Rectangle {
       id: repeater
       delegate: IconButton {
         required property var modelData
-        // A muted mic shows mic_off, as the bar's microphone icon does.
-        icon: modelData.id === "mic" && !root.micOn ? "mic_off" : modelData.icon
+        // Caelestia keeps "mic": a muted mic is the toggle's unfilled off state.
+        icon: modelData.icon
         checked: root.isOn(modelData.id)
         toggle: modelData.toggle
         fillWidth: true

@@ -89,7 +89,7 @@ var pages = [
     rows: [ { type: "custom", comp: "network" } ]
   },
   {
-    id: "bluetooth", label: "Connected devices", icon: "devices_other", category: "connectivity",
+    id: "bluetooth", label: "Connected devices", icon: "devices_other", noFill: true, category: "connectivity",
     description: "Bluetooth, pairing",
     rows: [ { type: "custom", comp: "bluetooth" } ]
   },

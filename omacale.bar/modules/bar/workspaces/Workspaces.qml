@@ -47,24 +47,43 @@ Rectangle {
   property bool iconsFit: true
   // Worked out from the workspaces, not measured, so both are the same
   // whether or not the icons are shown and the bar can decide on them.
-  readonly property real bareSize: shown * (Tk.barInner - Tk.padding.small)
-    + (shown - 1) * Tk.spacing.extraSmall + Tk.padding.extraSmall * 2
+  //
+  // Caelestia Workspace.qml: a column of the shape cell and a windows list
+  // that is there whenever window icons are on (even with none to show) and
+  // is pulled up by spacing.extraSmall / 2. So an empty cell is cell - 2, and
+  // an occupied one adds its icons, flush, plus padding.extraSmall.
+  readonly property bool windowsOn: cfg.showWindows && cfg.maxWindowIcons > 0
+  readonly property real cellLen: Tk.barInner - Tk.padding.small - (windowsOn ? Tk.spacing.extraSmall / 2 : 0)
+  readonly property real iconLen: vertical ? iconRef.implicitHeight : iconRef.implicitWidth
+  function iconCount(id) {
+    const o = wsObject(id)
+    return Math.min(o && o.toplevels ? o.toplevels.values.length : 0, cfg.maxWindowIcons)
+  }
+  // A cell's settled length along the bar, and where it settles: what the
+  // active pill heads for (Caelestia's LazyListView preferredHeight/layoutY),
+  // never the animating geometry.
+  function lenFor(id) {
+    const n = windowsOn && iconsFit ? iconCount(id) : 0
+    return cellLen + (n > 0 ? n * iconLen + Tk.padding.extraSmall : 0)
+  }
+  function posFor(index) {
+    let p = 0
+    for (let i = 0; i < index; i++) p += lenFor(groupOffset + i + 1) + Tk.spacing.extraSmall
+    return p
+  }
+  readonly property real bareSize: shown * cellLen + (shown - 1) * Tk.spacing.extraSmall + Tk.padding.extraSmall * 2
   readonly property real iconsSize: {
-    if (!cfg.showWindows || cfg.maxWindowIcons <= 0) return 0
+    if (!windowsOn) return 0
     let h = 0
     for (let i = 0; i < shown; i++) {
-      const o = wsObject(groupOffset + i + 1)
-      const n = Math.min(o && o.toplevels ? o.toplevels.values.length : 0, cfg.maxWindowIcons)
-      if (n > 0) h += n * (vertical ? iconRef.implicitHeight : iconRef.implicitWidth) + Tk.padding.extraSmall
+      const n = iconCount(groupOffset + i + 1)
+      if (n > 0) h += n * iconLen + Tk.padding.extraSmall
     }
     return h
   }
-  // A window icon is pulled in against the workspace shape on the flow's axis.
   MIcon {
     id: iconRef
     visible: false
-    topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
-    leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
     text: "terminal"
   }
 
@@ -128,7 +147,10 @@ Rectangle {
     Behavior on opacity { Anim { type: "effects" } }
 
     layer.enabled: root.blur > 0
+    // No auto padding: Caelestia clips the list to its pill, so the blur
+    // mustn't spread past it onto the bar.
     layer.effect: MultiEffect {
+      autoPaddingEnabled: false
       blurEnabled: true
       blur: root.blur
       blurMax: 32
@@ -158,12 +180,14 @@ Rectangle {
           readonly property var toplevels: obj && obj.toplevels ? obj.toplevels.values : []
           readonly property bool occupied: toplevels.length > 0
           readonly property bool focused: wsId === root.activeId
-          readonly property color fg: focused || occupied || root.cfg.occupiedBg ? Colours.m3onSurface : Colours.m3outlineVariant
+          readonly property color fg: focused || occupied || root.cfg.occupiedBg ? Colours.m3onSurface : Colours.layer(Colours.m3outlineVariant, 2)
           readonly property real cell: Tk.barInner - Tk.padding.small
 
-          readonly property bool hasWindows: occupied && root.iconsFit && root.cfg.showWindows && root.cfg.maxWindowIcons > 0
-          width: root.vertical ? list.width : col.implicitWidth + (hasWindows ? Tk.padding.extraSmall : 0)
-          height: root.vertical ? col.implicitHeight + (hasWindows ? Tk.padding.extraSmall : 0) : list.height
+          readonly property bool hasWindows: occupied && root.iconsFit && root.windowsOn
+          readonly property real targetLen: root.lenFor(wsId)
+          readonly property real targetPos: root.posFor(index)
+          width: root.vertical ? list.width : targetLen
+          height: root.vertical ? targetLen : list.height
           Behavior on height { enabled: root.vertical; Anim {} }
           Behavior on width { enabled: !root.vertical; Anim {} }
 
@@ -178,42 +202,47 @@ Rectangle {
             root.listGen++
           }
 
+          // The shape cell, full size and anchored at the start (AlignTop).
+          Item {
+            width: root.vertical ? ws.width : ws.cell
+            height: root.vertical ? ws.cell : ws.height
+            MText {
+              anchors.centerIn: parent
+              visible: root.cfg.display === "numbers"
+              animate: true
+              text: ws.wsId
+              font.family: Tk.clock
+              font.pointSize: Tk.body.small
+              color: ws.fg
+              Behavior on color { CAnim {} }
+            }
+            MShape {
+              id: shape
+              visible: root.cfg.display !== "numbers"
+              anchors.centerIn: parent
+              implicitSize: ws.cell
+              color: ws.fg
+              scale: ws.focused ? 2 / 3 : ws.occupied ? 1 / 3 : 1 / 4
+              Behavior on scale { Anim {} }
+              Behavior on color { CAnim {} }
+            }
+          }
           Grid {
-            id: col
+            x: root.vertical ? 0 : ws.cell - Tk.spacing.extraSmall / 2
+            y: root.vertical ? ws.cell - Tk.spacing.extraSmall / 2 : 0
             width: root.vertical ? ws.width : implicitWidth
             height: root.vertical ? implicitHeight : ws.height
             columns: root.vertical ? 1 : 1000
             spacing: 0
-            Item {
-              width: root.vertical ? col.width : ws.cell
-              height: root.vertical ? ws.cell : col.height
-              MText {
-                anchors.centerIn: parent
-                visible: root.cfg.display === "numbers"
-                text: ws.wsId
-                font.family: Tk.clock
-                font.pointSize: Tk.body.small
-                weight: ws.focused ? Font.DemiBold : Font.Normal
-                color: ws.fg
-              }
-              MShape {
-                id: shape
-                visible: root.cfg.display !== "numbers"
-                anchors.centerIn: parent
-                implicitSize: ws.cell
-                color: ws.fg
-                scale: ws.focused ? 2 / 3 : ws.occupied ? 1 / 3 : 1 / 4
-                Behavior on scale { Anim {} }
-              }
-            }
             Repeater {
-              model: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : []
+              // A ScriptModel keeps the delegates of windows that stay, so a
+              // window opening elsewhere doesn't blink every icon.
+              model: ScriptModel { values: ws.hasWindows ? ws.toplevels.slice(0, root.cfg.maxWindowIcons) : [] }
               MIcon {
                 required property var modelData
-                width: root.vertical ? col.width : implicitWidth
-                height: root.vertical ? implicitHeight : col.height
-                topPadding: root.vertical ? -Tk.spacing.extraSmall / 2 : 0
-                leftPadding: root.vertical ? 0 : -Tk.spacing.extraSmall / 2
+                width: root.vertical ? parent.width : implicitWidth
+                height: root.vertical ? implicitHeight : parent.height
+                grade: 0
                 text: Sys.appIcon(modelData.wayland ? modelData.wayland.appId : (modelData.lastIpcObject || {}).class, "terminal")
                 color: Colours.m3onSurfaceVariant
                 opacity: 0
@@ -245,12 +274,14 @@ Rectangle {
         required property var modelData
         readonly property var a: rep.itemAt(modelData[0])
         readonly property var b: rep.itemAt(modelData[1])
-        x: root.vertical ? list.x : a ? list.x + a.x : 0
-        y: root.vertical ? (a ? list.y + a.y : 0) : list.y
-        width: root.vertical ? list.width : a && b ? b.x + b.width - a.x : 0
-        height: root.vertical ? (a && b ? b.y + b.height - a.y : 0) : list.height
+        // Caelestia OccupiedBg: the layered highest container, 1px proud of
+        // the cells on every side.
+        x: (root.vertical ? list.x : a ? list.x + a.x : 0) - 1
+        y: (root.vertical ? (a ? list.y + a.y : 0) : list.y) - 1
+        width: (root.vertical ? list.width : a && b ? b.x + b.width - a.x : 0) + 2
+        height: (root.vertical ? (a && b ? b.y + b.height - a.y : 0) : list.height) + 2
         radius: Math.min(width, height) / 2
-        color: Colours.m3secondaryContainer
+        color: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
         z: -1
       }
     }

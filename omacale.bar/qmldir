@@ -88,6 +88,7 @@ singleton BtService 1.0 services/BtService.qml
 InfoRow 1.0 modules/settings/common/InfoRow.qml
 ItemList 1.0 modules/settings/common/ItemList.qml
 LoadingIndicator 1.0 components/LoadingIndicator.qml
+MorphIndicator 1.0 components/MorphIndicator.qml
 NetworkDetail 1.0 modules/settings/pages/NetworkDetail.qml
 NetworkPage 1.0 modules/settings/pages/NetworkPage.qml
 singleton NetService 1.0 services/NetService.qml

@@ -62,6 +62,7 @@ QtObject {
     readonly property int largeIncreased: tk.even(20, tk.spaceScale)
     readonly property int extraLarge: tk.even(28, tk.spaceScale)
     readonly property int extraLargeIncreased: tk.even(32, tk.spaceScale)
+    readonly property int extraExtraLarge: tk.even(48, tk.spaceScale)
   }
   readonly property QtObject padding: QtObject {
     readonly property int extraSmall: tk.even(4, tk.padScale)

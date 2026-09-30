@@ -87,6 +87,8 @@ MouseArea {
     visible: root.showHoverBackground
     opacity: root.stateOpacity
     color: root.color
+    // Caelestia's veil is a StyledRect: its colour fades.
+    Behavior on color { CAnim {} }
     topLeftRadius: root.clamp(root.topLeftRadius)
     topRightRadius: root.clamp(root.topRightRadius)
     bottomLeftRadius: root.clamp(root.bottomLeftRadius)

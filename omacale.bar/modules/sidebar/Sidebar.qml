@@ -295,6 +295,7 @@ Item {
                 id: inner
                 width: parent.width
                 groupData: slot.group
+                onLinkOpened: if (root.scope) root.scope.sidebar = false
                 scale: slot.closing ? 0.6 : slot.adding ? 0 : 1
                 Behavior on scale { Anim {} }
               }
@@ -338,6 +339,7 @@ Item {
       sourceComponent: IconButton {
         id: clearBtn
         icon: "clear_all"
+        round: false
         iconSize: Tk.iconSize.large
         onClicked: clearTimer.start()
 

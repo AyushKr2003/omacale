@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Dialogs
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
@@ -38,6 +39,13 @@ Scope {
   property bool session: false
   property bool settings: false
   property bool sidebar: false
+  // Caelestia's NotifDock clears every popup as it opens, and Notifs shows
+  // none while it stays open: the toasts are dismissed, not just hidden.
+  onSidebarChanged: if (sidebar && NotifService.popups.length) NotifService.dismissAllPopups()
+  Connections {
+    target: NotifService
+    function onPopupsChanged() { if (scope.sidebar && NotifService.popups.length) Qt.callLater(NotifService.dismissAllPopups) }
+  }
   property bool utilities: false
   property bool overview: false
   property bool dashShortcut: false
@@ -382,10 +390,38 @@ Scope {
 
       width: implicitWidth
       height: implicitHeight
-      maxHeight: Math.max(0, scope.screen.height - scope.toastTop - scope.toastInset)
+      // Caelestia notifications/Content.qml: the stack stops short of the
+      // session menu and of utilities (when they share its corner's side).
+      maxHeight: {
+        let h = scope.screen.height - scope.toastTop - scope.toastInset
+        if (scope.session) h = Math.min(h, win.sy - Math.max(0, Tk.padding.large - Tk.border) - scope.toastTop)
+        if (scope.utilities && !scope.flipV)
+          h = Math.min(h, scope.screen.height - win.uh - Tk.border * 2 - Tk.padding.large * 2 - Tk.spacing.extraLarge)
+        return Math.max(0, h)
+      }
       // The notification centre shows the same notifications in full, so the
       // toasts get out of its way (Caelestia's Notifs.shouldShowPopup).
       suppressed: scope.sidebar
+    }
+  }
+
+  // Caelestia's facePicker: choose an image and copy it to ~/.face, which the
+  // dashboard and the lock screen read. The portal's native dialog; made on
+  // demand and dropped once it closes.
+  Loader {
+    id: facePicker
+    active: false
+    sourceComponent: FileDialog {
+      title: "Choose a profile picture"
+      nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)"]
+      currentFolder: "file://" + Quickshell.env("HOME") + "/Pictures"
+      Component.onCompleted: open()
+      onAccepted: {
+        const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""))
+        Quickshell.execDetached(["cp", "-f", "--", path, Quickshell.env("HOME") + "/.face"])
+        facePicker.active = false
+      }
+      onRejected: facePicker.active = false
     }
   }
 
@@ -441,8 +477,11 @@ Scope {
       sourceComponent: WallLuminance {}
     }
     // Auto-hiding bar (Caelestia's non-persistent bar).
-    property real barProg: !scope.barOff && (scope.cfg.bar.persistent || scope.barHover) ? 1 : 0
-    Behavior on barProg { Anim {} }
+    readonly property bool barShown: !scope.barOff && (scope.cfg.bar.persistent || scope.barHover)
+    property real barProg: barShown ? 1 : 0
+    // Caelestia BarWrapper: out on the default spatial curve, back in on
+    // emphasized.
+    Behavior on barProg { Anim { type: win.barShown ? "spatial" : "emphasized" } }
 
     // The frame's breadth on the bar's edge (bw) and on the others (bt).
     readonly property real bw: (Tk.border + (Tk.barWidth - Tk.border) * barProg) * (1 - fs)
@@ -1024,8 +1063,11 @@ Scope {
         width: scope.barVert ? Tk.barWidth : win.width
         height: scope.barVert ? win.height : Tk.barWidth
         vertical: scope.barVert
-        opacity: Math.min(1 - win.fs, win.barProg)
-        visible: opacity > 0
+        // Slid, never faded, with the frame's breadth; gone as soon as it
+        // starts to hide (Caelestia's content Loader is active only while
+        // the bar should be visible).
+        opacity: 1 - win.fs
+        visible: opacity > 0 && win.barShown && win.bw > Tk.border
         screen: scope.screen
         host: scope.host
         scope: scope
@@ -1091,8 +1133,10 @@ Scope {
           transform: Matrix4x4 { matrix: popDeform.matrixAt(win.prx + win.prw / 2 - win.px, win.pry + win.prh / 2 - win.py) }
           PopoutContent {
             id: pop
-            x: Tk.padding.large
-            y: Tk.padding.large
+            // Centred in the animating popout, as Caelestia's pages are, so
+            // a page switch grows and shrinks around the content.
+            x: Math.round((win.pw - width) / 2)
+            y: Math.round((win.ph - height) / 2)
             width: implicitWidth
             height: implicitHeight
             host: scope.host
@@ -1130,6 +1174,7 @@ Scope {
           active: scope.dashboard
           tab: scope.dashTab
           onTabChanged: scope.dashTab = tab
+          onFaceRequested: { scope.dashboard = false; facePicker.active = true }
         }
       }
 
@@ -1151,6 +1196,7 @@ Scope {
           transform: Matrix4x4 { matrix: launchDeform.matrixAt(win.lw / 2, win.lh / 2) }
           active: scope.launcher
           screenWidth: win.width
+          sideMargin: scope.sidebar || scope.utilities ? (scope.sidebar ? win.sbw : Tk.sizes.utilitiesWidth) : 0
           maxHeight: win.ah - (scope.dashboard ? win.dh : 0) + Tk.padding.extraLarge
           onDismissed: scope.launcher = false
           onOpenSettings: { scope.launcher = false; scope.settings = true }

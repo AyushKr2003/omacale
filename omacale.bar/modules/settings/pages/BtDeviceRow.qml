@@ -79,7 +79,9 @@ Item {
         anchors.centerIn: parent
         visible: !root.loading && root.showSettings
         type: "text"
+        round: false
         icon: "settings"
+        iconFill: 0
         padding: Tk.padding.small
         inactiveOnColour: root.connected ? Colours.m3primary : Colours.m3onSurfaceVariant
         onClicked: root.openSettings()

@@ -48,7 +48,16 @@ ConnectedRect {
           anchors.horizontalCenterOffset: Math.floor(split.vPad / 4)
           spacing: Tk.spacing.small
           MIcon { Layout.alignment: Qt.AlignVCenter; visible: text !== ""; text: root.current && root.current.icon ? root.current.icon : ""; fill: 1; color: Colours.m3onSecondaryContainer; animate: true }
-          MText { Layout.alignment: Qt.AlignVCenter; text: root.current ? root.current.label : ""; color: Colours.m3onSecondaryContainer; animate: true }
+          MText {
+            Layout.alignment: Qt.AlignVCenter
+            // SplitButton's label: the pill eases to the new label's width.
+            Layout.preferredWidth: implicitWidth
+            clip: true
+            text: root.current ? root.current.label : ""
+            color: Colours.m3onSecondaryContainer
+            animate: true
+            Behavior on Layout.preferredWidth { Anim { type: "emphasized" } }
+          }
         }
       }
       Rectangle {

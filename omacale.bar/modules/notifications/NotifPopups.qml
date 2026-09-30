@@ -17,7 +17,9 @@ Item {
   property bool suppressed: false
   readonly property int count: list.count
 
-  implicitWidth: Tk.sizes.notifsWidth
+  // Caelestia insets the list by padding.large on the open side and by the
+  // clamped padding against the frame: 430 - 16 - 6 = 408 at 1x.
+  implicitWidth: Tk.sizes.notifsWidth - Tk.padding.large - Math.max(0, Math.min(Tk.padding.large - Tk.border, Tk.padding.large))
   implicitHeight: {
     const n = list.count
     if (n === 0) return 0
@@ -31,12 +33,13 @@ Item {
   // "+n" indicators. Set by the window; the screen height by default.
   property real maxHeight: 0
 
-  ListView {
+  // Scrollable, as Caelestia's StyledListView: the wheel moves the stack and
+  // the "+n" indicators count down. Cards keep their drags (preventStealing).
+  MListView {
     id: list
 
     anchors.fill: parent
     clip: true
-    interactive: false
     orientation: Qt.Vertical
     spacing: 0
     cacheBuffer: root.maxHeight
@@ -190,7 +193,7 @@ Item {
       color: Colours.m3onTertiary
     }
 
-    Behavior on opacity { Anim { type: "fastEffects" } }
+    Behavior on opacity { Anim { type: "effects"; duration: Tk.durations.fastSpatial } }
     Behavior on scale { Anim { type: "fastSpatial" } }
   }
 }

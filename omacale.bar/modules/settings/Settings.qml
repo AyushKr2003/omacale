@@ -123,8 +123,9 @@ Item {
   Item {
     id: winBtn
     anchors.centerIn: winBtnRect
-    implicitWidth: winIcon.implicitWidth + Tk.padding.small * 2
-    implicitHeight: winIcon.implicitHeight + Tk.padding.small
+    // A Text IconButton: padding.extraSmall / 2 all round, square and even.
+    implicitWidth: implicitHeight
+    implicitHeight: { const h = winIcon.implicitHeight + Tk.padding.extraSmall; return h % 2 ? h + 1 : h }
     MIcon {
       id: winIcon
       anchors.centerIn: parent
@@ -132,6 +133,7 @@ Item {
       size: Tk.iconSize.medium
       color: winMouse.containsMouse ? (root.isWindow ? Colours.m3error : Colours.m3primary) : Colours.m3onSurfaceVariant
       scale: winMouse.pressed ? 0.8 : 1
+      renderType: Text.QtRendering
       Behavior on scale { Anim {} }
     }
     MouseArea {
@@ -271,7 +273,7 @@ Item {
                   size: Tk.iconSize.medium
                   weight: Font.Medium
                   grade: 25
-                  fill: 1
+                  fill: item.modelData.noFill ? 0 : 1
                   color: item.current ? Colours.m3onPrimary : Colours.m3onSecondaryContainer
                 }
               }
@@ -302,6 +304,7 @@ Item {
     property bool shownSub: false
     property int depth: 0
     property int lastIdx: 0
+    property string lastPageId: ""
 
     Item {
       id: container
@@ -320,13 +323,17 @@ Item {
       shownId = root.viewId
       shownSub = root.stack.length > 0 && root.viewId !== "__search"
     }
-    Component.onCompleted: show()
+    Component.onCompleted: { show(); lastPageId = root.pageId }
 
     Connections {
       target: root
       function onViewIdChanged() {
         const newDepth = root.stack.length
-        const horizontal = newDepth !== pagesArea.depth && root.viewId !== "__search"
+        // Sideways only within one page (into or out of its sub-pages); a
+        // different top-level page always moves vertically (Caelestia Pages).
+        const samePage = root.pageId === pagesArea.lastPageId
+        pagesArea.lastPageId = root.pageId
+        const horizontal = samePage && newDepth !== pagesArea.depth && root.viewId !== "__search"
         swap.dirX = horizontal ? (newDepth > pagesArea.depth ? 1 : -1) * Tk.padding.extraExtraLarge * 2 : 0
         // Caelestia Pages: a new page rises from below when it is further
         // down the nav list, and drops from above when it is further up.

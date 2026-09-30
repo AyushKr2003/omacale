@@ -153,7 +153,8 @@ Rectangle {
         anchors.horizontalCenterOffset: implicitWidth > field.width ? -(implicitWidth - field.width) / 2 : 0
 
         implicitWidth: fullWidth
-        implicitHeight: Tk.body.medium * root.centerScale
+        // Caelestia InputField: the dots stay body.medium whatever the scale.
+        implicitHeight: Tk.body.medium
         width: Math.min(implicitWidth, field.width)
         height: implicitHeight
 
@@ -350,7 +351,7 @@ Rectangle {
       anchors.centerIn: parent
       opacity: root.showPassword ? 1 : 0
       text: root.buffer[char.index] ?? ""
-      font.pointSize: Tk.body.medium * root.centerScale
+      font.pointSize: Tk.body.small
 
       Behavior on opacity {
         Anim {

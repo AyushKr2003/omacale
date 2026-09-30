@@ -16,6 +16,7 @@ PathView {
   required property string kind         // "wallpapers" | "themes"
   required property string search       // launcher text after the prefix
   property real screenWidth: 0
+  property real sideMargin: 0
   signal picked()
 
   readonly property int itemWidth: Tk.sizes.launcherWallpaperWidth * 0.8 + Tk.padding.medium * 2
@@ -31,7 +32,9 @@ PathView {
   readonly property bool pair: numItems === 2
   readonly property int numItems: {
     // Screen width - 4x outer rounding - 2x bar (cause centered)
-    const maxWidth = screenWidth - Tk.borderRounding * 4 - (Tk.barVertical ? Tk.barWidth * 2 : Tk.border * 4)
+    // Caelestia also keeps clear of an open sidebar/utilities on both sides
+    // (the carousel is centred).
+    const maxWidth = screenWidth - Tk.borderRounding * 4 - (Tk.barVertical ? Tk.barWidth * 2 : Tk.border * 4) - sideMargin * 2
     if (maxWidth <= 0) return 0
 
     const maxItemsOnScreen = Math.floor(maxWidth / itemWidth)

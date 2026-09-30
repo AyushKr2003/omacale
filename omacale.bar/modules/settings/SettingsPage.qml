@@ -75,7 +75,9 @@ ColumnLayout {
           Behavior on opacity { Anim { type: "effects" } }
           Component.onCompleted: {
             const f = root.files[modelData.type === "custom" ? modelData.comp : modelData.type]
-            if (f) setSource(Qt.resolvedUrl(f), { row: modelData, settings: root.settings, first: root.isFirst(index), last: root.isLast(index) })
+            // Only a page's first header drops its top gap (Caelestia pages
+            // set `first` on that one alone); a header after a card keeps it.
+            if (f) setSource(Qt.resolvedUrl(f), { row: modelData, settings: root.settings, first: modelData.type === "section" ? index === 0 : root.isFirst(index), last: root.isLast(index) })
           }
         }
       }

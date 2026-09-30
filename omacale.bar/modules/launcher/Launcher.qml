@@ -48,6 +48,8 @@ Item {
   // Sizes lag `mode` behind a fade, as Caelestia's animState.
   property string animState: mode
   property real screenWidth: 0
+  // The width of an open sidebar/utilities, which the carousel keeps clear of.
+  property real sideMargin: 0
   readonly property string query: search.text.split(" ").slice(1).join(" ")
   readonly property string menuQuery: menuMode ? search.text.slice(menuPrefix.length) : ""
   property string pendingText: ""
@@ -480,9 +482,13 @@ Item {
             asynchronous: true
             source: parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : ""
           }
+          // Caelestia items/ActionItem.qml: the glyph at the row's start,
+          // its own width, the text spacing.medium after it.
           MIcon {
+            id: actionIcon
             visible: item.action !== null
-            anchors.centerIn: icon
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
             text: item.action ? item.action.icon : ""
             size: Tk.iconSize.large * 1.3
             color: Colours.m3onSurfaceVariant
@@ -518,7 +524,7 @@ Item {
             color: Colours.m3primary
           }
           Column {
-            anchors.left: icon.right
+            anchors.left: item.action ? actionIcon.right : icon.right
             anchors.leftMargin: Tk.spacing.medium
             anchors.right: favIcon.visible ? favIcon.left : chevron.visible ? chevron.left : parent.right
             anchors.verticalCenter: icon.verticalCenter
@@ -550,6 +556,7 @@ Item {
         kind: root.animState
         search: root.query
         screenWidth: root.screenWidth
+        sideMargin: root.sideMargin
         onPicked: root.dismissed()
       }
     }
@@ -730,7 +737,8 @@ Item {
       anchors.right: clearBtn.left
       anchors.rightMargin: Tk.spacing.medium
       anchors.verticalCenter: parent.verticalCenter
-      font.pointSize: Tk.body.medium
+      // TextFieldBase's body.small, and the placeholder reuses it.
+      font.pointSize: Tk.body.small
       clip: true
       onTextChanged: list.currentIndex = 0
       Keys.onPressed: function(e) {
@@ -774,7 +782,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         text: 'Type "' + root.prefix + '" for commands, "' + root.menuPrefix + '" for the Omarchy menu'
         color: Colours.m3onSurfaceVariant
-        font.pointSize: Tk.body.medium
+        font.pointSize: Tk.body.small
         opacity: search.text ? 0 : 1
         Behavior on opacity { Anim { type: "effects" } }
       }

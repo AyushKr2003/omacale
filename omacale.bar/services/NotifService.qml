@@ -20,9 +20,10 @@ QtObject {
 
   // Which app groups are expanded. Lives here (not in the delegates) because
   // the group list is rebuilt whenever the history changes.
-  // Unset apps follow notifs.openExpanded.
+  // Unset apps start collapsed: notifs.openExpanded is for the toasts only
+  // (Caelestia sidebar Props.qml vs Notification.qml).
   property var expandedApps: ({})
-  function isExpanded(app) { return app in expandedApps ? expandedApps[app] : Config.o.notifs.openExpanded }
+  function isExpanded(app) { return !!expandedApps[app] }
   function setExpanded(app, on) {
     const next = Object.assign({}, expandedApps)
     next[app] = on

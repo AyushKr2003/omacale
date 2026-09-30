@@ -39,6 +39,7 @@ ColumnLayout {
       MText { Layout.alignment: Qt.AlignVCenter; Layout.fillWidth: true; text: "Recordings"; font.pointSize: Tk.body.medium }
       IconButton {
         type: "text"
+        round: false
         icon: RecordService.listExpanded ? "unfold_less" : "unfold_more"
         onClicked: RecordService.listExpanded = !RecordService.listExpanded
       }
@@ -75,16 +76,19 @@ ColumnLayout {
       }
       IconButton {
         type: "text"
+        round: false
         icon: "play_arrow"
         onClicked: { root.closeDrawers(); RecordService.play(rec.modelData.path) }
       }
       IconButton {
         type: "text"
+        round: false
         icon: "folder"
         onClicked: { root.closeDrawers(); RecordService.reveal(rec.modelData.path) }
       }
       IconButton {
         type: "text"
+        round: false
         icon: "delete_forever"
         inactiveOnColour: Colours.m3error
         onClicked: RecordService.confirmDelete = rec.modelData.path

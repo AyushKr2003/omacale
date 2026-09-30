@@ -52,8 +52,10 @@ Rectangle {
                 : bodyPreview.height)
     + Tk.padding.medium * 2
 
-  readonly property color fg: isCritical ? Colours.m3onSecondaryContainer : Colours.m3onSurface
-  readonly property color fgVariant: isCritical ? Colours.m3secondary : Colours.m3onSurfaceVariant
+  // Caelestia never recolours the text by urgency (Notification.qml); only
+  // the card, the badge and the expand button's veil follow it.
+  readonly property color fg: Colours.m3onSurface
+  readonly property color fgVariant: Colours.m3onSurfaceVariant
 
   signal dismissed()
   signal clicked()
@@ -186,10 +188,27 @@ Rectangle {
             width: Math.round(badge.width * 0.6)
             height: width
 
-            sourceComponent: ColouredIcon {
-              anchors.fill: parent
-              source: root.appIconSource
-              colour: badge.fg
+            // Only symbolic icons are tinted (Caelestia's layer.enabled on
+            // "symbolic"); any other icon keeps its own colours.
+            sourceComponent: (root.modelData ? String(root.modelData.appIcon || "") : "").endsWith("symbolic") ? tintedIcon : plainIcon
+
+            Component {
+              id: tintedIcon
+              ColouredIcon {
+                anchors.fill: parent
+                source: root.appIconSource
+                colour: badge.fg
+              }
+            }
+            Component {
+              id: plainIcon
+              Image {
+                anchors.fill: parent
+                source: root.appIconSource
+                fillMode: Image.PreserveAspectFit
+                sourceSize: Qt.size(width * 2, height * 2)
+                asynchronous: true
+              }
             }
           }
 
@@ -201,11 +220,24 @@ Rectangle {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: 1
 
-            sourceComponent: MText {
-              text: root.glyph || NotifService.notifIcon(root.modelData ? root.modelData.summary : "", root.urgency)
-              color: badge.fg
-              font.family: root.glyph ? Tk.mono : Tk.icon
-              font.pointSize: Tk.iconSize.medium
+            sourceComponent: root.glyph ? glyphIcon : symbolIcon
+
+            Component {
+              id: glyphIcon
+              MText {
+                text: root.glyph
+                color: badge.fg
+                font.family: Tk.mono
+                font.pointSize: Tk.iconSize.medium
+              }
+            }
+            Component {
+              id: symbolIcon
+              MIcon {
+                text: NotifService.notifIcon(root.modelData ? root.modelData.summary : "", root.urgency)
+                color: badge.fg
+                size: Tk.iconSize.medium
+              }
             }
           }
         }
@@ -378,7 +410,7 @@ Rectangle {
 
         StateLayer {
           radius: Tk.rounding.full
-          color: root.fg
+          color: root.isCritical ? Colours.m3onSecondaryContainer : Colours.m3onSurface
           onClicked: root.setExpanded(!root.expanded)
         }
 
@@ -408,6 +440,7 @@ Rectangle {
         anchors.rightMargin: Tk.spacing.small
 
         animate: true
+        textFormat: root.bodyTextFormat
         text: bodyPreviewMetrics.elidedText
         color: root.fgVariant
 
@@ -431,10 +464,11 @@ Rectangle {
         anchors.top: summary.bottom
         anchors.rightMargin: Tk.spacing.small
 
+        animate: true
         textFormat: root.bodyTextFormat
         text: root.bodyText
         color: root.fgVariant
-        wrapMode: Text.WordWrap
+        wrapMode: Text.WrapAtWordBoundaryOrAnywhere
         height: text ? implicitHeight : 0
 
         onLinkActivated: link => {
@@ -494,7 +528,7 @@ Rectangle {
           implicitHeight: openLabel.implicitHeight + Tk.padding.small * 2
           radius: openState.pressed ? Tk.rounding.small : height / 2
           color: actions.face
-          Behavior on radius { Anim { type: "fastSpatial" } }
+          Behavior on radius { Anim { type: "effects" } }
           Behavior on color { CAnim {} }
 
           StateLayer {
@@ -504,12 +538,18 @@ Rectangle {
             onClicked: root.clicked()
           }
 
+          // Caelestia's TextButton: ButtonBase's body.small, centred between
+          // padding.medium margins.
           MText {
             id: openLabel
-            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Tk.padding.medium
+            horizontalAlignment: Text.AlignHCenter
             text: "Open"
             color: actions.faceOn
-            font.pointSize: Tk.body.medium
+            font.pointSize: Tk.body.small
             elide: Text.ElideRight
           }
         }

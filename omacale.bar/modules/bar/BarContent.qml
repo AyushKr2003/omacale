@@ -432,9 +432,11 @@ Item {
           const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
           return parts.length > 1 ? parts[parts.length - 1].trim() : t
         }
-        // The room the title has beside the icon, along the bar.
-        readonly property real maxLen: root.vertical ? parent.height - winIcon.height - Tk.spacing.small
-          : parent.width - winIcon.width - Tk.spacing.small
+        // The room the title has beside the icon, along the bar. Caelestia's
+        // elideWidth comes out three medium gaps short of the space between
+        // its neighbours (the spacers' gaps), and elides that much earlier.
+        readonly property real maxLen: (root.vertical ? parent.height - winIcon.height : parent.width - winIcon.width)
+          - 3 * Tk.spacing.medium
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
@@ -469,12 +471,15 @@ Item {
           font.letterSpacing: 1.4
           elide: Qt.ElideRight
           elideWidth: Math.max(0, activeWin.maxLen)
-          onElidedTextChanged: {
+          // Cross-fade only when the title itself changes; a change in the
+          // room it has re-elides in place (Caelestia onElideWidthChanged).
+          onTextChanged: {
             if (!title1 || !title2) return
             const next = activeWin.current === title1 ? title2 : title1
             next.text = elidedText
             activeWin.current = next
           }
+          onElideWidthChanged: if (activeWin.current) activeWin.current.text = elidedText
         }
         component Title: MText {
           id: t
@@ -530,7 +535,9 @@ Item {
 
       // The size along the bar. Caelestia's nonAnimHeight, with the expanded
       // list capped to the budget.
-      readonly property real chevronLen: root.vertical ? expandTrayIcon.implicitHeight : expandTrayIcon.implicitWidth
+      // Caelestia's expandIcon item is the glyph less padding.small, the glyph
+      // hanging past it at the far end.
+      readonly property real chevronLen: (root.vertical ? expandTrayIcon.implicitHeight : expandTrayIcon.implicitWidth) - Tk.padding.small
       readonly property real listLen: root.vertical ? trayCol.implicitHeight : trayCol.implicitWidth
       readonly property real fullLen: listLen + padding * 2
       readonly property real collapsedLen: Math.max(bg ? Tk.barInner : 0, chevronLen + (bg ? Tk.padding.extraSmall : 0) + padding)
@@ -631,8 +638,8 @@ Item {
         id: expandTrayIcon
         visible: trayPill.compact
         // At the far end of the pill, centred across it.
-        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - (trayPill.bg ? Tk.padding.extraSmall : 0)
-        y: root.vertical ? parent.height - height - (trayPill.bg ? Tk.padding.extraSmall : 0) : Math.round((parent.height - height) / 2)
+        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width + (trayPill.bg ? -Tk.padding.extraSmall : Tk.padding.small)
+        y: root.vertical ? parent.height - height + (trayPill.bg ? -Tk.padding.extraSmall : Tk.padding.small) : Math.round((parent.height - height) / 2)
         text: root.vertical ? "expand_less" : "chevron_left"
         size: Tk.iconSize.medium
         color: Colours.m3onSurfaceVariant
@@ -682,27 +689,22 @@ Item {
           text: "calendar_month"
           color: Colours.m3tertiary
         }
-        MText {
-          visible: root.cfg.clock.showDate
-          Layout.alignment: Qt.AlignVCenter
-          text: Qt.formatDate(clock.date, "ddd d")
-          font.pointSize: Tk.body.small
-          color: Colours.m3tertiary
-        }
+        // Day and date, a faint tertiary divider, then hours, colon and
+        // minutes as separate texts spacing.extraSmall apart, as KDE's are.
+        MText { visible: root.cfg.clock.showDate; Layout.alignment: Qt.AlignVCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small; color: Colours.m3tertiary }
+        MText { visible: root.cfg.clock.showDate; Layout.alignment: Qt.AlignVCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: Tk.body.small; color: Colours.m3tertiary }
         Rectangle {
           visible: root.cfg.clock.showDate
           Layout.alignment: Qt.AlignVCenter
           implicitWidth: 1
           implicitHeight: Tk.px(16)
-          color: Colours.m3outlineVariant
-        }
-        MText {
-          Layout.alignment: Qt.AlignVCenter
-          text: Sys.hour(clock.date) + ":" + Qt.formatTime(clock.date, "mm") + (root.cfg.clock.showSeconds ? ":" + Qt.formatTime(clock.date, "ss") : "")
-          font.pointSize: Tk.body.small * 1.1
-          axes: ({ "ROND": 25 })
           color: Colours.m3tertiary
+          opacity: 0.2
         }
+        MText { Layout.alignment: Qt.AlignVCenter; text: Sys.hour(clock.date); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
+        MText { Layout.alignment: Qt.AlignVCenter; text: ":"; font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
+        MText { Layout.alignment: Qt.AlignVCenter; text: Qt.formatTime(clock.date, "mm"); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
+        MText { visible: root.cfg.clock.showSeconds; Layout.alignment: Qt.AlignVCenter; text: ":" + Qt.formatTime(clock.date, "ss"); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
         MText {
           visible: clockPill.h12
           Layout.alignment: Qt.AlignVCenter

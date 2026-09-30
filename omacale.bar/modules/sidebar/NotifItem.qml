@@ -12,6 +12,8 @@ Rectangle {
   property var modelData
   property bool expanded: false
   signal dismissRequested()
+  // A followed link closes the sidebar (Caelestia Notif.qml).
+  signal linkOpened()
 
   readonly property bool isCritical: NotifService.urgencyOf(modelData) === 2
   readonly property string bodyText: modelData ? String(modelData.body || "") : ""
@@ -108,7 +110,7 @@ Rectangle {
         text: root.bodyText.replace(/(.)\n(?!\n)/g, "$1\n\n") || "No body here! :/"
         color: root.isCritical ? Colours.m3secondary : Colours.m3outline
         wrapMode: Text.WordWrap
-        onLinkActivated: link => Qt.openUrlExternally(link)
+        onLinkActivated: link => { Qt.openUrlExternally(link); root.linkOpened() }
         HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : undefined }
       }
 

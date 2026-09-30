@@ -16,7 +16,6 @@ Rectangle {
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
   radius: Tk.rounding.large
   color: Colours.m3surfaceContainer
-  Behavior on implicitHeight { Anim {} }
 
   Component.onCompleted: RecordService.reloadRecordings()
 
@@ -73,7 +72,6 @@ Rectangle {
 
       SplitSelect {
         filled: true
-        horizontalPadding: Tk.padding.medium
         mainClickable: true
         menuOnTop: false
         disabled: RecordService.running
@@ -87,6 +85,8 @@ Rectangle {
         onSelected: v => {
           RecordService.mode = v.indexOf("region") === 0 ? "region" : "fullscreen"
           RecordService.withAudio = v.indexOf("-audio") !== -1
+          // Caelestia's menu items each start their recording (Record.qml).
+          RecordService.start()
         }
         onMainClicked: RecordService.start()
       }

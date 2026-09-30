@@ -53,6 +53,7 @@ ColumnLayout {
       text: Sys.hour(sysClock.date)
       color: Colours.m3primary
       font.pointSize: Tk.headline.large * 7 * root.centerScale
+      weight: Font.Medium
       axes: ({ "ROND": 25, "wdth": 30 })
 
       TextMetrics {
@@ -71,6 +72,7 @@ ColumnLayout {
       text: Qt.formatDateTime(sysClock.date, "mm")
       color: Colours.m3secondary
       font.pointSize: Tk.headline.large * (Sys.h12 ? 3.8 : 7) * root.centerScale
+      weight: Font.Medium
       axes: ({ "ROND": 25, "wdth": 30 })
 
       TextMetrics {
@@ -109,6 +111,7 @@ ColumnLayout {
           text: Qt.formatDateTime(sysClock.date, "AP")
           color: Colours.m3onSurface
           font.pointSize: Tk.headline.small * 2 * root.centerScale
+          weight: Font.Medium
           axes: ({ "ROND": 25, "wdth": 30 })
 
           TextMetrics {
@@ -137,7 +140,7 @@ ColumnLayout {
     id: profile
 
     Layout.alignment: Qt.AlignHCenter
-    Layout.topMargin: Tk.spacing.extraLargeIncreased * root.centerScale
+    Layout.topMargin: Tk.spacing.extraExtraLarge * root.centerScale
     Layout.bottomMargin: Tk.spacing.extraLarge * root.centerScale
 
     implicitWidth: Math.round(root.centerWidth * 0.7)

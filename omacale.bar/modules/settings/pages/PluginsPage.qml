@@ -81,6 +81,8 @@ ColumnLayout {
         onClicked: PluginService.refresh()
       }
       IconTextButton {
+        isRound: true
+        fontSize: Tk.body.medium
         icon: "update"
         text: "Update"
         type: "tonal"
@@ -90,6 +92,8 @@ ColumnLayout {
         onClicked: PluginService.update("")
       }
       IconTextButton {
+        isRound: true
+        fontSize: Tk.body.medium
         icon: root.adding ? "close" : "add"
         text: root.adding ? "Cancel" : "Add"
         type: root.adding ? "tonal" : "filled"
@@ -121,6 +125,8 @@ ColumnLayout {
           onAccepted: if (text.trim()) { PluginService.add(text, enableNew.checked); root.adding = false }
         }
         IconTextButton {
+          isRound: true
+          fontSize: Tk.body.medium
           icon: "download"
           text: "Install"
           horizontalPadding: Tk.padding.large
@@ -178,6 +184,7 @@ ColumnLayout {
         { id: "builtin", label: "Built-in", icon: "inventory_2" }
       ]
       IconTextButton {
+        isRound: true
         required property var modelData
         icon: modelData.icon
         text: modelData.label

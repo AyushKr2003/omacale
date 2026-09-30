@@ -118,6 +118,8 @@ ColumnLayout {
         wrapMode: Text.WordWrap
       }
       IconTextButton {
+        isRound: true
+        fontSize: Tk.body.medium
         visible: !root.confirmRemove
         icon: "update"
         text: "Update"
@@ -127,6 +129,8 @@ ColumnLayout {
         onClicked: PluginService.update(root.plugin.id)
       }
       IconTextButton {
+        isRound: true
+        fontSize: Tk.body.medium
         visible: root.confirmRemove
         icon: "close"
         text: "Cancel"
@@ -136,6 +140,8 @@ ColumnLayout {
         onClicked: root.confirmRemove = false
       }
       IconTextButton {
+        isRound: true
+        fontSize: Tk.body.medium
         icon: "delete"
         text: root.confirmRemove ? "Remove" : "Remove…"
         type: root.confirmRemove ? "filled" : "tonal"

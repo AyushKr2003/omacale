@@ -22,6 +22,18 @@ Item {
   }
 
   readonly property string stateMsg: {
+    // Caelestia also names the layout whenever it isn't the default (the
+    // first configured), so a password typed in the wrong one makes sense.
+    const layout = KbService.activeIndex > 0 ? (KbService.activeKeymap || KbService.activeLabel) : ""
+    if (layout) {
+      if (Sys.capsLock && Sys.numLock)
+        return `Caps lock and Num lock are ON.\nKeyboard layout: ${layout}`
+      if (Sys.capsLock)
+        return `Caps lock is ON. Keyboard layout: ${layout}`
+      if (Sys.numLock)
+        return `Num lock is ON. Keyboard layout: ${layout}`
+      return `Keyboard layout: ${layout}`
+    }
     if (Sys.capsLock && Sys.numLock)
       return "Caps lock and Num lock are ON."
     if (Sys.capsLock)

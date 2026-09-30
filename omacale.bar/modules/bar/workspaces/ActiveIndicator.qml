@@ -19,7 +19,12 @@ Rectangle {
 
   function run() {
     if (!target) return
-    const s = vertical ? target.y : target.x, e = s + (vertical ? target.height : target.width)
+    // Head for where the cell settles (targetPos/targetLen), not where it is
+    // mid-animation: chasing the animating geometry restarts the animation
+    // every frame and the pill lags half a second behind.
+    const settled = target.targetPos !== undefined
+    const s = settled ? target.targetPos : (vertical ? target.y : target.x)
+    const e = s + (settled ? target.targetLen : (vertical ? target.height : target.width))
     const up = s < start
     const lead = Tk.durations.defaultSpatial, trailing = lead * (trail ? 1.5 : 1)
     sA.stop(); eA.stop()
@@ -31,10 +36,9 @@ Rectangle {
   onTargetChanged: run()
   Connections {
     target: root.target
-    function onYChanged() { root.run() }
-    function onHeightChanged() { root.run() }
-    function onXChanged() { root.run() }
-    function onWidthChanged() { root.run() }
+    ignoreUnknownSignals: true
+    function onTargetPosChanged() { root.run() }
+    function onTargetLenChanged() { root.run() }
   }
   Component.onCompleted: run()
 
@@ -58,6 +62,7 @@ Rectangle {
     source: ShaderEffectSource { sourceItem: root.list; hideSource: false; live: true }
     colorization: 1
     colorizationColor: Colours.m3onPrimary
+    Behavior on colorizationColor { CAnim {} }
     brightness: 1 - Colours.m3onSurface.hslLightness
   }
 }

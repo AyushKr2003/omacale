@@ -28,7 +28,7 @@ Item {
     const pts = [], w = Math.max(0, width - lineWidth), mid = height / 2
     const k = 2 * Math.PI * frequency / Math.max(1, fullLength)
     for (let x = 0; x <= w + 0.01; x += 2)
-      pts.push(Qt.point(lineWidth / 2 + x, mid + amplitude * Math.sin(k * x - phase * 2 * Math.PI)))
+      pts.push(Qt.point(lineWidth / 2 + x, mid + amplitude * Math.sin(k * x + phase * 2 * Math.PI)))
     if (!pts.length) pts.push(Qt.point(lineWidth / 2, mid))
     return pts
   }

@@ -140,12 +140,21 @@ Rectangle {
       sourceComponent: RowLayout {
         id: swatches
 
-        readonly property var colours: [Colours.m3primary, Colours.m3secondary, Colours.m3tertiary, Colours.m3error, Colours.m3primaryContainer, Colours.m3secondaryContainer, Colours.m3tertiaryContainer, Colours.m3errorContainer]
+        // Caelestia draws the terminal palette (term0-7); an Omarchy theme
+        // carries it as color0-7 or by name (red, green, ...). The M3 accents
+        // stand in for a missing one.
+        readonly property var fallback: [Colours.m3primary, Colours.m3secondary, Colours.m3tertiary, Colours.m3error, Colours.m3primaryContainer, Colours.m3secondaryContainer, Colours.m3tertiaryContainer, Colours.m3errorContainer]
+        readonly property var ansi: [["color0", "black", "background"], ["color1", "red"], ["color2", "green"], ["color3", "yellow"],
+          ["color4", "blue"], ["color5", "magenta"], ["color6", "cyan"], ["color7", "white", "foreground"]]
+        readonly property var colours: fallback.map((c, i) => {
+          const hit = ansi[i].find(k => Colours.themeRaw[k])
+          return hit ? Colours.themeRaw[hit] : c
+        })
 
         spacing: Tk.spacing.largeIncreased
 
         Repeater {
-          model: Math.max(0, Math.min(Math.floor((lines.width + swatches.spacing) / (root.cBoxSize + swatches.spacing)), 8))
+          model: Math.max(0, Math.min(Math.floor((layout.width + swatches.spacing) / (root.cBoxSize + swatches.spacing)), 8))
 
           Rectangle {
             required property int index

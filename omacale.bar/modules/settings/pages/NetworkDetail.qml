@@ -99,51 +99,55 @@ ColumnLayout {
     }
   }
 
-  // ---- Connection info
-  SectionHeader { Layout.fillWidth: true; first: true; row: ({ text: "Connection" }) }
+  // ---- Connection info (Caelestia shows it only for the active network)
+  SectionHeader { Layout.fillWidth: true; first: true; visible: root.isActive; row: ({ text: "Connection" }) }
   InfoRow {
     first: true
-    visible: !root.wired
+    visible: root.isActive && (!root.wired)
     icon: "signal_wifi_4_bar"
     label: "Signal"
     value: root.net ? NetService.strength(root.net) + "%" : "—"
   }
   InfoRow {
     first: root.wired
-    visible: !root.wired
+    visible: root.isActive && (!root.wired)
     icon: "lock"
     label: "Security"
     value: root.net ? NetService.securityLabel(root.net.security) : "—"
   }
   InfoRow {
-    visible: !root.wired && !!root.info.freq
+    visible: root.isActive && (!root.wired && !!root.info.freq)
     icon: "graphic_eq"
     label: "Frequency"
     value: NetService.bandLabel(root.info.freq)
   }
   InfoRow {
     first: root.wired
-    visible: !!(root.info.bitrate || (root.wired && root.dev && root.dev.linkSpeed > 0))
+    visible: root.isActive && (!!(root.info.bitrate || (root.wired && root.dev && root.dev.linkSpeed > 0)))
     icon: "speed"
     label: "Link speed"
     value: root.wired ? (root.dev ? root.dev.linkSpeed + " Mb/s" : "") : (root.info.bitrate || "")
   }
   InfoRow {
+    visible: root.isActive
     icon: "lan"
     label: "IP address"
     value: root.info.ip ? root.info.ip + (root.info.prefix ? "/" + root.info.prefix : "") : "—"
   }
   InfoRow {
+    visible: root.isActive
     icon: "router"
     label: "Gateway"
     value: root.info.gateway || "—"
   }
   InfoRow {
+    visible: root.isActive
     icon: "settings_ethernet"
     label: "Interface"
     value: root.info.iface || (root.dev ? root.dev.name : "—")
   }
   InfoRow {
+    visible: root.isActive
     last: true
     icon: "memory"
     label: "MAC address"
