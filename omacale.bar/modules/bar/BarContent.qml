@@ -54,7 +54,7 @@ Item {
     const rows = [logoRow, workspaces, titleArea, pluginPlace, trayPill, clockPill, statusPill, powerItem]
     const n = rows.filter(r => r.visible).length
     return (logoRow.visible ? along(logoRow) : 0) + workspaces.bareSize
-      + along(clockPill) - (calIconShown ? calendarLen : 0)
+      + (clockPill.visible ? along(clockPill) : 0) - (calIconShown ? calendarLen : 0)
       + (statusPill.visible ? along(statusPill) : 0) + (powerItem.visible ? along(powerItem) : 0)
       + gap * Math.max(0, n - 1)
   }
@@ -62,7 +62,7 @@ Item {
   readonly property real flexMin: (trayPill.visible ? trayPill.collapsedLen : 0) + (pluginPlace.visible ? pluginPill.minLen : 0)
   // Both worked out whether or not they are shown, so hiding one can't
   // bring it straight back.
-  readonly property real calendarLen: cfg.clock.showIcon ? (vertical ? calIcon.implicitHeight + clockCol.spacing : calIconH.implicitWidth + clockRow.spacing) : 0
+  readonly property real calendarLen: cfg.clock.enabled && cfg.clock.showIcon ? (vertical ? calIcon.implicitHeight + clockCol.spacing : calIconH.implicitWidth + clockRow.spacing) : 0
   // Set a tick late rather than bound: the clock's size, and so
   // fixedLen, reads the icon's visibility, which reads this.
   property bool calendarFits: true
@@ -137,7 +137,7 @@ Item {
         const it = trayRep.itemAt(i)
         if (it) out.push({ item: it, kind: "tray", tray: it.modelData, act: () => it.modelData.activate() })
       }
-    add(clockPill, () => root.leaveFor("dashboard"))
+    if (clockPill.visible) add(clockPill, () => root.leaveFor("dashboard"))
     for (let i = 0; i < statusCol.children.length; i++) {
       const c = statusCol.children[i]
       if (!c.visible || c instanceof Repeater) continue
@@ -649,6 +649,7 @@ Item {
     // --------------------------------------------------------- clock
     Rectangle {
       id: clockPill
+      visible: root.cfg.clock.enabled
       Layout.alignment: root.crossAlign
       readonly property real pad: root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall
       implicitWidth: root.vertical ? Tk.barInner : clockRow.implicitWidth + pad * 2

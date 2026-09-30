@@ -140,6 +140,7 @@ QtObject {
           property list<string> unpinned: []
         }
         property JsonObject clock: JsonObject {
+          property bool enabled: true
           property bool showIcon: true
           property bool showDate: false
           property bool showSeconds: false

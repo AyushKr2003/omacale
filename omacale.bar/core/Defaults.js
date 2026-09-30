@@ -28,7 +28,7 @@ var values = {
     activeWindow: { enabled: true, compact: false },
     tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
     plugins: { enabled: true, compact: false, unpinned: [] },
-    clock: { showIcon: true, showDate: false, showSeconds: false, background: false },
+    clock: { enabled: true, showIcon: true, showDate: false, showSeconds: false, background: false },
     status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, update: true, notifications: true, bluetoothConnectedOnly: false, microphoneInUseOnly: false, kbLayout: false },
     popouts: { statusIcons: true, tray: true, activeWindow: true },
     scroll: { workspaces: true, volume: true, brightness: true }

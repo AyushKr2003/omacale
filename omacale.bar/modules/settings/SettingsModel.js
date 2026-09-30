@@ -210,7 +210,7 @@ var subpages = {
       { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
       { type: "nav", icon: "extension", label: "Plugins", subtext: "Which third-party widgets stay in the bar", page: "barPlugins" },
       { type: "nav", icon: "signal_cellular_alt", label: "Status icons", subtext: "Visible indicators", page: "status" },
-      { type: "nav", icon: "schedule", label: "Clock", subtext: "Date, icon, background", page: "clock" },
+      { type: "nav", icon: "schedule", label: "Clock", subtext: "Show or hide, date, icon, background", page: "clock" },
       { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the top; click opens the launcher" },
       { type: "custom", comp: "logoPicker" },
       { type: "toggle", key: "bar.power", label: "Power button", subtext: "Opens the session menu" },
@@ -311,10 +311,11 @@ var subpages = {
   clock: {
     title: "Clock",
     rows: [
-      { type: "toggle", key: "bar.clock.background", label: "Background" },
-      { type: "toggle", key: "bar.clock.showDate", label: "Show date" },
-      { type: "toggle", key: "bar.clock.showIcon", label: "Show icon" },
-      { type: "toggle", key: "bar.clock.showSeconds", label: "Show seconds" }
+      { type: "toggle", key: "bar.clock.enabled", label: "Show clock", subtext: "Turn off to remove the clock (and the time) from the bar entirely" },
+      { type: "toggle", key: "bar.clock.background", when: { key: "bar.clock.enabled", value: true }, label: "Background" },
+      { type: "toggle", key: "bar.clock.showDate", when: { key: "bar.clock.enabled", value: true }, label: "Show date" },
+      { type: "toggle", key: "bar.clock.showIcon", when: { key: "bar.clock.enabled", value: true }, label: "Show icon" },
+      { type: "toggle", key: "bar.clock.showSeconds", when: { key: "bar.clock.enabled", value: true }, label: "Show seconds" }
     ]
   },
   dashboard: {
