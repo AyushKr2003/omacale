@@ -159,6 +159,9 @@ QtObject {
         if (action !== "none") {
           root.lastAction = action
           root.lastReason = r.reason || r.refused || ""
+        } else if (root.lastAction === "skipped-locked") {
+          // Synced by something else in the meantime: stop asking.
+          root.lastAction = ""
         }
         if (action === "fellback") {
           Config.set(root.configKey + ".autoFellBack", true)
@@ -184,6 +187,16 @@ QtObject {
   property Timer startCheck: Timer {
     interval: 20000
     running: root.ready
+    onTriggered: root.check()
+  }
+
+  // A sync the lock watchdog put off because the screen was locked: Omacale
+  // has no lock signal of its own, so ask again every minute until the screen
+  // is unlocked and the sync has run.
+  property Timer lockedRetry: Timer {
+    interval: 60000
+    repeat: true
+    running: root.lastAction === "skipped-locked" && !root.busy
     onTriggered: root.check()
   }
 

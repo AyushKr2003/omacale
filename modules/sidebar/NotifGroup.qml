@@ -12,6 +12,10 @@ Rectangle {
   id: root
 
   property var groupData // { app, appIcon, image, items: [...] }
+  // The lock screen's cards (Caelestia lock/NotifGroup.qml): one line per
+  // notification and the expand pill, nothing else. No open, copy, dismiss or
+  // links, and no expanded card with the full body, for anyone at the keyboard.
+  property bool readOnly: false
   signal linkOpened()
 
   readonly property var items: groupData && groupData.items ? groupData.items : []
@@ -225,7 +229,7 @@ Rectangle {
             // A cursor stop of its own (ScreenScope's drawer cursor): Enter
             // does what the notification's open action does -- or, with none,
             // expands the group -- and x dismisses it.
-            readonly property bool navTarget: !closing
+            readonly property bool navTarget: !closing && !root.readOnly
             // Every change to the notifications rebuilds these rows, so the
             // cursor finds its row again by the record, not the delegate.
             readonly property string navKey: modelData ? "notif:" + modelData.id + ":" + modelData.timestamp : ""
@@ -249,7 +253,7 @@ Rectangle {
             cursorShape: pressed ? Qt.ClosedHandCursor : undefined
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             preventStealing: !root.expanded
-            enabled: !closing
+            enabled: !closing && !root.readOnly
             drag.target: this
             drag.axis: Drag.XAxis
             Behavior on x { enabled: !row.closing; Anim {} }
@@ -279,7 +283,7 @@ Rectangle {
               id: notif
               width: parent.width
               modelData: row.modelData
-              expanded: root.expanded
+              expanded: root.expanded && !root.readOnly
               onDismissRequested: row.close()
               onLinkOpened: root.linkOpened()
             }

@@ -182,7 +182,7 @@ var subpages = {
     rows: [
       { type: "section", text: "Popups" },
       { type: "custom", comp: "notifs" },
-      { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows" },
+      { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows. Off, Omarchy draws its own" },
       { type: "slider", key: "notifs.popups.width", label: "Popup width (at 100% scale)", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Toasts" },
       { type: "stepper", key: "utilities.maxToasts", label: "Toasts shown", subtext: "Small toasts over the utilities corner; more wait their turn", from: 1, to: 10, step: 1 },
@@ -395,6 +395,7 @@ var subpages = {
       { type: "toggle", key: "lock.notifs", when: { key: "lock.enabled", value: true }, label: "Notifications", subtext: "The notification dock, grouped as in the sidebar" },
       { type: "section", text: "Privacy" },
       { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
+      { type: "toggle", key: "lock.revealPassword", when: { key: "lock.enabled", value: true }, label: "Show password button", subtext: "Let the icon in the password field show the characters typed" },
       { type: "section", text: "Appearance" },
       { type: "toggle", key: "lock.useWallpaper", when: { key: "lock.enabled", value: true }, label: "Use the wallpaper", subtext: "Show the wallpaper behind the lock instead of a blurred copy of the screen" },
       { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur the wallpaper behind the lock card; the screen copy is always blurred" },

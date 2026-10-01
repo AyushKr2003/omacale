@@ -105,6 +105,16 @@ QtObject {
     return true
   }
 
+  // A link in a body is the sender's, and its text can say anything: open
+  // only web and mail links, never file://, ssh://, app schemes and the like
+  // (stock Omarchy opens none). Returns whether it opened.
+  function linkAllowed(link) { return /^(https?:\/\/|mailto:)\S+$/i.test(String(link || "").trim()) }
+  function openLink(link) {
+    if (!linkAllowed(link)) return false
+    Qt.openUrlExternally(String(link).trim())
+    return true
+  }
+
   // Omarchy's records store numbers as strings.
   function urgencyOf(n) { return n ? Number(n.urgency) || 0 : 0 } // 0 low, 1 normal, 2 critical
   function timestampOf(n) { return n ? Number(n.timestamp) || 0 : 0 }
@@ -139,14 +149,38 @@ QtObject {
   // The toast stack (NotifPopups / NotifToast), read from the live popup
   // files Omarchy's daemon keeps for exactly as long as a toast is showing.
   //
-  // Omacale may only draw them once the daemon has given up its own toast
-  // window (scripts/notif-popups). Until then popupsSupported
-  // is false and Omacale draws nothing, so the two can never both be up.
+  // Omacale may only draw them once the daemon is the patched clone
+  // (scripts/notif-popups), which gives up its own toast window while this
+  // bar claims the toasts. Until then popupsSupported is false and Omacale
+  // draws nothing, so the two can never both be up.
   property bool popupsSupported: false
   onPopupsSupportedChanged: if (!popupsSupported) popups = []
-  readonly property bool popupsEnabled: popupsSupported
-    && !!(Config.o.notifs && Config.o.notifs.popups && Config.o.notifs.popups.enabled)
+  readonly property bool popupsOn: !!(Config.o.notifs && Config.o.notifs.popups && Config.o.notifs.popups.enabled)
+  readonly property bool popupsEnabled: popupsSupported && popupsOn
   property var popups: []
+
+  // The claim the patched daemon reads (about once a second): this shell
+  // process, and whether "Show popups" is on. Bar.qml claims as it loads and
+  // releases as it unloads, so a bar that failed to load, another bar or
+  // "Show popups" off all give the toasts back to Omarchy's own window, as
+  // does a claim left behind by a crashed shell (its pid is gone). Only the
+  // runtime directory, which only this user can write: no /tmp fallback.
+  readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || ""
+  property bool claimed: false
+  function claimPopups(on) {
+    if (on && !claimed) probeAfterClaim.restart()
+    claimed = on
+    if (runtimeDir === "") return
+    claimFile.setText(JSON.stringify({ pid: on ? Quickshell.processId : 0, popups: on && popupsOn }))
+  }
+  onPopupsOnChanged: if (claimed) { claimPopups(true); probePopups() }
+  // The daemon reads the claim about once a second.
+  property Timer probeAfterClaim: Timer { interval: 1500; onTriggered: root.probePopups() }
+  property FileView claimFile: FileView {
+    path: root.runtimeDir === "" ? "" : root.runtimeDir + "/omacale-notifs-claim.json"
+    atomicWrites: true
+    printErrors: false
+  }
 
   // Popups the user has dealt with, held until their file is really gone so
   // a reload during the daemon's round trip can't put the toast back.
@@ -386,13 +420,28 @@ QtObject {
     if (!popupSupportProbe.running)
       popupSupportProbe.running = true
   }
+  // Omacale draws only once the daemon says its own window is off
+  // (`popupsHidden`), so the two stacks are never up together. A patched
+  // daemon (`omacalePopups`, the patch since v2) turns its window off about a
+  // second after it reads the claim, so until it does it is asked again.
+  property bool popupsPatched: false
   property Process popupSupportProbe: Process {
     running: true
     // Not `-q`: that swallows the answer we are asking for.
-    command: ["bash", "-c", "omarchy-shell notifications popupsHidden 2>/dev/null || true"]
+    command: ["bash", "-c", "omarchy-shell notifications omacalePopups 2>/dev/null; echo; omarchy-shell notifications popupsHidden 2>/dev/null || true"]
     stdout: StdioCollector {
-      onStreamFinished: root.popupsSupported = String(text).trim() === "yes"
+      onStreamFinished: {
+        const lines = String(text).split("\n").map(l => l.trim())
+        root.popupsPatched = lines.some(l => l.indexOf("omacale:headless-popups v") === 0)
+        root.popupsSupported = lines.indexOf("yes") >= 0
+      }
     }
+  }
+  property Timer popupSupportRetry: Timer {
+    interval: 1500
+    repeat: true
+    running: root.popupsPatched && root.claimed && root.popupsOn && !root.popupsSupported
+    onTriggered: root.probePopups()
   }
 
   // One long-lived reader of the live popup directory: a toast has to appear

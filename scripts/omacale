@@ -109,7 +109,7 @@ Options:
   --no-cava    (install) skip the cava question
   --notif-popups    (install) draw notification popups as Caelestia toasts
   --no-notif-popups (install) leave Omarchy's own toasts alone
-  --lock-screen     (install) draw the lock screen as Caelestia's
+  --lock-screen     (install) draw the lock screen as Caelestia's (off unless asked)
   --no-lock-screen  (install) leave Omarchy's own lock screen alone
   --osd             (install) draw Omarchy's OSD as Caelestia's
   --no-osd          (install) leave Omarchy's own OSD alone
@@ -257,8 +257,12 @@ cmd_status() {
   [[ -f $shell_json ]] && cur="$(jq -r '.bar.id // "unset (built-in omarchy.bar)"' "$shell_json" 2>/dev/null || echo unreadable)"
   say "  bar.id     : $cur"
   if (( ! offline )); then
-    if notif_script status 2>/dev/null | grep -q "^daemon:    headless"; then
+    local daemon
+    daemon="$(notif_script status 2>/dev/null | sed -n 's/^daemon:    //p')"
+    if [[ $daemon == "gated, Omacale draws"* ]]; then
       say "  popups     : drawn by Omacale$(installed_state && [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]] && echo " (put back on uninstall)")"
+    elif [[ $daemon == gated* ]]; then
+      say "  popups     : drawn by Omarchy's own window (Omacale isn't claiming them: bar not loaded, or Show popups off)"
     else
       say "  popups     : drawn by Omarchy's own daemon"
     fi
@@ -305,8 +309,8 @@ cmd_doctor() {
       chk "plugin is discovered by the shell" "plugin_listed"
       chk "bar layer is mapped" "bar_layer_present"
       if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
-        chk "notification daemon still headless (Omacale draws the popups)" \
-          "notif_script status | grep -q '^daemon:    headless'"
+        chk "notification daemon is Omacale's gated clone" \
+          "notif_script status | grep -q '^daemon:    gated'"
         # The same checks the shell's watchdog runs (services/Handover.qml).
         chk "notification clone runs the current Omarchy daemon" \
           "notif_script status | grep -q '^stale:     no'"
@@ -493,7 +497,9 @@ cmd_install() {
     # Stage outside the watched plugins folder so the shell never hot-loads a
     # half-copied tree, then move it into place in one rename.
     local stage="$state_dir/stage.$$"
-    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' && copy_plugin '$src_plugin' '$stage' && mv -T -- '$stage' '$dest_plugin'"
+    # The paths go in as "$1".. "$3", never pasted into the script: a ' in one would end the quoting.
+    act "copy plugin to $dest_plugin" bash -c 'rm -rf -- "$2" && copy_plugin "$1" "$2" && mv -T -- "$2" "$3"' \
+      copy "$src_plugin" "$stage" "$dest_plugin"
   fi
   (( dry_run )) || ok "plugin files in place"
   shell_call shell rescanPlugins
@@ -588,17 +594,21 @@ cmd_install() {
       ok "lock screen handed over to Omacale (clone re-synced)"
       lock_clone=true; set_lock_setting true
     else
-      warn "the lock handover no longer fits this Omarchy; giving the lock screen back to Omarchy"
+      warn "the lock handover isn't verified for (or no longer fits) this Omarchy; giving the lock screen back to Omarchy"
       lock_script remove >/dev/null || warn "could not give it back; run: $dest_plugin/scripts/lock-screen remove"
     fi
   else
     local want_lock="$lock_choice"
     if [[ -z $want_lock ]]; then
-      if (( assume_yes )) || [[ ! -t 0 ]]; then want_lock=yes
+      # Opt-in, unlike the other handovers: Omacale's lock view runs inside
+      # Omarchy's lock service and sees what is typed into the password field
+      # (it draws it). So --yes and a run with no terminal leave it off;
+      # --lock-screen turns it on.
+      if (( assume_yes )) || [[ ! -t 0 ]]; then want_lock=no
       else
         local reply
-        read -r -p "  Draw the lock screen as Caelestia's? Omarchy's lock plugin keeps the session lock and the password check; only the view moves to Omacale, and uninstall puts it back. [Y/n] " reply
-        [[ $reply =~ ^[nN] ]] && want_lock=no || want_lock=yes
+        read -r -p "  Draw the lock screen as Caelestia's? Omarchy's lock plugin keeps the session lock and the password check, but Omacale's view runs inside it and draws the password field; uninstall puts Omarchy's back. [y/N] " reply
+        [[ $reply =~ ^[yY] ]] && want_lock=yes || want_lock=no
       fi
     fi
     if [[ $want_lock == yes ]]; then
@@ -704,7 +714,8 @@ cmd_upgrade() {
     # Staged outside the watched plugins folder and swapped in by rename, so
     # the shell never loads a half-copied tree and a failed copy keeps the old.
     local old="$state_dir/old.$$"
-    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' '$old' && copy_plugin '$src_plugin' '$stage' && { [[ ! -e '$dest_plugin' ]] || mv -T -- '$dest_plugin' '$old'; } && mv -T -- '$stage' '$dest_plugin' && rm -rf -- '$old'"
+    act "copy plugin to $dest_plugin" bash -c 'rm -rf -- "$2" "$4" && copy_plugin "$1" "$2" && { [[ ! -e $3 ]] || mv -T -- "$3" "$4"; } && mv -T -- "$2" "$3" && rm -rf -- "$4"' \
+      copy "$src_plugin" "$stage" "$dest_plugin" "$old"
     (( dry_run )) || ok "plugin files updated"
   fi
   shell_call shell rescanPlugins

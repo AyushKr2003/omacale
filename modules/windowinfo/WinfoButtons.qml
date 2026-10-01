@@ -12,7 +12,7 @@ ColumnLayout {
 
   required property var client
   readonly property var ipc: client ? client.lastIpcObject : null
-  readonly property string target: client ? 'window = "address:0x' + client.address + '"' : ""
+  readonly property string target: client ? "window = " + Sys.luaStr("address:0x" + client.address) : ""
   property bool moveToWsExpanded
   signal killed()
 
@@ -84,7 +84,7 @@ ColumnLayout {
         onColor: isCurrent ? Colours.m3onSurface : Colours.m3onTertiaryContainer
         text: wsId
         disabled: isCurrent
-        onClicked: root.dispatch("move", 'workspace = "' + wsId + '", follow = true')
+        onClicked: root.dispatch("move", "workspace = " + Sys.luaStr(wsId) + ", follow = true")
       }
     }
   }

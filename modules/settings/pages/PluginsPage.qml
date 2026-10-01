@@ -16,6 +16,7 @@ ColumnLayout {
   property string filter: "all"      // all | enabled | third | builtin
   property string query: ""
   property bool adding: false
+  onAddingChanged: trustNew.checked = false
 
   readonly property var all: PluginService.plugins
   readonly property var shown: all.filter(p => {
@@ -104,7 +105,11 @@ ColumnLayout {
     }
   }
 
-  // Add from git: `omarchy plugin add <url> --enable --yes`.
+  // Add from git: `omarchy plugin add <url> [--enable] --yes`. `--yes` skips
+  // Omarchy's own warning and confirm, so they are shown here instead: the
+  // warning in its words, and Install stays off until "I trust this
+  // repository" is switched on for this URL. Enable defaults to off, so the
+  // code can be read before it runs.
   ConnectedRect {
     Layout.fillWidth: true
     visible: root.adding
@@ -122,7 +127,8 @@ ColumnLayout {
           id: urlField
           Layout.fillWidth: true
           placeholderText: "Git URL, e.g. https://github.com/user/omarchy-plugin"
-          onAccepted: if (text.trim()) { PluginService.add(text, enableNew.checked); root.adding = false }
+          onTextChanged: trustNew.checked = false
+          onAccepted: if (text.trim() && trustNew.checked) { PluginService.add(text, enableNew.checked); root.adding = false }
         }
         IconTextButton {
           isRound: true
@@ -131,9 +137,33 @@ ColumnLayout {
           text: "Install"
           horizontalPadding: Tk.padding.large
           verticalPadding: Tk.padding.small
-          disabled: urlField.text.trim() === ""
+          disabled: urlField.text.trim() === "" || !trustNew.checked
           onClicked: { PluginService.add(urlField.text, enableNew.checked); root.adding = false }
         }
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Tk.spacing.medium
+        MIcon { Layout.alignment: Qt.AlignTop; text: "warning"; color: Colours.m3error }
+        MText {
+          Layout.fillWidth: true
+          text: "Plugins run as arbitrary, unsandboxed code inside your long-lived omarchy-shell process. Only add repos you trust, and review the code before you enable it."
+          color: Colours.m3onSurfaceVariant
+          font.pointSize: Tk.label.medium
+          wrapMode: Text.WordWrap
+        }
+      }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Tk.spacing.medium
+        MText {
+          Layout.fillWidth: true
+          text: "I trust this repository"
+          color: Colours.m3onSurface
+          font.pointSize: Tk.label.large
+          wrapMode: Text.WordWrap
+        }
+        MSwitch { id: trustNew; checked: false; onToggled: c => checked = c }
       }
       RowLayout {
         Layout.fillWidth: true
@@ -145,7 +175,7 @@ ColumnLayout {
           font.pointSize: Tk.label.medium
           wrapMode: Text.WordWrap
         }
-        MSwitch { id: enableNew; checked: true; onToggled: c => checked = c }
+        MSwitch { id: enableNew; checked: false; onToggled: c => checked = c }
       }
     }
   }

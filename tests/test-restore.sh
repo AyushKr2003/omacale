@@ -165,10 +165,14 @@ SourceFileLoader('np', '$here/../scripts/notif-popups').load_module().patch_serv
 if [[ -f $stock ]]; then
   work="$(mktemp -d)"; cp "$stock" "$work/Service.qml"
   patch_copy "$work/Service.qml" >/dev/null 2>&1
-  # The toast window goes; `reloadableId: "omarchy-notifications"` stays --
-  # that is the DND state's key, not the surface.
-  check "popup window removed"     bash -c "! grep -qE 'PanelWindow|WlrLayershell|NotificationCard' '$work/Service.qml'"
+  # The toast window stays, gated: no screens while Omacale's claim names
+  # this process, Omarchy's own toasts again the moment it doesn't.
+  check "popup window kept"        grep -q 'NotificationCard {' "$work/Service.qml"
+  check "popup window gated"       grep -q 'model: service.omacaleDraws ? \[\] : Quickshell.screens' "$work/Service.qml"
+  check "  by Omacale's claim"     grep -q 'omacale-notifs-claim.json' "$work/Service.qml"
+  check "  for this process only"  grep -q 'claim.pid === Quickshell.processId' "$work/Service.qml"
   check "lifetime timer kept"      grep -q 'sweepPopupLifetimes' "$work/Service.qml"
+  check "  only while gated"       grep -q 'running: service.omacaleDraws && popupModel.count' "$work/Service.qml"
   check "IPC added"                grep -q 'function invokeKey' "$work/Service.qml"
   check "daemon left intact"       grep -q 'NotificationServer' "$work/Service.qml"
   check "original backed up"       test -f "$work/Service.qml.omacale-orig"
@@ -307,10 +311,23 @@ print(','.join(m.stale_files('$lclone')))"; }
   wd="$(hv python3 "$scripts/notif-popups" watchdog)"
   check "watchdog keeps a refused but healthy clone" grep -qx 'action:    refused' <<<"$wd"
   check "  (still there)"                        test -d "$nclone"
+  mkdir -p "$plugins/.tester.notifications.bak.20200101"
   touch "$H/notif-broken"
   wd="$(hv python3 "$scripts/notif-popups" watchdog)"
   check "watchdog hands a broken daemon back"    grep -qx 'action:    fellback' <<<"$wd"
   check "  (clone removed)"                      test ! -e "$nclone"
+  check "  (an older backup is not ours to delete)" test -d "$plugins/.tester.notifications.bak.20200101"
+  rm -f "$H/notif-broken"
+
+  # A clone of the daemon with edits of its own is the user's: never rewritten.
+  cp "$real_omarchy/shell/plugins/notifications/Service.qml" "$fake/shell/plugins/notifications/Service.qml"
+  cp -r "$fake/shell/plugins/notifications" "$nclone"
+  jq '.id = "tester.notifications" | .omarchy.clonedFrom = "omarchy.notifications"' "$fake/shell/plugins/notifications/manifest.json" > "$nclone/manifest.json"
+  echo "// my own edit" >> "$nclone/NotificationLogic.js"
+  check "an edited clone is not ours to sync"    sync_refused
+  check "  (the edit is kept)"                   grep -q 'my own edit' "$nclone/NotificationLogic.js"
+  check "  (and it is not patched)"              bash -c "! grep -q 'omacale:headless-popups' '$nclone/Service.qml'"
+  rm -rf "$nclone"
 
   # The lock: a new file upstream reaches the clone, a removed one leaves it,
   # and a manifest capability change is carried over.
@@ -356,6 +373,24 @@ print(','.join(m.stale_files('$lclone')))"; }
   touch "$H/lock-broken"
   wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
   check "a lock without PAM is handed back"      grep -qx 'action:    fellback' <<<"$wd"
+  check "  (lock clone removed)"                 test ! -e "$lclone"
+  rm -f "$H/lock-broken"
+
+  # Only a lock service Omacale was verified against is handed over; after an
+  # update to any other, the watchdog gives the lock back instead of keeping a
+  # clone of the old one.
+  cp -r "$fake/shell/plugins/lock" "$lclone"
+  jq '.id = "tester.lock" | .omarchy.clonedFrom = "omarchy.lock"' "$fake/shell/plugins/lock/manifest.json" > "$lclone/manifest.json"
+  hv python3 -c "
+import sys; sys.argv=['lock-screen']
+from importlib.machinery import SourceFileLoader
+m = SourceFileLoader('lk', '$scripts/lock-screen').load_module()
+m.plan('$lclone', open(m.TEMPLATE).read()).apply()"
+  echo "// a newer Omarchy" >> "$fake/shell/plugins/lock/Service.qml"
+  check "status says the new service is unverified" grep -q '^verified:  no' <<<"$(hv python3 "$scripts/lock-screen" status 2>/dev/null)"
+  check "install refuses an unverified service"  bash -c "! env HOME='$H' USER=tester OMARCHY_PATH='$fake' PATH='$H/bin:$PATH' python3 '$scripts/lock-screen' install >/dev/null 2>&1"
+  wd="$(hv python3 "$scripts/lock-screen" watchdog 2>/dev/null)"
+  check "the watchdog hands an unverified service back" grep -qx 'action:    fellback' <<<"$wd"
   check "  (lock clone removed)"                 test ! -e "$lclone"
 else
   echo "  - skipped (no Omarchy notification/lock plugins on this machine)"

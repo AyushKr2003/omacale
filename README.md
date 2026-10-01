@@ -67,7 +67,10 @@ git pull
   pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
   ```
 
-- **Notification toasts**, the **lock screen** and the **volume and brightness OSD**: offered during install (`--osd` / `--no-osd` skip the question for the OSD). Change any of them later in **Settings › Notifications**, **Settings › Panels › Lock screen** and **Settings › Panels › OSD**.
+- **Notification toasts** and the **volume and brightness OSD**: offered during install, on by default (`--osd` / `--no-osd` skip the question for the OSD).
+- **Lock screen**: off unless you say yes at the prompt or pass `--lock-screen` (see [Omarchy integration](#omarchy-integration) for why).
+- Change any of them later in **Settings › Notifications**, **Settings › Panels › Lock screen** and **Settings › Panels › OSD**.
+- **Removing Omacale**: use `./uninstall.sh`. `omarchy plugin remove omacale.bar` removes only the bar and leaves Omacale's copies of the notification, lock and OSD plugins in place (they fall back to Omarchy's own drawing, but stay installed).
 
 ## Usage
 
@@ -131,8 +134,8 @@ omarchy-shell omacale toast <info|success|warning|error> <title> <message> <icon
 
 Omacale changes how things look, never how they work underneath.
 
-- **Notifications**: Omarchy's daemon keeps the server, do not disturb and history. Omacale only draws the toasts.
-- **Lock screen**: Omarchy keeps the session lock, PAM and idle timers. Omacale only draws the view, and Omarchy's view comes back if Omacale is off or missing.
+- **Notifications**: Omarchy's daemon keeps the server, do not disturb and history. Omacale only draws the toasts, and only while it is the running bar with **Show popups** on. Otherwise (a bar that failed to load, another bar, Show popups off) Omarchy's own toasts come back within a second, without a restart.
+- **Lock screen**: Omarchy keeps the session lock, PAM and idle timers. Omacale only draws the view, and Omarchy's view comes back if Omacale is off or missing. That view runs inside Omarchy's lock service and is given what is typed into the password field, to draw it; Omarchy otherwise keeps third-party code away from its authentication services. That is why the lock screen is opt-in. It also only installs on an Omarchy lock service Omacale was verified against; after an Omarchy update that changes it, Omarchy's own lock screen is restored until an Omacale update catches up. On the lock screen, notifications are hidden by default and, when shown, are read-only: no actions, links, copying or dismissing.
 - **OSD**: Omarchy keeps the keys and the brightness control and still decides when an OSD is shown; Omacale draws them all, volume and brightness as sliders and the rest as toasts (or only the sliders, with Settings › Panels › OSD › Other OSD messages off). It hands them back while a window is fullscreen, and when Omacale isn't the bar.
 - **Scale**: by default Omacale follows the size set in Omarchy's `shell.toml` (`[font] base-size`, `[spacing] scale`), so the stock bar and Omacale grow and shrink together.
 - **Updates**: when `omarchy update` changes those plugins, Omacale rebuilds its copies from the new version. If a copy stops working, Omarchy's original is restored automatically and you get a notification.
@@ -163,7 +166,7 @@ Architecture, conventions and design tokens are documented in [`CLAUDE.md`](CLAU
 
 - The OSD sliders and the toasts live in the frame, so a fullscreen window hides them. Over a fullscreen window Omarchy's own OSD shows instead.
 - Caelestia's battery level warnings aren't ported, since Omarchy's battery service already sends them. Its VPN and keyboard layout toasts aren't either, since Omacale has neither feature.
-- The lock screen shows a blurred snapshot of the screen, as Caelestia does. If the snapshot can't be taken (the display is off, say), it falls back to the wallpaper, as it does with **Use the wallpaper** on. With a video wallpaper, the blur applies to its still frame only.
+- The lock screen shows the wallpaper by default. With **Use the wallpaper** off it shows a blurred snapshot of the screen, as Caelestia does; if the snapshot can't be taken (the display is off, say), it falls back to the wallpaper. With a video wallpaper, the blur applies to its still frame only.
 - Notifications support their default action only; there are no inline replies (Caelestia has none either).
 
 ## Credits

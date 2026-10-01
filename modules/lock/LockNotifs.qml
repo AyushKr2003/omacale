@@ -76,6 +76,8 @@ ColumnLayout {
 
         width: list.width
         groupData: modelData
+        // Nothing on a locked screen acts on a notification.
+        readOnly: true
         // Caelestia lock/NotifGroup.qml: the cards stand off the dock on the
         // layered high container (secondaryContainer when critical).
         color: critical ? Colours.m3secondaryContainer : Colours.layer(Colours.palette.m3surfaceContainerHigh, 2)

@@ -112,8 +112,8 @@ Rectangle {
         text: root.bodyText ? NotifService.bodyMarkup(root.modelData) : "No body here! :/"
         color: root.isCritical ? Colours.m3secondary : Colours.m3outline
         wrapMode: Text.WordWrap
-        onLinkActivated: link => { Qt.openUrlExternally(link); root.linkOpened() }
-        HoverHandler { cursorShape: parent.hoveredLink ? Qt.PointingHandCursor : undefined }
+        onLinkActivated: link => { if (NotifService.openLink(link)) root.linkOpened() }
+        HoverHandler { cursorShape: NotifService.linkAllowed(parent.hoveredLink) ? Qt.PointingHandCursor : undefined }
       }
 
       // Close / Open / Copy (Caelestia NotifActionList). Omarchy records a

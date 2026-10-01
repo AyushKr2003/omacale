@@ -158,7 +158,7 @@ ColumnLayout {
   }
   function tryIt() {
     if (loaded) { toast = "Already loaded from looknfeel.lua"; toastTimer.restart(); return }
-    Quickshell.execDetached(["hyprctl", "eval", 'dofile("' + file + '")'])
+    Quickshell.execDetached(["hyprctl", "eval", "dofile(" + Sys.luaStr(file) + ")"])
     tried = true
     toast = "Omacale look'n'feel active until Hyprland reloads"
     toastTimer.restart()

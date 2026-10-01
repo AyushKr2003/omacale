@@ -86,7 +86,7 @@ QtObject {
           if (s2) return s2
         }
       }
-      if (host && typeof host.hostedServiceFor === "function") {
+      if (targetId === facade.moduleName && host && typeof host.hostedServiceFor === "function") {
         var s3 = host.hostedServiceFor(targetId)
         if (s3) return s3
       }

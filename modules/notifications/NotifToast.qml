@@ -475,8 +475,7 @@ Rectangle {
 
         onLinkActivated: link => {
           if (!root.expanded) return
-          Qt.openUrlExternally(link)
-          root.dismissed()
+          if (NotifService.openLink(link)) root.dismissed()
         }
 
         opacity: root.expanded ? 1 : 0

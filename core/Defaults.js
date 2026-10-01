@@ -53,7 +53,9 @@ var values = {
   lock: {
     enabled: false,
     weather: true, fetch: true, media: true, resources: true, notifs: true,
-    hideNotifs: false, recolourLogo: true, blur: true, useWallpaper: false,
+    // Private by default: notification contents hidden, the wallpaper (not a
+    // copy of the screen) behind the card, and no "show password" button.
+    hideNotifs: true, recolourLogo: true, blur: true, useWallpaper: true, revealPassword: false,
     // Set when the watchdog gave the lock back to Omarchy after an update
     // broke it (services/Handover.qml), with the Omacale version it broke
     // under; reinstalling from Settings clears it, and a newer Omacale

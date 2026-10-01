@@ -14,9 +14,13 @@ the clone. This script clones the daemon once, and every sync rebuilds the
 clone from the installed Omarchy (see handover.py) with a small patch applied
 to a *fresh* copy of stock `Service.qml` -- never on top of the last one:
 
-  * the popup window is replaced by a headless lifetime manager -- the expiry
-    timer used to live inside the toast delegate, so deleting the window
-    without it would leave popups on screen forever;
+  * the popup window is gated: it has no screens to draw on while Omacale's
+    bar, running in this shell process with "Show popups" on, claims the
+    toasts (a claim file in the runtime directory naming the process), and
+    is Omarchy's own toast window again, live, the moment it doesn't -- a bar
+    that failed to load, another bar, a removed Omacale, "Show popups" off;
+  * while gated, a lifetime manager stands in for the expiry timer that
+    lives inside the toast delegate, so popups still expire;
   * each live popup file gains a `deadline`, so Omacale can draw the timeout
     ring off the same clock the daemon expires on;
   * IPC is added for what a drawn-elsewhere stack needs: pause/resume for
@@ -53,7 +57,10 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:headless-popups v1"
+MARKER = "omacale:headless-popups v2"
+# Every version of the patch carries this; `remove` and `ours()` know a clone
+# Omacale patched by it, whichever version patched it.
+MARKER_PREFIX = "omacale:headless-popups v"
 # The stock Service.qml this patch was last tested against. A different one
 # that the patch still applies to is synced, but `status` says `verified: no`
 # so we know to re-test the toasts after that Omarchy update.
@@ -69,24 +76,74 @@ STOCK_DIR = os.path.join(
 
 # The upstream popup UI starts at this line and runs to the end of the file.
 POPUP_UI_ANCHOR = "  // -------------------------------------------------------------- popup UI"
-# Fingerprints of the block we expect to be removing. If upstream reshapes the
+# Fingerprints of the block we expect to be gating. If upstream reshapes the
 # popup UI these stop matching and we refuse rather than corrupt the daemon.
 POPUP_UI_FINGERPRINTS = ('WlrLayershell.namespace: "omarchy-notifications"', "Variants {", "NotificationCard {")
+# The toast window's screens: gated, so it has none while Omacale draws.
+POPUP_SCREENS = "  Variants {\n    model: Quickshell.screens\n"
+POPUP_SCREENS_GATED = "  Variants {\n    model: service.omacaleDraws ? [] : Quickshell.screens\n"
 IPC_ANCHOR = '    function ping(): string { return "ok" }'
 
-HEADLESS_BLOCK = '''  // -------------------------------------------------------------- popup UI
+HEADLESS_BLOCK = '''  // ---------------------------------------------------------- Omacale
   //
   // {marker} -- patched by Omacale (scripts/notif-popups).
   //
-  // Upstream drew the toasts here, in one overlay surface per output.
-  // Omacale draws them instead, from the live files this service writes under
-  // popupStateDir, so they can look like Caelestia's and sit on their own
-  // overlay layer. `omarchy plugin remove` puts the stock plugin -- and its
-  // toasts -- back.
+  // Omacale draws the toasts as Caelestia's, from the live files this service
+  // writes under popupStateDir, on its own overlay layer. It does so only
+  // while its bar is running in this very shell process (its claim in the
+  // runtime directory names this process) with "Show popups" on, and only
+  // then does the stock toast window below get no screens to draw on. With
+  // any of that gone -- a bar that failed to load, another bar, Omacale
+  // removed without its uninstaller, a claim a crashed shell left behind,
+  // "Show popups" off -- this draws its own toasts again within a second,
+  // without a restart. `omarchy plugin remove` puts the stock plugin back.
   //
-  // The toast UI owned one thing the daemon still needs: the per-popup
-  // lifetime timer, which lived in the card delegate. It lives here now, as a
-  // single sweep over popupModel.
+  // The toast window owns the per-popup lifetime timer, in its card delegate.
+  // While the window is gated off the timer lives here instead, as a single
+  // sweep over popupModel.
+
+  // The claim is read on a timer rather than watched: a watch on a file that
+  // doesn't exist yet (a fresh runtime directory after a reboot) never sees it
+  // appear. It is a few bytes. No runtime directory, no claim: no /tmp
+  // fallback another user could plant one in.
+  readonly property string omacaleRuntime: Quickshell.env("XDG_RUNTIME_DIR") || ""
+  property bool omacaleDraws: false
+
+  function omacaleCheckClaim() {{
+    var draws = false
+    if (omacaleClaim.path !== "") {{
+      try {{
+        omacaleClaim.reload()
+        omacaleClaim.waitForJob()
+        var claim = JSON.parse(omacaleClaim.text())
+        draws = !!claim && claim.pid === Quickshell.processId && claim.popups === true
+      }} catch (e) {{
+        draws = false
+      }}
+    }}
+    if (draws === service.omacaleDraws) return
+    // A stack paused by Omacale's hover would never be resumed once Omacale
+    // has stopped drawing it.
+    if (!draws) service.setPopupsPaused(false)
+    service.omacaleDraws = draws
+  }}
+
+  Timer {{
+    interval: 1000
+    repeat: true
+    running: true
+    triggeredOnStart: true
+    onTriggered: service.omacaleCheckClaim()
+  }}
+
+  // Written by Omacale's bar as it loads ({{ pid, popups }}), released as it
+  // unloads (services/NotifService.qml claimPopups()).
+  FileView {{
+    id: omacaleClaim
+    path: service.omacaleRuntime === "" ? "" : service.omacaleRuntime + "/omacale-notifs-claim.json"
+    blockLoading: true
+    printErrors: false
+  }}
 
   // Hover-pause. Omacale stops the countdown while the pointer is over the
   // toast column, as Caelestia's notifications do.
@@ -198,7 +255,7 @@ HEADLESS_BLOCK = '''  // -------------------------------------------------------
   Timer {{
     interval: 200
     repeat: true
-    running: popupModel.count > 0 && !service.popupsPaused
+    running: service.omacaleDraws && popupModel.count > 0 && !service.popupsPaused
     triggeredOnStart: true
     onTriggered: service.sweepPopupLifetimes()
   }}
@@ -211,24 +268,29 @@ HEADLESS_BLOCK = '''  // -------------------------------------------------------
     running: service.popupsPaused
     onTriggered: service.setPopupsPaused(false)
   }}
-}}
 '''
 
 IPC_BLOCK = '''    // ---------------------------------------------------- Omacale
     //
     // {marker}
     //
-    // The toast window is gone from this plugin (see the popup UI section)
-    // and Omacale draws the stack instead, so it needs to address a single
-    // popup rather than "the most recent one". The key is the popup's
-    // file stem, `<timestamp>-<originalId>`, which is the basename of its file
-    // under ~/.local/state/omarchy/notifications/ -- stable across a
-    // replaces_id update and across a shell restart.
+    // While Omacale draws the stack (see the Omacale section above the popup
+    // UI) it needs to address a single popup rather than "the most recent
+    // one". The key is the popup's file stem, `<timestamp>-<originalId>`,
+    // which is the basename of its file under
+    // ~/.local/state/omarchy/notifications/ -- stable across a replaces_id
+    // update and across a shell restart.
 
-    // Omacale only draws toasts when this answers, so an unpatched daemon
-    // keeps its own and the two can never both be on screen.
+    // Whether the stock toast window is gated off right now (Omacale's claim).
     function popupsHidden(): string {{
-      return "yes"
+      return service.omacaleDraws ? "yes" : "no"
+    }}
+
+    // The patch, for the health check and for Omacale, which only draws
+    // toasts for a daemon that answers this: an unpatched one keeps its own,
+    // and the two can never both be on screen.
+    function omacalePopups(): string {{
+      return "{marker}"
     }}
 
     function pause(): string {{
@@ -307,7 +369,7 @@ class Refused(Exception):
 
 
 def patch_text(text):
-    """The headless patch applied to a stock Service.qml."""
+    """The gate patch applied to a stock Service.qml."""
     index = text.find(POPUP_UI_ANCHOR)
     if index == -1:
         raise Refused(
@@ -316,18 +378,27 @@ def patch_text(text):
             "scripts/notif-popups."
         )
 
-    removed = text[index:]
-    missing = [f for f in POPUP_UI_FINGERPRINTS if f not in removed]
+    popup_ui = text[index:]
+    missing = [f for f in POPUP_UI_FINGERPRINTS if f not in popup_ui]
     if missing:
         raise Refused(
             "the popup UI in Omarchy's notification daemon is not the block this "
-            "patch removes (missing: %s). Update scripts/notif-popups."
+            "patch gates (missing: %s). Update scripts/notif-popups."
             % ", ".join(missing)
         )
-    if removed.rstrip().rsplit("\n", 1)[-1].strip() != "}":
+    if popup_ui.count(POPUP_SCREENS) != 1:
+        raise Refused(
+            "the toast window in Omarchy's notification daemon no longer takes its "
+            "screens from `model: Quickshell.screens`. Update scripts/notif-popups."
+        )
+    if popup_ui.rstrip().rsplit("\n", 1)[-1].strip() != "}":
         raise Refused("unexpected end of Omarchy's notification Service.qml")
+    for needed in ("import Quickshell\n", "import Quickshell.Io\n"):
+        if needed not in text:
+            raise Refused("Omarchy's notification Service.qml no longer imports %s" % needed.strip())
 
-    patched = text[:index] + HEADLESS_BLOCK.format(marker=MARKER)
+    patched = (text[:index] + HEADLESS_BLOCK.format(marker=MARKER) + "\n"
+               + popup_ui.replace(POPUP_SCREENS, POPUP_SCREENS_GATED, 1))
 
     if IPC_ANCHOR not in patched:
         raise Refused("no IpcHandler anchor in Omarchy's notification Service.qml")
@@ -340,7 +411,7 @@ def patch_service(path):
     """Apply the headless patch to a Service.qml in place (tests use this).
     Returns True if it changed."""
     text = read(path)
-    if MARKER in text:
+    if MARKER_PREFIX in text:
         return False
     try:
         patched = patch_text(text)
@@ -367,9 +438,21 @@ def plan(directory):
 
 def ours(directory):
     """A clone this script made, as opposed to one someone made for their own
-    edits: cloned from the daemon, and either patched already or untouched."""
+    edits: cloned from the daemon, and either patched by Omacale already or
+    still exactly stock (as `omarchy plugin clone` leaves it). A clone with
+    edits of its own is someone else's, and never rewritten or removed."""
     manifest = handover.load_json(os.path.join(directory, "manifest.json")) or {}
-    return (manifest.get("omarchy") or {}).get("clonedFrom") == SOURCE_ID
+    if (manifest.get("omarchy") or {}).get("clonedFrom") != SOURCE_ID:
+        return False
+    service = handover.read_bytes(os.path.join(directory, "Service.qml")) or b""
+    if MARKER_PREFIX.encode() in service:
+        return True
+    stock = handover.stock_tree(STOCK_DIR)
+    return all(
+        handover.read_bytes(os.path.join(directory, rel)) == stock.get(rel)
+        for rel in handover.files_under(directory)
+        if rel != "manifest.json"
+    )
 
 
 def sync(directory):
@@ -385,6 +468,14 @@ def ipc(target, fn, *args):
 
 def popups_hidden():
     return ipc("notifications", "popupsHidden") == "yes"
+
+
+def patched_running():
+    """The running daemon is a patched clone: v2 on answers `omacalePopups`,
+    v1 only had `popupsHidden` (always "yes")."""
+    if (handover.ipc("notifications", "omacalePopups") or "").startswith(MARKER_PREFIX):
+        return True
+    return handover.ipc("notifications", "popupsHidden") == "yes"
 
 
 def plugin_enabled(plugin_id):
@@ -404,7 +495,7 @@ def cmd_status(offline=False):
     else:
         print("clone:     none")
     if os.path.isfile(service):
-        print("patched:   %s" % ("yes" if MARKER in read(service) else "NO"))
+        print("patched:   %s" % ("yes" if MARKER_PREFIX in read(service) else "NO"))
         stock = handover.read_bytes(os.path.join(STOCK_DIR, "Service.qml")) or b""
         try:
             stale = plan(directory).stale_files()
@@ -422,16 +513,21 @@ def cmd_status(offline=False):
         print("verified:  %s" % ("yes" if handover.sha(stock) == VERIFIED_AGAINST else "no"))
     print("expects:   %s" % MARKER)
     if not offline:
-        print("daemon:    %s" % ("headless (Omacale draws the toasts)"
-                                 if popups_hidden() else "stock (draws its own toasts)"))
+        if not patched_running():
+            daemon = "stock (draws its own toasts)"
+        elif popups_hidden():
+            daemon = "gated, Omacale draws the toasts"
+        else:
+            daemon = "gated, draws its own toasts (Omacale is not claiming them)"
+        print("daemon:    %s" % daemon)
     return 0
 
 
 def probe():
     if handover.ipc("notifications", "ping") != "ok":
         return False, "the notification daemon does not answer (`omarchy-shell notifications ping`)"
-    if handover.ipc("notifications", "popupsHidden") != "yes":
-        return False, "the notification daemon is not the headless clone (no `popupsHidden`)"
+    if not patched_running():
+        return False, "the notification daemon is not Omacale's clone (no `omacalePopups`)"
     return True, ""
 
 
@@ -449,7 +545,8 @@ def cmd_sync():
         print("No notification clone; nothing to sync.")
         return 0
     if not ours(directory):
-        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+        fail("%s is not an Omacale clone of %s (it is not one, or it has edits of its own); "
+             "leaving it alone" % (directory, SOURCE_ID))
     try:
         changed = sync(directory)
     except Refused as e:
@@ -508,7 +605,8 @@ def cmd_install(restart=True):
 
     # A clone someone else made, for their own edits, is not ours to rewrite.
     if not ours(directory):
-        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+        fail("%s is not an Omacale clone of %s (it is not one, or it has edits of its own); "
+             "leaving it alone" % (directory, SOURCE_ID))
 
     try:
         changed = sync(directory)
@@ -532,7 +630,7 @@ def cmd_remove(restart=True):
         return 0
 
     service = os.path.join(directory, "Service.qml")
-    if os.path.isfile(service) and MARKER not in read(service):
+    if os.path.isfile(service) and MARKER_PREFIX not in read(service):
         fail(
             "%s exists but was not patched by Omacale -- it is your own clone.\n"
             "Remove it yourself with: omarchy plugin remove %s" % (directory, clone_id())
@@ -543,17 +641,19 @@ def cmd_remove(restart=True):
     # leave omarchy.notifications in disabledPlugins[] with nothing to take
     # its place -- that is no notification daemon at all, so a failure here
     # has to stop rather than fall back to rm.
+    prefix = ".%s.bak." % clone_id()
+    before = {name for name in os.listdir(PLUGINS_DIR) if name.startswith(prefix)}
     print("==> Removing %s" % clone_id())
     run(["omarchy", "plugin", "remove", clone_id(), "--yes"])
     if os.path.isdir(directory):
         fail("%s is still there after `omarchy plugin remove`" % directory)
 
     # `omarchy plugin remove` keeps a dated copy of what it removed. Ours is
-    # a patched clone of a plugin that is back in place, so the copy is only
-    # clutter in a directory that had none of it before Omacale.
-    prefix = ".%s.bak." % clone_id()
+    # a patched clone of a plugin that is back in place, so that one copy is
+    # only clutter. Any older ones (a clone of the user's own, say) are not
+    # ours to delete.
     for name in os.listdir(PLUGINS_DIR):
-        if name.startswith(prefix):
+        if name.startswith(prefix) and name not in before:
             shutil.rmtree(os.path.join(PLUGINS_DIR, name), ignore_errors=True)
     if restart:
         print("==> Restarting the shell")

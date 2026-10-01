@@ -241,10 +241,11 @@ QtObject {
         property bool media: true
         property bool resources: true
         property bool notifs: true
-        property bool hideNotifs: false
+        property bool hideNotifs: true
         property bool recolourLogo: true
         property bool blur: true
-        property bool useWallpaper: false
+        property bool useWallpaper: true
+        property bool revealPassword: false
         property bool autoFellBack: false
         property string fellBackVersion: ""
       }

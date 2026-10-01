@@ -141,33 +141,28 @@ QtObject {
 
   // The folder is resolved the way omarchy-capture-screenrecording does it
   // (OMARCHY_SCREENRECORD_DIR, then XDG_VIDEOS_DIR from user-dirs.dirs, then
-  // ~/Videos), and printed first so the watcher below can follow it.
+  // ~/Videos), and reported with the files so the watcher below can follow it.
+  // Each file is "<mtime> <size> <path>", NUL-terminated, and jq turns the
+  // lot into JSON. A file name may hold any character but NUL and "/", so any
+  // other separator (the "|" and newline this used) could be faked by one.
   property Process recordingsProbe: Process {
     command: ["bash", "-c",
       '[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs; ' +
       'OUTPUT_DIR="${OMARCHY_SCREENRECORD_DIR:-${XDG_VIDEOS_DIR:-$HOME/Videos}}"; ' +
       'mkdir -p "$OUTPUT_DIR"; ' +
-      'printf "DIR|%s\\n" "$OUTPUT_DIR"; ' +
-      'find "$OUTPUT_DIR" -maxdepth 1 -type f \\( -name "*.mp4" -o -name "*.mkv" -o -name "*.webm" \\) -printf "%T@|%p|%f|%s\\n" 2>/dev/null | sort -rn | head -20']
+      'find "$OUTPUT_DIR" -maxdepth 1 -type f \\( -name "*.mp4" -o -name "*.mkv" -o -name "*.webm" \\) -printf "%T@ %s %p\\0" 2>/dev/null | sort -zrn | head -zn 20 | ' +
+      'jq -cRs --arg dir "$OUTPUT_DIR" \'{dir: $dir, files: [split("\\u0000")[] | select(length > 0) | index(" ") as $a | .[$a + 1:] as $r | ($r | index(" ")) as $b | {epoch: .[:$a], size: $r[:$b], path: $r[$b + 1:]}]}\'']
     stdout: StdioCollector {
       onStreamFinished: {
-        const lines = String(text).trim().split("\n")
-        const list = []
-        for (let i = 0; i < lines.length; i++) {
-          const l = lines[i].trim()
-          if (!l) continue
-          if (l.startsWith("DIR|")) { root.outputDir = l.slice(4); continue }
-          const p = l.split("|")
-          if (p.length >= 4) {
-            list.push({
-              epoch: parseFloat(p[0]) || 0,
-              path: p[1],
-              name: p[2],
-              size: root.fmtBytes(parseInt(p[3]) || 0)
-            })
-          }
-        }
-        root.recentRecordings = list
+        let out
+        try { out = JSON.parse(text) } catch (e) { return }
+        if (out.dir) root.outputDir = out.dir
+        root.recentRecordings = (out.files || []).map(f => ({
+          epoch: parseFloat(f.epoch) || 0,
+          path: f.path,
+          name: f.path.slice(f.path.lastIndexOf("/") + 1),
+          size: root.fmtBytes(parseInt(f.size) || 0)
+        }))
       }
     }
   }

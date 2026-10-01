@@ -22,10 +22,14 @@ clone from the installed Omarchy (see handover.py):
     Omacale is off, missing or broken;
   * the manifest takes stock's capabilities, kinds and entry points.
 
-Before writing anything it checks that every property and signal the stock
-`Service.qml` drives its view with exists on the wrapper. If `omarchy update`
-reshapes that contract the script refuses rather than leave the machine with
-a lock screen that cannot load.
+Before writing anything it checks that the stock `Service.qml` is one this
+Omacale was verified against (VERIFIED_SERVICES, by hash), and that every
+property and signal it drives its view with exists on the wrapper. A name
+check alone can pass a service the wrapper doesn't really fit (a method call,
+a type), and a lock service that fails to load leaves `omarchy system lock`
+failing and suspend-then-lock suspending unlocked. So any other `Service.qml`
+is refused, and the watchdog then gives the lock back to Omarchy rather than
+keep running a clone of the old one.
 
   lock-screen install    clone (if needed) + refresh; the shell picks the
                          clone up live, so --restart is only for installers.
@@ -55,6 +59,17 @@ sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
 MARKER = "omacale:lock-view v5"
+
+# The stock lock Service.qml files the wrapper has been verified against
+# (sha256). Anything else is refused and the lock stays Omarchy's own until an
+# Omacale update adds it here. Add a hash only after locking and unlocking with
+# the clone on that Omarchy: `lock-screen status` prints the running one.
+VERIFIED_SERVICES = {
+    # Omarchy 4.0.0 - 4.0.4 (stable)
+    "3f0a265a09f7957e8f5d74666595d3136ec64899c414426190460f9e2098e701",
+    # Omarchy dev, 4.0.0.r6691 (8b4eae6)
+    "92c37d5dc617ce53e4080ad420ae18613bc62f94923c150e0e69fea52534eecd",
+}
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -168,6 +183,20 @@ def view_provides(template_qml):
     return names
 
 
+def service_sha():
+    return handover.sha(handover.read_bytes(os.path.join(STOCK_DIR, "Service.qml")) or b"")
+
+
+def check_verified():
+    digest = service_sha()
+    if digest not in VERIFIED_SERVICES:
+        fail(
+            f"Omarchy's lock service ({STOCK_DIR}/Service.qml, sha256 {digest[:12]}) is not one "
+            "this Omacale was verified against, so Omarchy keeps its own lock screen. "
+            "An Omacale update that adds it to VERIFIED_SERVICES brings it back."
+        )
+
+
 def check_contract(service_qml, template_qml, stock_view_qml):
     used = view_usage(service_qml)
     if not used:
@@ -209,8 +238,11 @@ def restart_shell_detached():
     # the restart has to outlive both, or it kills the shell and never
     # launches the new one. The files just written set off a hot reload of
     # the clone, and a shell killed mid-reload has segfaulted; let it settle.
+    delay = os.environ.get("OMACALE_HEAL_DELAY", "4")
+    if not re.fullmatch(r"[0-9]+(\.[0-9]+)?", delay):
+        delay = "4"
     subprocess.Popen(
-        ["bash", "-c", f"sleep {os.environ.get('OMACALE_HEAL_DELAY', '4')}; exec omarchy-restart-shell"],
+        ["bash", "-c", 'sleep "$1"; exec omarchy-restart-shell', "heal", delay],
         start_new_session=True,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
@@ -235,6 +267,7 @@ def install(restart=False, heal=False):
     with open(TEMPLATE) as f:
         template_qml = f.read()
 
+    check_verified()
     check_contract(service_qml, template_qml, stock_view_qml)
 
     target = clone_dir()
@@ -274,6 +307,8 @@ def plan(target, template_qml):
     """The clone as it should be: stock, with the view renamed and our
     wrapper in its place."""
     tree = handover.stock_tree(STOCK_DIR)
+    if "LockView.qml" not in tree:
+        fail(f"{STOCK_DIR}/LockView.qml is missing; is this Omarchy?")
     tree["StockLockView.qml"] = tree.pop("LockView.qml")
     tree["LockView.qml"] = template_qml.encode()
     return handover.Plan(STOCK_DIR, target, tree)
@@ -332,6 +367,7 @@ def status():
     # would quietly fall back to the stock view; LockService compares the two
     # and re-installs when they differ.
     print(f"expects:   omacale v{MARKER.rsplit('v', 1)[1]}")
+    print(f"verified:  {'yes' if service_sha() in VERIFIED_SERVICES else 'no'} ({service_sha()[:12]})")
     print(f"setting:   {'on' if omacale_enabled() else 'off'}")
     return 0
 
@@ -367,9 +403,34 @@ def health():
     return 0 if verdict != "fail" else 1
 
 
+def give_back(reason):
+    """Hand the lock back to Omarchy, as the watchdog's last word."""
+    try:
+        remove()
+    except BaseException as e:  # noqa: BLE001 -- nothing may stop the report
+        reason += f"; and removing the clone failed: {e}"
+    print("action:    fellback")
+    print("health:    fail")
+    print(f"reason:    {reason}")
+    return 0
+
+
 def watchdog():
     """Heal what an `omarchy update` did to the clone: re-sync it, and if the
-    lock service is then broken, hand the lock back to Omarchy."""
+    lock service is then broken, or the new one is not one Omacale verified,
+    hand the lock back to Omarchy. Any error does the same: a clone the
+    watchdog can no longer reason about is not one to leave running."""
+    try:
+        return watchdog_checked()
+    except SystemExit as e:
+        if e.code in (0, None):
+            raise
+        return give_back("the lock watchdog stopped (see its error); Omarchy's lock is back")
+    except Exception as e:  # noqa: BLE001
+        return give_back(f"the lock watchdog failed: {e!r}")
+
+
+def watchdog_checked():
     target = clone_dir()
     if target is None:
         print("action:    none")
@@ -378,7 +439,8 @@ def watchdog():
     action = "none"
     if stale_files(target):
         # A service swapped under a live lock is not a risk worth taking; the
-        # next check after unlocking catches up.
+        # next check after unlocking catches up (Handover re-checks every
+        # minute while the last answer was skipped-locked).
         if locked():
             action = "skipped-locked"
         else:
@@ -386,9 +448,14 @@ def watchdog():
                 install(heal=True)
                 action = "synced"
             except SystemExit:
-                # check_contract refused (its reason is on stderr): the old
-                # clone keeps running and the health check decides.
-                action = "refused"
+                # Refused: an unverified service or a contract that no longer
+                # fits (the reason is on stderr). Keeping the old clone would
+                # freeze the lock at an old Omarchy and stop its fixes from
+                # arriving, so the lock goes back to Omarchy instead.
+                return give_back("Omarchy's new lock service was refused: not one this Omacale was verified against, or it no longer fits the wrapper")
+    elif service_sha() not in VERIFIED_SERVICES and not locked():
+        # A clone set up before the hash gate, on a service never verified.
+        return give_back("Omarchy's lock service is not one this Omacale was verified against")
 
     if healing:
         # The shell is going down under this check; the next start checks

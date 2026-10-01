@@ -136,7 +136,10 @@ ColumnLayout {
   }
 
   // Theme actions (Caelestia's "Wallpapers" / "Colours" buttons): a
-  // ButtonRow of big tonal pills that bulge when pressed.
+  // ButtonRow of tonal pills that bulge when pressed. Sized as the other
+  // Settings action buttons (body.medium, padding large/small): Caelestia's
+  // body.large with extra-large padding came out bigger than anything else
+  // on the page, with three buttons where Caelestia has two.
   ButtonRow {
     Layout.alignment: Qt.AlignHCenter
     spacing: Tk.spacing.small
@@ -145,9 +148,9 @@ ColumnLayout {
       type: "tonal"
       isRound: true
       shapeMorph: true
-      fontSize: Tk.body.large
-      horizontalPadding: Tk.padding.extraLarge
-      verticalPadding: Tk.padding.medium
+      fontSize: Tk.body.medium
+      horizontalPadding: Tk.padding.large
+      verticalPadding: Tk.padding.small
       onClicked: Sys.run(cmd)
     }
     Action { icon: "wallpaper"; text: "Wallpaper"; cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' }

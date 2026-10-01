@@ -20,8 +20,13 @@ Rectangle {
   readonly property string buffer: lock.password
   readonly property bool authenticating: lock.authenticating
   property bool showPassword: false
+  // Settings › Lock screen › Show password button, off by default: anyone at
+  // the keyboard could otherwise read what is being typed.
+  readonly property bool canReveal: Config.o.lock.revealPassword
 
   onBufferChanged: if (!buffer)
+    showPassword = false
+  onCanRevealChanged: if (!canReveal)
     showPassword = false
 
   implicitWidth: {
@@ -87,6 +92,8 @@ Rectangle {
           }
           implicitHeight: implicitWidth
           radius: Tk.rounding.full
+          enabled: root.canReveal
+          visible: root.canReveal
 
           onClicked: {
             parent.animate = false

@@ -308,14 +308,22 @@ Item {
     property var instances: ({})
   }
 
+  // Only for a plugin id as Omarchy writes them (no "/" or "..", so the path
+  // below stays inside the plugins folder), registered as a bar widget, and
+  // enabled -- the service a hosted widget would get from Omarchy itself.
+  // PluginBarFacade only asks for the widget's own id, as Omarchy's service
+  // scoping does.
   function hostedServiceFor(pluginId) {
     var key = String(pluginId || "")
-    if (!key) return null
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(key) || key.indexOf("..") >= 0) return null
     if (serviceStore.instances[key]) return serviceStore.instances[key]
 
     var reg = root.barWidgetRegistry
     var meta = reg && typeof reg.metadataFor === "function" ? reg.metadataFor(key) : null
-    var sourceDir = meta && meta.sourceDir ? meta.sourceDir : ""
+    if (!meta) return null
+    var registry = root.shell ? root.shell.pluginRegistry : null
+    if (registry && typeof registry.resolveEnabledId === "function" && registry.resolveEnabledId(key) !== key) return null
+    var sourceDir = meta.sourceDir ? String(meta.sourceDir) : ""
     if (!sourceDir) {
       sourceDir = Quickshell.env("HOME") + "/.config/omarchy/plugins/" + key
     }
@@ -544,8 +552,13 @@ Item {
     // The OSD handover's clone only takes Omarchy's OSDs while this bar is
     // running in this shell (services/OsdService.qml claim()).
     OsdService.claim(true)
+    // Likewise the notification clone's toast window (NotifService.claimPopups()).
+    NotifService.claimPopups(true)
   }
-  Component.onDestruction: OsdService.claim(false)
+  Component.onDestruction: {
+    OsdService.claim(false)
+    NotifService.claimPopups(false)
+  }
   Connections {
     target: Hyprland
     function onRawEvent(e) {

@@ -28,12 +28,18 @@ QtObject {
   // takes long enough that a dispatch made as a panel closes can land after
   // the surface is gone (the overview's click-to-switch did).
   function hypr(dispatcher) { Hyprland.dispatch(dispatcher) }
-  function workspace(id) { hypr('hl.dsp.focus({ workspace = "' + id + '" })') }
-  function toggleSpecial(name) { hypr('hl.dsp.workspace.toggle_special("' + name + '")') }
+  // A value as a quoted Lua string literal. A dispatcher is Lua source, so a
+  // name pasted in raw could close its string with `"` and run any Lua;
+  // backslash, quote and control characters become decimal escapes (\ddd).
+  function luaStr(s) {
+    return '"' + String(s).replace(/[\\"\x00-\x1f\x7f]/g, c => "\\" + String(c.charCodeAt(0)).padStart(3, "0")) + '"'
+  }
+  function workspace(id) { hypr("hl.dsp.focus({ workspace = " + luaStr(id) + " })") }
+  function toggleSpecial(name) { hypr("hl.dsp.workspace.toggle_special(" + luaStr(name) + ")") }
   // Window dispatchers, by Hyprland address (the overview drives these).
-  function focusWindow(addr) { hypr('hl.dsp.focus({ window = "address:' + addr + '" })') }
-  function closeWindow(addr) { hypr('hl.dsp.window.close("address:' + addr + '")') }
-  function moveWindow(addr, ws) { hypr('hl.dsp.window.move({ workspace = "' + ws + '", follow = false, window = "address:' + addr + '" })') }
+  function focusWindow(addr) { hypr("hl.dsp.focus({ window = " + luaStr("address:" + addr) + " })") }
+  function closeWindow(addr) { hypr("hl.dsp.window.close(" + luaStr("address:" + addr) + ")") }
+  function moveWindow(addr, ws) { hypr("hl.dsp.window.move({ workspace = " + luaStr(ws) + ", follow = false, window = " + luaStr("address:" + addr) + " })") }
 
   // Port of Caelestia's Hypr.activeToplevel (services/Hypr.qml): Hyprland
   // keeps reporting the last focused window after switching to an empty
