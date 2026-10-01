@@ -251,6 +251,15 @@ QtObject {
       property JsonObject utilities: JsonObject {
         property bool enabled: true
         property int width: 430
+        property int maxToasts: 4
+        property JsonObject toasts: JsonObject {
+          property bool chargingChanged: true
+          property bool gameModeChanged: true
+          property bool dndChanged: true
+          property bool audioOutputChanged: true
+          property bool audioInputChanged: true
+          property bool nowPlaying: false
+        }
         property JsonObject toggles: JsonObject {
           property bool wifi: true
           property bool bluetooth: true
@@ -260,6 +269,14 @@ QtObject {
           property bool dnd: true
           property bool nightlight: false
         }
+      }
+      property JsonObject osd: JsonObject {
+        property bool enabled: true
+        property int hideDelay: 2000
+        property bool enableBrightness: true
+        property bool enableMicrophone: false
+        property bool autoFellBack: false
+        property string fellBackVersion: ""
       }
       property JsonObject background: JsonObject {
         property JsonObject desktopClock: JsonObject {

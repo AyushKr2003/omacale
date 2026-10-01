@@ -128,6 +128,7 @@ LockResources 1.0 modules/lock/LockResources.qml
 LockNotifs 1.0 modules/lock/LockNotifs.qml
 LockCard 1.0 modules/settings/cards/LockCard.qml
 NotifCard 1.0 modules/settings/cards/NotifCard.qml
+OsdCard 1.0 modules/settings/cards/OsdCard.qml
 singleton LockService 1.0 services/LockService.qml
 singleton NotifHandover 1.0 services/NotifHandover.qml
 Handover 1.0 services/Handover.qml
@@ -151,3 +152,10 @@ VisualiserBars 1.0 modules/background/VisualiserBars.qml
 ClipboardItem 1.0 modules/launcher/ClipboardItem.qml
 ClipboardPreview 1.0 modules/launcher/ClipboardPreview.qml
 singleton ClipboardService 1.0 services/ClipboardService.qml
+FilledSlider 1.0 components/controls/FilledSlider.qml
+Osd 1.0 modules/osd/Osd.qml
+Toasts 1.0 modules/utilities/Toasts.qml
+ToastItem 1.0 modules/utilities/ToastItem.qml
+singleton Toaster 1.0 services/Toaster.qml
+singleton OsdService 1.0 services/OsdService.qml
+singleton OsdHandover 1.0 services/OsdHandover.qml

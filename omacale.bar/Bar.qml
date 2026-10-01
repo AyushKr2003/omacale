@@ -42,7 +42,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.42.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.43.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -481,6 +481,12 @@ Item {
       }
       return Config.o.appearance.scale.source + " " + Tk.uiScale.toFixed(2)
     }
+    // Caelestia's `toaster` IPC (Shortcuts.qml info/success/warn/error) as
+    // one call: type is info, success, warning or error; an empty icon takes
+    // the type's own.
+    function toast(type: string, title: string, message: string, icon: string): void {
+      Toaster.toast(title, message, icon, Toaster.typeOf(type))
+    }
   }
 
   // Created at startup so an old menu-route block gets cleaned up.
@@ -491,6 +497,7 @@ Item {
   // keep their clones in step with Omarchy updates (services/Handover.qml).
   readonly property bool lockHandover: LockService.installed
   readonly property bool notifHandover: NotifHandover.installed
+  readonly property bool osdHandover: OsdHandover.installed
   // Keeps Hyprland's gaps and window rounding in step with the UI scale
   // through omacale.lua (services/HyprLook.qml). Referenced to create it.
   readonly property string hyprLook: HyprLook.args

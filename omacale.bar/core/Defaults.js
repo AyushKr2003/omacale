@@ -62,10 +62,18 @@ var values = {
   },
   utilities: {
     enabled: true, width: 430,
+    // Caelestia utilities.maxToasts and utilities.toasts (utilitiesconfig.hpp),
+    // for the toasts Omacale raises (services/Toaster.qml).
+    maxToasts: 4,
+    toasts: { chargingChanged: true, gameModeChanged: true, dndChanged: true, audioOutputChanged: true, audioInputChanged: true, nowPlaying: false },
     // Caelestia's default quick toggles (utilitiesconfig.hpp), plus Omarchy's
     // night light, off by default so the card keeps Caelestia's single row.
     toggles: { wifi: true, bluetooth: true, mic: true, settings: true, gameMode: true, dnd: true, nightlight: false }
   },
+  // Caelestia osdconfig.hpp. Volume and brightness keys only reach it once
+  // Omarchy's own OSD has stepped aside for them (scripts/osd-handover);
+  // autoFellBack: as lock's.
+  osd: { enabled: true, hideDelay: 2000, enableBrightness: true, enableMicrophone: false, autoFellBack: false, fellBackVersion: "" },
   // Caelestia backgroundconfig.hpp (the wallpaper itself stays Omarchy's).
   background: {
     desktopClock: {

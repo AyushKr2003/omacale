@@ -1,0 +1,441 @@
+#!/usr/bin/env python3
+"""Hand the volume and brightness OSD over to Omacale (and give it back).
+
+Omarchy's on-screen display (`omarchy.osd`) draws every OSD: the volume and
+brightness bars, and the messages (media, keyboard backlight, the input
+toggles, power). Caelestia draws volume and brightness differently -- vertical
+sliders that slide out of the right edge of its frame (modules/osd) -- and
+Omacale draws that too. Two OSDs for one key press would be worse than
+either, so the stock one has to step aside for those two, and only those.
+
+Like the notification and lock handovers this goes through `omarchy plugin
+clone`, and every sync rebuilds the clone from the installed Omarchy (see
+handover.py) with a small patch applied to a *fresh* copy of stock `Osd.qml`:
+
+  * `show()` asks Omacale's gate first. Volume payloads are dropped, since
+    Omacale sees volume changes on Pipewire itself (as Caelestia does); a
+    display brightness payload is handed to Omacale through a file in the
+    runtime directory, since the level only exists in it;
+  * the gate is open only while Omacale is the bar (shell.json `bar.id`), its
+    OSD is on (~/.config/omacale/settings.json `osd.enabled`) and nothing is
+    fullscreen (Omacale's frame lives on the `top` layer, under a fullscreen
+    window). Otherwise this is Omarchy's OSD again, without a restart;
+  * IPC `omacaleOsd` answers "yes", for the health check.
+
+Everything else -- the messages, the keyboard backlight, the layout, the
+`osd` IPC -- stays upstream code.
+
+  osd-handover install    clone + sync (the shell picks the clone up live)
+  osd-handover sync       rebuild an existing clone from stock + patch
+  osd-handover remove     put the stock OSD back
+  osd-handover status     report what is in place (parsable, key: value)
+  osd-handover health     is the patched OSD answering? (exit 0/1)
+  osd-handover watchdog   sync a stale clone, check its health, and give the
+                          OSD back to Omarchy if it is broken
+"""
+
+import getpass
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+# The installed copy lives under the plugins folder, where a __pycache__
+# written on import would reload every plugin.
+sys.dont_write_bytecode = True
+sys.path.insert(0, HERE)
+import handover  # noqa: E402
+
+MARKER = "omacale:osd-handover v1"
+# The stock Osd.qml this patch was last checked against. A different one that
+# the patch still applies to is synced, but `status` says `verified: no`.
+VERIFIED_AGAINST = "dc7dc42cddd9c254710f0dd3abc34ac75baf7f3dcd8776abe339f5abf2460876"
+
+HOME = os.path.expanduser("~")
+PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
+SOURCE_ID = "omarchy.osd"
+ENTRY = "Osd.qml"
+STOCK_DIR = os.path.join(
+    os.environ.get("OMARCHY_PATH", "/usr/share/omarchy"),
+    "shell", "plugins", "osd",
+)
+
+IMPORT_ANCHOR = "import Quickshell.Wayland\n"
+SHOW_ANCHOR = (
+    "  function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {\n"
+    "    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration)\n"
+)
+IPC_ANCHOR = '    function ping(): string { return "ok" }'
+
+GATE_BLOCK = '''  // ---------------------------------------------------------- Omacale
+  //
+  // {marker} -- patched by Omacale (scripts/osd-handover).
+  //
+  // Omacale draws Caelestia's OSD for the speaker volume and the display
+  // brightness: vertical sliders that slide out of the edge of its frame.
+  // It sees volume changes on Pipewire by itself; the brightness level only
+  // exists in the payloads that reach this OSD, so those are passed on
+  // through a file in the runtime directory. Everything else is drawn here,
+  // as stock.
+  //
+  // Only while Omacale is the bar, its OSD is on and nothing is fullscreen
+  // (Omacale's frame is on the `top` layer, under a fullscreen window). With
+  // any of those gone this is Omarchy's OSD again, without a restart.
+  property bool omacaleIsBar: false
+  property bool omacaleOsdOn: true
+  property int omacaleSeq: 0
+
+  function omacaleFullscreen() {{
+    var monitor = Hyprland.focusedMonitor
+    var workspace = monitor ? monitor.activeWorkspace : null
+    if (!workspace || !workspace.toplevels) return false
+    var windows = workspace.toplevels.values
+    for (var i = 0; i < windows.length; i++) {{
+      var ipc = windows[i] ? windows[i].lastIpcObject : null
+      if (ipc && ipc.fullscreen > 1) return true
+    }}
+    return false
+  }}
+
+  // True when Omacale draws this payload instead.
+  function omacaleTakes(next) {{
+    if (!root.omacaleIsBar || !root.omacaleOsdOn || root.omacaleFullscreen()) return false
+    var key = String(next.iconKey || "")
+    // The volume keys, the output switcher's device name included: Omacale
+    // shows the sliders on the Pipewire change and toasts a device switch.
+    if (key.indexOf("volume") === 0) return true
+    if ((key === "brightness" || key === "display") && next.hasProgress) {{
+      root.omacaleSeq++
+      omacaleForward.setText(JSON.stringify({{
+        seq: root.omacaleSeq,
+        kind: "brightness",
+        value: next.value,
+        max: next.maxValue,
+        at: Date.now()
+      }}))
+      return true
+    }}
+    return false
+  }}
+
+  FileView {{
+    id: omacaleForward
+    path: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/omacale-osd.json"
+    printErrors: false
+  }}
+
+  FileView {{
+    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {{
+      try {{
+        var config = JSON.parse(text())
+        root.omacaleIsBar = !!(config && config.bar && config.bar.id === "omacale.bar")
+      }} catch (e) {{
+        root.omacaleIsBar = false
+      }}
+    }}
+    onLoadFailed: root.omacaleIsBar = false
+  }}
+
+  // Omacale writes this file only once a setting is changed; no file, or no
+  // `osd.enabled` in it, is the default: on.
+  FileView {{
+    path: Quickshell.env("HOME") + "/.config/omacale/settings.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {{
+      try {{
+        var settings = JSON.parse(text())
+        root.omacaleOsdOn = !(settings && settings.osd && settings.osd.enabled === false)
+      }} catch (e) {{
+        root.omacaleOsdOn = true
+      }}
+    }}
+    onLoadFailed: root.omacaleOsdOn = true
+  }}
+
+'''
+
+TAKE_LINE = "    if (root.omacaleTakes(next)) return\n"
+
+IPC_BLOCK = '''    // {marker}: the health check's sign that this is the patched OSD.
+    function omacaleOsd(): string {{ return "yes" }}
+{anchor}'''
+
+
+def fail(msg):
+    print("osd-handover: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def run(cmd, check=True, capture=False):
+    try:
+        result = subprocess.run(
+            cmd, check=False,
+            stdout=subprocess.PIPE if capture else None,
+            stderr=subprocess.PIPE if capture else None,
+            text=True,
+        )
+    except FileNotFoundError:
+        fail("'%s' is not installed" % cmd[0])
+    if check and result.returncode != 0:
+        detail = (result.stderr or "").strip() if capture else ""
+        fail("`%s` failed%s" % (" ".join(cmd), ": " + detail if detail else ""))
+    return result
+
+
+def clone_id():
+    return "%s.osd" % (os.environ.get("USER") or getpass.getuser())
+
+
+def clone_dir():
+    return os.path.join(PLUGINS_DIR, clone_id())
+
+
+def read(path):
+    with open(path, "r", encoding="utf-8") as fp:
+        return fp.read()
+
+
+class Refused(Exception):
+    """Stock Osd.qml is not the file this patch was written for."""
+
+
+def patch_text(text):
+    """The gate patch applied to a stock Osd.qml."""
+    if IMPORT_ANCHOR not in text:
+        raise Refused("Omarchy's Osd.qml no longer imports Quickshell.Wayland; update omacale.bar/scripts/osd-handover.")
+    if text.count(SHOW_ANCHOR) != 1:
+        raise Refused(
+            "Omarchy's Osd.qml no longer has the show() this patch hooks; its OSD has "
+            "probably changed shape. Update omacale.bar/scripts/osd-handover."
+        )
+    if IPC_ANCHOR not in text:
+        raise Refused("no IPC anchor in Omarchy's Osd.qml")
+    # The gate's FileViews and Quickshell.env come from these.
+    for needed in ("import Quickshell\n", "import Quickshell.Io\n"):
+        if needed not in text:
+            raise Refused("Omarchy's Osd.qml no longer imports %s" % needed.strip())
+
+    patched = text.replace(IMPORT_ANCHOR, IMPORT_ANCHOR + "import Quickshell.Hyprland\n", 1)
+    patched = patched.replace(
+        SHOW_ANCHOR, GATE_BLOCK.format(marker=MARKER) + SHOW_ANCHOR + TAKE_LINE, 1
+    )
+    return patched.replace(IPC_ANCHOR, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR), 1)
+
+
+def check_model(tree):
+    """The gate reads `iconKey`, `hasProgress`, `value` and `maxValue` off the
+    model's state; refuse a model that no longer returns them."""
+    model = (tree.get("OsdModel.js") or b"").decode("utf-8", "replace")
+    for field in ("iconKey:", "hasProgress:", "value:", "maxValue:"):
+        if field not in model:
+            raise Refused("Omarchy's OsdModel.js no longer returns `%s`; update omacale.bar/scripts/osd-handover." % field.rstrip(":"))
+
+
+def plan(directory):
+    """The clone as it should be: stock, with Osd.qml patched and the pristine
+    copy beside it. Raises Refused when the patch does not apply."""
+    tree = handover.stock_tree(STOCK_DIR)
+    stock = tree.get(ENTRY)
+    if stock is None:
+        raise Refused("%s/%s is missing; is this Omarchy?" % (STOCK_DIR, ENTRY))
+    check_model(tree)
+    tree[ENTRY] = patch_text(stock.decode("utf-8")).encode("utf-8")
+    tree[ENTRY + ".omacale-orig"] = stock
+    return handover.Plan(STOCK_DIR, directory, tree)
+
+
+def ours(directory):
+    manifest = handover.load_json(os.path.join(directory, "manifest.json")) or {}
+    return (manifest.get("omarchy") or {}).get("clonedFrom") == SOURCE_ID
+
+
+def plugin_enabled(plugin_id):
+    try:
+        rows = json.loads(handover.ipc("shell", "listPlugins") or "[]")
+    except ValueError:
+        return False
+    return any(row.get("id") == plugin_id and row.get("enabled") for row in rows)
+
+
+def cmd_status(offline=False):
+    directory = clone_dir()
+    entry = os.path.join(directory, ENTRY)
+    if os.path.isdir(directory):
+        state = "" if offline else " (%s)" % ("enabled" if plugin_enabled(clone_id()) else "disabled")
+        print("clone:     %s%s" % (clone_id(), state))
+    else:
+        print("clone:     none")
+    if os.path.isfile(entry):
+        print("patched:   %s" % ("yes" if MARKER in read(entry) else "NO"))
+        stock = handover.read_bytes(os.path.join(STOCK_DIR, ENTRY)) or b""
+        try:
+            stale = plan(directory).stale_files()
+            print("patch:     applies")
+        except Refused as e:
+            orig = handover.read_bytes(entry + ".omacale-orig")
+            stale = [ENTRY] if orig != stock else []
+            print("patch:     refused")
+            print("refused:   %s" % e)
+        print("stale:     %s" % ("yes" if stale else "no"))
+        if stale:
+            print("stale-files: %s" % ", ".join(stale))
+        print("verified:  %s" % ("yes" if handover.sha(stock) == VERIFIED_AGAINST else "no"))
+    print("expects:   %s" % MARKER)
+    return 0
+
+
+def probe():
+    if handover.ipc("osd", "ping") != "ok":
+        return False, "the OSD does not answer (`omarchy-shell osd ping`)"
+    if handover.ipc("osd", "omacaleOsd") != "yes":
+        return False, "the OSD is not the patched clone (no `omacaleOsd`)"
+    return True, ""
+
+
+def cmd_health():
+    verdict, reason = handover.checked(probe)
+    print("health:    %s" % verdict)
+    if reason:
+        print("reason:    %s" % reason)
+    return 0 if verdict != "fail" else 1
+
+
+def cmd_sync():
+    directory = clone_dir()
+    if not os.path.isdir(directory):
+        print("No OSD clone; nothing to sync.")
+        return 0
+    if not ours(directory):
+        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+    try:
+        changed = plan(directory).apply()
+    except Refused as e:
+        fail("patch refused, the clone was left as it is: %s" % e)
+    for rel in changed:
+        print("  synced %s" % rel)
+    if not changed:
+        print("  clone already matches Omarchy")
+    return 0
+
+
+def cmd_watchdog():
+    """Heal what an `omarchy update` did to the clone: re-sync it, and if the
+    OSD is then broken, give Omarchy's own back."""
+    directory = clone_dir()
+    if not os.path.isdir(directory) or not ours(directory):
+        print("action:    none")
+        return 0
+
+    action = "none"
+    try:
+        p = plan(directory)
+        if p.stale_files():
+            p.apply()
+            action = "synced"
+    except Refused as e:
+        action = "refused"
+        print("refused:   %s" % e)
+
+    verdict, reason = handover.checked(probe)
+    if verdict == "fail":
+        cmd_remove()
+        action = "fellback"
+    print("action:    %s" % action)
+    print("health:    %s" % verdict)
+    if reason:
+        print("reason:    %s" % reason)
+    return 0
+
+
+def cmd_install():
+    directory = clone_dir()
+    if not os.path.isdir(directory):
+        if not os.path.isdir(STOCK_DIR):
+            fail("Omarchy's OSD plugin is not installed at %s" % STOCK_DIR)
+        # Refuse before cloning: a clone left unpatched would be a second
+        # stock OSD for nothing.
+        try:
+            check_model(handover.stock_tree(STOCK_DIR))
+            patch_text(read(os.path.join(STOCK_DIR, ENTRY)))
+        except (Refused, OSError) as e:
+            fail(str(e))
+        print("==> Cloning %s" % SOURCE_ID)
+        run(["omarchy", "plugin", "clone", SOURCE_ID])
+    else:
+        print("==> Using the existing clone at %s" % directory)
+
+    if not os.path.isfile(os.path.join(directory, ENTRY)):
+        fail("%s has no %s" % (directory, ENTRY))
+    if not ours(directory):
+        fail("%s is not a clone of %s" % (directory, SOURCE_ID))
+
+    try:
+        changed = plan(directory).apply()
+    except Refused as e:
+        fail(str(e))
+    if changed:
+        print("  ✓ synced from Omarchy and patched: %s" % ", ".join(changed))
+    else:
+        print("  ✓ clone already matches Omarchy")
+    return 0
+
+
+def cmd_remove():
+    directory = clone_dir()
+    if not os.path.isdir(directory):
+        print("No OSD clone to remove; Omarchy's own OSD is already in use.")
+        return 0
+
+    entry = os.path.join(directory, ENTRY)
+    if os.path.isfile(entry) and MARKER not in read(entry):
+        fail(
+            "%s exists but was not patched by Omacale -- it is your own clone.\n"
+            "Remove it yourself with: omarchy plugin remove %s" % (directory, clone_id())
+        )
+
+    # `omarchy plugin remove` re-enables the stock plugin and clears the clone
+    # out of shell.json; deleting the directory alone would leave no OSD.
+    print("==> Removing %s" % clone_id())
+    run(["omarchy", "plugin", "remove", clone_id(), "--yes"])
+    if os.path.isdir(directory):
+        fail("%s is still there after `omarchy plugin remove`" % directory)
+
+    prefix = ".%s.bak." % clone_id()
+    for name in os.listdir(PLUGINS_DIR):
+        if name.startswith(prefix):
+            shutil.rmtree(os.path.join(PLUGINS_DIR, name), ignore_errors=True)
+    return 0
+
+
+def main(argv):
+    command = argv[0] if argv else "status"
+    if command in ("-h", "--help", "help"):
+        print(__doc__.strip())
+        return 0
+    # --no-restart is accepted for symmetry with notif-popups: the shell picks
+    # an OSD clone up live, so nothing here ever restarts it.
+    if command == "install":
+        return cmd_install()
+    if command == "remove":
+        return cmd_remove()
+    if command == "status":
+        return cmd_status(offline="--offline" in argv)
+    if command == "sync":
+        return cmd_sync()
+    if command == "health":
+        return cmd_health()
+    if command == "watchdog":
+        return cmd_watchdog()
+    fail("unknown command '%s' (install | sync | remove | status | health | watchdog)" % command)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

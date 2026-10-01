@@ -353,7 +353,8 @@ Item {
     if (ws >= 0 && ws <= alen(workspaces)) { workspaces.scroll(dy); return }
     if (trayPill.visible && scrollList(trayFlick, a, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
-    // speaker tuning and show Omarchy's OSD.
+    // speaker tuning and show the OSD (Caelestia's sliders, once the OSD
+    // handover is in; Omarchy's own otherwise).
     const svc = Config.o.services
     if (a < alen(root) / 2) { if (cfg.scroll.volume) Quickshell.execDetached(["omarchy-audio-output-volume", (dy > 0 ? "+" : "-") + svc.volumeStep]) }
     else if (cfg.scroll.brightness) Quickshell.execDetached(["omarchy-brightness-display", dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-"])

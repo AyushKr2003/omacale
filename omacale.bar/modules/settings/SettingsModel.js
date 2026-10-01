@@ -110,6 +110,7 @@ var pages = [
       { type: "nav", icon: "grid_view", label: "Overview", page: "overview", status: "overview.enabled" },
       { type: "nav", icon: "power_settings_new", label: "Session", page: "session", status: "session.enabled" },
       { type: "nav", icon: "lock", label: "Lock screen", page: "lock", status: "lock.enabled" },
+      { type: "nav", icon: "volume_up", label: "OSD", page: "osd", status: "osd.enabled" },
       { type: "nav", icon: "wallpaper", label: "Desktop", page: "desktop", subtext: "Clock and audio visualiser on the wallpaper" }
     ]
   },
@@ -183,6 +184,14 @@ var subpages = {
       { type: "custom", comp: "notifs" },
       { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows" },
       { type: "slider", key: "notifs.popups.width", label: "Popup width (at 100% scale)", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
+      { type: "section", text: "Toasts" },
+      { type: "stepper", key: "utilities.maxToasts", label: "Toasts shown", subtext: "Small toasts over the utilities corner; more wait their turn", from: 1, to: 10, step: 1 },
+      { type: "toggle", key: "utilities.toasts.chargingChanged", label: "Charger changes", subtext: "When the charger is plugged in or out" },
+      { type: "toggle", key: "utilities.toasts.gameModeChanged", label: "Game mode changes" },
+      { type: "toggle", key: "utilities.toasts.dndChanged", label: "Do not disturb changes" },
+      { type: "toggle", key: "utilities.toasts.audioOutputChanged", label: "Audio output changes", subtext: "The device sound now plays on" },
+      { type: "toggle", key: "utilities.toasts.audioInputChanged", label: "Audio input changes", subtext: "The microphone now in use" },
+      { type: "toggle", key: "utilities.toasts.nowPlaying", label: "Now playing", subtext: "The track each time it changes" },
       { type: "section", text: "Notifications" },
       { type: "toggle", key: "notifs.openExpanded", label: "Open expanded", subtext: "Show notification groups and popups expanded by default" },
       { type: "stepper", key: "notifs.groupPreviewNum", label: "Group preview count", subtext: "Notifications shown per group before collapsing", from: 1, to: 10, step: 1 }
@@ -390,6 +399,18 @@ var subpages = {
       { type: "toggle", key: "lock.useWallpaper", when: { key: "lock.enabled", value: true }, label: "Use the wallpaper", subtext: "Show the wallpaper behind the lock instead of a blurred copy of the screen" },
       { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur the wallpaper behind the lock card; the screen copy is always blurred" },
       { type: "toggle", key: "lock.recolourLogo", when: { key: "lock.enabled", value: true }, label: "Recolour the logo", subtext: "Tint the fetch card's logo with the scheme" }
+    ]
+  },
+  // Caelestia osdconfig.hpp; Caelestia has no Nexus page for it.
+  osd: {
+    title: "OSD",
+    rows: [
+      { type: "toggle", key: "osd.enabled", label: "Omacale OSD", subtext: "Caelestia's volume and brightness sliders, out of the edge of the frame" },
+      { type: "custom", comp: "osd" },
+      { type: "section", text: "Sliders" },
+      { type: "toggle", key: "osd.enableBrightness", when: { key: "osd.enabled", value: true }, label: "Brightness", subtext: "Shown once Omarchy has reported the display's level" },
+      { type: "toggle", key: "osd.enableMicrophone", when: { key: "osd.enabled", value: true }, label: "Microphone", subtext: "The input volume, and show the OSD when it changes" },
+      { type: "stepper", key: "osd.hideDelay", when: { key: "osd.enabled", value: true }, label: "Hide after", subtext: "How long it stays out after a change (ms)", from: 500, to: 10000, step: 250 }
     ]
   },
   // Caelestia backgroundconfig.hpp; Caelestia has no Nexus page for it.

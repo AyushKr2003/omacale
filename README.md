@@ -16,6 +16,8 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Launcher**: apps, calculator (`>calc`), clipboard history (`>clipboard`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
 - **Dashboard**: weather, calendar, system resources, and media with synced lyrics.
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
+- **Volume and brightness OSD**: Caelestia's sliders slide out of the right edge when you change the volume or brightness, or when you hover there.
+- **Status toasts**: Caelestia's small toasts above the utilities corner for do not disturb, game mode, the charger, and audio device changes (Settings › Notifications › Toasts).
 - **Workspace overview** with live previews and drag-and-drop.
 - **Lock screen**: Caelestia's design on top of Omarchy's own lock and PAM.
 - **Desktop clock and audio visualiser** (optional).
@@ -65,7 +67,7 @@ git pull
   pcall(dofile, os.getenv("HOME") .. "/.config/omarchy/plugins/omacale.bar/omacale.lua")
   ```
 
-- **Notification toasts** and the **lock screen**: offered during install. Change either later in **Settings › Notifications** and **Settings › Panels › Lock screen**.
+- **Notification toasts**, the **lock screen** and the **volume and brightness OSD**: offered during install (`--osd` / `--no-osd` skip the question for the OSD). Change any of them later in **Settings › Notifications**, **Settings › Panels › Lock screen** and **Settings › Panels › OSD**.
 
 ## Usage
 
@@ -122,6 +124,7 @@ omarchy-shell omacale dashboardTab <dashboard|media|performance|weather>
 omarchy-shell omacale settingsPage <page>
 omarchy-shell omacale popout <network|bluetooth|audio|battery|kblayout|lockstatus|update|activewindow>
 omarchy-shell omacale scale <omarchy|0.5-2|50%-200%>                  # empty prints the current scale
+omarchy-shell omacale toast <info|success|warning|error> <title> <message> <icon>
 ```
 
 ## Omarchy integration
@@ -130,6 +133,7 @@ Omacale changes how things look, never how they work underneath.
 
 - **Notifications**: Omarchy's daemon keeps the server, do not disturb and history. Omacale only draws the toasts.
 - **Lock screen**: Omarchy keeps the session lock, PAM and idle timers. Omacale only draws the view, and Omarchy's view comes back if Omacale is off or missing.
+- **Volume and brightness OSD**: Omarchy's OSD keeps the media keys, the brightness control and every other kind of OSD (keyboard, microphone mute, and so on). Omacale draws the volume and brightness ones. It hands them back while a window is fullscreen, and when Omacale isn't the bar.
 - **Scale**: by default Omacale follows the size set in Omarchy's `shell.toml` (`[font] base-size`, `[spacing] scale`), so the stock bar and Omacale grow and shrink together.
 - **Updates**: when `omarchy update` changes those plugins, Omacale rebuilds its copies from the new version. If a copy stops working, Omarchy's original is restored automatically and you get a notification.
 
@@ -139,6 +143,7 @@ Omacale changes how things look, never how they work underneath.
 ```bash
 omacale.bar/scripts/notif-popups <status|install|remove|health>
 omacale.bar/scripts/lock-screen  <status|install|remove|health>
+omacale.bar/scripts/osd-handover <status|install|remove|health>
 ```
 
 </details>
@@ -156,9 +161,10 @@ Architecture, conventions and design tokens are documented in [`CLAUDE.md`](CLAU
 
 ## Limitations
 
-- Volume and brightness use Omarchy's on-screen display.
+- The volume and brightness OSD and the status toasts live in the frame, so a fullscreen window hides them. Over a fullscreen window Omarchy's own OSD shows instead.
+- Caelestia's battery level warnings aren't ported, since Omarchy's battery service already sends them. Its VPN and keyboard layout toasts aren't either, since Omacale has neither feature.
 - The lock screen shows a blurred snapshot of the screen, as Caelestia does. If the snapshot can't be taken (the display is off, say), it falls back to the wallpaper, as it does with **Use the wallpaper** on. With a video wallpaper, the blur applies to its still frame only.
-- Notifications support their default action only; there are no inline replies.
+- Notifications support their default action only; there are no inline replies (Caelestia has none either).
 
 ## Credits
 

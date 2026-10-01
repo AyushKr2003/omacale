@@ -17,7 +17,11 @@
 #      shell.json that go with it -- only when you accept the lock screen,
 #      and only through `omarchy plugin clone` / `remove`
 #      (see omacale.bar/scripts/lock-screen)
-#   7. the Material Symbols icon font package, only when it is missing, and
+#   7. ~/.config/omarchy/plugins/<user>.osd/ and the plugin keys in
+#      shell.json that go with it -- only when you accept the volume and
+#      brightness OSD, and only through `omarchy plugin clone` / `remove`
+#      (see omacale.bar/scripts/osd-handover)
+#   8. the Material Symbols icon font package, only when it is missing, and
 #      only through `omarchy pkg add` (dropped again on uninstall)
 #   (older versions also wrote a marked block to
 #   ~/.config/omarchy/extensions/omarchy-menu.jsonc; nothing writes it now,
@@ -28,7 +32,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.42.0"
+VERSION="0.43.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -58,6 +62,7 @@ no_restart=0
 cava_choice=""        # "", yes, no
 notif_choice=""       # "", yes, no
 lock_choice=""        # "", yes, no
+osd_choice=""         # "", yes, no
 bind_mode="print"
 cmd=""
 
@@ -104,6 +109,8 @@ Options:
   --no-notif-popups (install) leave Omarchy's own toasts alone
   --lock-screen     (install) draw the lock screen as Caelestia's
   --no-lock-screen  (install) leave Omarchy's own lock screen alone
+  --osd             (install) draw the volume and brightness OSD as Caelestia's
+  --no-osd          (install) leave Omarchy's own volume and brightness OSD alone
   --help, -h   Show this help
 
 Omacale changes only: its plugin directory, \`bar.id\` in shell.json, its
@@ -168,6 +175,13 @@ lock_handover_on() { lock_script status 2>/dev/null | grep -q "^view:      omaca
 notif_script() {
   local script="$src_plugin/scripts/notif-popups"
   [[ -x $dest_plugin/scripts/notif-popups ]] && script="$dest_plugin/scripts/notif-popups"
+  python3 "$script" "$@"
+}
+
+# And the OSD handover, for the same reason.
+osd_script() {
+  local script="$src_plugin/scripts/osd-handover"
+  [[ -x $dest_plugin/scripts/osd-handover ]] && script="$dest_plugin/scripts/osd-handover"
   python3 "$script" "$@"
 }
 
@@ -239,6 +253,11 @@ cmd_status() {
     else
       say "  popups     : drawn by Omarchy's own daemon"
     fi
+    if osd_script status 2>/dev/null | grep -q "^patched:   yes"; then
+      say "  osd        : volume and brightness drawn by Omacale$(installed_state && [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]] && echo " (put back on uninstall)")"
+    else
+      say "  osd        : drawn by Omarchy's own OSD"
+    fi
     if lock_handover_on; then
       say "  lock       : drawn by Omacale$(installed_state && [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] && echo " (given back on uninstall)")"
     else
@@ -283,6 +302,11 @@ cmd_doctor() {
         chk "notification clone runs the current Omarchy daemon" \
           "notif_script status | grep -q '^stale:     no'"
         chk "notification daemon answers (health)" "notif_script health"
+      fi
+      if [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]]; then
+        chk "OSD clone runs the current Omarchy OSD" \
+          "osd_script status | grep -q '^stale:     no'"
+        chk "OSD answers, patched (health)" "osd_script health"
       fi
       if [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]]; then
         chk "lock screen still handed over (Omacale draws it)" "lock_handover_on"
@@ -505,6 +529,40 @@ cmd_install() {
     jq --argjson c "$notif_clone" '.installedNotifClone = $c' "$state_file" | write_atomic "$state_file"
   fi
 
+  step "Optional: volume and brightness OSD"
+  # Omarchy's OSD keeps the messages; the handover lets the volume and
+  # brightness keys open Caelestia's sliders instead (scripts/osd-handover).
+  # Recorded so uninstall gives it back -- and only if we took it.
+  local osd_clone=false
+  if (( offline || dry_run )); then
+    say "  ${d}skipped (the OSD is optional)${z}"
+  elif osd_script status 2>/dev/null | grep -q "^patched:   yes"; then
+    ok "volume and brightness OSD already handed over to Omacale"
+    osd_clone=true
+  else
+    local want_osd="$osd_choice"
+    if [[ -z $want_osd ]]; then
+      if (( assume_yes )) || [[ ! -t 0 ]]; then want_osd=yes
+      else
+        local reply
+        read -r -p "  Show volume and brightness as Caelestia's sliders? Omarchy's OSD keeps every other message, and uninstall puts it back. [Y/n] " reply
+        [[ $reply =~ ^[nN] ]] && want_osd=no || want_osd=yes
+      fi
+    fi
+    if [[ $want_osd == yes ]]; then
+      if osd_script install; then
+        osd_clone=true; clear_fell_back osd; ok "Omacale draws the volume and brightness OSD"
+      else
+        warn "could not hand the OSD over; Omarchy keeps drawing its own"
+      fi
+    else
+      say "  skipped — Omarchy keeps its own OSD (enable later in Settings › Panels › OSD)"
+    fi
+  fi
+  if (( ! dry_run )); then
+    jq --argjson c "$osd_clone" '.installedOsdClone = $c' "$state_file" | write_atomic "$state_file"
+  fi
+
   step "Optional: lock screen"
   # Omarchy's lock plugin keeps the session lock, PAM and the `lock` IPC;
   # the handover swaps only the view it draws (omacale.bar/scripts/lock-screen).
@@ -655,6 +713,13 @@ cmd_upgrade() {
         warn "notification popups: the handover no longer fits this Omarchy; Omarchy keeps its own toasts"
       fi
     fi
+    if [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]]; then
+      if osd_script install >/dev/null; then
+        clear_fell_back osd; ok "OSD: clone rebuilt"
+      else
+        warn "OSD: the handover no longer fits this Omarchy; Omarchy keeps its own"
+      fi
+    fi
     if [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]]; then
       if lock_script install >/dev/null; then
         set_lock_setting true; ok "lock screen: clone rebuilt"
@@ -711,6 +776,7 @@ cmd_uninstall() {
   say "  shell.json → $(jq -r 'if .pre.shellJsonExisted then "restored from snapshot" else "removed if it only holds defaults" end' "$state_file")"
   say "  plugin dir → removed$(jq -r 'if .pre.pluginDirExisted then " (your previous one is put back)" else "" end' "$state_file")"
   { [[ "$(jq -r '.installedLockClone // false' "$state_file")" == true ]] || lock_handover_on; } && say "  lock       → given back to Omarchy"
+  [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]] && say "  osd        → given back to Omarchy"
   [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
   [[ "$(jq -r '.installedFont // false' "$state_file")" == true ]] && say "  icon font  → $FONT_PKG removed (Omacale installed it)"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
@@ -727,6 +793,14 @@ cmd_uninstall() {
     # and the snapshot has to be the last word on that file.
     if notif_script remove --no-restart; then ok "Omarchy draws its own toasts again"
     else warn "could not remove the notification clone; run: $src_plugin/scripts/notif-popups remove"; fi
+  fi
+
+  if [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]] && (( ! offline )); then
+    step "Give the OSD back"
+    # Before the restore below, as the popups: `omarchy plugin remove` writes
+    # shell.json too.
+    if osd_script remove; then ok "Omarchy draws its own volume and brightness OSD again"
+    else warn "could not remove the OSD clone; run: $src_plugin/scripts/osd-handover remove"; fi
   fi
 
   # Recorded, or simply found drawing Omacale's view: either way the clone is
@@ -864,6 +938,8 @@ while (( $# )); do
     --no-notif-popups) notif_choice=no ;;
     --lock-screen) lock_choice=yes ;;
     --no-lock-screen) lock_choice=no ;;
+    --osd) osd_choice=yes ;;
+    --no-osd) osd_choice=no ;;
     --dry-run) dry_run=1 ;;
     --yes|-y) assume_yes=1 ;;
     --dev) dev_link=1 ;;
