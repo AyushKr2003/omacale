@@ -167,21 +167,34 @@ ColumnLayout {
         Component.onCompleted: if (net.prompting) Qt.callLater(() => (net.enterprise ? identity : password).focusInput())
 
         CredentialField { id: identity; visible: net.enterprise; Layout.fillWidth: true; placeholder: "Username"; onAccepted: password.focusInput() }
-        CredentialField { id: password; Layout.fillWidth: true; placeholder: "Password"; secret: true; onAccepted: connectBtn.submit() }
+        CredentialField { id: password; Layout.fillWidth: true; placeholder: "Password"; secret: true; onAccepted: net.enterprise ? domain.focusInput() : connectBtn.submit() }
+        // 802.1X profiles validate the server (NetService.enterpriseScript):
+        // the certificate has to name a host under this domain, defaulting
+        // to the username's realm, and chain to the CA file or, without
+        // one, to the system's CAs. No domain, no connection.
+        CredentialField {
+          id: domain
+          readonly property string value: text.trim() || NetService.eapDomain(identity.text)
+          visible: net.enterprise
+          Layout.fillWidth: true
+          placeholder: NetService.eapDomain(identity.text) ? "Server domain: " + NetService.eapDomain(identity.text) : "Server domain (e.g. example.edu)"
+          onAccepted: caCert.focusInput()
+        }
+        CredentialField { id: caCert; visible: net.enterprise; Layout.fillWidth: true; placeholder: "CA certificate file (optional, else system CAs)"; onAccepted: connectBtn.submit() }
         RowLayout {
           Layout.fillWidth: true
           Layout.bottomMargin: Tk.padding.small
           spacing: Tk.spacing.small
           Item { Layout.fillWidth: true }
-          TextButton { text: "Cancel"; onClicked: { NetService.passwordSsid = ""; password.text = ""; identity.text = "" } }
+          TextButton { text: "Cancel"; onClicked: { NetService.passwordSsid = ""; password.text = ""; identity.text = ""; domain.text = ""; caCert.text = "" } }
           TextButton {
             id: connectBtn
             filled: true
             text: "Connect"
-            disabled: password.text === "" || (net.enterprise && identity.text === "")
+            disabled: password.text === "" || (net.enterprise && (identity.text === "" || domain.value === ""))
             function submit() {
               if (disabled) return
-              if (net.enterprise) NetService.connectEnterprise(net.modelData, identity.text, password.text)
+              if (net.enterprise) NetService.connectEnterprise(net.modelData, identity.text, password.text, domain.value, caCert.text.trim())
               else NetService.connectWithPsk(net.modelData, password.text)
               password.text = ""
             }

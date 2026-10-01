@@ -154,11 +154,17 @@ QtObject {
     passwordSsid = passwordSsid === net.name ? "" : net.name
   }
   function connectWithPsk(net, psk) { if (psk) run("connect", net, n => n.connectWithPsk(psk)) }
-  function connectEnterprise(net, identity, password) {
-    if (!identity || !password) return
+  // The server domain a profile is checked against when the user gives none:
+  // the realm of the identity (user@uni.edu -> uni.edu).
+  function eapDomain(identity) {
+    const at = String(identity || "").lastIndexOf("@")
+    return at >= 0 ? String(identity).slice(at + 1).trim() : ""
+  }
+  function connectEnterprise(net, identity, password, domain, caCert) {
+    if (!identity || !password || !domain) return
     run("connect", net, n => {
       enterprise.secret = password
-      enterprise.command = ["bash", "-c", enterpriseScript, "nmcli-eap", n.name, identity]
+      enterprise.command = ["bash", "-c", enterpriseScript, "nmcli-eap", n.name, identity, domain, caCert || ""]
       enterprise.running = true
     })
   }
@@ -166,11 +172,21 @@ QtObject {
   // Omarchy's 802.1X profile script (plugins/panels/network/Model.js,
   // enterpriseConnectScript): PEAP/MSCHAPv2 with the password written over
   // stdin into `nmcli connection edit`, never onto a command line.
+  // Unlike Omarchy's, the profile always validates the server: without a CA
+  // and a server identity, a rogue access point can pose as the RADIUS
+  // server and collect the MSCHAPv2 response (NetworkManager's
+  // 802-1x.ca-cert docs). The certificate must chain to the given CA file,
+  // or to the system store when there is none, and name a host under the
+  // server domain ($3, required). Exit 2: no domain; 3: unreadable CA file.
   readonly property string enterpriseScript:
     "u=$(uuidgen); IFS= read -r pw;" +
+    " [[ -n $3 ]] || exit 2;" +
+    " ca=(802-1x.system-ca-certs yes);" +
+    " if [[ -n $4 ]]; then c=$4; [[ $c == '~/'* ]] && c=$HOME/${c:2};" +
+    " [[ $c == /* && -f $c && -r $c ]] || exit 3; ca=(802-1x.ca-cert \"$c\"); fi;" +
     " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
     " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
-    " 802-1x.identity \"$2\" 802-1x.auth-timeout 8 >/dev/null" +
+    " 802-1x.identity \"$2\" 802-1x.domain-suffix-match \"$3\" \"${ca[@]}\" 802-1x.auth-timeout 8 >/dev/null" +
     " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
     " && nmcli connection up uuid \"$u\"" +
     " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"
@@ -178,7 +194,7 @@ QtObject {
     property string secret: ""
     stdinEnabled: true
     onStarted: { write(secret + "\n"); secret = "" }
-    onExited: code => { if (code !== 0 && root.actionKind === "connect") { root.failureSsid = root.actionSsid; root.failureReason = "Couldn't connect"; root.finish() } }
+    onExited: code => { if (code !== 0 && root.actionKind === "connect") { root.failureSsid = root.actionSsid; root.failureReason = code === 3 ? "Can't read the CA certificate" : "Couldn't connect"; root.finish() } }
   }
   function disconnect(net) { run("disconnect", net, n => n.disconnect()) }
   function forget(net) { run("forget", net, n => n.forget()) }
