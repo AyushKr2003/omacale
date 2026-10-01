@@ -51,8 +51,11 @@ Rectangle {
   readonly property string navKey: "group:" + appName
 
   function toggleExpand(expand) { NotifService.setExpanded(appName, expand) }
-  function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p }
-  function iconUrl(p) { return p.indexOf("/") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
+  // Local files and icon-theme names only: an image or icon is the sender's,
+  // and any other URL (http://...) would be fetched just by being shown.
+  // Omarchy's daemon already stores remote ones as empty; don't rely on it.
+  function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p.indexOf("file://") === 0 ? p : "" }
+  function iconUrl(p) { return p.indexOf("/") === -1 && p.indexOf(":") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
 
   // A lone row is one line under the header, so the card is what reads as
   // the notification: ring the card (inside it, since it clips) rather than

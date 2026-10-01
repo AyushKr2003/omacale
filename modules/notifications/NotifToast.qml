@@ -28,7 +28,9 @@ Rectangle {
     const s = String(value || "")
     if (!s) return ""
     if (s.indexOf("file://") === 0 || s.charAt(0) === "/") return s
-    return Quickshell.iconPath(s, true)
+    // Anything else with a scheme (http://...) would be fetched just by
+    // being shown; only icon-theme names are left (see NotifGroup.fileUrl).
+    return s.indexOf(":") === -1 ? Quickshell.iconPath(s, true) : ""
   }
 
   readonly property string imageSource: root.resolve(modelData ? modelData.image : "")
