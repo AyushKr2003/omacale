@@ -38,7 +38,6 @@ Rectangle {
   readonly property bool hasImage: imageSource !== ""
   readonly property bool hasAppIcon: appIconSource !== "" || glyph !== ""
   readonly property string bodyText: modelData ? String(modelData.body || "") : ""
-  readonly property int bodyTextFormat: /[<*_`#\[\]]/.test(bodyText) ? Text.MarkdownText : Text.PlainText
 
   // Expanded state lives in the service, so a record update that rebuilds
   // this delegate can't collapse the card under the pointer.
@@ -440,7 +439,7 @@ Rectangle {
         anchors.rightMargin: Tk.spacing.small
 
         animate: true
-        textFormat: root.bodyTextFormat
+        textFormat: Text.PlainText
         text: bodyPreviewMetrics.elidedText
         color: root.fgVariant
 
@@ -450,7 +449,7 @@ Rectangle {
 
       TextMetrics {
         id: bodyPreviewMetrics
-        text: root.bodyText.replace(/\n/g, " ")
+        text: NotifService.bodyLine(root.modelData)
         font: bodyPreview.font
         elide: Text.ElideRight
         elideWidth: bodyPreview.width
@@ -465,8 +464,9 @@ Rectangle {
         anchors.rightMargin: Tk.spacing.small
 
         animate: true
-        textFormat: root.bodyTextFormat
-        text: root.bodyText
+        // See NotifService.bodyMarkup: nothing in a body is fetched.
+        textFormat: NotifService.bodyFormat
+        text: NotifService.bodyMarkup(root.modelData)
         color: root.fgVariant
         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
         height: text ? implicitHeight : 0

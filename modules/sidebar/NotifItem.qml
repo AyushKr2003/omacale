@@ -71,7 +71,7 @@ Rectangle {
     width: Math.max(0, root.width - root.pad - x)
 
     sourceComponent: MText {
-      text: root.bodyText.replace(/\n/g, " ")
+      text: NotifService.bodyLine(root.modelData)
       color: root.isCritical ? Colours.m3secondary : Colours.m3outline
       elide: Text.ElideRight
     }
@@ -106,8 +106,10 @@ Rectangle {
 
       MText {
         Layout.fillWidth: true
-        textFormat: Text.MarkdownText
-        text: root.bodyText.replace(/(.)\n(?!\n)/g, "$1\n\n") || "No body here! :/"
+        // NotifService.bodyMarkup: StyledText with image tags stripped, never
+        // Markdown, so showing a body fetches nothing.
+        textFormat: NotifService.bodyFormat
+        text: root.bodyText ? NotifService.bodyMarkup(root.modelData) : "No body here! :/"
         color: root.isCritical ? Colours.m3secondary : Colours.m3outline
         wrapMode: Text.WordWrap
         onLinkActivated: link => { Qt.openUrlExternally(link); root.linkOpened() }

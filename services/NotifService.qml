@@ -43,6 +43,47 @@ QtObject {
     return urgency === 2 ? "release_alert" : "chat"
   }
 
+  // ------------------------------------------------------------- bodies
+  //
+  // A body is the sender's text, and the formats that would draw it richly
+  // fetch images: Markdown's ![](url) and <img src> make the shell GET a
+  // sender-chosen URL as soon as the body is shown (open tracking, requests
+  // into the local network). So bodies are drawn as Omarchy's own toasts draw
+  // them -- StyledText of NotificationLogic.styledBody(), which drops every
+  // image tag in whole tags (see its comments) -- and with Omarchy's logic
+  // loaded in place, never copied, as MenuService loads MenuModel.js. An
+  // Omarchy without styledBody (before 4.0.4) gets plain text: nothing rich,
+  // nothing fetched.
+  readonly property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
+  property var bodyLogic: null
+  readonly property bool richBodies: bodyLogic !== null
+  function loadBodyLogic() {
+    const src = 'import QtQuick\nimport "NotificationLogic.js" as L\nQtObject {\n'
+      + '  readonly property bool ok: typeof L.styledBody === "function"\n'
+      + '  function styled(b, a, i) { return L.styledBody(b, a, i) }\n'
+      + '}'
+    try {
+      const o = Qt.createQmlObject(src, root, "file://" + omarchyPath + "/shell/plugins/notifications/OmacaleBodyLogic.qml")
+      if (o.ok) bodyLogic = o
+      else { o.destroy(); console.warn("Omacale: this Omarchy has no NotificationLogic.styledBody; notification bodies are plain text") }
+    } catch (e) {
+      console.warn("Omacale: Omarchy's notification logic could not be loaded; notification bodies are plain text:", e)
+    }
+  }
+  Component.onCompleted: loadBodyLogic()
+  readonly property int bodyFormat: richBodies ? Text.StyledText : Text.PlainText
+  // The body as `bodyFormat` text.
+  function bodyMarkup(n) {
+    const b = n ? String(n.body || "") : ""
+    return richBodies ? bodyLogic.styled(b, n.app || "", n.appIcon || "") : b
+  }
+  // One line of it for a collapsed card, always drawn as plain text, so
+  // markup shows as nothing rather than as tags.
+  function bodyLine(n) {
+    const b = n ? String(n.body || "") : ""
+    return (richBodies ? b.replace(/<[^>]*>?/g, "") : b).replace(/\s+/g, " ").trim()
+  }
+
   // `run` is for fixed command strings only. Anything carrying a value from a
   // notification (its title, its file, its key) goes through `exec` as argv,
   // never a shell string: the sender controls those, and quoting them for
