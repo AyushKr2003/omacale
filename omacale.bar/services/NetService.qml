@@ -49,7 +49,13 @@ QtObject {
     syncScanner()
     if (holders > 0) details.running = true
   }
-  function syncScanner() { if (wifiDevice) wifiDevice.scannerEnabled = holders > 0 && wifiEnabled }
+  // The bar's network popout only wants the list, not the link-detail poll.
+  property int scanHolders: 0
+  function holdScan(on) {
+    scanHolders = Math.max(0, scanHolders + (on ? 1 : -1))
+    syncScanner()
+  }
+  function syncScanner() { if (wifiDevice) wifiDevice.scannerEnabled = holders + scanHolders > 0 && wifiEnabled }
   onWifiDeviceChanged: syncScanner()
   onWifiEnabledChanged: syncScanner()
 

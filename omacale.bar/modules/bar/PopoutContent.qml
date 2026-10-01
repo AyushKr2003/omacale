@@ -42,8 +42,11 @@ Item {
   })
   property Loader activeLoader: loaderA
   readonly property Item current: activeLoader ? activeLoader.item : null
-  implicitWidth: current ? current.implicitWidth : 0
-  implicitHeight: current ? current.implicitHeight : 0
+  // The loader's implicit size, not the page's: like Caelestia's Popout
+  // loaders, a page given a fixed `width` (a ColumnLayout overrides any
+  // implicitWidth assigned to it with its content's) sizes the popout by it.
+  implicitWidth: activeLoader ? activeLoader.implicitWidth : 0
+  implicitHeight: activeLoader ? activeLoader.implicitHeight : 0
   function showPage(n) {
     if (activeLoader.page === n) { activeLoader.show(n); return }
     const next = activeLoader === loaderA ? loaderB : loaderA
@@ -52,7 +55,18 @@ Item {
     activeLoader = next
   }
   onNameChanged: showPage(name)
-  Component.onCompleted: showPage(name)
+  Component.onCompleted: { showPage(name); syncScan() }
+
+  // Quickshell.Networking lists only saved networks while the scanner is
+  // off, so the network popout scans while it is open -- Caelestia's
+  // `nmcli d w` rescans too once the cache is 30s old. The password page
+  // keeps the scan: its network has to stay in the list to connect to it.
+  // holdScan, not hold: the link-detail poll is the settings page's.
+  readonly property bool wantScan: open && (name === "network" || name === "wirelesspassword")
+  property bool scanHeld: false
+  function syncScan() { if (wantScan !== scanHeld) { scanHeld = wantScan; NetService.holdScan(wantScan) } }
+  onWantScanChanged: syncScan()
+  Component.onDestruction: if (scanHeld) NetService.holdScan(false)
 
   // ------------------------------------------------------- keyboard
   //
@@ -249,12 +263,8 @@ Item {
     id: network
     ColumnLayout {
       id: netCol
-      implicitWidth: Tk.sizes.networkWidth
+      width: Tk.sizes.networkWidth
       spacing: Tk.spacing.small
-      // No NetService.hold(): this list is NetworkManager's last scan, which
-      // is what the `nmcli ... --rescan no` behind it always showed. Starting
-      // a scan (and the link-detail poll that comes with a hold) belongs to
-      // the Network settings page, not to a hover popout.
       // Caelestia Network.qml: a network that needs a password turns the
       // popout into the password page. 802.1X also needs an identity, which
       // only Settings › Network has a field for.
@@ -408,8 +418,8 @@ Item {
       }
 
       spacing: Tk.spacing.medium
-      implicitWidth: Tk.px(400)
-      implicitHeight: card.implicitHeight + Tk.padding.extraLargeIncreased
+      width: Tk.px(400)
+      height: card.implicitHeight + Tk.padding.extraLargeIncreased
       Component.onCompleted: { shown = true; focusTimer.start() }
       // Caelestia's focusTimer: the surface only takes the keyboard once the
       // layer has been given OnDemand focus, a frame or two after opening.
@@ -589,7 +599,7 @@ Item {
   Component {
     id: audio
     ColumnLayout {
-      implicitWidth: Tk.sizes.audioWidth
+      width: Tk.sizes.audioWidth
       spacing: Tk.spacing.medium
       readonly property var sink: Pipewire.defaultAudioSink
       readonly property var nodes: Pipewire.nodes.values.filter(n => n.audio && !n.isStream)
@@ -646,7 +656,7 @@ Item {
   Component {
     id: bluetooth
     ColumnLayout {
-      implicitWidth: Tk.sizes.bluetoothWidth
+      width: Tk.sizes.bluetoothWidth
       spacing: Tk.spacing.small
       readonly property var adapter: Bluetooth.defaultAdapter
       Heading { text: "Bluetooth" }
@@ -716,7 +726,7 @@ Item {
         if (m) c.push(m + (m === 1 ? " min" : " mins"))
         return c.join(", ")
       }
-      implicitWidth: Tk.sizes.batteryWidth
+      width: Tk.sizes.batteryWidth
       spacing: Tk.spacing.medium
       MText {
         text: dev && dev.isLaptopBattery ? "Remaining: " + Math.round(dev.percentage * 100) + "%" : "No battery detected"
@@ -822,7 +832,7 @@ Item {
     id: kblayout
     ColumnLayout {
       id: kb
-      implicitWidth: Tk.sizes.kbLayoutWidth
+      width: Tk.sizes.kbLayoutWidth
       spacing: Tk.spacing.small
       Component.onCompleted: KbService.refresh()
 

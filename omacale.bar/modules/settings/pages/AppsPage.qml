@@ -87,8 +87,10 @@ ColumnLayout {
       status: (opts.find(o => o.value === root.current[modelData.kind]) || { label: root.current[modelData.kind] || "" }).label
 
       ColumnLayout {
-        implicitWidth: Tk.px(300)
         spacing: 0
+        // Caelestia's nexus.popupWidth. A ColumnLayout replaces an assigned
+        // implicitWidth with its content's, so the width rides on a strut.
+        Item { Layout.preferredWidth: Tk.px(300); Layout.preferredHeight: 0 }
         Repeater {
           model: defRow.opts
           StateLayer {
