@@ -20,8 +20,9 @@ QtObject {
   property string error: ""
 
   // Clones Omacale's own handovers made (scripts/lock-screen,
-  // scripts/notif-popups). They are torn down by those scripts, never here.
-  readonly property var managedClones: ["omarchy.lock", "omarchy.notifications"]
+  // scripts/notif-popups, scripts/osd-handover). They are torn down by those
+  // scripts, never here.
+  readonly property var managedClones: ["omarchy.lock", "omarchy.notifications", "omarchy.osd"]
 
   function refresh() {
     if (loading)

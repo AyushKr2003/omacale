@@ -138,6 +138,10 @@ QtObject {
     readonly property int sessionButton: tk.px(80)
     readonly property int sidebarWidth: tk.px((Config.o.sidebar && Config.o.sidebar.width) ? Config.o.sidebar.width : 430)
     readonly property int utilitiesWidth: tk.px((Config.o.utilities && Config.o.utilities.width) ? Config.o.utilities.width : 430)
+    // Caelestia OsdTokens and UtilitiesTokens.toastWidth (tokens.hpp).
+    readonly property int osdSliderWidth: tk.px(30)
+    readonly property int osdSliderHeight: tk.px(150)
+    readonly property int toastWidth: tk.px(430)
     readonly property int tabIndicatorHeight: tk.px(3)
     readonly property int tabIndicatorSpacing: tk.px(5)
     readonly property int notifImage: tk.px(42)

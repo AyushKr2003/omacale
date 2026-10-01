@@ -30,6 +30,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 r6;
     vec4 r7;
     vec4 r8;
+    vec4 r9;
     vec4 c0;          // per-corner radii: tr, br, bl, tl
     vec4 c1;
     vec4 c2;
@@ -39,6 +40,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 c6;
     vec4 c7;
     vec4 c8;
+    vec4 c9;
     vec4 d0;          // deformation: m00, m01, m11 (symmetric 2x2), 0
     vec4 d1;
     vec4 d2;
@@ -48,6 +50,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 d6;
     vec4 d7;
     vec4 d8;
+    vec4 d9;
     float excl56;     // > 0.5: r5 and r6 don't blend (Caelestia BlobRect.exclude)
     float excl18;     // > 0.5: r1 and r8 don't blend
 };
@@ -92,7 +95,8 @@ vec4 rectAt(int i) {
     if (i == 5) return r5;
     if (i == 6) return r6;
     if (i == 7) return r7;
-    return r8;
+    if (i == 8) return r8;
+    return r9;
 }
 
 vec4 radiiAt(int i) {
@@ -104,12 +108,13 @@ vec4 radiiAt(int i) {
     if (i == 5) return c5;
     if (i == 6) return c6;
     if (i == 7) return c7;
-    return c8;
+    if (i == 8) return c8;
+    return c9;
 }
 
 // An unset deformation (all zero) is the identity.
 vec3 deformAt(int i) {
-    vec4 d = d8;
+    vec4 d = d9;
     if (i == 0) d = d0;
     else if (i == 1) d = d1;
     else if (i == 2) d = d2;
@@ -118,6 +123,7 @@ vec3 deformAt(int i) {
     else if (i == 5) d = d5;
     else if (i == 6) d = d6;
     else if (i == 7) d = d7;
+    else if (i == 8) d = d8;
     if (d.x == 0.0 && d.z == 0.0) return vec3(1.0, 0.0, 1.0);
     return d.xyz;
 }
@@ -138,10 +144,10 @@ void main() {
 
     // Phase 1: each rect's distance, through its deformation. Caelestia
     // blob.frag main(), phase 1.
-    float d[9];
-    vec2 ctrs[9];
-    vec2 halves[9]; // screen-space half extents of the deformed rect
-    for (int i = 0; i < 9; i++) {
+    float d[10];
+    vec2 ctrs[10];
+    vec2 halves[10]; // screen-space half extents of the deformed rect
+    for (int i = 0; i < 10; i++) {
         vec4 r = rectAt(i);
         ctrs[i] = r.xy + r.zw * 0.5;
         halves[i] = r.zw * 0.5;
@@ -191,10 +197,10 @@ void main() {
 
     // Phase 2 and 3: hard min, then the pairwise smooth mins.
     float merged = 1e10;
-    for (int i = 0; i < 9; i++) merged = min(merged, d[i]);
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < 10; i++) merged = min(merged, d[i]);
+    for (int i = 0; i < 10; i++) {
         if (d[i] >= 1e9) continue;
-        for (int j = i + 1; j < 9; j++) {
+        for (int j = i + 1; j < 10; j++) {
             if (d[j] >= 1e9 || max(d[i], d[j]) >= k) continue;
             if (excluded(i, j)) continue;
             merged = min(merged, smin(d[i], d[j], k));
@@ -218,7 +224,7 @@ void main() {
         // back so it leaves through a pocket rather than raising a bump.
         float sinkValue = 0.0;
         float preOff = k * (2.0 - sqrt(2.0)) * 0.5;
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 10; i++) {
             if (d[i] >= 1e9) continue;
             vec2 ctr = ctrs[i];
             vec2 sh = halves[i];

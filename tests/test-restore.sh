@@ -405,5 +405,127 @@ check "unknown fields pass through"            test "$(jq -r '.[] | select(.app 
 check "a missing summary is filled"            test "$(jq -r '.[] | select(.app == "c") | .summary' <<<"$out")" = ""
 check "the format change is logged once"       test "$(grep -c 'notifs.py:' "$H/err")" = 1
 
+echo "U. the OSD handover"
+# scripts/osd-handover puts its clone in place already patched: the host keeps
+# the first compilation of a plugin file for the whole session, so a clone that
+# is enabled unpatched for a moment stays the running OSD until a restart.
+# Faked shell and omarchy on PATH, scratch HOME and OMARCHY_PATH, as in R.
+if [[ -d $real_omarchy/shell/plugins/osd ]]; then
+  new_home
+  fake="$H/omarchy"; mkdir -p "$fake/shell/plugins" "$H/bin"
+  cp -r "$real_omarchy/shell/plugins/osd" "$fake/shell/plugins/"
+  plugins="$H/.config/omarchy/plugins"; oclone="$plugins/tester.osd"
+  # Every clone dir is listed; it is enabled once `omarchy plugin enable` ran.
+  # The OSD answers as patched when the clone on disk is, unless it is told
+  # to be the stale compilation (osd-stale) or dead (osd-broken).
+  cat > "$H/bin/omarchy-shell" <<'SH'
+#!/bin/bash
+p="$HOME/.config/omarchy/plugins"
+case "$1 $2" in
+  "shell ping") echo ok ;;
+  "shell rescanPlugins") echo ok ;;
+  "shell listPlugins")
+    for d in "$p"/*/; do [[ -d $d ]] || continue; id=$(basename "$d")
+      jq -cn --arg id "$id" --argjson on "$([[ -f $HOME/enabled-$id ]] && echo true || echo false)" '{id:$id,enabled:$on}'
+    done | jq -cs . ;;
+  "osd ping") [[ -f $HOME/osd-broken ]] && exit 1; echo ok ;;
+  "osd omacaleOsd") [[ -f $HOME/osd-broken || -f $HOME/osd-stale ]] && exit 1
+    [[ -f $HOME/osd-outdated ]] && { echo yes; exit 0; }
+    grep -om1 'omacale:osd-handover v[0-9]*' "$p/tester.osd/Osd.qml" || exit 1 ;;
+  *) exit 1 ;;
+esac
+SH
+  cat > "$H/bin/omarchy" <<'SH'
+#!/bin/bash
+case "$1 $2" in
+  "plugin enable") touch "$HOME/enabled-$3" ;;
+  "plugin remove") rm -rf "$HOME/.config/omarchy/plugins/$3" "$HOME/enabled-$3" ;;
+  "plugin clone") echo "osd-handover must not use omarchy plugin clone" >&2; exit 1 ;;
+esac
+SH
+  chmod +x "$H/bin/"*
+  hv() { env HOME="$H" USER=tester OMARCHY_PATH="$fake" PATH="$H/bin:$PATH" OMACALE_HEALTH_TRIES=0 "$@"; }
+  ostatus() { hv python3 "$scripts/osd-handover" status "$@"; }
+
+  # Stock reshaped: nothing is cloned at all.
+  cp "$fake/shell/plugins/osd/Osd.qml" "$H/Osd.qml.stock"
+  sed -i 's|function show(iconName|function showRenamed(iconName|' "$fake/shell/plugins/osd/Osd.qml"
+  install_refused() { ! hv python3 "$scripts/osd-handover" install >/dev/null 2>&1; }
+  check "a reshaped OSD is refused"              install_refused
+  check "  (and nothing is cloned)"              test ! -e "$oclone"
+  cp "$H/Osd.qml.stock" "$fake/shell/plugins/osd/Osd.qml"
+
+  # A clone of the OSD someone edited by hand is theirs: never overwritten,
+  # never "handed back" (removed) by the watchdog.
+  cp -r "$fake/shell/plugins/osd" "$oclone"
+  jq '.id = "tester.osd" | .omarchy.clonedFrom = "omarchy.osd"' "$fake/shell/plugins/osd/manifest.json" > "$oclone/manifest.json"
+  echo "// my own OSD" >> "$oclone/Osd.qml"
+  before_clone="$(sha256sum "$oclone/Osd.qml")"
+  check "an edited clone is not taken over"      install_refused
+  check "  (left exactly as it was)"             test "$(sha256sum "$oclone/Osd.qml")" = "$before_clone"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "  (and the watchdog leaves it alone)"   grep -qx 'action:    none' <<<"$wd"
+  check "  (still there)"                        test -d "$oclone"
+  # An untouched `omarchy plugin clone` is adopted.
+  cp "$fake/shell/plugins/osd/Osd.qml" "$oclone/Osd.qml"
+  hv python3 "$scripts/osd-handover" install >/dev/null 2>&1
+  check "a plain clone is adopted and patched"   grep -q 'omacale:osd-handover' "$oclone/Osd.qml"
+  rm -rf "$oclone" "$H/enabled-tester.osd"
+
+  # $USER becomes the clone's id: never a path.
+  bad_user() { ! env HOME="$H" USER="../evil" OMARCHY_PATH="$fake" PATH="$H/bin:$PATH" OMACALE_HEALTH_TRIES=0 python3 "$scripts/osd-handover" install >/dev/null 2>&1; }
+  check "a clone id that is a path is refused"   bad_user
+  check "  (nothing written outside)"            test ! -e "$H/.config/omarchy/evil.osd"
+
+  out="$(hv python3 "$scripts/osd-handover" install 2>&1)"
+  check "install places the clone"               test -f "$oclone/Osd.qml"
+  check "  already patched"                      grep -q 'omacale:osd-handover' "$oclone/Osd.qml"
+  check "  with no staging dir left behind"      test -z "$(find "$plugins" -maxdepth 1 -name '.clone.*')"
+  check "  and enables it"                       test -f "$H/enabled-tester.osd"
+  check "  and finds the patched OSD running"    grep -qx 'running:   patched' <<<"$out"
+  check "the gate is patched in once"            test "$(grep -c 'if (root.omacaleTakes(next)) return' "$oclone/Osd.qml")" = 1
+  check "the Hyprland import is added once"      test "$(grep -c '^import Quickshell.Hyprland$' "$oclone/Osd.qml")" = 1
+  check "close() is passed on"                   grep -q 'function close() { opened = false; root.omacaleSend({ kind: "close" }) }' "$oclone/Osd.qml"
+  check "other OSDs become toasts"               grep -q 'osd.toasts' "$oclone/Osd.qml"
+  check "the pristine copy is stock"             cmp -s "$fake/shell/plugins/osd/Osd.qml" "$oclone/Osd.qml.omacale-orig"
+  check "identity is the clone's"                jq -e '.id == "tester.osd" and .name == "My On-screen display" and .omarchy.clonedFrom == "omarchy.osd"' "$oclone/manifest.json" >/dev/null
+  check "a fresh clone is not stale"             grep -qx 'stale:     no' <<<"$(ostatus --offline)"
+  check "sync has nothing to do"                 grep -q 'already matches' <<<"$(hv python3 "$scripts/osd-handover" sync)"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "a healthy clone is left alone"          grep -qx 'action:    none' <<<"$wd"
+
+  # The shell compiled the clone before it was patched: Omarchy's OSD still
+  # draws everything, which is not broken -- a restart finishes the handover.
+  touch "$H/osd-stale"
+  check "status says the stale OSD is running"   grep -qx 'running:   stock' <<<"$(ostatus)"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "watchdog waits for a restart"           grep -qx 'action:    restart-pending' <<<"$wd"
+  check "  (clone kept)"                         test -d "$oclone"
+  rm "$H/osd-stale"
+
+  # An older patch (v1/v2 answered "yes") still running after a re-sync: it
+  # works, so it is left alone, and status says a restart brings the new one.
+  touch "$H/osd-outdated"
+  check "an older running patch is reported"     grep -qx 'running:   outdated' <<<"$(ostatus)"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "  and is healthy"                       grep -qx 'action:    none' <<<"$wd"
+  rm "$H/osd-outdated"
+
+  # A newer Omarchy that the patch still fits.
+  echo "// newer" >> "$fake/shell/plugins/osd/OsdModel.js"
+  check "a newer OSD makes the clone stale"      grep -qx 'stale:     yes' <<<"$(ostatus --offline)"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "watchdog syncs it"                      grep -qx 'action:    synced' <<<"$wd"
+  check "  (the new file reached the clone)"     cmp -s "$fake/shell/plugins/osd/OsdModel.js" "$oclone/OsdModel.js"
+
+  touch "$H/osd-broken"
+  wd="$(hv python3 "$scripts/osd-handover" watchdog)"
+  check "a dead OSD is handed back"              grep -qx 'action:    fellback' <<<"$wd"
+  check "  (clone removed)"                      test ! -e "$oclone"
+  rm "$H/osd-broken"
+else
+  echo "  - skipped (no Omarchy OSD plugin on this machine)"
+fi
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

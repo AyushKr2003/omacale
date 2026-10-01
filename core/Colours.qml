@@ -137,6 +137,10 @@ QtObject {
   readonly property var pN: palettes[3]
   readonly property var pNV: palettes[4]
   readonly property var pE: ({ h: 25, c: 84 * k })
+  // Caelestia's success roles (its scheme's custom green; #B5CCBA / #374B3E
+  // in the default dark scheme): a soft green, like the error palette a
+  // fixed hue rather than one turned from the seed.
+  readonly property var pSu: ({ h: 145, c: 24 * k })
 
   function t(pal, darkTone, lightTone) { return tone(pal, light ? lightTone : darkTone) }
 
@@ -167,6 +171,7 @@ QtObject {
     role("secondary", mix(Color.accent, fg, 0.45))
     role("tertiary", named(["magenta", "color5"], mix(Color.accent, fg, 0.7)))
     role("error", Color.urgent)
+    role("success", named(["green", "color2"], mix(Color.accent, fg, 0.5)))
     o.surface = bg
     o.surfaceDim = mix(bg, Qt.rgba(0, 0, 0, 1), 0.15)
     o.surfaceBright = s(0.2)
@@ -206,6 +211,10 @@ QtObject {
   readonly property color m3onError: role("onError", pE, 20, 100)
   readonly property color m3errorContainer: role("errorContainer", pE, 30, 90)
   readonly property color m3onErrorContainer: role("onErrorContainer", pE, 90, 10)
+  readonly property color m3success: role("success", pSu, 80, 40)
+  readonly property color m3onSuccess: role("onSuccess", pSu, 20, 100)
+  readonly property color m3successContainer: role("successContainer", pSu, 30, 90)
+  readonly property color m3onSuccessContainer: role("onSuccessContainer", pSu, 90, 10)
 
   // ------------------------------------------------------- transparency
   // Caelestia services/Colours.qml. With transparency off every colour is

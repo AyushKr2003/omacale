@@ -34,6 +34,13 @@ OMARCHY = os.environ.get("OMARCHY_PATH", "/usr/share/omarchy")
 DEPENDS = [
     ("shell/plugins/lock/**", "lock handover: lock-screen contract, assets/lock/LockView.qml, LockUi.qml (lock preview)"),
     ("shell/plugins/notifications/**", "notification handover: notif-popups patch (VERIFIED_AGAINST), notifs.py, NotifService toasts"),
+    ("shell/plugins/osd/**", "OSD handover: osd-handover patch (VERIFIED_AGAINST), the brightness payload OsdService reads"),
+    ("bin/omarchy-brightness-display", "OSD brightness: OsdService reads (no args) and sets (--no-osd N%) the level"),
+    ("bin/omarchy-osd", "OSD handover: the payload shape the clone forwards (icon, message, progress, duration)"),
+    ("bin/omarchy-plugin-clone", "handovers: handover.clone_manifest restates its update_manifest; osd-handover clones without it"),
+    ("shell/services/AppLibrary.qml", "OSD toasts: the app-launch OSD (duration 0, closed with `osd close`)"),
+    ("shell/services/BrightnessKeys.qml", "OSD sliders: the brightness payload summoned in process"),
+    ("shell/plugins/services/media/Service.qml", "OSD toasts: the media icon names OsdService.describe maps (media-play, ...)"),
     ("shell/Ui/BackgroundMedia.qml", "lock background: LockUi.qml (still + video poster)"),
     ("shell/plugins/menu/MenuModel.js", "Omarchy menu in the launcher (`:`): MenuService, its restated providers"),
     ("shell/plugins/clipboard/ClipboardHistory.js", "clipboard in the launcher (`>clipboard`): ClipboardService engine, history format"),

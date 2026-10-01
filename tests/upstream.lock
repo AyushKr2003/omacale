@@ -23,7 +23,16 @@
     "bin/omarchy-clipboard-paste-file": "ab081a13ebe4a70e4830be6b068e7ca6c908e672a0860f7fc14eb9f650cbdd9e",
     "bin/omarchy-clipboard-paste-text": "b3248e407e0b62521021a53dcfa7416ef32041b23a8b925f4fc01983843e0865",
     "shell/plugins/clipboard/Clipboard.qml": "815005ef06e377455e339f52b30e620ed316336030fac6acd02d31df6b2ebb45",
-    "shell/plugins/clipboard/ClipboardHistory.js": "57d467477e146f636bb5639dd9badf3bce178eff56bb79acdee8be08b48382c8"
+    "shell/plugins/clipboard/ClipboardHistory.js": "57d467477e146f636bb5639dd9badf3bce178eff56bb79acdee8be08b48382c8",
+    "shell/plugins/osd/Osd.qml": "dc7dc42cddd9c254710f0dd3abc34ac75baf7f3dcd8776abe339f5abf2460876",
+    "shell/plugins/osd/OsdModel.js": "ad8cc27c204587a9aac9a7ec0513c72a1a33fe6e83090ee91b4e2c2bfe5fe35c",
+    "shell/plugins/osd/manifest.json": "a000056d0e7e372b2a46960a24fa578ab39a20cfd620d423688536fe68b40054",
+    "bin/omarchy-brightness-display": "587908cfeb5c99fa7746fd4616eeef593ba278de0e153dc77918caa72bd18930",
+    "bin/omarchy-osd": "6f343995d56573d723c6f38643af5fd4b0da917730a3b757420dee607fe0e088",
+    "bin/omarchy-plugin-clone": "0a5d5cd534443262b1cbade2e4f1d787294fa72b9fb1fb6b3719215b4471a4ac",
+    "shell/services/AppLibrary.qml": "68dd83a2141e9a8eda01a9ec5e2fbaaecf5d02d969178512cc6fec118fa23a31",
+    "shell/services/BrightnessKeys.qml": "d27a1d56704d4927aa503077c71af9346bfe2967bd7ee2b9fdb2bbd1e2c7df45",
+    "shell/plugins/services/media/Service.qml": "a4f7c7c8a4b540ea773b5c34d6baefde600d64f988a1b546e65391fbb487f0cd"
   },
   "barContract": [
     "barHidden",

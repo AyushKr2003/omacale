@@ -48,6 +48,30 @@ Scope {
   }
   property bool utilities: false
   property bool overview: false
+  // Caelestia's OSD (modules/osd/Wrapper.qml): out on a volume or brightness
+  // change for hideDelay, or while the pointer is on it.
+  property bool osd: false
+  property bool osdHovered: false
+  // hold: 0 is hideDelay, a longer time an Omarchy OSD asked for, -1 out
+  // until Omarchy closes it (OsdService.dismissed).
+  property int osdHold: 0
+  function showOsd(hold) {
+    if (hasFullscreen || !cfg.osd.enabled) return
+    osdHold = hold || 0
+    osd = true
+    if (osdHold < 0) osdTimer.stop()
+    else osdTimer.restart()
+  }
+  Timer {
+    id: osdTimer
+    interval: Math.max(scope.osdHold, scope.cfg.osd.hideDelay)
+    onTriggered: if (!scope.osdHovered) scope.osd = false
+  }
+  Connections {
+    target: OsdService
+    function onRequested(hold) { scope.showOsd(hold) }
+    function onDismissed() { if (!scope.osdHovered) scope.osd = false }
+  }
   property bool dashShortcut: false
   // Utilities opened by a shortcut/click stay open; opened by hovering the
   // bottom-right corner they close once the cursor leaves (Caelestia Interactions).
@@ -301,6 +325,8 @@ Scope {
     }
   }
   onHasFullscreenChanged: {
+    osd = false
+    osdHovered = false
     launcher = false
     session = false
     dashboard = false
@@ -518,6 +544,8 @@ Scope {
     // Utilities give way to the session menu, unless the sidebar holds them
     // (Caelestia utilities/Wrapper.qml shouldBeActive).
     property real uOff: (scope.sidebar || (scope.utilities && !scope.session)) ? 0 : 1
+    // The OSD gives way to utilities (Caelestia osd/Wrapper.qml shouldBeActive).
+    property real osdOff: scope.osd && scope.cfg.osd.enabled && !scope.utilities ? 0 : 1
     Behavior on dOff { Anim {} }
     Behavior on lOff { Anim {} }
     Behavior on sOff { Anim {} }
@@ -527,6 +555,7 @@ Scope {
     Behavior on sbOff { Anim {} }
     Behavior on cpOff { Anim {} }
     Behavior on uOff { Anim {} }
+    Behavior on osdOff { Anim {} }
 
     // Visibility flags
     readonly property bool dVis: dOff < 1
@@ -540,6 +569,7 @@ Scope {
     readonly property bool modal: nVis || oVis
     readonly property bool uVis: uOff < 1
     readonly property bool sbVis: sbOff < 1
+    readonly property bool osdVis: osdOff < 1
 
     // Dashboard (top centre)
     readonly property real dw: (dash && dash.implicitWidth) || Tk.px(854)
@@ -589,6 +619,20 @@ Scope {
     readonly property real sClipW: Math.max(0, aw - sShift)
     readonly property real sMaskX: Math.max(sx, sClipX)
     readonly property real sMaskW: Math.max(0, Math.min(sx + sw, sClipX + sClipW) - sMaskX)
+    // OSD (right centre, the left with a right-hand bar). It comes out of
+    // whatever is open on that edge -- the session menu, the sidebar, or the
+    // frame -- sliding from behind it (Caelestia Panels.qml osdWrapper, whose
+    // right margin is the session's visible width past the sidebar's).
+    readonly property real osdW: osdLoader.item ? osdLoader.item.implicitWidth : 0
+    readonly property real osdH: osdLoader.item ? osdLoader.item.implicitHeight : 0
+    readonly property real osdShift: (sbVis ? sbw * (1 - sbOff) : 0) + (sVis ? sw * (1 - sOff) : 0)
+    readonly property real osdHide: osdW + 5 + (sbVis || sVis ? 12 : 0)
+    readonly property real osdX: scope.mirror ? ax + osdShift - osdHide * osdOff : ax + aw - osdShift - osdW + osdHide * osdOff
+    readonly property real osdY: ay + Math.round((ah - osdH) / 2)
+    // The edge it comes out of, and the part of it the panel area shows.
+    readonly property real osdEdge: scope.mirror ? ax + osdShift : ax + aw - osdShift
+    readonly property real osdMaskX: scope.mirror ? Math.max(osdEdge, osdX) : osdX
+    readonly property real osdMaskW: scope.mirror ? Math.max(0, osdX + osdW - osdMaskX) : Math.max(0, Math.min(osdX + osdW, osdEdge) - osdX)
     // Popout (against the bar's edge, beside its icon)
     // Caelestia's ClipWrapper places the popout from the page's final size
     // (nonAnimHeight), so it moves straight to its spot while the size
@@ -727,6 +771,15 @@ Scope {
     // Caelestia's PanelBg: the corners they share square up over the last
     // 30% of the sidebar's slide, and their fillet is dropped once it is
     // within 8% of in place.
+    // Toasts (Caelestia Panels.qml): beside the sidebar, above utilities --
+    // at the bottom of the area while the sidebar is out, or when a bottom
+    // bar has put utilities at the top.
+    readonly property real tw: toastsView.implicitWidth
+    readonly property real th: toastsView.implicitHeight
+    readonly property real tEdge: scope.mirror ? Math.max(ax, sbx + sbw) : Math.min(ax + aw, sbx)
+    readonly property real tBottom: sbVis || scope.flipV ? ay + ah : Math.min(ay + ah, uy)
+    readonly property real tx: scope.mirror ? tEdge + Tk.padding.medium : tEdge - Tk.padding.medium - tw
+    readonly property real ty: tBottom - Tk.padding.medium - th
     readonly property real joinRound: Math.max(0, Math.min(1, sbOff / 0.3))
     readonly property bool joinExcluded: sbOff <= 0.08
 
@@ -746,6 +799,8 @@ Scope {
       Region { intersection: Intersection.Subtract; x: win.pcx; y: win.pcy; width: win.pVis && !win.modal ? win.pcw : 0; height: win.pVis ? win.pch : 0 }
       Region { intersection: Intersection.Subtract; x: win.ux; y: win.uMaskY; width: win.uVis && !win.modal ? Math.max(0, win.uw) : 0; height: win.uVis ? win.uMaskH : 0 }
       Region { intersection: Intersection.Subtract; x: win.sideMaskX(win.sbx); y: win.sby; width: win.sbVis && !win.modal ? win.sideMaskW(win.sbx, win.sbw) : 0; height: win.sbVis ? win.sbh : 0 }
+      Region { intersection: Intersection.Subtract; x: win.osdMaskX; y: win.osdY; width: win.osdVis && !win.modal ? win.osdMaskW : 0; height: win.osdVis ? win.osdH : 0 }
+      Region { intersection: Intersection.Subtract; x: win.tx; y: win.ty; width: win.th > 0 && !win.modal && !scope.hasFullscreen ? win.tw : 0; height: win.th }
     }
 
     // Hyprland hands the keyboard to a window on the workspace you switch to,
@@ -838,6 +893,7 @@ Scope {
     BlobDeform { id: nDeform; amount: 0.05; cx: win.nx + win.nw / 2; cy: win.ny + win.nh / 2 }
     BlobDeform { id: sbDeform; amount: 0.03; cx: win.sbx + win.sbw / 2; cy: win.sbRectY + win.sbRectH / 2 }
     BlobDeform { id: utilDeform; amount: win.sbVis ? 0.1 : 0.15; cx: win.ux + win.uw / 2; cy: win.uy + win.uh / 2 }
+    BlobDeform { id: osdDeform; amount: 0.25; cx: win.osdX + win.osdW / 2; cy: win.osdY + win.osdH / 2 }
 
     // ---------------------------------------------------- background
     Item {
@@ -864,7 +920,7 @@ Scope {
         Behavior on color { CAnim {} }
 
         // r0 dashboard, r1 launcher, r2 session, r3 popout, r4 settings,
-        // r5 utilities, r6 sidebar, r7 overview, r8 clipboard preview.
+        // r5 utilities, r6 sidebar, r7 overview, r8 clipboard preview, r9 OSD.
         rects: [
           win.dVis ? [win.dx, win.dy, win.dw, win.dh] : null,
           win.lVis ? [win.lx, win.ly, win.lw, win.lh] : null,
@@ -874,10 +930,11 @@ Scope {
           win.uVis ? [win.ux, win.uy, win.uw, win.uh] : null,
           win.sbVis ? [win.sbx, win.sbRectY, win.sbw, win.sbRectH] : null,
           win.oVis ? [win.ox, win.oy, win.ow, win.oh] : null,
-          win.cpVis ? [win.cpx, win.cpy, win.cpw, win.cph] : null
+          win.cpVis ? [win.cpx, win.cpy, win.cpw, win.cph] : null,
+          win.osdVis ? [win.osdX, win.osdY, win.osdW, win.osdH] : null
         ]
         deforms: [dashDeform.vec, launchDeform.vec, sessDeform.vec, popDeform.vec, nDeform.vec,
-                  utilDeform.vec, sbDeform.vec, null, cpDeform.vec]
+                  utilDeform.vec, sbDeform.vec, null, cpDeform.vec, osdDeform.vec]
         // The corner the sidebar and utilities share flattens as the sidebar
         // comes in (its left side; the right, with a right-hand bar; the
         // utilities' bottom and the sidebar's top, with a bottom bar).
@@ -932,6 +989,14 @@ Scope {
         const top = scope.barPos === "top" ? win.ay : 0
         return y >= top && y < Math.max(win.ay + visibleH, top + 2) && x >= win.dx - Tk.borderRounding && x <= win.dx + win.dw + Tk.borderRounding
       }
+      // Caelestia inRightPanel(osdWrapper): on the OSD, or -- while it is
+      // away -- in the frame's border beside where it comes out.
+      function inOsd(x, y) {
+        const visibleW = win.osdW * (1 - win.osdOff)
+        const inY = y >= win.osdY - Tk.borderRounding && y <= win.osdY + win.osdH + Tk.borderRounding
+        if (scope.mirror) return x < Math.max(win.ax, win.osdEdge + visibleW) && inY
+        return x > Math.min(win.ax + win.aw, win.osdEdge - visibleW) && inY
+      }
       // The right-hand drawers' side: is a press or drag at x on it.
       function nearSideEdge(x) {
         return scope.mirror ? x < win.ax + Tk.borderRounding : x > win.ax + win.aw - Tk.borderRounding
@@ -950,6 +1015,7 @@ Scope {
       }
       onContainsMouseChanged: {
         if (containsMouse) return
+        if (scope.osdHovered) { scope.osd = false; scope.osdHovered = false }
         bar.hoverAt(-1, false)
         if (!scope.dashShortcut) scope.dashboard = false
         if (!scope.utilShortcut) scope.utilities = false
@@ -996,6 +1062,18 @@ Scope {
           // through keyboard navigation: the keys would land in the window
           // behind (a held key kept repeating there).
           else if (showDash && !drawerNav.cursor) scope.dashShortcut = false
+        }
+
+        // OSD: hover the middle of the right-hand edge, while the sidebar is
+        // away (Caelestia Interactions.qml). Caelestia sets it on every move;
+        // only a change of hover is acted on here, so moving over the bar
+        // doesn't throw away the OSD a volume key has just shown.
+        if (scope.cfg.osd.enabled && win.sbOff >= 1) {
+          const showOsd = inOsd(x, y)
+          if (showOsd !== scope.osdHovered) {
+            scope.osdHovered = showOsd
+            scope.osd = showOsd
+          }
         }
 
         // Utilities: hover the bottom-right corner.
@@ -1282,6 +1360,40 @@ Scope {
           scope: screenScope
           active: screenScope.utilities || screenScope.sidebar
         }
+      }
+
+      // ---- OSD
+      // Clipped at the edge it comes out of while the session menu or the
+      // sidebar is out (Caelestia Panels.qml osdWrapper clip).
+      Item {
+        x: scope.mirror ? win.osdEdge : 0
+        y: 0
+        width: scope.mirror ? win.width - win.osdEdge : win.osdEdge
+        height: win.height
+        clip: win.sbVis || win.sVis
+        Loader {
+          id: osdLoader
+          active: scope.osd || win.osdVis
+          sourceComponent: Osd {
+            x: win.osdX - (scope.mirror ? win.osdEdge : 0)
+            y: win.osdY
+            visible: win.osdVis
+            opacity: 1 - win.osdOff
+            transform: Matrix4x4 { matrix: osdDeform.matrixAt(win.osdW / 2, win.osdH / 2) }
+            mirror: scope.mirror
+            sessionOpen: scope.session
+          }
+        }
+      }
+
+      // ---- toasts (Caelestia utilities/toasts)
+      Toasts {
+        id: toastsView
+        x: win.tx
+        y: win.ty
+        width: implicitWidth
+        height: implicitHeight
+        visible: !scope.hasFullscreen
       }
 
       // ---- overview

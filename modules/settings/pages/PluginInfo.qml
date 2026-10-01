@@ -69,7 +69,7 @@ ColumnLayout {
     last: true
     text: "Enabled"
     subtext: !root.plugin ? ""
-      : root.plugin.managed ? "Managed by Omacale's " + (root.plugin.clonedFrom === "omarchy.lock" ? "lock screen" : "notification") + " handover"
+      : root.plugin.managed ? "Managed by Omacale's " + (root.plugin.clonedFrom === "omarchy.lock" ? "lock screen" : root.plugin.clonedFrom === "omarchy.osd" ? "OSD" : "notification") + " handover"
       : root.plugin.isBar ? (root.plugin.active ? "This is the bar in use" : "A bar is picked with omarchy bar, not enabled")
       : !root.plugin.toggleable ? "Omarchy needs this plugin"
       : root.plugin.kinds.indexOf("bar-widget") >= 0 ? "Enabling places its widget in the bar"

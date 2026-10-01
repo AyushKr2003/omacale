@@ -39,7 +39,7 @@ ColumnLayout {
     return "extension"
   }
   function subtitle(p) {
-    if (p.managed) return "Managed by Omacale · " + (p.clonedFrom === "omarchy.lock" ? "Panels › Lock screen" : "Services › Notifications")
+    if (p.managed) return "Managed by Omacale · " + (p.clonedFrom === "omarchy.lock" ? "Panels › Lock screen" : p.clonedFrom === "omarchy.osd" ? "Panels › OSD" : "Services › Notifications")
     if (p.isBar) return p.active ? "The bar in use" : "Bar · pick it with omarchy bar"
     return p.description || p.id
   }

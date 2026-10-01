@@ -1,5 +1,5 @@
-"""Shared by lock-screen and notif-popups: a clone of an Omarchy plugin as a
-build artifact, not a fork.
+"""Shared by lock-screen, notif-popups and osd-handover: a clone of an
+Omarchy plugin as a build artifact, not a fork.
 
 Both handovers go through `omarchy plugin clone`, which copies a first-party
 plugin into ~/.config/omarchy/plugins/ once. Left alone, that copy freezes at
@@ -19,7 +19,10 @@ plugin, the custom bar included.
 import hashlib
 import json
 import os
+import re
+import shutil
 import subprocess
+import tempfile
 import time
 
 # The manifest fields that decide how the host loads a plugin. Identity fields
@@ -137,6 +140,85 @@ class Plan:
                 os.rmdir(parent)
                 parent = os.path.dirname(parent)
         return changed
+
+
+def clone_manifest(stock_dir, source_id, clone_id):
+    """The manifest `omarchy plugin clone` writes (omarchy-plugin-clone's
+    update_manifest): the clone's own id and "My <name>", the source in
+    omarchy.clonedFrom, no clonePaths."""
+    manifest = load_json(os.path.join(stock_dir, "manifest.json")) or {}
+    name = "My " + str(manifest.get("name") or source_id)
+    manifest["id"] = clone_id
+    manifest["name"] = name
+    if isinstance(manifest.get("barWidget"), dict):
+        manifest["barWidget"]["displayName"] = name
+    omarchy = manifest.get("omarchy") if isinstance(manifest.get("omarchy"), dict) else {}
+    omarchy = dict(omarchy, clonedFrom=source_id)
+    omarchy.pop("clonePaths", None)
+    manifest["omarchy"] = omarchy
+    return manifest
+
+
+def place_clone(plugins_dir, clone_id, manifest, tree):
+    """Put a clone in place already patched, as one rename of a hidden staging
+    directory -- what `omarchy plugin clone` does, minus its copy of the stock
+    files.
+
+    That copy is the problem: the clone command enables it straight away, so
+    the host compiles the *unpatched* entry point at the clone's path, and the
+    QML type cache keeps that compilation for the rest of the session. The
+    patch written a moment later reloads the plugin and is never seen; only a
+    shell restart gets rid of it. The host ignores hidden entries in the
+    plugins folder (clone staging dirs, remove backups), so nothing is
+    loaded until the finished clone appears, and nothing runs until
+    enable_clone()."""
+    # The id comes from $USER: never a path, a hidden entry or anything the
+    # host wouldn't take for a plugin id.
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", clone_id) or ".." in clone_id:
+        raise ValueError("not a plugin id: %r" % clone_id)
+    target = os.path.join(plugins_dir, clone_id)
+    if os.path.lexists(target):
+        raise FileExistsError(target)
+    os.makedirs(plugins_dir, exist_ok=True)
+    stage = tempfile.mkdtemp(prefix=".clone.", dir=plugins_dir)
+    try:
+        for rel, data in tree.items():
+            path = os.path.join(stage, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as f:
+                f.write(data)
+        with open(os.path.join(stage, "manifest.json"), "w") as f:
+            json.dump(manifest, f, indent=2)
+            f.write("\n")
+        os.chmod(stage, 0o755)
+        os.rename(stage, target)
+    except BaseException:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+
+
+def enable_clone(clone_id, wait=4.0):
+    """Have the host discover a clone placed by place_clone() and enable it;
+    enabling a clone disables the plugin it was cloned from (omarchy-plugin-
+    clone's last steps). Returns an error message, or "" on success."""
+    ipc("shell", "rescanPlugins")
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            rows = json.loads(ipc("shell", "listPlugins") or "[]")
+        except ValueError:
+            rows = []
+        if any(row.get("id") == clone_id for row in rows):
+            break
+        if time.monotonic() > deadline:
+            return "the shell did not discover %s" % clone_id
+        time.sleep(0.05)
+    proc = subprocess.run(
+        ["omarchy", "plugin", "enable", clone_id], text=True, capture_output=True,
+    )
+    if proc.returncode != 0:
+        return (proc.stderr or proc.stdout or "").strip() or "`omarchy plugin enable %s` failed" % clone_id
+    return ""
 
 
 # -------------------------------------------------------------------- health
