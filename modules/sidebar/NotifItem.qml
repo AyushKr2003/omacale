@@ -151,7 +151,7 @@ Rectangle {
               onClicked: {
                 if (action.modelData.kind === "close") root.dismissRequested()
                 else if (action.modelData.kind === "open") {
-                  Quickshell.execDetached(["bash", "-c", root.modelData.execArgv])
+                  NotifService.runAction(root.modelData)
                   root.dismissRequested()
                 } else {
                   Quickshell.clipboardText = root.bodyText

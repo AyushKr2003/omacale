@@ -73,7 +73,7 @@ ColumnLayout {
   Action {
     first: true
     icon: "description"; label: "Open settings file"; sub: Config.path.replace(Quickshell.env("HOME"), "~")
-    onClicked: Quickshell.execDetached(["bash", "-c", "mkdir -p '" + Config.dir + "'; [ -f '" + Config.path + "' ] || echo '{}' > '" + Config.path + "'; omarchy-launch-editor '" + Config.path + "'"])
+    onClicked: Quickshell.execDetached(["bash", "-c", 'mkdir -p "$1"; [ -f "$2" ] || echo "{}" > "$2"; omarchy-launch-editor "$2"', "edit-settings", Config.dir, Config.path])
   }
   Action {
     last: true

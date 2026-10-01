@@ -229,7 +229,7 @@ Rectangle {
             property bool focused: false
             function navActivate() {
               if (row.modelData.execArgv) {
-                Quickshell.execDetached(["bash", "-c", row.modelData.execArgv])
+                NotifService.runAction(row.modelData)
                 row.close()
               } else root.toggleExpand(!root.expanded)
             }

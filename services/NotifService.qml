@@ -43,7 +43,26 @@ QtObject {
     return urgency === 2 ? "release_alert" : "chat"
   }
 
+  // `run` is for fixed command strings only. Anything carrying a value from a
+  // notification (its title, its file, its key) goes through `exec` as argv,
+  // never a shell string: the sender controls those, and quoting them for
+  // bash (JSON.stringify included) still leaves $() and backticks live.
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
+  function exec(argv) { Quickshell.execDetached(argv) }
+
+  // The click action, as Omarchy's NotificationLogic.parseExecArgv reads it:
+  // `execArgv` is a JSON argv array (omarchy-notification-send --exec), run
+  // as argv with no shell. A malformed one (not an array of strings, an empty
+  // or leading-dash program) runs nothing. Returns whether it ran.
+  function runAction(n) {
+    let argv
+    try { argv = JSON.parse(String(n && n.execArgv || "")) } catch (e) { return false }
+    if (!Array.isArray(argv) || argv.length === 0) return false
+    if (argv.some(a => typeof a !== "string")) return false
+    if (!argv[0] || argv[0].charAt(0) === "-") return false
+    exec(argv)
+    return true
+  }
 
   // Omarchy's records store numbers as strings.
   function urgencyOf(n) { return n ? Number(n.urgency) || 0 : 0 } // 0 low, 1 normal, 2 critical
@@ -143,7 +162,7 @@ QtObject {
   function dismissPopup(n) {
     if (!n || !n._key) return
     hidePopup(n)
-    run("omarchy-shell -q notifications dismissKey " + JSON.stringify(n._key) + " >/dev/null 2>&1 || true")
+    exec(["omarchy-shell", "-q", "notifications", "dismissKey", String(n._key)])
   }
 
   // The daemon's own click behaviour: run execArgv, else the sender's
@@ -151,7 +170,7 @@ QtObject {
   function invokePopup(n) {
     if (!n || !n._key) return
     hidePopup(n)
-    run("omarchy-shell -q notifications invokeKey " + JSON.stringify(n._key) + " >/dev/null 2>&1 || true")
+    exec(["omarchy-shell", "-q", "notifications", "invokeKey", String(n._key)])
   }
 
   function dismissAllPopups() {
@@ -247,12 +266,8 @@ QtObject {
 
   function dismiss(item) {
     if (!item) return
-    if (item._file) {
-      run("rm -f " + JSON.stringify(item._file))
-    }
-    if (item.summary) {
-      run("omarchy-shell notifications dismiss " + JSON.stringify(item.summary) + " 2>/dev/null || true")
-    }
+    if (item._file) exec(["rm", "-f", "--", String(item._file)])
+    if (item.summary) exec(["omarchy-shell", "-q", "notifications", "dismiss", String(item.summary)])
     // Optimistic local update
     const next = []
     for (let i = 0; i < notifications.length; i++) {
@@ -268,14 +283,12 @@ QtObject {
     const next = []
     for (let i = 0; i < notifications.length; i++) {
       if ((notifications[i].app || "System") === appName) {
-        if (notifications[i]._file) toDelete.push(JSON.stringify(notifications[i]._file))
+        if (notifications[i]._file) toDelete.push(String(notifications[i]._file))
       } else {
         next.push(notifications[i])
       }
     }
-    if (toDelete.length) {
-      run("rm -f " + toDelete.join(" "))
-    }
+    if (toDelete.length) exec(["rm", "-f", "--"].concat(toDelete))
     notifications = next
     rebuildGroups()
   }

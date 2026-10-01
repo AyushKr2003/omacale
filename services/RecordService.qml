@@ -19,6 +19,8 @@ QtObject {
   // Where Omarchy saves recordings, as the probe resolved it.
   property string outputDir: ""
 
+  // Fixed command strings only; a recording's path is a file name anyone can
+  // pick, so play/reveal/remove pass it as argv, never through a shell.
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
 
   function start() {
@@ -45,16 +47,16 @@ QtObject {
 
   function play(path) {
     if (!path) return
-    run("xdg-open " + JSON.stringify(path))
+    Quickshell.execDetached(["xdg-open", path])
   }
 
   function reveal(path) {
     if (!path) return
-    run("xdg-open " + JSON.stringify(path.substring(0, path.lastIndexOf("/"))))
+    Quickshell.execDetached(["xdg-open", path.substring(0, path.lastIndexOf("/"))])
   }
   function remove(path) {
     if (!path) return
-    run("rm -f " + JSON.stringify(path))
+    Quickshell.execDetached(["rm", "-f", "--", path])
     reloadRecordings()
   }
 
