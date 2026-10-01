@@ -48,7 +48,7 @@ var values = {
   // further whenever rows x columns would not fit the screen.
   overview: { enabled: true, position: "middle", detached: false, gap: 48, rows: 2, columns: 5, scale: 0.18, hideEmptyRows: true, previews: true, showIcons: true },
   // Off until the user turns it on: switching it on hands Omarchy's lock
-  // plugin over to Omacale (omacale.bar/scripts/lock-screen), and switching
+  // plugin over to Omacale (scripts/lock-screen), and switching
   // it off gives Omarchy's own lock view straight back.
   lock: {
     enabled: false,

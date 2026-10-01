@@ -313,7 +313,7 @@ def patch_text(text):
         raise Refused(
             "Omarchy's notification daemon no longer has the popup UI section this "
             "patch replaces; its popup UI has probably changed shape. Update "
-            "omacale.bar/scripts/notif-popups."
+            "scripts/notif-popups."
         )
 
     removed = text[index:]
@@ -321,7 +321,7 @@ def patch_text(text):
     if missing:
         raise Refused(
             "the popup UI in Omarchy's notification daemon is not the block this "
-            "patch removes (missing: %s). Update omacale.bar/scripts/notif-popups."
+            "patch removes (missing: %s). Update scripts/notif-popups."
             % ", ".join(missing)
         )
     if removed.rstrip().rsplit("\n", 1)[-1].strip() != "}":

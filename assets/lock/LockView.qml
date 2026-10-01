@@ -1,7 +1,7 @@
 // omacale:lock-view v5
 //
 // Written into the clone of Omarchy's lock plugin by
-// omacale.bar/scripts/lock-screen. Omarchy's own view is kept beside it as
+// scripts/lock-screen. Omarchy's own view is kept beside it as
 // StockLockView.qml and its Service.qml is untouched, so every part of the
 // lock that matters -- PAM, the stranded-lock recovery, the blanking timers
 // and the `lock` IPC that `omarchy system lock` and `omarchy-system-sleep-lock`

@@ -72,7 +72,7 @@ echo "E. a pre-existing plugin directory is set aside and put back"
 new_home; cp "$real_shell_json" "$(SJ)"
 mkdir -p "$H/.config/omarchy/plugins/omacale.bar"; echo '{"id":"omacale.bar","mine":true}' > "$H/.config/omarchy/plugins/omacale.bar/manifest.json"
 run install
-check "ours replaced it"           test "$(jq -r .version "$H/.config/omarchy/plugins/omacale.bar/manifest.json")" = "$(jq -r .version "$here/../omacale.bar/manifest.json")"
+check "ours replaced it"           test "$(jq -r .version "$H/.config/omarchy/plugins/omacale.bar/manifest.json")" = "$(jq -r .version "$here/../manifest.json")"
 run uninstall
 check "theirs is back"             test "$(jq -r .mine "$H/.config/omarchy/plugins/omacale.bar/manifest.json")" = true
 
@@ -86,7 +86,7 @@ new_home; cp "$real_shell_json" "$(SJ)"; before="$(snapshot_tree)"
 run install --dev
 check "plugin is a symlink"        test -L "$H/.config/omarchy/plugins/omacale.bar"
 run uninstall
-check "symlink removed, source intact" bash -c "test ! -e '$H/.config/omarchy/plugins/omacale.bar' && test -f '$here/../omacale.bar/manifest.json'"
+check "symlink removed, source intact" bash -c "test ! -e '$H/.config/omarchy/plugins/omacale.bar' && test -f '$here/../manifest.json'"
 check "tree identical"             test "$before" = "$(snapshot_tree)"
 
 echo "H. uninstall with nothing installed is a no-op"
@@ -130,7 +130,7 @@ check "settings kept"              test -f "$H/.config/omacale/settings.json"
 check "plugin still removed"       test ! -e "$H/.config/omarchy/plugins/omacale.bar"
 
 echo "M. keybinds file is valid Omarchy Lua"
-check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../omacale.bar/keybinds.lua' | grep -qx 8"
+check "has o.bind lines"           bash -c "grep -cE '^o\\.bind\\(\"[A-Z +]+\", \"Omacale [^\"]+\", \"omarchy-shell omacale [a-zA-Z ]+\"\\)$' '$here/../keybinds.lua' | grep -qx 8"
 
 echo "N. an old switcher menu block is removed on uninstall"
 EXT() { echo "$H/.config/omarchy/extensions/omarchy-menu.jsonc"; }
@@ -152,16 +152,16 @@ run uninstall
 check "created file removed again" test "$before" = "$(snapshot_tree)"
 
 echo "O. look'n'feel file is valid Lua"
-check "omacale.lua parses"         luac -p "$here/../omacale.bar/omacale.lua"
+check "omacale.lua parses"         luac -p "$here/../omacale.lua"
 
 echo "P. the notification daemon patch"
-# omacale.bar/scripts/notif-popups edits a clone of Omarchy's notification plugin. It must
+# scripts/notif-popups edits a clone of Omarchy's notification plugin. It must
 # do exactly one thing to a file it recognises, nothing at all to one it does
 # not, and nothing a second time.
 stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/notifications/Service.qml"
 patch_copy() { python3 -c "
 from importlib.machinery import SourceFileLoader
-SourceFileLoader('np', '$here/../omacale.bar/scripts/notif-popups').load_module().patch_service('$1')"; }
+SourceFileLoader('np', '$here/../scripts/notif-popups').load_module().patch_service('$1')"; }
 if [[ -f $stock ]]; then
   work="$(mktemp -d)"; cp "$stock" "$work/Service.qml"
   patch_copy "$work/Service.qml" >/dev/null 2>&1
@@ -186,19 +186,19 @@ else
 fi
 
 echo "Q. the lock screen handover"
-# omacale.bar/scripts/lock-screen swaps the view of a clone of Omarchy's lock
+# scripts/lock-screen swaps the view of a clone of Omarchy's lock
 # plugin and leaves its service alone. The contract it checks before writing
 # anything is what keeps an Omarchy update from leaving the machine with a
 # lock screen that cannot load, so that check is what is tested here.
 lock_stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/lock/Service.qml"
-wrapper="$here/../omacale.bar/assets/lock/LockView.qml"
+wrapper="$here/../assets/lock/LockView.qml"
 if [[ -f $lock_stock ]]; then
   # missing: what the service drives its view with that the wrapper lacks.
   # added: the same after pretending an Omarchy update grew a property.
   # none: what a service with no LockView block at all yields.
   read -r -d '' lock_probe <<PY || true
 from importlib.machinery import SourceFileLoader
-m = SourceFileLoader('lk', '$here/../omacale.bar/scripts/lock-screen').load_module()
+m = SourceFileLoader('lk', '$here/../scripts/lock-screen').load_module()
 svc = open('$lock_stock').read()
 tpl = open('$wrapper').read()
 grown = svc.replace('inputEnabled: root.lockRequested', 'inputEnabled: root.lockRequested\n        brandNew: 1')
@@ -235,7 +235,7 @@ echo "R. handovers follow Omarchy updates"
 # watchdog hands a broken one back. Run against a scratch OMARCHY_PATH and
 # HOME, with omarchy-shell / omarchy faked on PATH, so nothing real is touched.
 real_omarchy="${OMARCHY_PATH:-/usr/share/omarchy}"
-scripts="$here/../omacale.bar/scripts"
+scripts="$here/../scripts"
 if [[ -d $real_omarchy/shell/plugins/notifications && -d $real_omarchy/shell/plugins/lock ]]; then
   new_home
   fake="$H/omarchy"; mkdir -p "$fake/shell/plugins" "$H/bin"
@@ -397,7 +397,7 @@ echo '{"id": 2, "app": "b", "summary": "late", "timestamp": "not a number", "shi
 echo '{"id": 3, "app": "c", "headline": "no summary", "timestamp": 300}' > "$nd/history/300-3.json"
 echo '[1, 2, 3]' > "$nd/history/400-4.json"
 echo '{broken' > "$nd/history/500-5.json"
-out="$(HOME="$H" python3 "$here/../omacale.bar/scripts/notifs.py" 2>"$H/err")"
+out="$(HOME="$H" python3 "$here/../scripts/notifs.py" 2>"$H/err")"
 check "good records survive bad neighbours"    test "$(jq length <<<"$out")" = 3
 check "newest first"                           test "$(jq -r '.[0].app' <<<"$out")" = c
 check "a bad timestamp becomes 0"              test "$(jq -r '.[] | select(.app == "b") | .timestamp' <<<"$out")" = 0

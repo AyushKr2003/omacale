@@ -65,7 +65,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `MenuService.qml` (+ the `:` mode in `Launcher.qml`) | no Caelestia original: the Omarchy menu, drawn as launcher rows. The engine is Omarchy's own `MenuModel.js`, loaded in place -- see below |
 | `Overview.qml`, `OverviewWindow.qml` | no Caelestia original: the workspace overview is ported from the `omarchy-overview` plugin and redrawn in Caelestia's tokens. Its live preview follows Caelestia's `modules/windowinfo/Preview.qml` (a `ScreencopyView` inside a clipping rect). Window icons come from `WindowIcons.qml`, the plugin's fallback chain (`services/FallbackIcon.qml`, `OverviewWindow.iconName`: TUI from the title, web-app class, class, initial class, titles, themed name, default terminal/browser) plus exact matches on Omarchy's web-app URLs and `TUI.*` commands |
 | `Background.qml`, `DesktopClock.qml`, `Visualiser.qml`, `VisualiserBars.qml` + `shaders/visualiser.frag` (Settings › Panels › Desktop) | `modules/background/Background.qml`, `DesktopClock.qml`, `Visualiser.qml`, `plugin/src/Caelestia/Components/visualiserbars.cpp`. The wallpaper stays Omarchy's, so each piece is its own `bottom`-layer surface sized to what it draws, the plate/bar blur is a Hyprland layer rule (`Bar.applyDesktopBlur`), and the bars are one shader quad rather than a QPainter texture. Surfaces on a layer stack in creation order: the visualiser is parked at 1px (never destroyed) while auto-hidden, and the clock is (re)created after it so it stays on top |
-| `omacale.bar/omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
+| `omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
 
@@ -85,7 +85,7 @@ Order of preference when Omacale needs data or needs to do something:
 1. **An Omarchy command or shell IPC**: `omarchy <group> <action>`, `omarchy-*` binaries in `/usr/share/omarchy/bin`, `omarchy-shell <target> <fn>`.
 2. **Omarchy state/config files**: `~/.local/state/omarchy/...`, `~/.config/omarchy/...`.
 3. **Quickshell built-ins**: `Quickshell.Services.Pipewire`, `Bluetooth`, `Mpris`, `UPower`, Hyprland IPC.
-4. **Our own script**, only if 1-3 don't cover it. Put it in `omacale.bar/scripts/`, keep it small and read-only where possible, and say in a comment why Omarchy doesn't provide it.
+4. **Our own script**, only if 1-3 don't cover it. Put it in `scripts/`, keep it small and read-only where possible, and say in a comment why Omarchy doesn't provide it.
 
 Engine hooks Omacale already uses (reuse them, don't reinvent):
 
@@ -103,7 +103,7 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Screen recording | `omarchy capture screenrecording [--stop-recording]` |
 | Night light | `omarchy toggle nightlight`, state in `~/.local/state/omarchy/toggles/nightlight` |
 | Power / session | `omarchy system lock/logout/reboot/shutdown` |
-| Lock screen (`LockService`) | Omarchy's `omarchy.lock` plugin, cloned and given Omacale's view by `omacale.bar/scripts/lock-screen`; its service keeps the `WlSessionLock`, PAM, the blank timers and the `lock` IPC. `omarchy-shell lock preview` / `hidePreview` is the dev loop |
+| Lock screen (`LockService`) | Omarchy's `omarchy.lock` plugin, cloned and given Omacale's view by `scripts/lock-screen`; its service keeps the `WlSessionLock`, PAM, the blank timers and the `lock` IPC. `omarchy-shell lock preview` / `hidePreview` is the dev loop |
 | Theme | `omarchy theme set`, `omarchy-theme-*` (Colours re-seed from the theme accent) |
 | Wallpaper / theme switcher (`Wallpapers`) | `omarchy-theme-bg-set`, `omarchy-theme-set`; live preview via `omarchy-shell background set`; thumbnails from Omarchy's `omarchy-theme-bg-cache` (`~/.cache/omarchy/image-selector`) |
 | Omarchy menu (`MenuService`) | `$OMARCHY_PATH/default/omarchy/omarchy-menu.jsonc` + `~/.config/omarchy/extensions/omarchy-menu.jsonc`, parsed, searched and guarded by Omarchy's own `shell/plugins/menu/MenuModel.js`, which is loaded in place (never copied) |
@@ -114,11 +114,11 @@ Engine hooks Omacale already uses (reuse them, don't reinvent):
 | Bar hide | `omarchy toggle bar` (SUPER+SHIFT+SPACE); `omarchy.bar` IPC `syncHidden`. Hides the bar column only: `ScreenScope.barOff` forces `barProg` to 0 and leaves the frame, the `Reserve` edges (at `Tk.border`) and every drawer. What points at the bar (popouts, `barFocus`, hover reveal, hosted panels) is off meanwhile |
 | Panel hotkeys (`SUPER+CTRL+A/B/W/P`, `1..9`) | the host's bar contract, implemented in `Bar.qml`: `summonBarWidget` / `hideBarWidget` / `isBarWidgetOpen` / `panelWidgetIdAt` (+ `switchPanelFrom` via the facade). `widgetTargets` maps Omarchy ids to Omacale popouts; audio (`onBar`) only opens while its icon is on the status bar. Unmapped on purpose, so their hotkeys do nothing: `omarchy.monitor`, and `omarchy.clock`/`omarchy.weather` (`SUPER+CTRL+ALT+D`; the dashboard has its own binds). `panelWidgetIdAt` (`SUPER+CTRL+1..9`) counts only the third-party widgets in the plugin pill, top to bottom, whatever the section; Tab from a hosted panel cycles those too. Also IPC `omacale popout <name>` |
 | Launching UIs | `omarchy-launch-editor`, `omarchy-launch-browser`, ... (there is no `omarchy-launch-wifi`/`-bluetooth`; use the settings pages above) |
-| Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `omacale.bar/keybinds.lua`) |
-| Look'n'feel | `hl.config` / `hl.curve` / `hl.animation` / `o.window` in `omacale.bar/omacale.lua`, loaded by the user from `~/.config/hypr/looknfeel.lua` with `pcall(dofile, ...)` |
+| Keybinds | `o.bind(...)` in `~/.config/hypr/bindings.lua` (see `keybinds.lua`) |
+| Look'n'feel | `hl.config` / `hl.curve` / `hl.animation` / `o.window` in `omacale.lua`, loaded by the user from `~/.config/hypr/looknfeel.lua` with `pcall(dofile, ...)` |
 | Gaps / window rounding vs the UI scale (`HyprLook`) | no Omarchy command: `HyprLook` writes the spacing scale and frame radius to `$XDG_STATE_HOME/omacale/hypr.lua`, which `omacale.lua` reads on load, and applies a change with `hyprctl eval "if omacale_apply then ... end"` (a no-op unless `omacale.lua` is loaded). The math is `omacale_scaled` in `omacale.lua`: gaps × spacing scale, window rounding = frame radius − gaps_out (concentric corners); `HyprLook.scaled` mirrors it for Settings |
 
-Current own scripts (`omacale.bar/scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`, `switcher.sh` (lists the backgrounds/themes Omarchy's pickers show, since Omarchy only feeds them to its own image menu; `menu off` only removes a menu-route block older versions wrote). Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
+Current own scripts (`scripts/`), each filling a real gap: `notifs.py` (merge Omarchy's notification JSON into one list), `weather.sh`, `gpu.sh`, `lyrics.sh`, `cava.sh`, `switcher.sh` (lists the backgrounds/themes Omarchy's pickers show, since Omarchy only feeds them to its own image menu; `menu off` only removes a menu-route block older versions wrote). Before adding another, check `omarchy-repo/bin`, `omarchy-repo/shell` and `/usr/share/omarchy/bin`.
 
 ## Layout
 
@@ -128,7 +128,8 @@ directories: a Caelestia file under `modules/sidebar/` is ported to Omacale's
 
 ```
 shell/omacale/
-  omacale.bar/        the plugin (this is what gets installed)
+  (repo root)         the plugin: manifest.json must stay at the root, the plugin
+                      marketplace and `omarchy plugin add` clone the repo as the plugin
     Bar.qml             plugin entry: IpcHandler "omacale", per-screen ScreenScope, fonts.
                         Stays at the root: it is the manifest's entryPoint and the
                         qmldir beside it is what makes the whole module resolve
@@ -169,7 +170,7 @@ shell/omacale/
   install.sh uninstall.sh  tests/test-restore.sh  README.md
 ```
 
-- **Every QML type must be registered in `omacale.bar/qmldir`**, with its path
+- **Every QML type must be registered in `qmldir`**, with its path
   (`Name 1.0 modules/bar/Name.qml`; singletons as `singleton Name 1.0 services/Name.qml`),
   or it will be "unavailable". The qmldir is flat: type names are unique across the whole
   plugin regardless of directory, so moving a file only changes its qmldir line.
@@ -195,8 +196,8 @@ shell/omacale/
 The shell loads the plugin from `~/.config/omarchy/plugins/omacale.bar` (a copy, unless installed with `--dev`, which symlinks).
 
 ```bash
-cd ~/omarchy-dotfiles/shell/omacale/omacale.bar
-rsync -a ./ ~/.config/omarchy/plugins/omacale.bar/       # sync source -> installed copy
+cd ~/omarchy-dotfiles/shell/omacale
+rsync -a --exclude .git ./ ~/.config/omarchy/plugins/omacale.bar/   # sync source -> installed copy
 omarchy-restart-shell                                     # clean restart (see gotcha below)
 qs -p /usr/share/omarchy/shell ipc call omacale sidebar   # open a drawer (calls TOGGLE, don't double-call)
 grim -g "1400,0 520x1080" /tmp/shot.png                   # screenshot the right edge, then look at it
@@ -259,7 +260,7 @@ After every `omarchy update`, run `scripts/upstream-check`. It compares the Omar
 
 Omarchy's `omarchy.notifications` service owns the D-Bus name *and* draws the toasts, a second notification server is not allowed beside it, and Hyprland 0.56 has no layer rule that can hide a surface. So Omacale can only draw toasts if that daemon gives its window up.
 
-`omacale.bar/scripts/notif-popups install` does it the supported way: `omarchy plugin clone omarchy.notifications` (which disables the stock plugin, enables the clone and routes IPC to it), then a small idempotent patch of the clone.
+`scripts/notif-popups install` does it the supported way: `omarchy plugin clone omarchy.notifications` (which disables the stock plugin, enables the clone and routes IPC to it), then a small idempotent patch of the clone.
 
 - The patch replaces the popup-UI block with a headless lifetime manager and adds IPC. **The expiry timer used to live inside the toast delegate**, so deleting the window without replacing that timer leaves every popup on screen forever.
 - The clone writes `deadline` into each live popup file, so the daemon's timer and Omacale's countdown ring run off one clock. Omacale never invents a deadline when one is there.
@@ -285,7 +286,7 @@ Both clones are build artifacts: `scripts/handover.py` rebuilds them from `/usr/
 
 Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock recovery, the blank-on-idle timers and the `lock` IPC that `omarchy system lock`, `omarchy-system-sleep-lock` and the lid binding call. A second `WlSessionLock` is not allowed beside it, and none of that is worth reimplementing, so Omacale takes only the view.
 
-`omacale.bar/scripts/lock-screen install` does it the supported way: `omarchy plugin clone omarchy.lock`, then, in the clone, Omarchy's `Service.qml` copied in verbatim, its view kept as `StockLockView.qml`, and `LockView.qml` replaced by `assets/lock/LockView.qml`.
+`scripts/lock-screen install` does it the supported way: `omarchy plugin clone omarchy.lock`, then, in the clone, Omarchy's `Service.qml` copied in verbatim, its view kept as `StockLockView.qml`, and `LockView.qml` replaced by `assets/lock/LockView.qml`.
 
 - **`Service.qml` is never patched**, only copied, so every `install` re-syncs the clone with the installed Omarchy. `status` reports `stale: yes` when they differ, and `scripts/omacale doctor` checks it.
 - **The wrapper imports nothing from Omacale.** It loads `LockUi.qml` by URL and falls back to `StockLockView` when the setting is off, Omacale is gone, or the UI fails to load. A relative import would turn a broken Omacale into a machine with no lock screen. Keep it that way.
@@ -300,7 +301,7 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 
 ## Scope: what Omacale changes, and what it doesn't
 
-- **Everything Omacale needs lives in this repo.** Don't edit files outside `shell/omacale/` (the user's `~/.config/hypr/*.lua`, `autostart.lua`, `shell.json` by hand, other dotfiles) to make Omacale work. Hyprland-side settings go in `omacale.bar/omacale.lua` (look'n'feel, env) or `omacale.bar/keybinds.lua` (binds), which the user loads themselves -- and only when there is no way to do it inside the shell.
+- **Everything Omacale needs lives in this repo.** Don't edit files outside `shell/omacale/` (the user's `~/.config/hypr/*.lua`, `autostart.lua`, `shell.json` by hand, other dotfiles) to make Omacale work. Hyprland-side settings go in `omacale.lua` (look'n'feel, env) or `keybinds.lua` (binds), which the user loads themselves -- and only when there is no way to do it inside the shell.
 - **Host plugins generically; don't special-case one.** Hosting fixes must hold for any well-behaved Omarchy widget (sizing, visibility, teardown, settings at creation). When a single third-party plugin misbehaves because of its own bug (writes into its plugin folder, reads settings too early, ...), say so and leave it -- there can be hundreds of plugins, and per-plugin compat code doesn't scale. No plugin names in Omacale code.
 
 ## Style for new code
@@ -311,7 +312,7 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 
 ## Versioning
 
-The version lives in `omacale.bar/manifest.json`, `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all three together (minor for features, patch for fixes).
+The version lives in `manifest.json`, `scripts/omacale` (`VERSION`) and the fallback in `Bar.qml`; bump all three together (minor for features, patch for fixes).
 
 **Bump it on every change that reaches the user, without being asked** -- a fix, a feature, anything that changes what the shell does. A docs-only or comment-only change doesn't need one.
 

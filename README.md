@@ -58,7 +58,7 @@ git pull
 
 ### Optional setup
 
-- **Keybindings**: copy them from **Settings › Keybinds**, or paste [`omacale.bar/keybinds.lua`](omacale.bar/keybinds.lua) into `~/.config/hypr/bindings.lua`.
+- **Keybindings**: copy them from **Settings › Keybinds**, or paste [`keybinds.lua`](keybinds.lua) into `~/.config/hypr/bindings.lua`.
 - **Window styling** (Caelestia borders, animations and shadows): add to `~/.config/hypr/looknfeel.lua`:
 
   ```lua
@@ -137,8 +137,8 @@ Omacale changes how things look, never how they work underneath.
 <summary>Manage the handovers by hand</summary>
 
 ```bash
-omacale.bar/scripts/notif-popups <status|install|remove|health>
-omacale.bar/scripts/lock-screen  <status|install|remove|health>
+scripts/notif-popups <status|install|remove|health>
+scripts/lock-screen  <status|install|remove|health>
 ```
 
 </details>
@@ -147,7 +147,7 @@ omacale.bar/scripts/lock-screen  <status|install|remove|health>
 
 ```bash
 ./scripts/omacale install --dev                                          # live-editing symlink
-rsync -a omacale.bar/ ~/.config/omarchy/plugins/omacale.bar/ && omarchy-restart-shell
+rsync -a --exclude .git ./ ~/.config/omarchy/plugins/omacale.bar/ && omarchy-restart-shell
 bash tests/test-restore.sh                                               # test suite
 scripts/upstream-check                                                   # what changed in Omarchy since last verified
 ```

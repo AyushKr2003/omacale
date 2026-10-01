@@ -12,11 +12,11 @@
 #   5. ~/.config/omarchy/plugins/<user>.notifications/ and the plugin keys in
 #      shell.json that go with it -- only when you accept the notification
 #      popups, and only through `omarchy plugin clone` / `remove`
-#      (see omacale.bar/scripts/notif-popups)
+#      (see scripts/notif-popups)
 #   6. ~/.config/omarchy/plugins/<user>.lock/ and the plugin keys in
 #      shell.json that go with it -- only when you accept the lock screen,
 #      and only through `omarchy plugin clone` / `remove`
-#      (see omacale.bar/scripts/lock-screen)
+#      (see scripts/lock-screen)
 #   7. the Material Symbols icon font package, only when it is missing, and
 #      only through `omarchy pkg add` (dropped again on uninstall)
 #   (older versions also wrote a marked block to
@@ -28,11 +28,13 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.43.0"
+VERSION="0.43.1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
-src_plugin="$repo_dir/$PLUGIN_ID"
+# The repository root is the plugin (manifest.json sits there, as the Omarchy
+# plugin marketplace and `omarchy plugin add` expect).
+src_plugin="$repo_dir"
 
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
 state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -139,6 +141,13 @@ write_atomic() {
   [[ -e $target ]] && chmod --reference="$target" "$tmp" 2>/dev/null || true
   mv -f -- "$tmp" "$target"
 }
+
+# Copy plugin source $1 (the repo root) minus its git metadata to $2, which
+# must not exist yet.
+copy_plugin() {
+  mkdir -p -- "$2" && tar -C "$1" --exclude=./.git -cf - . | tar -C "$2" --no-same-owner -xf -
+}
+export -f copy_plugin
 
 shell_running() { (( ! offline )) && omarchy-shell shell ping 2>/dev/null | grep -q ok; }
 
@@ -460,7 +469,7 @@ cmd_install() {
     # Stage outside the watched plugins folder so the shell never hot-loads a
     # half-copied tree, then move it into place in one rename.
     local stage="$state_dir/stage.$$"
-    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' && cp -r --no-preserve=ownership -- '$src_plugin' '$stage' && mv -T -- '$stage' '$dest_plugin'"
+    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' && copy_plugin '$src_plugin' '$stage' && mv -T -- '$stage' '$dest_plugin'"
   fi
   (( dry_run )) || ok "plugin files in place"
   shell_call shell rescanPlugins
@@ -507,7 +516,7 @@ cmd_install() {
 
   step "Optional: lock screen"
   # Omarchy's lock plugin keeps the session lock, PAM and the `lock` IPC;
-  # the handover swaps only the view it draws (omacale.bar/scripts/lock-screen).
+  # the handover swaps only the view it draws (scripts/lock-screen).
   # Recorded so uninstall gives it back -- and only if we took it.
   local lock_clone=false
   if (( offline || dry_run )); then
@@ -636,7 +645,7 @@ cmd_upgrade() {
     # Staged outside the watched plugins folder and swapped in by rename, so
     # the shell never loads a half-copied tree and a failed copy keeps the old.
     local old="$state_dir/old.$$"
-    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' '$old' && cp -r --no-preserve=ownership -- '$src_plugin' '$stage' && { [[ ! -e '$dest_plugin' ]] || mv -T -- '$dest_plugin' '$old'; } && mv -T -- '$stage' '$dest_plugin' && rm -rf -- '$old'"
+    act "copy plugin to $dest_plugin" bash -c "rm -rf -- '$stage' '$old' && copy_plugin '$src_plugin' '$stage' && { [[ ! -e '$dest_plugin' ]] || mv -T -- '$dest_plugin' '$old'; } && mv -T -- '$stage' '$dest_plugin' && rm -rf -- '$old'"
     (( dry_run )) || ok "plugin files updated"
   fi
   shell_call shell rescanPlugins
