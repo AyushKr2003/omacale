@@ -46,15 +46,15 @@ Item {
   }
   function closeMenu() { menuOwner = null }
 
-  readonly property int navWidth: Math.min(Tk.px(600), Math.round(width / 3))
+  // Caelestia Nexus.qml: the nav pane is a third of the panel, up to 600.
+  readonly property int navWidth: Math.min(Tk.sizes.nexusMaxNavWidth, Math.round(width / 3))
   readonly property int frameSide: Tk.padding.medium
   readonly property real holeX: navWidth + Tk.padding.large * 2
-  // Caelestia NexusTokens heightMult (0.7 of the screen), under the UI scale
-  // as the lock card is (Tk.sizes.lockHeightMult): everything inside -- the
-  // nav, the 800px content cap, the rows -- shrinks with it, so a panel that
-  // didn't left a scaled-down page adrift in a 1x-sized frame.
-  implicitHeight: Math.round(screenHeight * Math.min(0.9, 0.7 * Tk.uiScale))
-  implicitWidth: Math.min(Math.round(implicitHeight * 16 / 9), screenWidth - (Tk.barVertical ? Tk.barWidth : Tk.border) - Tk.px(80))
+  // Caelestia Nexus.qml: height is the screen's times heightMult (0.7), width
+  // that times the 16:9 ratio, at any UI scale. Kept clear of the bar on a
+  // screen too narrow for 16:9 (portrait).
+  implicitHeight: Math.round(screenHeight * Tk.sizes.nexusHeightMult)
+  implicitWidth: Math.min(Math.round(implicitHeight * Tk.sizes.nexusRatio), screenWidth - (Tk.barVertical ? Tk.barWidth : Tk.border) - Tk.px(80))
 
   // Keys (ScreenScope's drawer cursor): set by the drawer; the pop-out window
   // has none. Escape stays Settings' own, below. / searches, Backspace goes
@@ -82,18 +82,6 @@ Item {
 
   // -------------------------------------------------- inner blob frame
   Rectangle { id: outerMask; anchors.fill: parent; radius: root.isWindow ? 0 : Tk.rounding.extraLarge; visible: false; layer.enabled: true }
-  // Nexus draws its frame in surfaceContainerLow around an m3surface page,
-  // but it is a window of its own; here the panel floats in the shell's
-  // frame, so its frame takes the bar's m3surface and the page is set a
-  // step down into it instead.
-  Rectangle {
-    x: root.holeX
-    y: root.frameSide
-    width: root.width - root.holeX - root.frameSide
-    height: root.height - root.frameSide * 2
-    radius: Tk.rounding.large
-    color: Colours.m3surfaceContainerLowest
-  }
   Item {
     anchors.fill: parent
     layer.enabled: true
@@ -101,8 +89,12 @@ Item {
     // Caelestia nexus/Nexus.qml: a BlobGroup (smoothing rounding.medium)
     // with the frame (rounding.large) and the window button's tab
     // (rounding.medium), whose corners in the frame square up by themselves.
+    // The frame is surfaceContainerLow (blobColour); the page is the hole,
+    // showing the panel's own m3surface underneath -- the drawer's rect, or
+    // the window's colour.
     BlobSurface {
       anchors.fill: parent
+      color: Colours.m3surfaceContainerLow
       smoothing: Tk.rounding.medium
       frameRadius: Tk.rounding.large
       radius: Tk.rounding.medium

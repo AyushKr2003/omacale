@@ -476,8 +476,8 @@ Scope {
       color: Colours.m3surface
       implicitWidth: winSettings.implicitWidth
       implicitHeight: winSettings.implicitHeight
-      minimumSize.width: Tk.px(800)
-      minimumSize.height: Tk.px(500)
+      minimumSize.width: Tk.sizes.nexusMinWidth
+      minimumSize.height: Tk.sizes.nexusMinHeight
       onVisibleChanged: if (!visible) scope.settingsWindow = false
       Settings {
         id: winSettings
@@ -565,7 +565,9 @@ Scope {
     Behavior on lOff { Anim {} }
     Behavior on sOff { Anim {} }
     Behavior on pOff { Anim {} }
-    Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "emphasized" } }
+    // Caelestia bar/popouts/Wrapper.qml: detach() moves on the slow spatial
+    // curve, close() on the default one.
+    Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "spatial" } }
     Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "emphasized" } }
     Behavior on sbOff { Anim {} }
     Behavior on cpOff { Anim {} }
@@ -708,12 +710,15 @@ Scope {
     readonly property real pry: py - (scope.barPos === "top" ? ph * pExtra : 0)
     readonly property real prw: scope.barVert ? pw * (1 + pExtra) : pw
     readonly property real prh: scope.barVert ? ph : ph * (1 + pExtra)
-    // Settings (floating, centred) — grows out of a small pill.
+    // Settings (floating, centred). In Caelestia the in-shell Nexus is always
+    // a detached popout (bar/popouts/Wrapper.qml detach(), ClipWrapper.qml):
+    // the popout's rect leaves the bar for the middle of the screen while it
+    // grows into the Nexus, and on closing flies back and slides into the
+    // bar. It never inflates in place.
     readonly property real nfw: nexus ? nexus.implicitWidth : 0
     readonly property real nfh: nexus ? nexus.implicitHeight : 0
-    // Opened from a popout, it starts as that popout's rect and grows into
-    // place from there, and on closing goes back to the bar and into it;
-    // otherwise it grows out of a small pill in the middle.
+    // Opened from a popout, it starts as that popout's rect and goes back
+    // to the bar and into it on closing.
     property var nOrigin: null
     // The popout whose blob has become Settings: drawn no more, its slide
     // away left to finish unseen.
@@ -729,12 +734,26 @@ Scope {
       : scope.barPos === "right" ? [nOrigin[0] + pw + 5, nOrigin[1], nOrigin[2], nOrigin[3]]
       : scope.barPos === "top" ? [nOrigin[0], nOrigin[1] - ph - 5, nOrigin[2], nOrigin[3]]
       : [nOrigin[0], nOrigin[1] + ph + 5, nOrigin[2], nOrigin[3]]
-    readonly property var nFrom: nOrigin ? (scope.settings ? nOrigin : nOriginAway) : null
+    // Opened any other way (shortcut, IPC, utilities, the launcher): as if
+    // detached from a popout in the middle of the bar, that is, from a
+    // popout-sized rect behind the bar's edge (Caelestia's ClipWrapper
+    // offsetScale 1), which it also goes back behind.
+    readonly property real n0w: Math.round(nfw * 0.25)
+    readonly property real n0h: Math.round(nfh * 0.4)
+    readonly property var nBarOrigin: scope.barPos === "left" ? [ax - n0w - 5, ay + Math.round((ah - n0h) / 2), n0w, n0h]
+      : scope.barPos === "right" ? [ax + aw + 5, ay + Math.round((ah - n0h) / 2), n0w, n0h]
+      : scope.barPos === "top" ? [ax + Math.round((aw - n0w) / 2), ay - n0h - 5, n0w, n0h]
+      : [ax + Math.round((aw - n0w) / 2), ay + ah + 5, n0w, n0h]
+    readonly property var nFrom: nOrigin ? (scope.settings ? nOrigin : nOriginAway) : nBarOrigin
     function nLerp(a, b) { return a + (b - a) * (1 - nOff) }
-    readonly property real nw: nFrom ? nLerp(nFrom[2], nfw) : nfw * (1 - 0.55 * nOff)
-    readonly property real nh: nFrom ? nLerp(nFrom[3], nfh) : nfh * (1 - 0.8 * nOff)
-    readonly property real nx: nFrom ? nLerp(nFrom[0], ax + Math.round((aw - nfw) / 2)) : ax + Math.round((aw - nw) / 2)
-    readonly property real ny: nFrom ? nLerp(nFrom[1], ay + Math.round((ah - nfh) / 2)) : ay + Math.round((ah - nh) / 2)
+    readonly property real nw: nLerp(nFrom[2], nfw)
+    readonly property real nh: nLerp(nFrom[3], nfh)
+    readonly property real nx: nLerp(nFrom[0], ax + Math.round((aw - nfw) / 2))
+    readonly property real ny: nLerp(nFrom[1], ay + Math.round((ah - nfh) / 2))
+    // Caelestia's Comp: the Nexus fades in (default effects) as soon as it
+    // is loaded, while the panel is still on its way, and out as it leaves.
+    property real nFade: scope.settings ? 1 : 0
+    Behavior on nFade { Anim { type: "effects" } }
     onNVisChanged: if (!nVis && !scope.settings) nOrigin = null
     onPOffChanged: if (pOff >= 1) pHandoff = false
     // Overview — the same grow as Settings. In the middle it floats; at the
@@ -1444,24 +1463,27 @@ Scope {
       }
 
       // ---- settings
+      // Clipped to its rect and to the panel area, as Caelestia's ClipWrapper
+      // inside Panels: it comes out from behind the bar.
       Item {
-        x: win.nx
-        y: win.ny
-        width: win.nw
-        height: win.nh
+        id: nClip
+        x: Math.max(win.ax, win.nx)
+        y: Math.max(win.ay, win.ny)
+        width: Math.max(0, Math.min(win.ax + win.aw, win.nx + win.nw) - x)
+        height: Math.max(0, Math.min(win.ay + win.ah, win.ny + win.nh) - y)
         visible: win.nVis
         clip: true
         Loader {
           id: nexusLoader
           focus: scope.settings
-          // Unsized, so the drawer keeps its own size; centred here instead.
-          anchors.centerIn: parent
+          // Unsized, so the drawer keeps its own size; centred on its rect.
+          x: Math.round(win.nx + (win.nw - width) / 2) - nClip.x
+          y: Math.round(win.ny + (win.nh - height) / 2) - nClip.y
           active: scope.settings || win.nVis
           sourceComponent: Settings {
             width: implicitWidth
             height: implicitHeight
-            opacity: Math.max(0, 1 - win.nOff * 2.5)
-            scale: 0.94 + 0.06 * (1 - win.nOff)
+            opacity: win.nFade
             transform: Matrix4x4 { matrix: nDeform.matrixAt(width / 2, height / 2) }
             active: scope.settings
             screenWidth: scope.screen.width

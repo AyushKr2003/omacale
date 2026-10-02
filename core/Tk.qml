@@ -163,6 +163,16 @@ QtObject {
     readonly property int lockFetch4LinesHeight: tk.px(600)
     readonly property int lockFetch3LinesHeight: tk.px(500)
     readonly property int lockColourRowHeight: tk.px(570)
+    // Settings (Caelestia NexusTokens in tokens.hpp). The panel is a 16:9
+    // rect 70% of the screen's height whatever the scale, as Caelestia's
+    // (its sizes never follow appearance.scale); only what is inside it --
+    // the nav pane's and the page's caps, the rows -- does.
+    readonly property real nexusHeightMult: 0.7
+    readonly property real nexusRatio: 16 / 9
+    readonly property int nexusMinWidth: tk.px(800)
+    readonly property int nexusMinHeight: tk.px(500)
+    readonly property int nexusMaxNavWidth: tk.px(600)
+    readonly property int nexusMaxContentWidth: tk.px(800)
   }
 
   // Motion
