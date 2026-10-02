@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Dialogs
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
@@ -431,24 +430,40 @@ Scope {
     }
   }
 
-  // Caelestia's facePicker: choose an image and copy it to ~/.face, which the
-  // dashboard and the lock screen read. The portal's native dialog; made on
-  // demand and dropped once it closes.
-  Loader {
+  // Caelestia's facePicker (dashboard/Wrapper.qml): choose an image and copy
+  // it to ~/.face, which the dashboard and the lock screen read. Omacale's own
+  // FileDialog, not the native one: that one is GTK3's, built inside the shell
+  // process, and a fatal in it took the whole shell down (issue #5).
+  FileDialog {
     id: facePicker
-    active: false
-    sourceComponent: FileDialog {
-      title: "Choose a profile picture"
-      nameFilters: ["Images (*.png *.jpg *.jpeg *.webp *.bmp *.gif)"]
-      currentFolder: "file://" + Quickshell.env("HOME") + "/Pictures"
-      Component.onCompleted: open()
-      onAccepted: {
-        const path = decodeURIComponent(String(selectedFile).replace(/^file:\/\//, ""))
-        Quickshell.execDetached(["cp", "-f", "--", path, Quickshell.env("HOME") + "/.face"])
-        facePicker.active = false
-      }
-      onRejected: facePicker.active = false
+    title: "Select a profile picture"
+    filterLabel: "Image files"
+    filters: imageSuffixes
+    onAccepted: path => faceCopy.copy(path)
+  }
+
+  Process {
+    id: faceCopy
+    property string src: ""
+    readonly property string dest: Quickshell.env("HOME") + "/.face"
+
+    function copy(path) {
+      if (running || !path) return
+      src = path
+      // Picking ~/.face itself: nothing to copy, and cp would fail on it.
+      if (path === dest) { notify(true); return }
+      command = ["cp", "-f", "--", path, dest]
+      running = true
     }
+
+    function notify(ok) {
+      const shown = src.startsWith(Quickshell.env("HOME") + "/") ? "~" + src.slice(Quickshell.env("HOME").length) : src
+      Quickshell.execDetached(ok
+        ? ["notify-send", "-a", "Omacale", "-u", "low", "-h", "STRING:image-path:" + src, "Profile picture changed", "Profile picture changed to " + shown]
+        : ["notify-send", "-a", "Omacale", "-u", "critical", "Unable to change profile picture", "Failed to change profile picture to " + shown])
+    }
+
+    onExited: code => notify(code === 0)
   }
 
   // Settings popped out into a real window.
@@ -1252,7 +1267,7 @@ Scope {
           active: scope.dashboard
           tab: scope.dashTab
           onTabChanged: scope.dashTab = tab
-          onFaceRequested: { scope.dashboard = false; facePicker.active = true }
+          onFaceRequested: { scope.dashboard = false; facePicker.open() }
         }
       }
 

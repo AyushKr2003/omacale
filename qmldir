@@ -159,3 +159,9 @@ ToastItem 1.0 modules/utilities/ToastItem.qml
 singleton Toaster 1.0 services/Toaster.qml
 singleton OsdService 1.0 services/OsdService.qml
 singleton OsdHandover 1.0 services/OsdHandover.qml
+FileDialog 1.0 components/filedialog/FileDialog.qml
+FileDialogButtons 1.0 components/filedialog/FileDialogButtons.qml
+FileDialogCurrent 1.0 components/filedialog/FileDialogCurrent.qml
+FileDialogHeader 1.0 components/filedialog/FileDialogHeader.qml
+FileDialogSidebar 1.0 components/filedialog/FileDialogSidebar.qml
+FolderContents 1.0 components/filedialog/FolderContents.qml
