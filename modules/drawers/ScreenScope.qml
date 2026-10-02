@@ -568,7 +568,8 @@ Scope {
     // Caelestia bar/popouts/Wrapper.qml: detach() moves on the slow spatial
     // curve, close() on the default one.
     Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "spatial" } }
-    Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "emphasized" } }
+    // As Settings: out on the slow spatial curve, back on the default one.
+    Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "spatial" } }
     Behavior on sbOff { Anim {} }
     Behavior on cpOff { Anim {} }
     Behavior on uOff { Anim {} }
@@ -756,9 +757,10 @@ Scope {
     Behavior on nFade { Anim { type: "effects" } }
     onNVisChanged: if (!nVis && !scope.settings) nOrigin = null
     onPOffChanged: if (pOff >= 1) pHandoff = false
-    // Overview — the same grow as Settings. In the middle it floats; at the
-    // top or bottom (Settings › Panels › Overview › Position) it grows out of
-    // that frame edge instead, as the dashboard and launcher do.
+    // Overview: the same motion as Settings (Caelestia's detached popout).
+    // It grows out of a popout-sized rect behind the middle of the bar and
+    // travels to its place -- the middle, or the top or bottom (Settings ›
+    // Panels › Overview › Position) -- and goes back behind the bar on close.
     readonly property string oPos: scope.cfg.overview.position
     // Detached, a top/bottom overview floats like the middle one, a gap off
     // its frame edge, instead of growing out of it.
@@ -766,10 +768,20 @@ Scope {
     readonly property real oGap: oAttached ? 0 : scope.cfg.overview.gap
     readonly property real ofw: overviewContent ? overviewContent.implicitWidth : 0
     readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
-    readonly property real ow: ofw * (1 - 0.55 * oOff)
-    readonly property real oh: ofh * (1 - 0.8 * oOff)
-    readonly property real ox: ax + Math.round((aw - ow) / 2)
-    readonly property real oy: oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - oh - oGap : ay + Math.round((ah - oh) / 2)
+    readonly property real o0w: Math.round(ofw * 0.25)
+    readonly property real o0h: Math.round(ofh * 0.4)
+    readonly property var oFrom: scope.barPos === "left" ? [ax - o0w - 5, ay + Math.round((ah - o0h) / 2), o0w, o0h]
+      : scope.barPos === "right" ? [ax + aw + 5, ay + Math.round((ah - o0h) / 2), o0w, o0h]
+      : scope.barPos === "top" ? [ax + Math.round((aw - o0w) / 2), ay - o0h - 5, o0w, o0h]
+      : [ax + Math.round((aw - o0w) / 2), ay + ah + 5, o0w, o0h]
+    function oLerp(a, b) { return a + (b - a) * (1 - oOff) }
+    readonly property real ow: oLerp(oFrom[2], ofw)
+    readonly property real oh: oLerp(oFrom[3], ofh)
+    readonly property real ox: oLerp(oFrom[0], ax + Math.round((aw - ofw) / 2))
+    readonly property real oy: oLerp(oFrom[1], oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - ofh - oGap : ay + Math.round((ah - ofh) / 2))
+    // Settings' fade: in as soon as it loads, out as it leaves.
+    property real oFade: scope.overview ? 1 : 0
+    Behavior on oFade { Anim { type: "effects" } }
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: sideX(sbw, sbOff)
@@ -925,6 +937,7 @@ Scope {
       cy: win.pry + win.prh / 2
     }
     BlobDeform { id: nDeform; amount: 0.05; cx: win.nx + win.nw / 2; cy: win.ny + win.nh / 2 }
+    BlobDeform { id: oDeform; amount: 0.05; cx: win.ox + win.ow / 2; cy: win.oy + win.oh / 2 }
     BlobDeform { id: sbDeform; amount: 0.03; cx: win.sbx + win.sbw / 2; cy: win.sbRectY + win.sbRectH / 2 }
     BlobDeform { id: utilDeform; amount: win.sbVis ? 0.1 : 0.15; cx: win.ux + win.uw / 2; cy: win.uy + win.uh / 2 }
     BlobDeform { id: osdDeform; amount: 0.25; cx: win.osdX + win.osdW / 2; cy: win.osdY + win.osdH / 2 }
@@ -968,7 +981,7 @@ Scope {
           win.osdVis ? [win.osdX, win.osdY, win.osdW, win.osdH] : null
         ]
         deforms: [dashDeform.vec, launchDeform.vec, sessDeform.vec, popDeform.vec, nDeform.vec,
-                  utilDeform.vec, sbDeform.vec, null, cpDeform.vec, osdDeform.vec]
+                  utilDeform.vec, sbDeform.vec, oDeform.vec, cpDeform.vec, osdDeform.vec]
         // The corner the sidebar and utilities share flattens as the sidebar
         // comes in (its left side; the right, with a right-hand bar; the
         // utilities' bottom and the sidebar's top, with a bottom bar).
@@ -1431,28 +1444,29 @@ Scope {
       }
 
       // ---- overview
+      // Clipped like Settings, to its rect and the panel area: it comes out
+      // from behind the bar, the grid animates to its own size, and a row
+      // that has just appeared stays hidden until the panel holds it.
       Item {
-        x: win.ox
-        y: win.oy
-        width: win.ow
-        height: win.oh
+        id: oClip
+        x: Math.max(win.ax, win.ox)
+        y: Math.max(win.ay, win.oy)
+        width: Math.max(0, Math.min(win.ax + win.aw, win.ox + win.ow) - x)
+        height: Math.max(0, Math.min(win.ay + win.ah, win.oy + win.oh) - y)
         visible: win.oVis
-        // Clipped like Settings: the grid animates to its own size, and a row
-        // that has just appeared stays hidden until the panel holds it.
         clip: true
         Loader {
           id: overviewLoader
           focus: scope.overview
-          // Unsized, so the drawer keeps its own size; placed here instead,
-          // against the frame edge it grows out of.
-          anchors.horizontalCenter: parent.horizontalCenter
-          y: win.oPos === "top" ? 0 : win.oPos === "bottom" ? parent.height - height : (parent.height - height) / 2
+          // Unsized, so the drawer keeps its own size; centred on its rect.
+          x: Math.round(win.ox + (win.ow - width) / 2) - oClip.x
+          y: Math.round(win.oy + (win.oh - height) / 2) - oClip.y
           active: scope.overview || win.oVis
           sourceComponent: Overview {
             width: implicitWidth
             height: implicitHeight
-            opacity: Math.max(0, 1 - win.oOff * 2.5)
-            scale: 0.94 + 0.06 * (1 - win.oOff)
+            opacity: win.oFade
+            transform: Matrix4x4 { matrix: oDeform.matrixAt(width / 2, height / 2) }
             active: scope.overview
             focus: scope.overview
             screen: scope.screen
