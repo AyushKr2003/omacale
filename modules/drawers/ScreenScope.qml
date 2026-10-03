@@ -569,7 +569,10 @@ Scope {
     // curve, close() on the default one.
     Behavior on nOff { Anim { type: scope.settings ? "slowSpatial" : "spatial" } }
     // As Settings: out on the slow spatial curve, back on the default one.
-    Behavior on oOff { Anim { type: scope.overview ? "slowSpatial" : "spatial" } }
+    // Floating, Settings' curves (slow spatial out, default back); attached
+    // to the top or bottom edge, the dashboard's and launcher's (default
+    // spatial both ways).
+    Behavior on oOff { Anim { type: scope.overview && !win.oAttached ? "slowSpatial" : "spatial" } }
     Behavior on sbOff { Anim {} }
     Behavior on cpOff { Anim {} }
     Behavior on uOff { Anim {} }
@@ -757,10 +760,12 @@ Scope {
     Behavior on nFade { Anim { type: "effects" } }
     onNVisChanged: if (!nVis && !scope.settings) nOrigin = null
     onPOffChanged: if (pOff >= 1) pHandoff = false
-    // Overview: the same motion as Settings (Caelestia's detached popout).
-    // It grows out of a popout-sized rect behind the middle of the bar and
-    // travels to its place -- the middle, or the top or bottom (Settings ›
-    // Panels › Overview › Position) -- and goes back behind the bar on close.
+    // Overview. Floating (the middle, or a detached top/bottom), it grows
+    // out of its own centre to its full size, Settings' motion with the
+    // origin on the overview instead of the bar: a grid spanning workspaces
+    // 3 to 7 starts at 5. Attached to the top or bottom (Settings › Panels ›
+    // Overview › Position) it slides out of that frame edge at full size,
+    // as the dashboard and launcher do.
     readonly property string oPos: scope.cfg.overview.position
     // Detached, a top/bottom overview floats like the middle one, a gap off
     // its frame edge, instead of growing out of it.
@@ -768,20 +773,23 @@ Scope {
     readonly property real oGap: oAttached ? 0 : scope.cfg.overview.gap
     readonly property real ofw: overviewContent ? overviewContent.implicitWidth : 0
     readonly property real ofh: overviewContent ? overviewContent.implicitHeight : 0
+    // Where it sits open.
+    readonly property real oTx: ax + Math.round((aw - ofw) / 2)
+    readonly property real oTy: oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - ofh - oGap : ay + Math.round((ah - ofh) / 2)
+    // Floating: a rect a quarter as wide and 40% as tall, centred on it.
     readonly property real o0w: Math.round(ofw * 0.25)
     readonly property real o0h: Math.round(ofh * 0.4)
-    readonly property var oFrom: scope.barPos === "left" ? [ax - o0w - 5, ay + Math.round((ah - o0h) / 2), o0w, o0h]
-      : scope.barPos === "right" ? [ax + aw + 5, ay + Math.round((ah - o0h) / 2), o0w, o0h]
-      : scope.barPos === "top" ? [ax + Math.round((aw - o0w) / 2), ay - o0h - 5, o0w, o0h]
-      : [ax + Math.round((aw - o0w) / 2), ay + ah + 5, o0w, o0h]
     function oLerp(a, b) { return a + (b - a) * (1 - oOff) }
-    readonly property real ow: oLerp(oFrom[2], ofw)
-    readonly property real oh: oLerp(oFrom[3], ofh)
-    readonly property real ox: oLerp(oFrom[0], ax + Math.round((aw - ofw) / 2))
-    readonly property real oy: oLerp(oFrom[1], oPos === "top" ? ay + oGap : oPos === "bottom" ? ay + ah - ofh - oGap : ay + Math.round((ah - ofh) / 2))
-    // Settings' fade: in as soon as it loads, out as it leaves.
+    readonly property real ow: oAttached ? ofw : oLerp(o0w, ofw)
+    readonly property real oh: oAttached ? ofh : oLerp(o0h, ofh)
+    readonly property real ox: oAttached ? oTx : oTx + Math.round((ofw - ow) / 2)
+    readonly property real oy: !oAttached ? oTy + Math.round((ofh - oh) / 2)
+      : oPos === "top" ? ay + (-ofh - 5) * oOff : ay + ah - ofh + (ofh + 5) * oOff
+    // Floating, Settings' fade (in as soon as it loads, out as it leaves);
+    // attached, the dashboard's (with its slide).
     property real oFade: scope.overview ? 1 : 0
     Behavior on oFade { Anim { type: "effects" } }
+    readonly property real oOpacity: oAttached ? Math.max(0, 1 - oOff) : oFade
     // Sidebar (top right, above utilities)
     readonly property real sbw: Tk.sizes.sidebarWidth
     readonly property real sbx: sideX(sbw, sbOff)
@@ -937,7 +945,7 @@ Scope {
       cy: win.pry + win.prh / 2
     }
     BlobDeform { id: nDeform; amount: 0.05; cx: win.nx + win.nw / 2; cy: win.ny + win.nh / 2 }
-    BlobDeform { id: oDeform; amount: 0.05; cx: win.ox + win.ow / 2; cy: win.oy + win.oh / 2 }
+    BlobDeform { id: oDeform; amount: win.oAttached ? 0.1 : 0.05; cx: win.ox + win.ow / 2; cy: win.oy + win.oh / 2 }
     BlobDeform { id: sbDeform; amount: 0.03; cx: win.sbx + win.sbw / 2; cy: win.sbRectY + win.sbRectH / 2 }
     BlobDeform { id: utilDeform; amount: win.sbVis ? 0.1 : 0.15; cx: win.ux + win.uw / 2; cy: win.uy + win.uh / 2 }
     BlobDeform { id: osdDeform; amount: 0.25; cx: win.osdX + win.osdW / 2; cy: win.osdY + win.osdH / 2 }
@@ -1444,9 +1452,10 @@ Scope {
       }
 
       // ---- overview
-      // Clipped like Settings, to its rect and the panel area: it comes out
-      // from behind the bar, the grid animates to its own size, and a row
-      // that has just appeared stays hidden until the panel holds it.
+      // Clipped like Settings, to its rect and the panel area: it grows out
+      // of its centre or slides out of its frame edge, the grid animates to
+      // its own size, and a row that has just appeared stays hidden until
+      // the panel holds it.
       Item {
         id: oClip
         x: Math.max(win.ax, win.ox)
@@ -1465,7 +1474,7 @@ Scope {
           sourceComponent: Overview {
             width: implicitWidth
             height: implicitHeight
-            opacity: win.oFade
+            opacity: win.oOpacity
             transform: Matrix4x4 { matrix: oDeform.matrixAt(width / 2, height / 2) }
             active: scope.overview
             focus: scope.overview
