@@ -117,6 +117,8 @@ Elevation 1.0 components/effects/Elevation.qml
 OutlinedField 1.0 components/controls/OutlinedField.qml
 MScrollBar 1.0 components/controls/MScrollBar.qml
 LockUi 1.0 modules/lock/LockUi.qml
+LockPanel 1.0 modules/lock/LockPanel.qml
+LockUnlockFx 1.0 modules/lock/LockUnlockFx.qml
 LockContent 1.0 modules/lock/LockContent.qml
 LockCenter 1.0 modules/lock/LockCenter.qml
 LockPassword 1.0 modules/lock/LockPassword.qml
@@ -130,6 +132,7 @@ LockCard 1.0 modules/settings/cards/LockCard.qml
 NotifCard 1.0 modules/settings/cards/NotifCard.qml
 OsdCard 1.0 modules/settings/cards/OsdCard.qml
 singleton LockService 1.0 services/LockService.qml
+singleton LockFx 1.0 services/LockFx.qml
 singleton NotifHandover 1.0 services/NotifHandover.qml
 Handover 1.0 services/Handover.qml
 Overview 1.0 modules/overview/Overview.qml

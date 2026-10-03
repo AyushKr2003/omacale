@@ -338,6 +338,8 @@ hl.workspace_rule({ workspace = "f[1]s[false]", gaps_out = vars.singleWindowGaps
 -- Shell layers: Caelestia fades its drawers/background and never animates the
 -- border exclusion zone. Omacale's drawers animate themselves inside the layer.
 hl.layer_rule({ match = { namespace = "omacale-reserve" }, no_anim = true })
+-- The unlock overlay plays the lock's own closing (modules/lock/LockUnlockFx.qml).
+hl.layer_rule({ match = { namespace = "omacale-unlock" }, no_anim = true })
 hl.layer_rule({ match = { namespace = "^(omacale|omarchy-background)$" }, animation = "fade" })
 
 -- Caelestia's layersIn/layersOut slide would drop Omarchy's own overlays (OSD,

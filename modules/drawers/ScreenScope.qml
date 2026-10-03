@@ -360,6 +360,16 @@ Scope {
     barZone: scope.zoneFor(scope.barPos)
   }
 
+  // The lock card's closing, after Omarchy has dropped the session lock
+  // (LockFx). Created once the lock's card is open, so its first frame is
+  // the open card (see LockUnlockFx), and up until the closing has played.
+  LazyLoader {
+    active: !!LockFx.screens[scope.screen.name] && LockFx.screens[scope.screen.name].ready
+    LockUnlockFx {
+      shellScreen: scope.screen
+    }
+  }
+
   // ----------------------------------------------- notification toasts
   //
   // Deliberately NOT part of the frame window below. That one sits on

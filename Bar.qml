@@ -42,7 +42,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.44.4"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.45.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -495,6 +495,10 @@ Item {
     function toast(type: string, title: string, message: string, icon: string): void {
       Toaster.toast(title, message, icon, Toaster.typeOf(type))
     }
+    // Dev loop: the lock's unlock animation over the desktop on every
+    // screen. Nothing else shows it, since only the real password ends a
+    // real lock and the preview never unlocks.
+    function unlockFx(): void { LockFx.test() }
   }
 
   // Created at startup so an old menu-route block gets cleaned up.

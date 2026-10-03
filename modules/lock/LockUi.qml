@@ -13,9 +13,9 @@ import "../.."
 // all stay in Omarchy's own lock service, which reaches us through `view`.
 //
 // Caelestia grows a small rounded square holding a lock icon into a 16:9
-// card, spinning both as it goes, and reverses it on unlock. The unlock leg
-// runs only in the real lock; Omarchy's service drops `locked` itself, so
-// this one just plays out and the surface goes with it.
+// card, spinning both as it goes (LockPanel), and reverses it on unlock.
+// Omarchy's service drops the session lock the moment PAM succeeds, so the
+// reverse is played by Omacale's unlock overlay, not here (LockFx).
 Item {
   id: root
 
@@ -234,59 +234,14 @@ Item {
   }
 
   // ------------------------------------------------------------- the card
-  Item {
+  LockPanel {
     id: card
 
-    // Caelestia's closed size: the lock icon with padding.large on all sides.
-    readonly property int size: lockIcon.implicitHeight + Tk.padding.large * 4
-    readonly property int closedRadius: size / 4
-
-    anchors.centerIn: parent
-    implicitWidth: size
-    implicitHeight: size
-    rotation: 180
-    scale: 0
-
-    Rectangle {
-      id: cardBg
-
-      anchors.fill: parent
-      color: Colours.palette.m3surface
-      radius: card.closedRadius
-      opacity: Colours.transparent ? Colours.trBase : 1
-
-      // Caelestia shadows the card with a MultiEffect; Omacale's Elevation
-      // is the same shadow without a layer over an item that resizes.
-      Elevation {
-        anchors.fill: parent
-        radius: parent.radius
-        level: 3
-        z: -1
-        visible: Config.o.appearance.shadow
-      }
-    }
-
-    MIcon {
-      id: lockIcon
-
-      anchors.centerIn: parent
-      text: "lock"
-      size: Tk.iconSize.extraLarge * 4
-      weight: Font.Bold
-      rotation: 180
-    }
-
-    LockContent {
-      id: content
-
-      anchors.centerIn: parent
-      width: root.cardWidth - Tk.padding.extraLargeIncreased
-      height: root.cardHeight - Tk.padding.extraLargeIncreased
-
-      lock: root
-      opacity: 0
-      scale: 0
-    }
+    lock: root
+    backdrop: background
+    cardWidth: root.cardWidth
+    cardHeight: root.cardHeight
+    onOpenFinished: root.handOver()
   }
 
   // Keyboard goes to one focus item, as Caelestia's PasswordInput does, so
@@ -304,7 +259,7 @@ Item {
 
     Keys.onPressed: event => {
       root.wake()
-      if (!root.inputEnabled || root.authenticating || unlockAnim.running)
+      if (!root.inputEnabled || root.authenticating)
         return
 
       if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return)
@@ -333,143 +288,45 @@ Item {
     if (opened || width <= 0 || height <= 0)
       return
     opened = true
-    initAnim.start()
-  }
-
-  ParallelAnimation {
-    id: initAnim
-
-    // Keeps the card right if the screen is resized while it is up.
-    onFinished: {
-      card.implicitWidth = Qt.binding(() => root.cardWidth)
-      card.implicitHeight = Qt.binding(() => root.cardHeight)
-    }
-
-    Anim {
-      target: background
-      property: "opacity"
-      to: 1
-      type: "standardLarge"
-    }
-    SequentialAnimation {
-      ParallelAnimation {
-        Anim {
-          target: card
-          property: "scale"
-          to: 1
-          type: "fastSpatial"
-        }
-        Anim {
-          target: card
-          property: "rotation"
-          to: 360
-          duration: Tk.durations.fastSpatial
-          easing.bezierCurve: Tk.curves.standardAccel
-        }
-      }
-      ParallelAnimation {
-        Anim {
-          target: lockIcon
-          property: "rotation"
-          to: 360
-          easing.bezierCurve: Tk.curves.standardDecel
-        }
-        Anim {
-          target: lockIcon
-          property: "opacity"
-          to: 0
-          type: "effects"
-        }
-        Anim {
-          target: content
-          property: "opacity"
-          to: 1
-          type: "effects"
-        }
-        Anim {
-          target: content
-          property: "scale"
-          to: 1
-        }
-        Anim {
-          target: cardBg
-          property: "radius"
-          to: Tk.rounding.extraLarge * 1.5
-        }
-        Anim {
-          target: card
-          property: "implicitWidth"
-          to: root.cardWidth
-        }
-        Anim {
-          target: card
-          property: "implicitHeight"
-          to: root.cardHeight
-        }
-      }
-    }
+    card.open()
   }
 
   // ---------------------------------------------------------- the closing
-  // Omarchy's service tears the surface down as soon as PAM succeeds, so this
-  // is the send-off, not a gate: nothing here decides when the lock ends.
-  ParallelAnimation {
-    id: unlockAnim
+  // Omarchy's service tears this surface down in the same call that accepts
+  // the password, so the closing is played by Omacale's own overlay instead
+  // (LockFx, LockUnlockFx). Only the real lock arms it: the preview's view
+  // never takes input, and an overlay over the preview would cover it.
+  readonly property string screenName: shellScreen ? shellScreen.name : ""
+  readonly property bool armed: onScreen && inputEnabled && !!screenName
+  property bool handedOver: false
 
-    Anim {
-      target: card
-      properties: "implicitWidth,implicitHeight"
-      to: card.size
-    }
-    Anim {
-      target: cardBg
-      property: "radius"
-      to: card.closedRadius
-    }
-    Anim {
-      target: content
-      property: "scale"
-      to: 0
-    }
-    Anim {
-      target: content
-      property: "opacity"
-      to: 0
-      type: "standardSmall"
-    }
-    Anim {
-      target: lockIcon
-      property: "opacity"
-      to: 1
-      type: "standardLarge"
-    }
-    Anim {
-      target: background
-      property: "opacity"
-      to: 0
-      type: "standardLarge"
-    }
-    SequentialAnimation {
-      PauseAnimation {
-        duration: Tk.durations.small
-      }
-      Anim {
-        target: card
-        property: "opacity"
-        to: 0
-        type: "standard"
-      }
+  // The service clears `inputEnabled` (its lockRequested) the moment a
+  // password is accepted, which is the only unlock signal this side gets.
+  onArmedChanged: {
+    if (armed) {
+      LockFx.arm(screenName)
+    } else {
+      if (handedOver && onScreen && !inputEnabled)
+        LockFx.unlock(screenName)
+      else
+        LockFx.disarm(screenName)
+      handedOver = false
     }
   }
+  Component.onDestruction: if (armed) LockFx.disarm(screenName)
 
-  Connections {
-    target: root.view
-
-    // The service clears `inputEnabled` (its lockRequested) the moment a
-    // password is accepted, which is the only unlock signal this side gets.
-    function onInputEnabledChanged(): void {
-      if (root.view && !root.view.inputEnabled && root.opened && !initAnim.running)
-        unlockAnim.start();
-    }
+  // Once the card is open, the overlay holds the same frame: the card over a
+  // grab of this backdrop. A capture that lands later grabs again. The video
+  // feed is another client's surface and isn't in the grab; its poster is.
+  function handOver() {
+    if (!armed || card.closing)
+      return
+    background.grabToImage(result => {
+      if (!root.armed)
+        return
+      root.handedOver = true
+      LockFx.ready(root.screenName, result)
+    })
   }
+  onCapturedChanged: if (captured && handedOver) handOver()
 }
