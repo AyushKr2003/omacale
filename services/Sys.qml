@@ -556,6 +556,9 @@ QtObject {
     const e = DesktopEntries.heuristicLookup(cls)
     const cats = e ? e.categories : null
     if (cats) for (const k in categoryIcons) if (cats.indexOf(k) !== -1) return categoryIcons[k]
+    // Omarchy's web apps ("chrome-<host>__-Default") match no entry, and their
+    // entries carry no categories: show them as the browser they run in.
+    if (WindowIcons.webappHost(cls) || WindowIcons.isBrowserClass(cls)) return categoryIcons.WebBrowser
     return fallback
   }
   function networkIcon(s) {
