@@ -274,17 +274,20 @@ hl.curve("slowEffects", { type = "bezier", points = { { 0.34, 0.88 }, { 0.34, 1 
 -- 435px, both over 500ms. "slide" was the faithful *shape* of the drawer
 -- motion but it travels the window's whole width, which is 4.2x the drawers'
 -- velocity and has no percentage to dial it back.
-hl.animation({ leaf = "windowsIn", enabled = true, speed = D.spatial, bezier = "spatial", style = "popin 50%" })
--- Closing accelerates out instead of overshooting: an overshoot tail would be
--- spent on a window that has already collapsed. This is the same reasoning
--- behind Omacale closing Settings and the overview on `emphasized` while
--- opening them on slowSpatial.
-hl.animation({ leaf = "windowsOut", enabled = true, speed = D.normal, bezier = "emphasizedAccel", style = "popin 50%" })
--- The one leaf whose travel we do not control: a tiling reflow moves a window
--- edge by whatever the layout says, ~912px on a two-window split here. The
--- sub-linear law puts that at 558ms, so it takes D.large and still runs ~1.75x
--- the drawers. Shortening it is not possible without changing the layout.
-hl.animation({ leaf = "windowsMove", enabled = true, speed = D.large, bezier = "spatial" })
+-- Jelly: windows open, close and move on the drawers' own spring rather than a
+-- bezier. Hyprland 0.56 has real spring curves, and BlobDeform.qml's is mass
+-- 1, stiffness 200, damping 16 -- underdamped (zeta 0.57), so it overshoots by
+-- ~12% of the travel and wobbles back once, settling in ~0.5s. A spring runs
+-- until it settles, so `speed` doesn't time these leaves. popin 87% keeps the
+-- zoom small (50% read as too much once it bounced): a ~1.5% overshoot.
+hl.curve("jelly", { type = "spring", mass = 1, stiffness = 200, dampening = 16 })
+hl.animation({ leaf = "windowsIn", enabled = true, speed = D.spatial, spring = "jelly", style = "popin 87%" })
+-- Closing takes the same spring, so a window shrinks with the jelly's snap;
+-- its overshoot falls at the end, under the fade.
+hl.animation({ leaf = "windowsOut", enabled = true, speed = D.spatial, spring = "jelly", style = "popin 87%" })
+-- A tiling reflow moves a window edge by whatever the layout says, so its
+-- travel is not ours to set; the spring at least settles it like a drawer.
+hl.animation({ leaf = "windowsMove", enabled = true, speed = D.spatial, spring = "jelly" })
 
 -- A layer surface slides in by its own size, and Omarchy's layers (the OSD,
 -- notification toasts) are drawer-sized -- ~430px -- so "slide" is already
