@@ -42,7 +42,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.45.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.45.1"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -545,6 +545,15 @@ Item {
       'hl.layer_rule({ match = { namespace = "^omacale-visualiser$" }, blur = ' + (visBlur ? "true" : "false") +
       ', ignore_alpha = 0.5 })'])
   }
+  // The lock card is drawn by an overlay Hyprland puts above the session
+  // lock (modules/lock/LockUnlockFx.qml): `above_lock = 2` draws it over the
+  // lock and gives it the pointer on its input region (the card); the
+  // keyboard always stays with the lock. Runtime only, like the blur.
+  function applyLockRule() {
+    Quickshell.execDetached(["hyprctl", "eval",
+      'hl.layer_rule({ match = { namespace = "^omacale-unlock$" }, no_anim = true, above_lock = 2 })'])
+  }
+
   onClockBlurChanged: applyDesktopBlur()
   onClockIgnoreAlphaChanged: if (clockBlur) applyDesktopBlur()
   onVisBlurChanged: applyDesktopBlur()
@@ -553,6 +562,7 @@ Item {
     thirdPartyPlugins = collectedPlugins
     if (blur) applyBlur()
     if (clockBlur || visBlur) applyDesktopBlur()
+    applyLockRule()
     // The OSD handover's clone only takes Omarchy's OSDs while this bar is
     // running in this shell (services/OsdService.qml claim()).
     OsdService.claim(true)
@@ -569,6 +579,7 @@ Item {
       if (e.name !== "configreloaded") return
       if (root.blur) root.applyBlur()
       if (root.clockBlur || root.visBlur) root.applyDesktopBlur()
+      root.applyLockRule()
     }
   }
 

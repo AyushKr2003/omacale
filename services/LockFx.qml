@@ -11,26 +11,29 @@ import Quickshell
 // that tells our view the password was accepted, and the lock surface goes
 // with it, so nothing drawn on that surface is ever seen leaving.
 //
-// So the closing is drawn by an overlay of Omacale's own (LockUnlockFx, one
-// per screen), mapped once the lock's card is open and kept up until the
-// unlock. Hyprland draws nothing but the lock surface while the session is
-// locked, so the overlay sits behind it unseen, showing the lock's last
-// frame; when the lock surface goes, the overlay is what is left, and it
-// plays the closing over the desktop. Nothing in Omarchy's lock service
-// changes.
+// So the card the user sees is drawn by an overlay of Omacale's own
+// (LockUnlockFx, one per screen), which Hyprland draws *above* the lock
+// (the `above_lock = 2` layer rule, set in Bar.qml and omacale.lua). It is up
+// for the whole lock, mirroring the lock's own card frame for frame, while
+// the lock surface below it keeps the keyboard, the backdrop and PAM. When
+// the lock goes, the card is already on screen, so the closing simply plays
+// on, with no hand-off frame. Nothing in Omarchy's lock service changes.
 //
 // LockUi shares this singleton (it imports Omacale's module) and reports, per
 // screen name:
-//   arm(name)            the real lock is up on that screen
-//   ready(name, frame)   its opening has finished: the overlay may show the
-//                        open card, over `frame`, a grab of the lock's
-//                        blurred backdrop (null: the surface colour)
-//   unlock(name)         the password was accepted: play the closing
+//   arm(name, ui)        the real lock is up on that screen, drawn by `ui`
+//   ready(name, frame)   its opening has finished: `frame` is a grab of the
+//                        lock's blurred backdrop, for the overlay to fade out
+//   unlock(name)         the lock let go: play the closing
 //   disarm(name)         the lock surface went without an unlock
+// and the overlay reports cover(name, on): whether Hyprland is really
+// drawing it above the lock. Only then does the lock hide its own card, so a
+// Hyprland without the rule still shows the lock's card, just no closing.
 Singleton {
   id: root
 
-  // name -> { ready: bool, frame: grab result | null, playing: bool }
+  // name -> { ui: LockUi | null, frame: grab result | null,
+  //           covering: bool, playing: bool }
   property var screens: ({})
 
   function entry(name) {
@@ -39,7 +42,7 @@ Singleton {
 
   function put(name, patch) {
     const next = Object.assign({}, screens)
-    next[name] = Object.assign({ ready: false, frame: null, playing: false }, screens[name] || {}, patch)
+    next[name] = Object.assign({ ui: null, frame: null, covering: false, playing: false }, screens[name] || {}, patch)
     screens = next
   }
 
@@ -51,20 +54,27 @@ Singleton {
     screens = next
   }
 
-  function arm(name) {
+  function arm(name, ui) {
     if (!name)
       return
-    put(name, { ready: false, frame: null, playing: false })
+    put(name, { ui: ui, frame: null, covering: false, playing: false })
   }
 
   function ready(name, frame) {
-    if (name in screens && !screens[name].playing)
-      put(name, { ready: true, frame: frame })
+    const e = entry(name)
+    if (e && !e.playing)
+      put(name, { frame: frame })
+  }
+
+  function cover(name, on) {
+    const e = entry(name)
+    if (e && !e.playing && e.covering !== on)
+      put(name, { covering: on })
   }
 
   function unlock(name) {
     const e = entry(name)
-    if (e && e.ready)
+    if (e && e.covering)
       put(name, { playing: true })
     else
       drop(name)
@@ -85,9 +95,8 @@ Singleton {
   // desktop, without a real lock -- nothing else can show it, since only the
   // real password ends a real lock.
   function test() {
-    for (const s of Quickshell.screens) {
-      put(s.name, { ready: true, frame: null, playing: false })
-    }
+    for (const s of Quickshell.screens)
+      put(s.name, { ui: null, frame: null, covering: true, playing: false })
     testTimer.restart()
   }
 

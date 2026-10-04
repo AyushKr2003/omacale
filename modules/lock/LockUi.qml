@@ -13,9 +13,10 @@ import "../.."
 // all stay in Omarchy's own lock service, which reaches us through `view`.
 //
 // Caelestia grows a small rounded square holding a lock icon into a 16:9
-// card, spinning both as it goes (LockPanel), and reverses it on unlock.
+// card, spinning both as it goes (LockPanel), and closes it back on unlock.
 // Omarchy's service drops the session lock the moment PAM succeeds, so the
-// reverse is played by Omacale's unlock overlay, not here (LockFx).
+// card on screen is a mirror of this one drawn above the lock by Omacale's
+// unlock overlay, which plays the closing (LockFx).
 Item {
   id: root
 
@@ -37,7 +38,10 @@ Item {
   readonly property bool onScreen: view ? view.loadBackground : false
 
   readonly property string password: view ? view.passwordText : ""
-  readonly property bool authenticating: view ? view.authenticatingPassword : false
+  // Omarchy's flag, held from Enter until the password is refused: on
+  // success Omarchy clears it a moment before it drops the lock, and the
+  // field must still say "Loading..." as the card closes, as Caelestia's does.
+  readonly property bool authenticating: (view ? view.authenticatingPassword : false) || passwordSent
   readonly property bool inputEnabled: view ? view.inputEnabled : false
   readonly property bool fingerprint: view ? view.fingerprintConfigured : false
   readonly property int failedAttempts: view ? view.failedAttempts : 0
@@ -68,12 +72,27 @@ Item {
     if (view)
       view.passwordTextEdited(all ? "" : password.slice(0, -1))
   }
+  // Emitted as Enter is handled, before anything changes: the field drops
+  // its placeholder crossfade, as Caelestia's PasswordInput does on Enter.
+  signal submitted
+
+  // A password is in flight. Every refusal counts an attempt (Omarchy's
+  // handlePasswordFailure); the reset to 0 is the unlock's, not a refusal.
+  property bool passwordSent: false
+  onFailedAttemptsChanged: if (failedAttempts > 0)
+    passwordSent = false
+
+  // Caelestia's order (Pam.qml): authentication starts, and only then is
+  // the buffer cleared, so the field goes from the dots straight to
+  // "Loading..." without the idle placeholder showing between them.
   function submit() {
     if (!view || !password.length)
       return
     const entered = password
-    view.passwordTextEdited("")
+    submitted()
+    passwordSent = true
     view.submitPassword(entered)
+    view.passwordTextEdited("")
   }
 
   // ------------------------------------------------------------ background
@@ -84,6 +103,7 @@ Item {
   //
   // Same test as Omarchy's Util.isVideoPath, restated so the lock UI doesn't
   // import qs.Commons.
+  readonly property alias card: card
   readonly property bool video: /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(view ? String(view.backgroundPath || "") : "")
   // Omarchy's `feedActive`: a blanked display shows nothing, so a video must
   // not keep decoding through it.
@@ -234,14 +254,26 @@ Item {
   }
 
   // ------------------------------------------------------------- the card
-  LockPanel {
-    id: card
+  // Hidden while the unlock overlay draws its mirror of it above the lock;
+  // it still plays its motion, which the mirror follows.
+  readonly property bool covered: {
+    const e = LockFx.screens[screenName]
+    return !!e && e.ui === root && e.covering
+  }
 
-    lock: root
-    backdrop: background
-    cardWidth: root.cardWidth
-    cardHeight: root.cardHeight
-    onOpenFinished: root.handOver()
+  Item {
+    anchors.fill: parent
+    visible: !root.covered
+
+    LockPanel {
+      id: card
+
+      lock: root
+      backdrop: background
+      cardWidth: root.cardWidth
+      cardHeight: root.cardHeight
+      onOpenFinished: root.handOver()
+    }
   }
 
   // Keyboard goes to one focus item, as Caelestia's PasswordInput does, so
@@ -293,9 +325,10 @@ Item {
 
   // ---------------------------------------------------------- the closing
   // Omarchy's service tears this surface down in the same call that accepts
-  // the password, so the closing is played by Omacale's own overlay instead
-  // (LockFx, LockUnlockFx). Only the real lock arms it: the preview's view
-  // never takes input, and an overlay over the preview would cover it.
+  // the password, so the card is drawn by Omacale's own overlay above the
+  // lock, which plays the closing (LockFx, LockUnlockFx). Only the real lock
+  // arms it: the preview's view never takes input, and an overlay over the
+  // preview would cover it.
   readonly property string screenName: shellScreen ? shellScreen.name : ""
   readonly property bool armed: onScreen && inputEnabled && !!screenName
   property bool handedOver: false
@@ -304,9 +337,10 @@ Item {
   // password is accepted, which is the only unlock signal this side gets.
   onArmedChanged: {
     if (armed) {
-      LockFx.arm(screenName)
+      passwordSent = false
+      LockFx.arm(screenName, root)
     } else {
-      if (handedOver && onScreen && !inputEnabled)
+      if (onScreen && !inputEnabled)
         LockFx.unlock(screenName)
       else
         LockFx.disarm(screenName)
@@ -315,11 +349,12 @@ Item {
   }
   Component.onDestruction: if (armed) LockFx.disarm(screenName)
 
-  // Once the card is open, the overlay holds the same frame: the card over a
-  // grab of this backdrop. A capture that lands later grabs again. The video
-  // feed is another client's surface and isn't in the grab; its poster is.
+  // Once the card is open, the overlay takes a grab of this backdrop, to fade
+  // out once the lock has gone. A capture that lands later grabs again. The
+  // video feed is another client's surface and isn't in the grab; its
+  // poster is.
   function handOver() {
-    if (!armed || card.closing)
+    if (!armed)
       return
     background.grabToImage(result => {
       if (!root.armed)

@@ -4,12 +4,13 @@ import "../.."
 // The lock card and its motion (Caelestia modules/lock/LockSurface.qml's
 // `lockContent`, `initAnim` and `unlockAnim`): a small rounded square holding
 // a lock icon grows into the 16:9 card, spinning both as it goes, and on
-// unlock plays that backwards.
+// unlock the card closes back into the square and fades away.
 //
 // Two places draw it. LockUi plays the opening on the lock surface; the
-// unlock overlay (LockUnlockFx) plays the closing, since Omarchy's lock
-// service drops the session lock the moment PAM succeeds and the lock
-// surface goes with it (see LockFx).
+// unlock overlay (LockUnlockFx), drawn above the lock, shows a second card
+// that follows this one frame for frame (`follow`) and plays the closing,
+// since Omarchy's lock service drops the session lock the moment PAM
+// succeeds and the lock surface goes with it (see LockFx).
 Item {
   id: root
 
@@ -20,8 +21,21 @@ Item {
   required property int cardWidth
   required property int cardHeight
 
+  // Another LockPanel to mirror: every animated value follows it until the
+  // closing starts here.
+  property Item follow: null
+  property bool released: false
+  readonly property bool following: !!follow && !released
+
   readonly property bool opening: initAnim.running
   readonly property bool closing: unlockAnim.running
+
+  // What a follower reads.
+  property alias bgRadius: cardBg.radius
+  property alias iconRotation: lockIcon.rotation
+  property alias iconOpacity: lockIcon.opacity
+  property alias contentOpacity: content.opacity
+  property alias contentScale: content.scale
   signal openFinished
   signal closeFinished
 
@@ -57,8 +71,24 @@ Item {
   }
 
   function close() {
+    released = true
     unlockAnim.start()
   }
+
+  component Follow: Binding {
+    when: root.following
+    restoreMode: Binding.RestoreNone
+  }
+  Follow { target: root; property: "scale"; value: root.follow ? root.follow.scale : 0 }
+  Follow { target: root; property: "rotation"; value: root.follow ? root.follow.rotation : 0 }
+  Follow { target: root; property: "opacity"; value: root.follow ? root.follow.opacity : 0 }
+  Follow { target: root; property: "implicitWidth"; value: root.follow ? root.follow.implicitWidth : 0 }
+  Follow { target: root; property: "implicitHeight"; value: root.follow ? root.follow.implicitHeight : 0 }
+  Follow { target: cardBg; property: "radius"; value: root.follow ? root.follow.bgRadius : 0 }
+  Follow { target: lockIcon; property: "rotation"; value: root.follow ? root.follow.iconRotation : 0 }
+  Follow { target: lockIcon; property: "opacity"; value: root.follow ? root.follow.iconOpacity : 0 }
+  Follow { target: content; property: "opacity"; value: root.follow ? root.follow.contentOpacity : 0 }
+  Follow { target: content; property: "scale"; value: root.follow ? root.follow.contentScale : 0 }
 
   // Keeps the card right if the screen is resized while it is up.
   function bindSize() {
@@ -180,115 +210,56 @@ Item {
     }
   }
 
-  // The closing is the opening played backwards: every step in reverse
-  // order, each ending where its opening twin started, on that twin's curve
-  // reversed in time (`back`). One deliberate difference from Caelestia,
-  // whose unlockAnim shrinks the card to the square and fades it out without
-  // the spin, so the two didn't mirror.
-  //
-  // The opening's second leg runs `spatial`; a step shorter than that started
-  // with it, so its mirror ends with it (`tail`). Its first leg runs
-  // `fastSpatial`. The backdrop faded in over the first `standardLarge` of
-  // the whole, so it fades out over the last.
-  readonly property int legOut: Tk.durations.defaultSpatial
-  readonly property int legSpin: Tk.durations.fastSpatial
-
-  function back(c) {
-    return [1 - c[2], 1 - c[3], 1 - c[0], 1 - c[1], 1, 1]
-  }
-  function tail(d) {
-    return Math.max(0, legOut - d)
-  }
-
+  // Caelestia's unlockAnim, as is: the content shrinks away and fades, the
+  // card closes back to the lock-icon square (no spin) as the icon fades
+  // back in, the backdrop fades out, and the square fades out last.
   ParallelAnimation {
     id: unlockAnim
 
     onFinished: root.closeFinished()
 
-    SequentialAnimation {
-      // The opening's second leg, backwards.
-      ParallelAnimation {
-        Anim {
-          target: lockIcon
-          property: "rotation"
-          to: 180
-          duration: root.legOut
-          easing.bezierCurve: root.back(Tk.curves.standardDecel)
-        }
-        SequentialAnimation {
-          PauseAnimation {
-            duration: root.tail(Tk.durations.defaultEffects)
-          }
-          Anim {
-            target: lockIcon
-            property: "opacity"
-            to: 1
-            duration: Tk.durations.defaultEffects
-            easing.bezierCurve: root.back(Tk.curves.defaultEffects)
-          }
-        }
-        SequentialAnimation {
-          PauseAnimation {
-            duration: root.tail(Tk.durations.defaultEffects)
-          }
-          Anim {
-            target: content
-            property: "opacity"
-            to: 0
-            duration: Tk.durations.defaultEffects
-            easing.bezierCurve: root.back(Tk.curves.defaultEffects)
-          }
-        }
-        Anim {
-          target: content
-          property: "scale"
-          to: 0
-          duration: root.legOut
-          easing.bezierCurve: root.back(Tk.curves.defaultSpatial)
-        }
-        Anim {
-          target: cardBg
-          property: "radius"
-          to: root.closedRadius
-          duration: root.legOut
-          easing.bezierCurve: root.back(Tk.curves.defaultSpatial)
-        }
-        Anim {
-          target: root
-          properties: "implicitWidth,implicitHeight"
-          to: root.size
-          duration: root.legOut
-          easing.bezierCurve: root.back(Tk.curves.defaultSpatial)
-        }
-      }
-      // The first leg, backwards: the square spins away to nothing.
-      ParallelAnimation {
-        Anim {
-          target: root
-          property: "scale"
-          to: 0
-          duration: root.legSpin
-          easing.bezierCurve: root.back(Tk.curves.fastSpatial)
-        }
-        Anim {
-          target: root
-          property: "rotation"
-          to: 180
-          duration: root.legSpin
-          easing.bezierCurve: root.back(Tk.curves.standardAccel)
-        }
-      }
+    Anim {
+      target: root
+      properties: "implicitWidth,implicitHeight"
+      to: root.size
+    }
+    Anim {
+      target: cardBg
+      property: "radius"
+      to: root.closedRadius
+    }
+    Anim {
+      target: content
+      property: "scale"
+      to: 0
+    }
+    Anim {
+      target: content
+      property: "opacity"
+      to: 0
+      type: "standardSmall"
+    }
+    Anim {
+      target: lockIcon
+      property: "opacity"
+      to: 1
+      type: "standardLarge"
+    }
+    Anim {
+      target: root.backdrop
+      property: "opacity"
+      to: 0
+      type: "standardLarge"
     }
     SequentialAnimation {
       PauseAnimation {
-        duration: Math.max(0, root.legOut + root.legSpin - Tk.durations.large)
+        duration: Tk.durations.small
       }
       Anim {
-        target: root.backdrop
+        type: "standard"
+        target: root
         property: "opacity"
         to: 0
-        duration: Tk.durations.large
-        easing.bezierCurve: root.back(Tk.curves.standard)
       }
     }
   }

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import "../.."
 
 // The password field (Caelestia center/PasswordInput.qml + InputField.qml):
@@ -24,8 +25,32 @@ Rectangle {
   // the keyboard could otherwise read what is being typed.
   readonly property bool canReveal: Config.o.lock.revealPassword
 
-  onBufferChanged: if (!buffer)
-    showPassword = false
+  // The buffer the characters draw, a step behind `buffer` (Caelestia
+  // InputField's own `buffer`): the list's width is rebound before a
+  // character goes in, and held where it is while the cleared ones shrink
+  // away.
+  property string shown
+
+  onBufferChanged: {
+    if (buffer.length > shown.length) {
+      charList.bindImWidth()
+    } else if (buffer.length === 0) {
+      charList.implicitWidth = charList.implicitWidth
+      placeholder.animate = true
+      showPassword = false
+    }
+    shown = buffer
+  }
+  Component.onCompleted: shown = buffer
+
+  // Caelestia PasswordInput on Enter: "Loading..." replaces the placeholder
+  // at once rather than crossfading from "Enter your password".
+  Connections {
+    target: root.lock
+    function onSubmitted() {
+      placeholder.animate = false
+    }
+  }
   onCanRevealChanged: if (!canReveal)
     showPassword = false
 
@@ -137,7 +162,7 @@ Rectangle {
         font.pointSize: Tk.body.medium * root.centerScale
         axes: ({ "ROND": 25, "wdth": 110 })
 
-        opacity: root.buffer ? 0 : 1
+        opacity: root.shown ? 0 : 1
 
         Behavior on opacity {
           Anim {
@@ -156,6 +181,12 @@ Rectangle {
           return w + implicitHeight // Extra padding at ends
         }
 
+        function bindImWidth() {
+          imWidthBehavior.enabled = false
+          implicitWidth = Qt.binding(() => fullWidth)
+          imWidthBehavior.enabled = true
+        }
+
         anchors.centerIn: parent
         anchors.horizontalCenterOffset: implicitWidth > field.width ? -(implicitWidth - field.width) / 2 : 0
 
@@ -169,11 +200,18 @@ Rectangle {
         spacing: Tk.spacing.extraSmall
         interactive: false
 
-        model: root.buffer.length
+        // A ScriptModel, as Caelestia's: it inserts and removes one
+        // character at a time, where a count would rebuild every dot on
+        // each key and drop them all at once on a clear.
+        model: ScriptModel {
+          values: root.shown.split("")
+        }
 
         delegate: CharItem {}
 
         Behavior on implicitWidth {
+          id: imWidthBehavior
+
           Anim {}
         }
       }
@@ -357,7 +395,7 @@ Rectangle {
     MText {
       anchors.centerIn: parent
       opacity: root.showPassword ? 1 : 0
-      text: root.buffer[char.index] ?? ""
+      text: root.shown[char.index] ?? ""
       font.pointSize: Tk.body.small
 
       Behavior on opacity {
