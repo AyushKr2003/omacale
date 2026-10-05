@@ -173,9 +173,10 @@ QtObject {
   // so nothing is gained by asking again for the rest of the session.
   property bool gpuAbsent: false
   property Process gpuProbe: Process {
-    // The name is handed back in so the helper can skip the lspci and the
-    // second nvidia-smi that resolving it costs (see scripts/gpu.sh).
-    command: ["bash", Qt.resolvedUrl("../scripts/gpu.sh").toString().replace("file://", ""), root.gpuName]
+    // The name is handed back in, with the type it was resolved for, so the
+    // helper can skip the lspci and the second nvidia-smi that resolving it
+    // costs (see scripts/gpu.sh).
+    command: ["bash", Qt.resolvedUrl("../scripts/gpu.sh").toString().replace("file://", ""), root.gpuName, root.gpuType]
     stdout: SplitParser {
       onRead: function(l) {
         const p = l.split("|")
