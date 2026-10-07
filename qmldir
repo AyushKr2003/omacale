@@ -175,3 +175,4 @@ WorkspacesEntry 1.0 modules/bar/entries/WorkspacesEntry.qml
 ActiveWindowEntry 1.0 modules/bar/entries/ActiveWindowEntry.qml
 TrayEntry 1.0 modules/bar/entries/TrayEntry.qml
 StatusRun 1.0 modules/bar/entries/StatusRun.qml
+PluginsEntry 1.0 modules/bar/entries/PluginsEntry.qml

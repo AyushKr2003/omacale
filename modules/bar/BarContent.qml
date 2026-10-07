@@ -78,6 +78,11 @@ Item {
   readonly property bool trayOverBudget: trayPill.visible && trayPill.fullLen + pluginPill.collapsedLen > budget
   // The plugin pill's length along the bar, for the tray's expanded cap.
   readonly property real pluginLen: along(pluginPill)
+  readonly property Item pluginPill: pluginPlace.pill
+  property alias overlay: overlay
+  // A status icon's length along the bar: one cell, for the plugin pills.
+  readonly property real cellLen: vertical ? cellRef.implicitHeight : cellRef.implicitWidth
+  MIcon { id: cellRef; visible: false; text: "extension" }
   readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedLen : trayPill.fullLen
 
   // Popout lookup for a position `a` along the bar (Caelestia Bar.checkPopout).
@@ -107,12 +112,7 @@ Item {
     for (const s of logoRow.navStops()) add(s.item, s.act, s)
     for (const s of workspaces.navStops()) add(s.item, s.act, s)
     for (const s of titleArea.navStops()) add(s.item, s.act, s)
-    if (pluginPill.visible && pluginPill.anyShown)
-      for (let i = 0; i < pluginRep.count; i++) {
-        const slot = pluginRep.itemAt(i)
-        if (slot && slot.shown && slot.activeItem)
-          out.push({ item: slot, kind: "plugin", act: () => root.openPlugin(slot) })
-      }
+    for (const s of pluginPlace.navStops()) out.push(s)
     for (const s of trayPill.navStops()) out.push(s)
     for (const s of clockPill.navStops()) add(s.item, s.act, s)
     for (const s of statusPill.navStops()) add(s.item, s.act, s)
@@ -126,9 +126,7 @@ Item {
     cursorIndex = i
     // The compact tray and the plugin overflow open while the cursor is in them.
     trayPill.cursorMoved(s)
-    const inPlugins = !!s && s.kind === "plugin"
-    if (inPlugins) { collapsePluginsTimer.stop(); if (pluginPill.overflowCount > 0) pluginPill.expanded = true }
-    else if (pluginPill.expanded) collapsePluginsTimer.restart()
+    pluginPlace.cursorMoved(s)
   }
   function stepStop(d) {
     const stops = navStops()
@@ -281,11 +279,7 @@ Item {
   function hoverAt(a, onBar) {
     trayPill.hoverAt(a, onBar)
 
-    const p = pointAlong(pointOn(pluginPill, a))
-    if (onBar && pluginPill.visible && p >= 0 && p <= alen(pluginPill)) {
-      collapsePluginsTimer.stop()
-      if (pluginPill.overflowCount > 0) pluginPill.expanded = true
-    } else if (pluginPill.expanded && !collapsePluginsTimer.running) collapsePluginsTimer.start()
+    pluginPlace.hoverAt(a, onBar)
   }
 
   // The drawers' MouseArea takes every wheel over the bar, so a capped tray
@@ -298,7 +292,7 @@ Item {
     return true
   }
   function scrollBy(flick, dy) {
-    const step = ((vertical ? cellRef.implicitHeight : cellRef.implicitWidth) + Tk.spacing.medium / 2) * dy / 120
+    const step = (cellLen + Tk.spacing.medium / 2) * dy / 120
     if (vertical) flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY - step))
     else flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, flick.contentX - step))
   }
@@ -346,18 +340,7 @@ Item {
     ActiveWindowEntry { id: titleArea; bar: root }
 
     // --------------------------------------------------- plugins pill
-    // Holds the plugins pill's place in the column; the pill is drawn outside
-    // the layout (see pluginPill below). Hiding a parent of a widget makes the
-    // widget itself report visible=false, so a pill hidden because every
-    // widget had hidden itself could never come back. Hiding this empty
-    // placeholder instead also lets the layout drop its spacing.
-    Item {
-      id: pluginPlace
-      Layout.alignment: root.crossAlign
-      implicitWidth: root.vertical ? Tk.barInner : pluginPill.implicitWidth
-      implicitHeight: root.vertical ? pluginPill.implicitHeight : Tk.barInner
-      visible: pluginPill.visible && pluginPill.anyShown
-    }
+    PluginsEntry { id: pluginPlace; bar: root }
 
     // ---------------------------------------------------------- tray
     // Caelestia bar/components/Tray.qml: compact collapses the tray behind a
@@ -375,154 +358,7 @@ Item {
     PowerEntry { id: powerItem; bar: root }
   }
 
-  // Dedicated Caelestia pill for 3rd-party bar widgets (installed in
-  // ~/.config/omarchy/plugins/), laid out like the status pill: same padding,
-  // same spacing, one status-icon cell per widget (BarWidgetSlot scales each
-  // widget's mark to the status icons' size). Sits on pluginPlace.
-  //
-  // Pinned widgets (Settings › Taskbar › Plugins) always show; the others
-  // wait behind a chevron that hovering expands, like the compact tray.
-  // Hidden ones (bar.plugins.hidden) aren't made at all.
-  Rectangle {
-    id: pluginPill
-    readonly property var pluginsList: (root.host.thirdPartyPlugins || [])
-      .filter(e => root.cfg.plugins.hidden.indexOf(root.host.entryId(e)) < 0)
-    readonly property var unpinned: root.cfg.plugins.unpinned
-    // The padding at each end of the list, along the bar.
-    readonly property real endPad: Tk.padding.medium
-    readonly property real listLen: root.vertical ? pluginCol.implicitHeight : pluginCol.implicitWidth
-    readonly property bool anyShown: listLen - endPad * 2 > 0.5
-    property bool expanded: false
-    onOverflowCountChanged: if (overflowCount === 0) expanded = false
-
-    // Counted by hand: Repeater.itemAt is not a binding dependency, so every
-    // slot asks for a recount when its size, content or pin changes.
-    property int overflowCount: 0
-    property real pinnedLen: 0
-    function recount() { countTimer.restart() }
-    Timer {
-      id: countTimer
-      interval: 0
-      onTriggered: {
-        let n = 0, h = 0
-        for (let i = 0; i < pluginRep.count; i++) {
-          const slot = pluginRep.itemAt(i)
-          if (!slot || !slot.shown) continue
-          if (slot.pinned) h += Math.round(slot.visualLen) + pluginCol.gapPx
-          else n++
-        }
-        pluginPill.overflowCount = n
-        pluginPill.pinnedLen = h
-      }
-    }
-    // The pill's size along the bar with the overflow closed: what the budget plans for.
-    readonly property real collapsedLen: overflowCount === 0 && pinnedLen === 0 ? 0
-      : endPad * 2 + pinnedLen
-        + (overflowCount > 0 ? (root.vertical ? overflowIcon.implicitHeight : overflowIcon.implicitWidth) : -pluginCol.gapPx)
-
-    visible: root.cfg.plugins.enabled !== false && pluginsList.length > 0
-    opacity: anyShown ? 1 : 0
-    x: col.x + pluginPlace.x
-    y: col.y + pluginPlace.y
-    // Scrolled down to a single cell, pinned widgets included, when even they
-    // don't fit: the pill gives way before the clock and status icons do.
-    readonly property real minLen: endPad * 2 + (root.vertical ? cellRef.implicitHeight : cellRef.implicitWidth)
-    // Capped by the space budget, leaving the tray its (collapsed) share.
-    readonly property real sizeLen: anyShown ? Math.min(Math.max(minLen, root.budget - root.trayReserve), listLen) : 0
-    implicitWidth: root.vertical ? Tk.barInner : sizeLen
-    implicitHeight: root.vertical ? sizeLen : Tk.barInner
-    width: implicitWidth
-    height: implicitHeight
-    radius: (root.vertical ? width : height) / 2
-    color: Colours.m3surfaceContainer
-    clip: true
-
-    Behavior on implicitHeight { enabled: root.vertical; Anim {} }
-    Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
-
-    Timer {
-      id: collapsePluginsTimer
-      interval: 400
-      onTriggered: pluginPill.expanded = false
-    }
-
-    // A status icon's height, so a plugin cell matches the status pill's.
-    MIcon { id: cellRef; visible: false; text: "extension" }
-
-    // More widgets than fit scroll rather than being cut off.
-    MFlickable {
-      id: pluginFlick
-      anchors.fill: parent
-      contentWidth: root.vertical ? width : pluginCol.implicitWidth
-      contentHeight: root.vertical ? pluginCol.implicitHeight : height
-      interactive: root.vertical ? contentHeight > height + 0.5 : contentWidth > width + 0.5
-
-      Grid {
-        id: pluginCol
-        readonly property real gapPx: Tk.spacing.medium / 2
-        width: root.vertical ? parent.width : implicitWidth
-        height: root.vertical ? implicitHeight : parent.height
-        columns: root.vertical ? 1 : 1000
-        topPadding: root.vertical ? pluginPill.endPad : 0
-        bottomPadding: root.vertical ? pluginPill.endPad : 0
-        leftPadding: root.vertical ? 0 : pluginPill.endPad
-        rightPadding: root.vertical ? 0 : pluginPill.endPad
-        spacing: gapPx
-
-        Repeater {
-          id: pluginRep
-          model: pluginPill.pluginsList
-
-          BarWidgetSlot {
-            required property var modelData
-            pinned: pluginPill.unpinned.indexOf(moduleName) < 0
-            entry: modelData
-            host: root.host
-            vertical: root.vertical
-            cellLen: root.vertical ? cellRef.implicitHeight : cellRef.implicitWidth
-            collapsed: !pinned && !pluginPill.expanded
-            onShownChanged: pluginPill.recount()
-            onPinnedChanged: pluginPill.recount()
-            onVisualLenChanged: pluginPill.recount()
-            Component.onCompleted: pluginPill.recount()
-            Component.onDestruction: pluginPill.recount()
-          }
-        }
-
-        // Caelestia's tray chevron, for the widgets that aren't pinned.
-        Item {
-          width: root.vertical ? parent.width : (pluginPill.overflowCount > 0 ? overflowIcon.implicitWidth : 0)
-          height: root.vertical ? (pluginPill.overflowCount > 0 ? overflowIcon.implicitHeight : 0) : parent.height
-          MIcon {
-            id: overflowIcon
-            anchors.centerIn: parent
-            visible: pluginPill.overflowCount > 0
-            text: root.vertical ? "expand_less" : "chevron_left"
-            size: Tk.iconSize.medium
-            color: Colours.m3onSurfaceVariant
-            rotation: pluginPill.expanded ? 180 : 0
-            Behavior on rotation { Anim {} }
-          }
-          MouseArea {
-            anchors.fill: parent
-            enabled: pluginPill.overflowCount > 0
-            cursorShape: Qt.PointingHandCursor
-            onClicked: { collapsePluginsTimer.stop(); pluginPill.expanded = !pluginPill.expanded }
-          }
-        }
-      }
-    }
-
-    // Omarchy's WidgetButton takes every wheel, so hosted widgets would eat
-    // the scroll of an overfull pill. Wheel only: clicks and hover go through,
-    // and while the pill fits the wheel is left to the widget.
-    MouseArea {
-      anchors.fill: parent
-      acceptedButtons: Qt.NoButton
-      onWheel: e => {
-        if (!pluginFlick.interactive) { e.accepted = false; return }
-        root.scrollBy(pluginFlick, e.angleDelta.y)
-      }
-    }
-  }
+  // Drawn above the layout: pills that must not live inside a placeholder
+  // that can hide (PluginsEntry), placed from their placeholder's position.
+  Item { id: overlay; anchors.fill: parent }
 }
