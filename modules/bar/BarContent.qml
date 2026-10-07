@@ -75,6 +75,8 @@ Item {
   readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= workspaces.iconsSize
   readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? workspaces.iconsSize : 0))
   readonly property bool trayOverBudget: trayPill.visible && trayPill.fullLen + pluginPill.collapsedLen > budget
+  // The plugin pill's length along the bar, for the tray's expanded cap.
+  readonly property real pluginLen: along(pluginPill)
   readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedLen : trayPill.fullLen
 
   // Popout lookup for a position `a` along the bar (Caelestia Bar.checkPopout).
@@ -88,18 +90,7 @@ Item {
           return { name: c.popout, center: centreOf(c) }
       }
     }
-    const t = pointAlong(pointOn(trayCol, a))
-    if (cfg.popouts.tray && trayPill.visible && (!trayPill.compact || trayPill.expanded) && t >= 0 && t <= alen(trayCol)) {
-      for (let i = 0; i < trayRep.count; i++) {
-        const it = trayRep.itemAt(i)
-        if (t >= apos(it) - 4 && t <= apos(it) + alen(it) + 4)
-          return { name: "traymenu", index: i, item: it.modelData, center: centreOf(it) }
-      }
-    }
-    const w = pointAlong(pointOn(activeWin, a))
-    if (cfg.popouts.activeWindow && activeWin.visible && w >= 0 && w <= alen(activeWin) && Sys.activeToplevel)
-      return { name: "activewindow", center: centreOf(activeWin) }
-    return null
+    return trayPill.popoutAt(a) || titleArea.popoutAt(a)
   }
 
   // ------------------------------------------------------ bar focus
@@ -123,19 +114,14 @@ Item {
     }
     for (const s of logoRow.navStops()) add(s.item, s.act, s)
     for (const s of workspaces.navStops()) add(s.item, s.act, s)
-    if (activeWin.visible && Sys.activeToplevel)
-      add(activeWin, () => root.scope.openPopoutKeys("activewindow"))
+    for (const s of titleArea.navStops()) add(s.item, s.act, s)
     if (pluginPill.visible && pluginPill.anyShown)
       for (let i = 0; i < pluginRep.count; i++) {
         const slot = pluginRep.itemAt(i)
         if (slot && slot.shown && slot.activeItem)
           out.push({ item: slot, kind: "plugin", act: () => root.openPlugin(slot) })
       }
-    if (trayPill.visible)
-      for (let i = 0; i < trayRep.count; i++) {
-        const it = trayRep.itemAt(i)
-        if (it) out.push({ item: it, kind: "tray", tray: it.modelData, act: () => it.modelData.activate() })
-      }
+    for (const s of trayPill.navStops()) out.push(s)
     for (const s of clockPill.navStops()) add(s.item, s.act, s)
     for (let i = 0; i < statusCol.children.length; i++) {
       const c = statusCol.children[i]
@@ -155,9 +141,7 @@ Item {
     cursorStop = s
     cursorIndex = i
     // The compact tray and the plugin overflow open while the cursor is in them.
-    const inTray = !!s && s.kind === "tray"
-    if (inTray) { collapseTrayTimer.stop(); if (trayPill.compact) trayPill.expanded = true }
-    else if (trayPill.expanded) collapseTrayTimer.restart()
+    trayPill.cursorMoved(s)
     const inPlugins = !!s && s.kind === "plugin"
     if (inPlugins) { collapsePluginsTimer.stop(); if (pluginPill.overflowCount > 0) pluginPill.expanded = true }
     else if (pluginPill.expanded) collapsePluginsTimer.restart()
@@ -299,10 +283,10 @@ Item {
   // or centred on the bar when the icon is hidden (a keyboard-layout popout
   // with the icon off still opens).
   function popoutCenterFor(name) {
-    if (name === "traymenu" && cursorStop && cursorStop.kind === "tray")
-      return centreOf(cursorStop.item)
-    if (name === "activewindow" && activeWin.visible)
-      return centreOf(activeWin)
+    for (const e of [trayPill, titleArea]) {
+      const c = e.popoutCenterFor(name)
+      if (c !== undefined) return c
+    }
     for (let i = 0; i < statusCol.children.length; i++) {
       const c = statusCol.children[i]
       if (c.visible && c.popout === name)
@@ -319,11 +303,7 @@ Item {
   readonly property bool groupsExpanded: trayPill.expanded || pluginPill.expanded
 
   function hoverAt(a, onBar) {
-    const t = pointAlong(pointOn(trayPill, a))
-    if (onBar && trayPill.visible && t >= 0 && t <= alen(trayPill)) {
-      collapseTrayTimer.stop()
-      if (trayPill.compact) trayPill.expanded = true
-    } else if (trayPill.expanded && !collapseTrayTimer.running) collapseTrayTimer.start()
+    trayPill.hoverAt(a, onBar)
 
     const p = pointAlong(pointOn(pluginPill, a))
     if (onBar && pluginPill.visible && p >= 0 && p <= alen(pluginPill)) {
@@ -349,7 +329,7 @@ Item {
 
   function handleWheel(a, dy) {
     if (workspaces.scrollAt(a, dy)) return
-    if (trayPill.visible && scrollList(trayFlick, a, dy)) return
+    if (trayPill.scrollAt(a, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
     // speaker tuning and show the OSD (Caelestia's sliders, once the OSD
     // handover is in; Omarchy's own otherwise).
@@ -387,89 +367,7 @@ Item {
     WorkspacesEntry { id: workspaces; bar: root }
 
     // ------------------------------------------ active window (centred)
-    Item {
-      id: titleArea
-      Layout.fillWidth: true
-      Layout.fillHeight: true
-      clip: true
-
-      Item {
-        id: activeWin
-        visible: root.cfg.activeWindow.enabled
-        readonly property var tl: Sys.activeToplevel
-        readonly property string title: {
-          const t = tl && tl.title ? tl.title : "Desktop"
-          if (!root.cfg.activeWindow.compact) return t
-          const parts = t.split(/\s+[\-\u2013\u2014]\s+/)
-          return parts.length > 1 ? parts[parts.length - 1].trim() : t
-        }
-        // The room the title has beside the icon, along the bar. Caelestia's
-        // elideWidth comes out three medium gaps short of the space between
-        // its neighbours (the spacers' gaps), and elides that much earlier.
-        readonly property real maxLen: (root.vertical ? parent.height - winIcon.height : parent.width - winIcon.width)
-          - 3 * Tk.spacing.medium
-
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.verticalCenter: parent.verticalCenter
-        // A column turns the title a quarter and stacks it under the icon; a
-        // row leaves it upright beside the icon.
-        width: root.vertical ? Math.max(winIcon.implicitWidth, metrics.height)
-          : winIcon.implicitWidth + Tk.spacing.small + Math.min(metrics.width, maxLen)
-        height: root.vertical ? winIcon.implicitHeight + Tk.spacing.small + Math.min(metrics.width, maxLen)
-          : Math.max(winIcon.implicitHeight, metrics.height)
-        Behavior on height { enabled: root.vertical; Anim {} }
-        Behavior on width { enabled: !root.vertical; Anim {} }
-
-        MIcon {
-          id: winIcon
-          // Centred across the bar (by x/y: see Workspaces `list`).
-          x: root.vertical ? Math.round((parent.width - width) / 2) : 0
-          y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
-          animate: true
-          text: Sys.appIcon(activeWin.tl && activeWin.tl.wayland ? activeWin.tl.wayland.appId : "", "desktop_windows")
-          color: Colours.m3primary
-        }
-        // Caelestia ActiveWindow: two titles cross-fade when the text changes.
-        property Item current: title1
-        // A step above Caelestia's body.small, which read small beside the
-        // status icons. Measured and drawn at the same size.
-        readonly property int titleSize: Tk.font(13)
-        TextMetrics {
-          id: metrics
-          text: activeWin.title
-          font.family: Tk.sans
-          font.pointSize: activeWin.titleSize
-          font.letterSpacing: 1.4
-          elide: Qt.ElideRight
-          elideWidth: Math.max(0, activeWin.maxLen)
-          // Cross-fade only when the title itself changes; a change in the
-          // room it has re-elides in place (Caelestia onElideWidthChanged).
-          onTextChanged: {
-            if (!title1 || !title2) return
-            const next = activeWin.current === title1 ? title2 : title1
-            next.text = elidedText
-            activeWin.current = next
-          }
-          onElideWidthChanged: if (activeWin.current) activeWin.current.text = elidedText
-        }
-        component Title: MText {
-          id: t
-          // Under the icon on a column, beside it on a row.
-          x: root.vertical ? winIcon.x + Math.round((winIcon.width - width) / 2) : winIcon.x + winIcon.width + Tk.spacing.small
-          y: root.vertical ? winIcon.y + winIcon.height + Tk.spacing.small : winIcon.y + Math.round((winIcon.height - height) / 2)
-          width: root.vertical ? implicitHeight : implicitWidth
-          height: root.vertical ? implicitWidth : implicitHeight
-          font.pointSize: activeWin.titleSize
-          font.letterSpacing: 1.4
-          color: Colours.m3primary
-          opacity: activeWin.current === t ? 1 : 0
-          Behavior on opacity { Anim { type: "effects" } }
-          transform: Rotation { angle: root.vertical ? 90 : 0; origin.x: t.implicitHeight / 2; origin.y: t.implicitHeight / 2 }
-        }
-        Title { id: title1; Component.onCompleted: text = metrics.elidedText }
-        Title { id: title2 }
-      }
-    }
+    ActiveWindowEntry { id: titleArea; bar: root }
 
     // --------------------------------------------------- plugins pill
     // Holds the plugins pill's place in the column; the pill is drawn outside
@@ -490,139 +388,7 @@ Item {
     // chevron that hovering expands (Caelestia's Bar.checkPopout), and
     // hiddenIcons drops items for good. Compact is also switched on by the
     // shared space budget (see "space budget" below) when the tray doesn't fit.
-    Rectangle {
-      id: trayPill
-      Layout.alignment: root.crossAlign
-      readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive
-        && root.cfg.tray.hiddenIcons.indexOf(i.id) < 0)
-      readonly property bool bg: root.cfg.tray.background
-      readonly property int padding: bg ? Tk.padding.medium : Tk.padding.extraSmall
-      readonly property int spacingN: bg ? Tk.spacing.medium : Tk.spacing.extraSmall
-      visible: root.cfg.tray.enabled && trayItems.length > 0
-
-      readonly property bool compact: root.cfg.tray.compact || root.trayOverBudget
-      property bool expanded: false
-      onCompactChanged: if (!compact) expanded = false
-
-      // The size along the bar. Caelestia's nonAnimHeight, with the expanded
-      // list capped to the budget.
-      // Caelestia's expandIcon item is the glyph less padding.small, the glyph
-      // hanging past it at the far end.
-      readonly property real chevronLen: (root.vertical ? expandTrayIcon.implicitHeight : expandTrayIcon.implicitWidth) - Tk.padding.small
-      readonly property real listLen: root.vertical ? trayCol.implicitHeight : trayCol.implicitWidth
-      readonly property real fullLen: listLen + padding * 2
-      readonly property real collapsedLen: Math.max(bg ? Tk.barInner : 0, chevronLen + (bg ? Tk.padding.extraSmall : 0) + padding)
-      readonly property real sizeLen: {
-        if (!visible) return 0
-        if (!compact) return fullLen
-        if (!expanded) return collapsedLen
-        return Math.max(collapsedLen, Math.min(chevronLen + listLen + spacingN + (bg ? Tk.padding.extraSmall : 0) + padding,
-          root.budget - root.along(pluginPill)))
-      }
-      implicitWidth: root.vertical ? Tk.barInner : sizeLen
-      implicitHeight: root.vertical ? sizeLen : Tk.barInner
-      radius: Tk.rounding.full
-      color: bg ? Colours.m3surfaceContainer : "transparent"
-      clip: true
-      Behavior on implicitHeight { enabled: root.vertical; Anim {} }
-      Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
-
-      // The tray menu keeps it open; closing the menu lets it fold again.
-      Connections {
-        target: root.scope
-        function onPopoutChanged() { if (root.scope.popout === "") collapseTrayTimer.restart() }
-      }
-      Timer {
-        id: collapseTrayTimer
-        interval: 400
-        onTriggered: if (root.scope.popout !== "traymenu") trayPill.expanded = false
-      }
-
-      // Scrolls when an expanded tray is capped by the budget.
-      MFlickable {
-        id: trayFlick
-        x: root.vertical ? 0 : trayPill.padding
-        y: root.vertical ? trayPill.padding : 0
-        // What is left along the bar once the padding and the chevron have theirs.
-        readonly property real room: Math.max(0, (root.vertical ? parent.height : parent.width) - trayPill.padding
-          - (trayPill.compact ? trayPill.chevronLen + trayPill.spacingN : trayPill.padding))
-        width: root.vertical ? parent.width : room
-        height: root.vertical ? room : parent.height
-        contentWidth: root.vertical ? width : trayCol.implicitWidth
-        contentHeight: root.vertical ? trayCol.implicitHeight : height
-        interactive: root.vertical ? contentHeight > height + 0.5 : contentWidth > width + 0.5
-        clip: true
-
-        Grid {
-          id: trayCol
-          // Centred across the bar.
-          x: root.vertical ? Math.round((parent.width - width) / 2) : 0
-          y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
-          columns: root.vertical ? 1 : 1000
-          spacing: Tk.spacing.small
-          opacity: !trayPill.compact || trayPill.expanded ? 1 : 0
-          Behavior on opacity { Anim { type: "effects" } }
-
-          Repeater {
-            id: trayRep
-            model: trayPill.trayItems
-            MouseArea {
-              required property var modelData
-              implicitWidth: Tk.body.small * 2
-              implicitHeight: Tk.body.small * 2
-              acceptedButtons: Qt.LeftButton | Qt.RightButton
-              cursorShape: Qt.PointingHandCursor
-              onClicked: function(e) { if (e.button === Qt.LeftButton) modelData.activate(); else modelData.secondaryActivate() }
-              ColouredIcon {
-                anchors.fill: parent
-                visible: root.cfg.tray.recolour
-                colour: Colours.m3secondary
-                source: trayImg.source
-              }
-              Image {
-                id: trayImg
-                anchors.fill: parent
-                visible: !root.cfg.tray.recolour
-                source: {
-                  let icon = parent.modelData.icon
-                  if (icon.indexOf("?path=") >= 0) {
-                    const [name, path] = icon.split("?path=")
-                    icon = "file://" + path + "/" + name.slice(name.lastIndexOf("/") + 1)
-                  }
-                  return icon
-                }
-                sourceSize.width: width * 2
-                sourceSize.height: height * 2
-                smooth: true
-                mipmap: true
-              }
-              scale: 0
-              Component.onCompleted: scale = 1
-              Behavior on scale { Anim { easing.bezierCurve: Tk.curves.standardDecel } }
-            }
-          }
-        }
-      }
-
-      // Caelestia's expandIcon: one glyph, turned 180° when expanded.
-      MIcon {
-        id: expandTrayIcon
-        visible: trayPill.compact
-        // At the far end of the pill, centred across it.
-        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width + (trayPill.bg ? -Tk.padding.extraSmall : Tk.padding.small)
-        y: root.vertical ? parent.height - height + (trayPill.bg ? -Tk.padding.extraSmall : Tk.padding.small) : Math.round((parent.height - height) / 2)
-        text: root.vertical ? "expand_less" : "chevron_left"
-        size: Tk.iconSize.medium
-        color: Colours.m3onSurfaceVariant
-        rotation: trayPill.expanded ? 180 : 0
-        Behavior on rotation { Anim {} }
-        MouseArea {
-          anchors.fill: parent
-          cursorShape: Qt.PointingHandCursor
-          onClicked: { collapseTrayTimer.stop(); trayPill.expanded = !trayPill.expanded }
-        }
-      }
-    }
+    TrayEntry { id: trayPill; bar: root }
 
     // --------------------------------------------------------- clock
     ClockEntry { id: clockPill; bar: root }

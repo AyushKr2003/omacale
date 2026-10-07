@@ -172,3 +172,5 @@ LogoEntry 1.0 modules/bar/entries/LogoEntry.qml
 PowerEntry 1.0 modules/bar/entries/PowerEntry.qml
 ClockEntry 1.0 modules/bar/entries/ClockEntry.qml
 WorkspacesEntry 1.0 modules/bar/entries/WorkspacesEntry.qml
+ActiveWindowEntry 1.0 modules/bar/entries/ActiveWindowEntry.qml
+TrayEntry 1.0 modules/bar/entries/TrayEntry.qml
