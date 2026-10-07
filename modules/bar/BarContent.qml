@@ -62,7 +62,7 @@ Item {
   readonly property real flexMin: (trayPill.visible ? trayPill.collapsedLen : 0) + (pluginPlace.visible ? pluginPill.minLen : 0)
   // Both worked out whether or not they are shown, so hiding one can't
   // bring it straight back.
-  readonly property real calendarLen: cfg.clock.enabled && cfg.clock.showIcon ? (vertical ? calIcon.implicitHeight + clockCol.spacing : calIconH.implicitWidth + clockRow.spacing) : 0
+  readonly property real calendarLen: clockPill.calendarLen
   // Set a tick late rather than bound: the clock's size, and so
   // fixedLen, reads the icon's visibility, which reads this.
   property bool calendarFits: true
@@ -121,9 +121,8 @@ Item {
       if (item && item.visible && item.width > 0 && item.height > 0)
         out.push(Object.assign({ item: item, act: act }, extra || {}))
     }
-    if (cfg.logo) add(logo, () => root.leaveFor("launcher"))
-    for (const ws of workspaces.navItems())
-      add(ws, () => root.scope.switchWorkspace(ws.wsId), { kind: "workspace", wsId: ws.wsId })
+    for (const s of logoRow.navStops()) add(s.item, s.act, s)
+    for (const s of workspaces.navStops()) add(s.item, s.act, s)
     if (activeWin.visible && Sys.activeToplevel)
       add(activeWin, () => root.scope.openPopoutKeys("activewindow"))
     if (pluginPill.visible && pluginPill.anyShown)
@@ -137,7 +136,7 @@ Item {
         const it = trayRep.itemAt(i)
         if (it) out.push({ item: it, kind: "tray", tray: it.modelData, act: () => it.modelData.activate() })
       }
-    if (clockPill.visible) add(clockPill, () => root.leaveFor("dashboard"))
+    for (const s of clockPill.navStops()) add(s.item, s.act, s)
     for (let i = 0; i < statusCol.children.length; i++) {
       const c = statusCol.children[i]
       if (!c.visible || c instanceof Repeater) continue
@@ -147,7 +146,7 @@ Item {
         if (area) add(c, () => { root.scope.barFocus = false; area.clicked(null) })
       }
     }
-    if (cfg.power) add(powerItem, () => root.leaveFor("session"))
+    for (const s of powerItem.navStops()) add(s.item, s.act, s)
     return out
   }
 
@@ -349,8 +348,7 @@ Item {
   }
 
   function handleWheel(a, dy) {
-    const ws = pointAlong(pointOn(workspaces, a))
-    if (ws >= 0 && ws <= alen(workspaces)) { workspaces.scroll(dy); return }
+    if (workspaces.scrollAt(a, dy)) return
     if (trayPill.visible && scrollList(trayFlick, a, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
     // speaker tuning and show the OSD (Caelestia's sliders, once the OSD
@@ -360,6 +358,8 @@ Item {
     else if (cfg.scroll.brightness) Quickshell.execDetached(["omarchy-brightness-display", dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-"])
   }
 
+  // Shared by the clock entry (ClockEntry reads bar.sysClock).
+  property alias sysClock: clock
   SystemClock { id: clock; precision: root.cfg.clock.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }
   PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
@@ -381,40 +381,10 @@ Item {
     // Full-width row so the icon is centred with a rounded x: the bar is an
     // even width and the slot odd, so AlignHCenter would put it on a half
     // pixel and blur it.
-    Item {
-      id: logoRow
-      visible: root.cfg.logo
-      Layout.fillWidth: root.vertical
-      Layout.fillHeight: !root.vertical
-      implicitWidth: root.vertical ? 0 : Tk.barInner
-      implicitHeight: root.vertical ? logo.height : 0
-      LogoIcon {
-        id: logo
-        x: Math.round((parent.width - width) / 2)
-        y: root.vertical ? 0 : Math.round((parent.height - height) / 2)
-        width: Math.round(Tk.body.large * 1.2)
-        height: width
-        value: root.cfg.logoIcon
-        size: width
-        colour: Colours.m3tertiary
-      }
-      MouseArea {
-        anchors.fill: logo
-        anchors.margins: -Tk.px(4)
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: e => root.host.toggle(e.button === Qt.RightButton ? "settings" : "launcher")
-      }
-    }
+    LogoEntry { id: logoRow; bar: root }
 
     // ---------------------------------------------------- workspaces
-    Workspaces {
-      id: workspaces
-      Layout.alignment: root.crossAlign
-      vertical: root.vertical
-      screen: root.screen
-      iconsFit: root.windowIconsFit
-    }
+    WorkspacesEntry { id: workspaces; bar: root }
 
     // ------------------------------------------ active window (centred)
     Item {
@@ -655,123 +625,7 @@ Item {
     }
 
     // --------------------------------------------------------- clock
-    Rectangle {
-      id: clockPill
-      visible: root.cfg.clock.enabled
-      Layout.alignment: root.crossAlign
-      readonly property real pad: root.cfg.clock.background ? Tk.padding.medium : Tk.padding.extraSmall
-      implicitWidth: root.vertical ? Tk.barInner : clockRow.implicitWidth + pad * 2
-      implicitHeight: root.vertical ? clockCol.implicitHeight + pad * 2 : Tk.barInner
-      radius: (root.vertical ? width : height) / 2
-      color: root.cfg.clock.background ? Colours.m3surfaceContainer : "transparent"
-      readonly property bool h12: Sys.h12
-      MouseArea {
-        anchors.fill: parent
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: e => {
-          if (e.button === Qt.RightButton) root.host.toggle("sidebar")
-          else root.host.toggle("dashboard")
-        }
-      }
-      // Caelestia bar/components/Clock.qml: body.small x1.1 digits, squeezed
-      // or stretched on the width axis so hours and minutes line up.
-      // Caelestia KDE's horizontal clock (bar/components/Clock.qml): the icon,
-      // the date, then hours:minutes on one line.
-      RowLayout {
-        id: clockRow
-        anchors.centerIn: parent
-        visible: !root.vertical
-        spacing: Tk.spacing.extraSmall
-        MIcon {
-          id: calIconH
-          visible: root.calIconShown
-          Layout.alignment: Qt.AlignVCenter
-          text: "calendar_month"
-          color: Colours.m3tertiary
-        }
-        // Day and date, a faint tertiary divider, then hours, colon and
-        // minutes as separate texts spacing.extraSmall apart, as KDE's are.
-        MText { visible: root.cfg.clock.showDate; Layout.alignment: Qt.AlignVCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small; color: Colours.m3tertiary }
-        MText { visible: root.cfg.clock.showDate; Layout.alignment: Qt.AlignVCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: Tk.body.small; color: Colours.m3tertiary }
-        Rectangle {
-          visible: root.cfg.clock.showDate
-          Layout.alignment: Qt.AlignVCenter
-          implicitWidth: 1
-          implicitHeight: Tk.px(16)
-          color: Colours.m3tertiary
-          opacity: 0.2
-        }
-        MText { Layout.alignment: Qt.AlignVCenter; text: Sys.hour(clock.date); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
-        MText { Layout.alignment: Qt.AlignVCenter; text: ":"; font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
-        MText { Layout.alignment: Qt.AlignVCenter; text: Qt.formatTime(clock.date, "mm"); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
-        MText { visible: root.cfg.clock.showSeconds; Layout.alignment: Qt.AlignVCenter; text: ":" + Qt.formatTime(clock.date, "ss"); font.pointSize: Tk.body.small * 1.1; axes: ({ "ROND": 25 }); color: Colours.m3tertiary }
-        MText {
-          visible: clockPill.h12
-          Layout.alignment: Qt.AlignVCenter
-          text: Qt.formatTime(clock.date, "AP").toLowerCase()
-          font.pointSize: Tk.body.small * 0.9
-          color: Colours.m3tertiary
-        }
-      }
-
-      ColumnLayout {
-        id: clockCol
-        anchors.centerIn: parent
-        visible: root.vertical
-        spacing: Tk.spacing.extraSmall
-        readonly property real size: Tk.body.small * 1.1
-        function fit(text, metricWidth) {
-          return text === "11" ? 1.15 : Math.min(1.05, Math.max(hourMetrics.width, minMetrics.width) / Math.max(1, metricWidth))
-        }
-        TextMetrics { id: hourMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Sys.hour(clock.date) }
-        TextMetrics { id: minMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Qt.formatTime(clock.date, "mm") }
-        TextMetrics { id: secMetrics; font.family: Tk.sans; font.pointSize: clockCol.size; text: Qt.formatTime(clock.date, "ss") }
-        component Digits: MText {
-          property real metricWidth
-          readonly property real fitScale: clockCol.fit(text, metricWidth)
-          Layout.alignment: Qt.AlignHCenter
-          font.pointSize: clockCol.size
-          font.letterSpacing: fitScale
-          axes: ({ "ROND": 25, "wdth": fitScale * 100 })
-          color: Colours.m3tertiary
-        }
-        MIcon {
-          id: calIcon
-          visible: root.calIconShown
-          Layout.alignment: Qt.AlignHCenter
-          text: "calendar_month"
-          color: Colours.m3tertiary
-        }
-        ColumnLayout {
-          visible: root.cfg.clock.showDate
-          Layout.alignment: Qt.AlignHCenter
-          spacing: clockCol.spacing - Tk.px(4)
-          MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "ddd"); font.pointSize: Tk.body.small * 0.9; color: Colours.m3tertiary }
-          MText { Layout.alignment: Qt.AlignHCenter; text: Qt.formatDate(clock.date, "d"); font.pointSize: clockCol.size * 1.1; color: Colours.m3tertiary }
-          Rectangle {
-            Layout.fillWidth: true
-            Layout.leftMargin: -Tk.padding.extraSmall
-            Layout.rightMargin: -Tk.padding.extraSmall
-            Layout.topMargin: Tk.px(4)
-            Layout.bottomMargin: Tk.padding.extraSmall / 2
-            implicitHeight: 1
-            color: Colours.m3outlineVariant
-          }
-        }
-        Digits { text: Sys.hour(clock.date); metricWidth: hourMetrics.width }
-        Digits { Layout.topMargin: -clockCol.spacing - 4; text: Qt.formatTime(clock.date, "mm"); metricWidth: minMetrics.width }
-        Digits { visible: root.cfg.clock.showSeconds; Layout.topMargin: -clockCol.spacing - 4; text: Qt.formatTime(clock.date, "ss"); metricWidth: secMetrics.width }
-        MText {
-          visible: parent.parent.h12
-          Layout.alignment: Qt.AlignHCenter
-          Layout.topMargin: -clockCol.spacing - Tk.px(4)
-          text: Qt.formatTime(clock.date, "AP").toLowerCase()
-          font.pointSize: Tk.body.small * 0.9
-          color: Colours.m3tertiary
-        }
-      }
-    }
+    ClockEntry { id: clockPill; bar: root }
 
     // --------------------------------------------------- status icons
     Rectangle {
@@ -1029,28 +883,7 @@ Item {
       }
     }
 
-    // --------------------------------------------------------- power
-    Item {
-      id: powerItem
-      visible: root.cfg.power
-      Layout.alignment: root.crossAlign
-      implicitWidth: powerIcon.implicitHeight + Tk.padding.small
-      implicitHeight: powerIcon.implicitHeight
-      Item {
-        anchors.centerIn: parent
-        width: powerIcon.implicitHeight + Tk.padding.small
-        height: width
-        property real radius: width / 2
-        StateLayer { onClicked: root.host.toggle("session") }
-      }
-      MIcon {
-        id: powerIcon
-        anchors.centerIn: parent
-        text: "power_settings_new"
-        color: Colours.m3error
-        weight: 700
-      }
-    }
+    PowerEntry { id: powerItem; bar: root }
   }
 
   // Dedicated Caelestia pill for 3rd-party bar widgets (installed in
