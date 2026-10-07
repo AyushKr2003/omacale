@@ -231,6 +231,24 @@ QtObject {
         property bool vimKeybinds: false
         property int dragThreshold: 30
         property string sleepAction: "hibernate"
+        property string menu: "omacale"
+        property real gifSpeed: 0.7
+        property string gifPath: ""
+        property bool extraButtons: true
+        property JsonObject icons: JsonObject {
+          property string logout: ""
+          property string shutdown: ""
+          property string hibernate: ""
+          property string reboot: ""
+        }
+        property JsonObject commands: JsonObject {
+          property string logout: ""
+          property string shutdown: ""
+          property string hibernate: ""
+          property string reboot: ""
+          property string lock: ""
+          property string screensaver: ""
+        }
       }
       property JsonObject overview: JsonObject {
         property bool enabled: true

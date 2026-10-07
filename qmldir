@@ -177,3 +177,4 @@ TrayEntry 1.0 modules/bar/entries/TrayEntry.qml
 StatusRun 1.0 modules/bar/entries/StatusRun.qml
 PluginsEntry 1.0 modules/bar/entries/PluginsEntry.qml
 SinglePluginEntry 1.0 modules/bar/entries/SinglePluginEntry.qml
+SessionPicture 1.0 modules/settings/cards/SessionPicture.qml

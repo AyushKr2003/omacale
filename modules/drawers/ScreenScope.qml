@@ -452,6 +452,29 @@ Scope {
     onAccepted: path => faceCopy.copy(path)
   }
 
+  // A file for a Settings page (Settings.fileRequested). The drawer gives way
+  // while the dialog is up, as the dashboard does for the face picker, and
+  // comes back on the same page; the Settings window just stays.
+  property var filePick: null
+  property bool fileReopen: false
+  function requestFile(title, filters, pick, fromDrawer) {
+    filePick = pick
+    fileReopen = fromDrawer
+    filePicker.title = title
+    filePicker.filters = filters
+    if (fromDrawer) settings = false
+    filePicker.open()
+  }
+  FileDialog {
+    id: filePicker
+    filterLabel: "Image files"
+    onAccepted: path => { if (scope.filePick) scope.filePick(path); scope.filePick = null; if (scope.fileReopen) fileReopenTimer.start() }
+    onRejected: { scope.filePick = null; if (scope.fileReopen) fileReopenTimer.start() }
+  }
+  // A beat after the dialog's window goes: Hyprland hands the keyboard back as
+  // it closes, which would clear the drawer's focus grab and close it again.
+  Timer { id: fileReopenTimer; interval: 300; onTriggered: scope.settings = true }
+
   Process {
     id: faceCopy
     property string src: ""
@@ -497,6 +520,7 @@ Scope {
         screenHeight: scope.screen.height
         version: scope.host.version
         onCloseRequested: scope.settingsWindow = false
+        onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, false)
       }
     }
   }
@@ -1524,6 +1548,7 @@ Scope {
             version: scope.host.version
             onCloseRequested: scope.settings = false
             onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
+            onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, true)
             keyHook: e => screenScope.drawerKey(e)
             pageId: scope.nexusPage
             stack: scope.nexusStack

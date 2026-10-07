@@ -378,13 +378,31 @@ var subpages = {
     title: "Session",
     rows: [
       { type: "toggle", key: "session.enabled", label: "Enabled" },
+      { type: "select", key: "session.menu", label: "Menu", subtext: "What the session key opens (Settings › Keybinds has the optional Super+Esc and power-key binds)", options: [
+        { value: "omacale", label: "Omacale session", icon: "power_settings_new" },
+        { value: "omarchy", label: "Omarchy menu", icon: "menu" }
+      ] },
+      { type: "toggle", key: "session.extraButtons", label: "Lock & screensaver", subtext: "Two small buttons under the four, so the drawer offers everything Omarchy's System menu does" },
       { type: "toggle", key: "session.gif", label: "Animation", subtext: "Show the spinning character between the buttons" },
+      { type: "custom", comp: "sessionPicture", when: { key: "session.gif", value: true } },
+      { type: "slider", key: "session.gifSpeed", when: { key: "session.gif", value: true }, label: "Animation speed", icon: "speed", from: 0.1, to: 2, step: 0.05, unit: "x", commit: "release" },
       { type: "toggle", key: "session.vimKeybinds", label: "Vim keybinds", subtext: "Move between buttons with Ctrl+J / Ctrl+K" },
       { type: "stepper", key: "session.dragThreshold", label: "Drag threshold", subtext: "Pixels dragged in from the right edge before it opens", from: 10, to: 200, step: 5 },
-      { type: "select", key: "session.sleepAction", label: "Third button", subtext: "What the download-arrow button does", options: [
+      { type: "select", key: "session.sleepAction", label: "Third button", subtext: "What the download-arrow button does. Falls back to the other one when Omarchy says yours is unavailable, and folds away when neither is", options: [
         { value: "hibernate", label: "Hibernate", icon: "downloading" },
         { value: "suspend", label: "Suspend", icon: "bedtime" }
-      ] }
+      ] },
+      { type: "section", text: "Buttons" },
+      { type: "text", key: "session.icons.logout", label: "Logout icon", subtext: "A Material Symbols name", placeholder: "logout" },
+      { type: "text", key: "session.icons.shutdown", label: "Shutdown icon", placeholder: "power_settings_new" },
+      { type: "text", key: "session.icons.hibernate", label: "Sleep icon", placeholder: "follows the third button" },
+      { type: "text", key: "session.icons.reboot", label: "Reboot icon", placeholder: "cached" },
+      { type: "text", key: "session.commands.logout", label: "Logout command", subtext: "Empty runs Omarchy's", placeholder: "omarchy system logout" },
+      { type: "text", key: "session.commands.shutdown", label: "Shutdown command", placeholder: "omarchy system shutdown" },
+      { type: "text", key: "session.commands.hibernate", label: "Sleep command", subtext: "Set, it always runs as it is", placeholder: "Omarchy's suspend / hibernate" },
+      { type: "text", key: "session.commands.reboot", label: "Reboot command", placeholder: "omarchy system reboot" },
+      { type: "text", key: "session.commands.lock", label: "Lock command", placeholder: "omarchy-system-lock" },
+      { type: "text", key: "session.commands.screensaver", label: "Screensaver command", placeholder: "omarchy-launch-screensaver force" }
     ]
   },
   lock: {

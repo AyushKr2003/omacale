@@ -18,6 +18,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
 - **OSD**: Caelestia's sliders slide out of the right edge when you change the volume or brightness, or when you hover there, and every other Omarchy OSD (media, microphone, keyboard backlight, input devices, power, app launches) shows as a Caelestia toast.
 - **Status toasts**: Caelestia's small toasts above the utilities corner for do not disturb, game mode, the charger, and audio device changes (Settings › Notifications › Toasts).
+- **Session menu**: Caelestia's drawer with your own icons, commands and picture, Omarchy's suspend/hibernate checks, plus Lock and Screensaver; optional binds make Super+Esc and the power key open it (falling back to Omarchy's System menu when locked or when Omacale isn't running).
 - **Workspace overview** with live previews and drag-and-drop.
 - **Lock screen**: Caelestia's design on top of Omarchy's own lock and PAM.
 - **Desktop clock and audio visualiser** (optional).
@@ -158,6 +159,7 @@ scripts/osd-handover <status|install|remove|health>
 rsync -a --exclude .git ./ ~/.config/omarchy/plugins/omacale.bar/ && omarchy-restart-shell
 bash tests/test-restore.sh                                               # test suite
 node tests/test-layout.js                                                # bar layout model tests
+node tests/test-binds.js                                                 # keybinds.lua parser tests
 scripts/upstream-check                                                   # what changed in Omarchy since last verified
 ```
 
