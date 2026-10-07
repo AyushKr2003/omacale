@@ -6,6 +6,8 @@ import "../../.."
 Item {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "power"
   readonly property bool shown: bar.cfg.power
   visible: shown

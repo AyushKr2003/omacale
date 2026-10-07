@@ -12,6 +12,8 @@ import "../../.."
 Rectangle {
   id: run
   required property var bar
+  Component.onCompleted: bar.registerEntry(run)
+  Component.onDestruction: bar.unregisterEntry(run)
   // The status icons in this pill, in order (BarLayout.STATUS ids). Icons
   // next to each other in a bar section share one pill.
   property var ids: []

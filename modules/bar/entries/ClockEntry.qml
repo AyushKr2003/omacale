@@ -7,6 +7,8 @@ import "../../.."
 Rectangle {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "clock"
   readonly property bool shown: bar.cfg.clock.enabled
   visible: shown

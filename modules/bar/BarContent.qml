@@ -11,7 +11,12 @@ import "../.."
 import "../../core/BarLayout.js" as BarLayout
 
 // The Caelestia bar: logo, workspaces, active window, tray, clock, status
-// icons, power — in Caelestia's default order and metrics.
+// icons, power, in Caelestia's metrics. Where each sits is bar.layout
+// (core/BarLayout.js): a start, center and end section, Noctalia-style, whose
+// default is Caelestia's order. Every item is an entry (modules/bar/entries/)
+// with the same small interface; this file lays the sections out and walks
+// the entries in bar order for focus, popouts, hover, the wheel and the
+// space budget.
 Item {
   id: root
 
@@ -39,6 +44,61 @@ Item {
     return vertical ? item.mapToItem(root, 0, item.height / 2).y : item.mapToItem(root, item.width / 2, 0).x
   }
 
+  // ------------------------------------------------------------ layout
+  readonly property var widgetIds: (host.thirdPartyPlugins || []).map(e => host.entryId(e))
+  readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end }, widgetIds)
+  // The section models, replaced only when they really change, so a settings
+  // write that leaves the layout alone doesn't recreate every entry.
+  property var segs: ({ start: [], center: [], end: [] })
+  function updateSegs() {
+    const next = { start: BarLayout.segments(layout.start), center: BarLayout.segments(layout.center), end: BarLayout.segments(layout.end) }
+    if (JSON.stringify(next) !== JSON.stringify(segs)) segs = next
+  }
+  onLayoutChanged: updateSegs()
+  Component.onCompleted: updateSegs()
+  // The section holding the window title: it takes that section's free space.
+  readonly property string titleIn: layout.start.indexOf("activeWindow") >= 0 ? "start"
+    : layout.end.indexOf("activeWindow") >= 0 ? "end" : "center"
+
+  // Entries register as they are created. The items there is only one of are
+  // also looked up by id; layoutGen re-runs whatever depends on the set.
+  property var entryMap: ({})
+  property int layoutGen: 0
+  function registerEntry(e) {
+    if (e.entryId.indexOf(":") < 0) entryMap[e.entryId] = e
+    layoutGen++
+  }
+  function unregisterEntry(e) {
+    for (const k in entryMap) if (entryMap[k] === e) delete entryMap[k]
+    layoutGen++
+  }
+  function entryFor(id) { void layoutGen; return entryMap[id] || null }
+  readonly property var wsE: entryFor("workspaces")
+  readonly property var titleE: entryFor("activeWindow")
+  readonly property var trayE: entryFor("tray")
+  readonly property var pluginsE: entryFor("plugins")
+  readonly property var clockE: entryFor("clock")
+  // Every entry, in bar order: start, center, end, each in its own order.
+  function entries() {
+    void layoutGen
+    const out = []
+    for (const box of [startBox, centerBox, endBox])
+      for (let i = 0; i < box.rep.count; i++) {
+        const l = box.rep.itemAt(i)
+        if (l && l.item) out.push(l.item)
+      }
+    return out
+  }
+  // The first defined answer of `fn` over the entries, in bar order.
+  function ask(fn, ...args) {
+    for (const e of entries()) {
+      if (typeof e[fn] !== "function") continue
+      const r = e[fn](...args)
+      if (r !== undefined && r !== null) return r
+    }
+    return null
+  }
+
   // ------------------------------------------------------ space budget
   // The active window title is the bar's flexible space. The tray and the
   // plugins pill share what's left above its minimum, instead of each taking
@@ -52,42 +112,47 @@ Item {
   // power never shrink, so they are never pushed off the bottom.
   readonly property real titleMin: cfg.activeWindow.enabled ? Tk.barInner * 3 : Tk.barInner
   readonly property real fixedLen: {
-    const rows = [logoRow, workspaces, titleArea, pluginPlace, trayPill, clockPill, statusPill, powerItem]
-    const n = rows.filter(r => r.visible).length
-    return (logoRow.visible ? along(logoRow) : 0) + workspaces.bareSize
-      + (clockPill.visible ? along(clockPill) : 0) - (calIconShown ? calendarLen : 0)
-      + (statusPill.visible ? along(statusPill) : 0) + (powerItem.visible ? along(powerItem) : 0)
-      + gap * Math.max(0, n - 1)
+    let len = 0, n = 0
+    for (const e of entries()) {
+      if (!e.shown) continue
+      n++
+      if (e === wsE) len += e.bareSize
+      else if (e === clockE) len += along(e) - (calIconShown ? calendarLen : 0)
+      else if (e !== titleE && e !== trayE && e !== pluginsE) len += along(e)
+    }
+    // Gaps between the entries of a section, and between the sections.
+    const boxes = [startBox, centerBox, endBox].filter(b => b.visible).length
+    return len + gap * Math.max(0, n - boxes) + gap * Math.max(0, boxes - 1)
   }
   readonly property real flexRoom: alen(col) - fixedLen - titleMin
-  readonly property real flexMin: (trayPill.visible ? trayPill.collapsedLen : 0) + (pluginPlace.visible ? pluginPill.minLen : 0)
+  readonly property real flexMin: (trayE && trayE.visible ? trayE.collapsedLen : 0) + (pluginsE && pluginsE.visible ? pluginsE.pill.minLen : 0)
   // Both worked out whether or not they are shown, so hiding one can't
   // bring it straight back.
-  readonly property real calendarLen: clockPill.calendarLen
+  readonly property real calendarLen: clockE ? clockE.calendarLen : 0
   // Set a tick late rather than bound: the clock's size, and so
   // fixedLen, reads the icon's visibility, which reads this.
   property bool calendarFits: true
   readonly property bool calIconShown: cfg.clock.showIcon && calendarFits
-  function refitCalendar() { calendarFits = flexRoom - flexMin >= calendarLen + workspaces.iconsSize }
+  readonly property real wsIconsSize: wsE ? wsE.iconsSize : 0
+  function refitCalendar() { calendarFits = flexRoom - flexMin >= calendarLen + wsIconsSize }
   onFlexRoomChanged: Qt.callLater(refitCalendar)
   onFlexMinChanged: Qt.callLater(refitCalendar)
   onCalendarLenChanged: Qt.callLater(refitCalendar)
-  Connections { target: workspaces; function onIconsSizeChanged() { Qt.callLater(root.refitCalendar) } }
-  readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= workspaces.iconsSize
-  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? workspaces.iconsSize : 0))
-  readonly property bool trayOverBudget: trayPill.visible && trayPill.fullLen + pluginPill.collapsedLen > budget
+  onWsIconsSizeChanged: Qt.callLater(refitCalendar)
+  readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= wsIconsSize
+  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
+  readonly property bool trayOverBudget: !!trayE && trayE.visible && trayE.fullLen + (pluginsE ? pluginsE.pill.collapsedLen : 0) > budget
   // The plugin pill's length along the bar, for the tray's expanded cap.
-  readonly property real pluginLen: along(pluginPill)
-  readonly property Item pluginPill: pluginPlace.pill
+  readonly property real pluginLen: pluginsE ? along(pluginsE.pill) : 0
   property alias overlay: overlay
   // A status icon's length along the bar: one cell, for the plugin pills.
   readonly property real cellLen: vertical ? cellRef.implicitHeight : cellRef.implicitWidth
   MIcon { id: cellRef; visible: false; text: "extension" }
-  readonly property real trayReserve: !trayPill.visible ? 0 : trayPill.compact ? trayPill.collapsedLen : trayPill.fullLen
+  readonly property real trayReserve: !trayE || !trayE.visible ? 0 : trayE.compact ? trayE.collapsedLen : trayE.fullLen
 
   // Popout lookup for a position `a` along the bar (Caelestia Bar.checkPopout).
   function popoutAt(a) {
-    return statusPill.popoutAt(a) || trayPill.popoutAt(a) || titleArea.popoutAt(a)
+    return ask("popoutAt", a)
   }
 
   // ------------------------------------------------------ bar focus
@@ -109,14 +174,15 @@ Item {
       if (item && item.visible && item.width > 0 && item.height > 0)
         out.push(Object.assign({ item: item, act: act }, extra || {}))
     }
-    for (const s of logoRow.navStops()) add(s.item, s.act, s)
-    for (const s of workspaces.navStops()) add(s.item, s.act, s)
-    for (const s of titleArea.navStops()) add(s.item, s.act, s)
-    for (const s of pluginPlace.navStops()) out.push(s)
-    for (const s of trayPill.navStops()) out.push(s)
-    for (const s of clockPill.navStops()) add(s.item, s.act, s)
-    for (const s of statusPill.navStops()) add(s.item, s.act, s)
-    for (const s of powerItem.navStops()) add(s.item, s.act, s)
+    for (const e of entries()) {
+      if (typeof e.navStops !== "function" || !e.shown) continue
+      // Tray items and hosted widgets are cells of their pill, listed as they
+      // are; everything else only while it has a size on the bar.
+      for (const s of e.navStops()) {
+        if (s.kind === "tray" || s.kind === "plugin") out.push(s)
+        else add(s.item, s.act, s)
+      }
+    }
     return out
   }
 
@@ -125,8 +191,8 @@ Item {
     cursorStop = s
     cursorIndex = i
     // The compact tray and the plugin overflow open while the cursor is in them.
-    trayPill.cursorMoved(s)
-    pluginPlace.cursorMoved(s)
+    for (const e of entries())
+      if (typeof e.cursorMoved === "function") e.cursorMoved(s)
   }
   function stepStop(d) {
     const stops = navStops()
@@ -139,7 +205,7 @@ Item {
   // The cursor starts on the workspace you are on.
   function startCursor() {
     const stops = navStops()
-    const i = Math.max(0, stops.findIndex(s => s.kind === "workspace" && s.wsId === workspaces.activeId))
+    const i = Math.max(0, stops.findIndex(s => s.kind === "workspace" && wsE && s.wsId === wsE.activeId))
     setStop(stops[i] || null, stops.length ? i : -1)
   }
   function takeKeys() { forceActiveFocus() }
@@ -183,7 +249,7 @@ Item {
     // 1..9: that workspace of the group on show.
     if (e.text >= "1" && e.text <= "9" && e.text.length === 1) {
       const n = Number(e.text)
-      if (n <= workspaces.shown) root.scope.switchWorkspace(workspaces.groupOffset + n)
+      if (root.wsE && n <= root.wsE.shown) root.scope.switchWorkspace(root.wsE.groupOffset + n)
       e.accepted = true
       return
     }
@@ -204,8 +270,10 @@ Item {
     property real end: 0
     // Where the target is now; re-read when anything above it moves.
     readonly property rect r: {
-      void (col.y + col.x + titleArea.height + titleArea.width + trayPill.height + trayPill.width
-        + pluginPill.height + pluginPill.width + statusPill.height + statusPill.width + workspaces.height + workspaces.width)
+      void (root.layoutGen + col.y + col.x + startBox.x + startBox.y + startBox.width + startBox.height
+        + centerBox.x + centerBox.y + centerBox.width + centerBox.height + endBox.x + endBox.y + endBox.width + endBox.height
+        + (root.pluginsE ? root.pluginsE.pill.width + root.pluginsE.pill.height : 0)
+        + (root.trayE ? root.trayE.width + root.trayE.height : 0))
       if (!target) return Qt.rect(0, 0, 0, 0)
       const p = target.mapToItem(root, 0, 0)
       return Qt.rect(p.x, p.y, target.width, target.height)
@@ -253,8 +321,10 @@ Item {
   // The microphone opens the same popout as the speaker, so it counts once.
   function statusPopouts() {
     const out = []
-    for (const p of statusPill.statusPopouts())
-      if (out.indexOf(p) < 0) out.push(p)
+    for (const e of entries())
+      if (typeof e.statusPopouts === "function")
+        for (const p of e.statusPopouts())
+          if (out.indexOf(p) < 0) out.push(p)
     return out
   }
 
@@ -262,11 +332,8 @@ Item {
   // or centred on the bar when the icon is hidden (a keyboard-layout popout
   // with the icon off still opens).
   function popoutCenterFor(name) {
-    for (const e of [trayPill, titleArea, statusPill]) {
-      const c = e.popoutCenterFor(name)
-      if (c !== undefined) return c
-    }
-    return vertical ? height / 2 : width / 2
+    const c = ask("popoutCenterFor", name)
+    return c !== null ? c : vertical ? height / 2 : width / 2
   }
 
   // Which collapsible group the pointer is over, from ScreenScope (Caelestia
@@ -274,12 +341,11 @@ Item {
   // handler inside the bar is no good: leaving the layer surface altogether
   // never reaches it, and the group would stay open.
   // Open while the pointer is on the group; ScreenScope drives this.
-  readonly property bool groupsExpanded: trayPill.expanded || pluginPill.expanded
+  readonly property bool groupsExpanded: (!!trayE && trayE.expanded) || (!!pluginsE && pluginsE.expanded)
 
   function hoverAt(a, onBar) {
-    trayPill.hoverAt(a, onBar)
-
-    pluginPlace.hoverAt(a, onBar)
+    for (const e of entries())
+      if (typeof e.hoverAt === "function") e.hoverAt(a, onBar)
   }
 
   // The drawers' MouseArea takes every wheel over the bar, so a capped tray
@@ -298,8 +364,8 @@ Item {
   }
 
   function handleWheel(a, dy) {
-    if (workspaces.scrollAt(a, dy)) return
-    if (trayPill.scrollAt(a, dy)) return
+    for (const e of entries())
+      if (typeof e.scrollAt === "function" && e.scrollAt(a, dy)) return
     // Omarchy's volume/brightness keys: they resolve the real sink behind a
     // speaker tuning and show the OSD (Caelestia's sliders, once the OSD
     // handover is in; Omarchy's own otherwise).
@@ -313,7 +379,82 @@ Item {
   SystemClock { id: clock; precision: root.cfg.clock.showSeconds ? SystemClock.Seconds : SystemClock.Minutes }
   PwObjectTracker { objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource] }
 
-  GridLayout {
+  // ------------------------------------------------------- sections
+  // Start sits at the start of the bar, end at its end. The window title
+  // (always somewhere: it holds the free space even with its text off) makes
+  // its section take the free space; any other center section is centred on
+  // the bar and shifted, never shrunk, so it doesn't overlap start or end.
+  // With the title in the center (the default) this is the old single column.
+  function natural(box) { return box.visible ? (vertical ? box.implicitHeight : box.implicitWidth) : 0 }
+  readonly property real sNat: natural(startBox)
+  readonly property real cNat: natural(centerBox)
+  readonly property real eNat: natural(endBox)
+  readonly property real lenAll: alen(col)
+  // Where what follows start may begin, and where what precedes end must stop.
+  readonly property real afterStart: startBox.visible ? sNat + gap : 0
+  readonly property real beforeEnd: endBox.visible ? lenAll - eNat - gap : lenAll
+  readonly property real centerPos: {
+    if (titleIn === "center") return afterStart
+    const lo = afterStart + (titleIn === "start" ? titleMin + gap : 0)
+    const hi = beforeEnd - cNat - (titleIn === "end" ? titleMin + gap : 0)
+    return Math.round(Math.max(lo, Math.min(hi, (lenAll - cNat) / 2)))
+  }
+  readonly property real centerLen: titleIn === "center" ? Math.max(0, beforeEnd - afterStart) : cNat
+  readonly property real startLen: titleIn !== "start" ? sNat
+    : Math.max(sNat, (centerBox.visible ? centerPos - gap : beforeEnd))
+  readonly property real endLen: titleIn !== "end" ? eNat
+    : Math.max(eNat, lenAll - (centerBox.visible ? centerPos + cNat + gap : afterStart))
+
+  // One section: its entries in order, one Loader each. A Loader is what the
+  // layout sees, so it takes its entry's own Layout settings.
+  component Section: GridLayout {
+    id: box
+    property var segList: []
+    property alias rep: srep
+    readonly property bool any: {
+      void root.layoutGen
+      for (let i = 0; i < srep.count; i++) {
+        const l = srep.itemAt(i)
+        if (l && l.item && l.item.shown) return true
+      }
+      return false
+    }
+    visible: any
+    columns: root.vertical ? 1 : -1
+    rows: root.vertical ? -1 : 1
+    flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
+    rowSpacing: root.gap
+    columnSpacing: root.gap
+    Repeater {
+      id: srep
+      model: box.segList
+      Loader {
+        required property var modelData
+        Layout.fillWidth: !!item && item.Layout.fillWidth
+        Layout.fillHeight: !!item && item.Layout.fillHeight
+        Layout.alignment: item ? item.Layout.alignment : 0
+        visible: !!item && item.shown
+        sourceComponent: root.entryComponent(modelData)
+        onLoaded: if (modelData.kind === "status") item.ids = modelData.ids
+      }
+    }
+  }
+  function entryComponent(seg) {
+    if (seg.kind === "status") return cStatus
+    if (seg.kind === "plugin") return null
+    return ({ logo: cLogo, workspaces: cWorkspaces, activeWindow: cActiveWindow, plugins: cPlugins,
+      tray: cTray, clock: cClock, power: cPower })[seg.id] || null
+  }
+  Component { id: cLogo; LogoEntry { bar: root } }
+  Component { id: cWorkspaces; WorkspacesEntry { bar: root } }
+  Component { id: cActiveWindow; ActiveWindowEntry { bar: root } }
+  Component { id: cPlugins; PluginsEntry { bar: root } }
+  Component { id: cTray; TrayEntry { bar: root } }
+  Component { id: cClock; ClockEntry { bar: root } }
+  Component { id: cStatus; StatusRun { bar: root } }
+  Component { id: cPower; PowerEntry { bar: root } }
+
+  Item {
     id: col
     anchors.fill: parent
     // Padded at its two ends along the bar.
@@ -321,41 +462,30 @@ Item {
     anchors.bottomMargin: root.vertical ? root.vPadding : 0
     anchors.leftMargin: root.vertical ? 0 : root.vPadding
     anchors.rightMargin: root.vertical ? 0 : root.vPadding
-    columns: root.vertical ? 1 : -1
-    rows: root.vertical ? -1 : 1
-    flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-    rowSpacing: root.gap
-    columnSpacing: root.gap
 
-    // ---------------------------------------------------------- logo
-    // Full-width row so the icon is centred with a rounded x: the bar is an
-    // even width and the slot odd, so AlignHCenter would put it on a half
-    // pixel and blur it.
-    LogoEntry { id: logoRow; bar: root }
-
-    // ---------------------------------------------------- workspaces
-    WorkspacesEntry { id: workspaces; bar: root }
-
-    // ------------------------------------------ active window (centred)
-    ActiveWindowEntry { id: titleArea; bar: root }
-
-    // --------------------------------------------------- plugins pill
-    PluginsEntry { id: pluginPlace; bar: root }
-
-    // ---------------------------------------------------------- tray
-    // Caelestia bar/components/Tray.qml: compact collapses the tray behind a
-    // chevron that hovering expands (Caelestia's Bar.checkPopout), and
-    // hiddenIcons drops items for good. Compact is also switched on by the
-    // shared space budget (see "space budget" below) when the tray doesn't fit.
-    TrayEntry { id: trayPill; bar: root }
-
-    // --------------------------------------------------------- clock
-    ClockEntry { id: clockPill; bar: root }
-
-    // --------------------------------------------------- status icons
-    StatusRun { id: statusPill; bar: root; ids: BarLayout.STATUS }
-
-    PowerEntry { id: powerItem; bar: root }
+    Section {
+      id: startBox
+      segList: root.segs.start
+      x: 0; y: 0
+      width: root.vertical ? col.width : root.startLen
+      height: root.vertical ? root.startLen : col.height
+    }
+    Section {
+      id: centerBox
+      segList: root.segs.center
+      x: root.vertical ? 0 : root.centerPos
+      y: root.vertical ? root.centerPos : 0
+      width: root.vertical ? col.width : root.centerLen
+      height: root.vertical ? root.centerLen : col.height
+    }
+    Section {
+      id: endBox
+      segList: root.segs.end
+      x: root.vertical ? 0 : col.width - root.endLen
+      y: root.vertical ? col.height - root.endLen : 0
+      width: root.vertical ? col.width : root.endLen
+      height: root.vertical ? root.endLen : col.height
+    }
   }
 
   // Drawn above the layout: pills that must not live inside a placeholder

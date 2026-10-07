@@ -9,6 +9,8 @@ import "../../.."
 Item {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "activeWindow"
   // Always there: it holds the free space even with the title switched off.
   readonly property bool shown: true

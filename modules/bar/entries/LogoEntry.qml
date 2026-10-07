@@ -9,6 +9,8 @@ import "../../.."
 Item {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "logo"
   readonly property bool shown: bar.cfg.logo
   visible: shown

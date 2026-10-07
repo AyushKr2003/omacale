@@ -11,6 +11,8 @@ import "../../.."
 Rectangle {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "tray"
   readonly property bool shown: bar.cfg.tray.enabled && trayItems.length > 0
   property alias flick: trayFlick

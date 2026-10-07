@@ -6,6 +6,8 @@ import "../../.."
 Workspaces {
   id: entry
   required property var bar
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "workspaces"
   readonly property bool shown: true
   Layout.alignment: bar.crossAlign

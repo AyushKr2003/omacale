@@ -21,6 +21,8 @@ import "../../.."
 Item {
   id: pluginsEntry
   required property var bar
+  Component.onCompleted: bar.registerEntry(pluginsEntry)
+  Component.onDestruction: bar.unregisterEntry(pluginsEntry)
   property string entryId: "plugins"
   property alias pill: pill
   readonly property bool shown: pill.visible && pill.anyShown
