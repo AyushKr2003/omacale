@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import ".."
+import "../core/BarLayout.js" as BarLayout
 
 // Settings › Plugins: every Omarchy shell plugin, built-in and third-party.
 // Omarchy is the engine: `omarchy plugin list --json` says what is enabled
@@ -73,6 +74,21 @@ QtObject {
     }
     Config.set("bar.plugins.enabled", on)
   }
+
+  // Settings › Taskbar › Layout. Resolved against the enabled bar widgets, so
+  // a widget that was disabled drops out of its place.
+  function barLayout() {
+    const l = Config.o.bar.layout
+    return BarLayout.resolve({ start: l.start, center: l.center, end: l.end }, barWidgets.map(p => p.id))
+  }
+  function setBarLayout(l) {
+    Config.set("bar.layout.start", l.start)
+    Config.set("bar.layout.center", l.center)
+    Config.set("bar.layout.end", l.end)
+  }
+  // A widget out of the plugin pill, on the bar on its own, and back.
+  function takeOutWidget(id) { setBarLayout(BarLayout.takeOut(barLayout(), id)) }
+  function putBackWidget(id) { setBarLayout(BarLayout.putBack(barLayout(), id)) }
 
   function setEnabled(id, on) {
     const p = byId(id)

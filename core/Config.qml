@@ -143,6 +143,15 @@ QtObject {
           // only its bar widget isn't made), like tray.hiddenIcons.
           property list<string> hidden: []
         }
+        // Which items sit in the bar's start, center and end sections, in
+        // order (core/BarLayout.js). Empty means the default order, so a
+        // fresh install writes nothing; a missing item is put back by
+        // BarLayout.resolve in its default place.
+        property JsonObject layout: JsonObject {
+          property list<string> start: []
+          property list<string> center: []
+          property list<string> end: []
+        }
         property JsonObject clock: JsonObject {
           property bool enabled: true
           property bool showIcon: true
