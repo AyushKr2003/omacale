@@ -42,7 +42,8 @@ Item {
     // Drawn on the bar's overlay, not in the layout: see the header.
     parent: bar.overlay
     readonly property var pluginsList: (bar.host.thirdPartyPlugins || [])
-      .filter(e => bar.cfg.plugins.hidden.indexOf(bar.host.entryId(e)) < 0)
+      .filter(e => bar.cfg.plugins.hidden.indexOf(bar.host.entryId(e)) < 0
+        && bar.placedWidgets.indexOf(bar.host.entryId(e)) < 0)
     readonly property var unpinned: bar.cfg.plugins.unpinned
     // The padding at each end of the list, along the bar.
     readonly property real endPad: Tk.padding.medium
@@ -187,7 +188,7 @@ Item {
     for (let i = 0; i < pluginRep.count; i++) {
       const slot = pluginRep.itemAt(i)
       if (slot && slot.shown && slot.activeItem)
-        out.push({ item: slot, kind: "plugin", act: () => bar.openPlugin(slot) })
+        out.push({ item: slot, kind: "plugin", group: pill, act: () => bar.openPlugin(slot) })
     }
     return out
   }
@@ -200,7 +201,7 @@ Item {
   }
   // The overflow opens while the bar focus cursor is in the pill.
   function cursorMoved(s) {
-    if (!!s && s.kind === "plugin") { collapsePluginsTimer.stop(); if (pill.overflowCount > 0) pill.expanded = true }
+    if (!!s && s.group === pill) { collapsePluginsTimer.stop(); if (pill.overflowCount > 0) pill.expanded = true }
     else if (pill.expanded) collapsePluginsTimer.restart()
   }
 }

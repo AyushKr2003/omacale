@@ -57,6 +57,9 @@ Item {
   onLayoutChanged: updateSegs()
   Component.onCompleted: updateSegs()
   // The section holding the window title: it takes that section's free space.
+  // Widgets with a place of their own in the layout; the plugin pill leaves them out.
+  readonly property var placedWidgets: BarLayout.SECTIONS.reduce((out, s) =>
+    out.concat(layout[s].filter(id => BarLayout.isPlugin(id)).map(id => BarLayout.pluginOf(id))), [])
   readonly property string titleIn: layout.start.indexOf("activeWindow") >= 0 ? "start"
     : layout.end.indexOf("activeWindow") >= 0 ? "end" : "center"
 
@@ -435,13 +438,16 @@ Item {
         Layout.alignment: item ? item.Layout.alignment : 0
         visible: !!item && item.shown
         sourceComponent: root.entryComponent(modelData)
-        onLoaded: if (modelData.kind === "status") item.ids = modelData.ids
+        onLoaded: {
+          if (modelData.kind === "status") item.ids = modelData.ids
+          else if (modelData.kind === "plugin") item.pluginId = modelData.pluginId
+        }
       }
     }
   }
   function entryComponent(seg) {
     if (seg.kind === "status") return cStatus
-    if (seg.kind === "plugin") return null
+    if (seg.kind === "plugin") return cSinglePlugin
     return ({ logo: cLogo, workspaces: cWorkspaces, activeWindow: cActiveWindow, plugins: cPlugins,
       tray: cTray, clock: cClock, power: cPower })[seg.id] || null
   }
@@ -453,6 +459,7 @@ Item {
   Component { id: cClock; ClockEntry { bar: root } }
   Component { id: cStatus; StatusRun { bar: root } }
   Component { id: cPower; PowerEntry { bar: root } }
+  Component { id: cSinglePlugin; SinglePluginEntry { bar: root } }
 
   Item {
     id: col
