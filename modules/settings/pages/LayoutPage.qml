@@ -98,7 +98,8 @@ Item {
     const gap = col.spacing
     if (!rows.length) {
       const s = sections[best]
-      lineY = s.emptyItem().mapToItem(root, 0, 0).y + s.emptyItem().height / 2
+      // Just above the empty section's hint, not through its text.
+      lineY = s.emptyItem().mapToItem(root, 0, 0).y - gap / 2 - 1
     } else if (i < rows.length) lineY = rows[i].mapToItem(root, 0, 0).y - gap / 2 - 1
     else { const r = rows[rows.length - 1]; lineY = r.mapToItem(root, 0, 0).y + r.height + gap / 2 - 1 }
   }
@@ -317,7 +318,8 @@ Item {
   // Where it will land.
   Rectangle {
     visible: root.dragId !== "" && root.dropList !== ""
-    z: 9
+    // Above the dragged row, which is under the pointer right where it lands.
+    z: 11
     x: Tk.padding.small
     width: root.width - Tk.padding.small * 2
     y: root.lineY
