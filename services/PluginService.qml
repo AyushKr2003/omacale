@@ -86,6 +86,17 @@ QtObject {
     Config.set("bar.layout.center", l.center)
     Config.set("bar.layout.end", l.end)
   }
+  // Settings › Taskbar › Layout's eye: the item's existing switch.
+  function itemShown(id) {
+    const it = BarLayout.ITEMS[id]
+    return !it || !it.key ? true : !!Config.get(it.key)
+  }
+  function setItemShown(id, on) {
+    const it = BarLayout.ITEMS[id]
+    if (!it || !it.key) return
+    if (it.key === "bar.plugins.enabled") setBarShown(on)
+    else Config.set(it.key, on)
+  }
   // A widget out of the plugin pill, on the bar on its own, and back.
   function takeOutWidget(id) { setBarLayout(BarLayout.takeOut(barLayout(), id)) }
   function putBackWidget(id) { setBarLayout(BarLayout.putBack(barLayout(), id)) }

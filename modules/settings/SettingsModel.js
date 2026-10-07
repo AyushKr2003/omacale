@@ -215,6 +215,7 @@ var subpages = {
       { type: "toggle", key: "bar.persistent", label: "Persistent", subtext: "Keep the bar visible at all times" },
       { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches its edge" },
       { type: "section", text: "Components" },
+      { type: "nav", icon: "dashboard_customize", label: "Layout", subtext: "Move anything in the bar: start, center or end", page: "barLayout" },
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
       { type: "nav", icon: "web_asset", label: "Active window", subtext: "Title display, popout", page: "activeWindow" },
       { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
@@ -293,6 +294,10 @@ var subpages = {
       { type: "section", text: "Icons" },
       { type: "custom", comp: "trayIcons" }
     ]
+  },
+  barLayout: {
+    title: "Layout",
+    rows: [ { type: "custom", comp: "barLayout" } ]
   },
   barPlugins: {
     title: "Bar plugins",
