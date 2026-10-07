@@ -218,7 +218,7 @@ var subpages = {
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
       { type: "nav", icon: "web_asset", label: "Active window", subtext: "Title display, popout", page: "activeWindow" },
       { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
-      { type: "nav", icon: "extension", label: "Plugins", subtext: "Which third-party widgets stay in the bar", page: "barPlugins" },
+      { type: "nav", icon: "extension", label: "Plugins", subtext: "Which third-party widgets show in the bar", page: "barPlugins" },
       { type: "nav", icon: "signal_cellular_alt", label: "Status icons", subtext: "Visible indicators", page: "status" },
       { type: "nav", icon: "schedule", label: "Clock", subtext: "Show or hide, date, icon, background", page: "clock" },
       { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the top; click opens the launcher" },

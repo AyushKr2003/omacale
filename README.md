@@ -21,7 +21,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Workspace overview** with live previews and drag-and-drop.
 - **Lock screen**: Caelestia's design on top of Omarchy's own lock and PAM.
 - **Desktop clock and audio visualiser** (optional).
-- **Plugin manager** and hosting for third-party Omarchy bar widgets.
+- **Plugin manager** and hosting for third-party Omarchy bar widgets. Each widget can be pinned, kept behind the plugin pill's chevron, or hidden from the bar (Settings › Taskbar › Plugins).
 - **Keyboard-driven**: every panel works with `h` `j` `k` `l`, Enter and Escape.
 - **Settings app** for everything above, applied live.
 - **UI scale**: follows Omarchy's font size (`[font] base-size` in `~/.config/omarchy/shell.toml`) or a size of your own, with separate text, padding, spacing and rounding scales. Unlike Caelestia, the drawers and bar scale with it too, so a smaller UI also takes less room. With `omacale.lua` loaded, Hyprland's gaps and window rounding follow as well: window corners stay concentric with the frame (window radius = frame radius − gap).
