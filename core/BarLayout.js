@@ -43,10 +43,14 @@ var ORDER = {
 function isPlugin(id) { return typeof id === "string" && id.indexOf("plugin:") === 0 }
 function pluginOf(id) { return id.slice(7) }
 
+// `removed` holds the built-ins taken off the bar (Settings › Taskbar › Layout's
+// "Not in the bar"); they stay off until added back.
 function defaults() {
-  return { start: ORDER.start.slice(), center: ORDER.center.slice(), end: ORDER.end.slice() }
+  return { start: ORDER.start.slice(), center: ORDER.center.slice(), end: ORDER.end.slice(), removed: [] }
 }
-function clone(l) { return { start: l.start.slice(), center: l.center.slice(), end: l.end.slice() } }
+function clone(l) {
+  return { start: l.start.slice(), center: l.center.slice(), end: l.end.slice(), removed: (l.removed || []).slice() }
+}
 function find(l, id) {
   for (var s = 0; s < SECTIONS.length; s++) {
     var i = l[SECTIONS[s]].indexOf(id)
@@ -64,21 +68,31 @@ function listOf(v) {
 
 // The saved layout, repaired: unknown ids, junk and duplicates dropped,
 // widgets that are no longer enabled bar widgets dropped, and every built-in
-// that is missing put back in its default section after its nearest default
-// predecessor there (so an item a later version adds lands where it belongs).
+// that is neither on the bar nor removed put back in its default section
+// after its nearest default predecessor there (so an item a later version
+// adds lands where it belongs). widgetIds null means the widget list isn't
+// known yet: every plugin entry is kept rather than lost on the next write.
 function resolve(saved, widgetIds) {
+  var known = widgetIds !== null && widgetIds !== undefined
   var widgets = listOf(widgetIds)
-  var out = { start: [], center: [], end: [] }
+  var out = { start: [], center: [], end: [], removed: [] }
   var seen = {}
   for (var s = 0; s < SECTIONS.length; s++) {
     var list = listOf(saved ? saved[SECTIONS[s]] : null)
     for (var i = 0; i < list.length; i++) {
       var id = list[i]
       if (typeof id !== "string" || seen[id]) continue
-      if (isPlugin(id) ? widgets.indexOf(pluginOf(id)) < 0 : !ITEMS.hasOwnProperty(id)) continue
+      if (isPlugin(id) ? known && widgets.indexOf(pluginOf(id)) < 0 : !ITEMS.hasOwnProperty(id)) continue
       seen[id] = true
       out[SECTIONS[s]].push(id)
     }
+  }
+  // Removed: built-ins only, and only while not on the bar.
+  var gone = listOf(saved ? saved.removed : null)
+  for (var r = 0; r < gone.length; r++) {
+    if (typeof gone[r] !== "string" || seen[gone[r]] || !ITEMS.hasOwnProperty(gone[r])) continue
+    seen[gone[r]] = true
+    out.removed.push(gone[r])
   }
   for (var t = 0; t < SECTIONS.length; t++) {
     var sec = SECTIONS[t], order = ORDER[sec]
@@ -112,26 +126,20 @@ function segments(list) {
   return out
 }
 
-// One step towards the start (dir -1) or the end (dir 1). At a section's
-// edge the item crosses into the neighbouring section, at its near end.
-function canMove(layout, id, dir) {
-  var f = find(layout, id)
-  if (!f) return false
-  var j = f.i + dir
-  if (j >= 0 && j < layout[f.sec].length) return true
-  var ns = SECTIONS.indexOf(f.sec) + dir
-  return ns >= 0 && ns < SECTIONS.length
-}
-function move(layout, id, dir) {
+// Put `id` in `target` (a section, or "removed" to take it off the bar) at
+// `index`, counted in the target as it is without the item. A widget's entry
+// placed into "removed" goes back to the plugin group instead.
+function place(layout, id, target, index) {
   var l = clone(layout)
-  if (!canMove(l, id, dir)) return l
-  var f = find(l, id), list = l[f.sec]
-  var inside = dir < 0 ? f.i > 0 : f.i < list.length - 1
-  list.splice(f.i, 1)
-  if (inside) { list.splice(f.i + dir, 0, id); return l }
-  var ns = SECTIONS[SECTIONS.indexOf(f.sec) + dir]
-  if (dir < 0) l[ns].push(id)
-  else l[ns].unshift(id)
+  var lists = SECTIONS.concat(["removed"])
+  for (var s = 0; s < lists.length; s++) {
+    var i = l[lists[s]].indexOf(id)
+    if (i >= 0) l[lists[s]].splice(i, 1)
+  }
+  if (target === "removed" && isPlugin(id)) return l
+  var list = l[target]
+  if (!list) return clone(layout)
+  list.splice(Math.max(0, Math.min(list.length, index)), 0, id)
   return l
 }
 
@@ -145,9 +153,7 @@ function takeOut(layout, pluginId) {
   return l
 }
 function putBack(layout, pluginId) {
-  var l = clone(layout), f = find(l, "plugin:" + pluginId)
-  if (f) l[f.sec].splice(f.i, 1)
-  return l
+  return place(layout, "plugin:" + pluginId, "removed", 0)
 }
 
 // The section whose free space the window title takes: where it is, while it

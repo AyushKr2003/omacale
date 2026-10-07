@@ -79,12 +79,16 @@ QtObject {
   // a widget that was disabled drops out of its place.
   function barLayout() {
     const l = Config.o.bar.layout
-    return BarLayout.resolve({ start: l.start, center: l.center, end: l.end }, barWidgets.map(p => p.id))
+    // Until `omarchy plugin list` has answered, the widget list is unknown:
+    // keep the saved widget places rather than drop them on the next write.
+    return BarLayout.resolve({ start: l.start, center: l.center, end: l.end, removed: l.removed },
+      loaded && !error ? barWidgets.map(p => p.id) : null)
   }
   function setBarLayout(l) {
     Config.set("bar.layout.start", l.start)
     Config.set("bar.layout.center", l.center)
     Config.set("bar.layout.end", l.end)
+    Config.set("bar.layout.removed", l.removed || [])
   }
   // Settings › Taskbar › Layout's eye: the item's existing switch.
   function itemShown(id) {

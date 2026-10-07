@@ -25,12 +25,16 @@ Rectangle {
   readonly property var st: bar.cfg.status
   // Set by the lock icon while it is still folding away.
   property bool lockShown: false
+  // Whether an icon is on show: the one rule for both the pill and each of
+  // its icons (`want`), so a pill can never be drawn with nothing in it.
   function on(id) {
     switch (id) {
     case "keepAwake": return st.keepAwake && IdleService.enabled
     case "update": return st.update && UpdateService.available
     case "recording": return RecordService.running
     case "lockStatus": return st.lockStatus && (bar.host.capsLock || bar.host.numLock || lockShown)
+    case "microphone": return st.microphone && (!st.microphoneInUseOnly || AudioService.capturing)
+    case "bluetooth": return st.bluetooth && (!st.bluetoothConnectedOnly || Bluetooth.devices.values.some(d => d.connected))
     default: return !!st[id]
     }
   }
@@ -76,7 +80,7 @@ Rectangle {
     // Keep awake indicator
   property Component c_keepAwake: Component {
       MIcon {
-        readonly property bool want: bar.cfg.status.keepAwake && IdleService.enabled
+        readonly property bool want: run.on("keepAwake")
         visible: want
         Layout.alignment: Qt.AlignCenter
         text: "coffee"
@@ -94,7 +98,7 @@ Rectangle {
   property Component c_update: Component {
       MIcon {
         readonly property string popout: "update"
-        readonly property bool want: bar.cfg.status.update && UpdateService.available
+        readonly property bool want: run.on("update")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -112,7 +116,7 @@ Rectangle {
     // Screen recording active indicator
   property Component c_recording: Component {
       MIcon {
-        readonly property bool want: RecordService.running
+        readonly property bool want: run.on("recording")
         visible: want
         Layout.alignment: Qt.AlignCenter
         text: "fiber_manual_record"
@@ -136,7 +140,7 @@ Rectangle {
     // has a target; filled with unread notifications, outlined when empty.
   property Component c_notifications: Component {
       MIcon {
-        readonly property bool want: bar.cfg.status.notifications
+        readonly property bool want: run.on("notifications")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -217,7 +221,7 @@ Rectangle {
         readonly property var sink: Pipewire.defaultAudioSink
         readonly property real vol: sink && sink.audio ? sink.audio.volume : 0
         readonly property bool muted: !sink || !sink.audio || sink.audio.muted
-        readonly property bool want: bar.cfg.status.audio
+        readonly property bool want: run.on("audio")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -235,7 +239,7 @@ Rectangle {
         readonly property bool muted: !src || !src.audio || src.audio.muted
         // "Only while recording" keeps it out of the way until an app
         // actually opens the microphone.
-        readonly property bool want: bar.cfg.status.microphone && (!bar.cfg.status.microphoneInUseOnly || AudioService.capturing)
+        readonly property bool want: run.on("microphone")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -252,7 +256,7 @@ Rectangle {
   property Component c_kbLayout: Component {
       MText {
         readonly property string popout: "kblayout"
-        readonly property bool want: bar.cfg.status.kbLayout
+        readonly property bool want: run.on("kbLayout")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -266,7 +270,7 @@ Rectangle {
   property Component c_network: Component {
       MIcon {
         readonly property string popout: "network"
-        readonly property bool want: bar.cfg.status.network
+        readonly property bool want: run.on("network")
         visible: want
         Layout.alignment: Qt.AlignCenter
         animate: true
@@ -279,7 +283,7 @@ Rectangle {
       GridLayout {
         readonly property string popout: "bluetooth"
         // "Only when connected" hides the idle bluetooth glyph.
-        readonly property bool want: bar.cfg.status.bluetooth && (!bar.cfg.status.bluetoothConnectedOnly || Bluetooth.devices.values.some(d => d.connected))
+        readonly property bool want: run.on("bluetooth")
         visible: want
         Layout.alignment: Qt.AlignCenter
         columns: bar.vertical ? 1 : -1
@@ -318,7 +322,7 @@ Rectangle {
   property Component c_battery: Component {
       MIcon {
         readonly property string popout: "battery"
-        readonly property bool want: bar.cfg.status.battery
+        readonly property bool want: run.on("battery")
         visible: want
         readonly property var dev: UPower.displayDevice
         readonly property bool laptop: dev && dev.isLaptopBattery

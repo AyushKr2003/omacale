@@ -151,6 +151,8 @@ QtObject {
           property list<string> start: []
           property list<string> center: []
           property list<string> end: []
+          // Built-ins taken off the bar ("Not in the bar"), kept off until added back.
+          property list<string> removed: []
         }
         property JsonObject clock: JsonObject {
           property bool enabled: true

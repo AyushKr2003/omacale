@@ -32,7 +32,7 @@ var values = {
     tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
     plugins: { enabled: true, compact: false, unpinned: [], hidden: [] },
     // Settings › Taskbar › Layout. Empty lists mean the default order (BarLayout.js).
-    layout: { start: [], center: [], end: [] },
+    layout: { start: [], center: [], end: [], removed: [] },
     clock: { enabled: true, showIcon: true, showDate: false, showSeconds: false, background: false },
     status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, update: true, notifications: true, bluetoothConnectedOnly: false, microphoneInUseOnly: false, kbLayout: false },
     popouts: { statusIcons: true, tray: true, activeWindow: true },

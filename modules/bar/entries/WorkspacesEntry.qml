@@ -9,7 +9,9 @@ Workspaces {
   Component.onCompleted: bar.registerEntry(entry)
   Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "workspaces"
-  readonly property bool shown: true
+  // No `shown` of its own: Workspaces' `shown` is the number of workspaces
+  // on show (at least 1), which already reads as shown, and redeclaring it
+  // here would hide that count from the bar focus digit keys.
   Layout.alignment: bar.crossAlign
   vertical: bar.vertical
   screen: bar.screen

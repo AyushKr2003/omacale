@@ -46,19 +46,24 @@ Item {
 
   // ------------------------------------------------------------ layout
   readonly property var widgetIds: (host.thirdPartyPlugins || []).map(e => host.entryId(e))
-  readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end }, widgetIds)
+  readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end, removed: cfg.layout.removed }, widgetIds)
   // The section models, replaced only when they really change, so a settings
   // write that leaves the layout alone doesn't recreate every entry.
   property var segs: ({ start: [], center: [], end: [] })
+  // Widgets with a place of their own in the layout; the plugin pill leaves
+  // them out. Kept, like segs, until its contents change: a new array would
+  // rebuild the pill's hosted widgets.
+  property var placedWidgets: []
   function updateSegs() {
     const next = { start: BarLayout.segments(layout.start), center: BarLayout.segments(layout.center), end: BarLayout.segments(layout.end) }
     if (JSON.stringify(next) !== JSON.stringify(segs)) segs = next
+    const placed = BarLayout.SECTIONS.reduce((out, s) =>
+      out.concat(layout[s].filter(id => BarLayout.isPlugin(id)).map(id => BarLayout.pluginOf(id))), [])
+    if (JSON.stringify(placed) !== JSON.stringify(placedWidgets)) placedWidgets = placed
   }
-  onLayoutChanged: updateSegs()
+  // A Settings edit writes each list in turn; settle on the result once.
+  onLayoutChanged: Qt.callLater(updateSegs)
   Component.onCompleted: updateSegs()
-  // Widgets with a place of their own in the layout; the plugin pill leaves them out.
-  readonly property var placedWidgets: BarLayout.SECTIONS.reduce((out, s) =>
-    out.concat(layout[s].filter(id => BarLayout.isPlugin(id)).map(id => BarLayout.pluginOf(id))), [])
   // The section whose free space the window title takes ("" while it is off).
   readonly property string titleIn: BarLayout.flexSection(layout, cfg.activeWindow.enabled)
 

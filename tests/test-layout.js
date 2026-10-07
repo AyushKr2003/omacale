@@ -4,7 +4,7 @@
 const fs = require("fs"), vm = require("vm"), path = require("path"), assert = require("assert")
 const src = fs.readFileSync(path.join(__dirname, "../core/BarLayout.js"), "utf8").replace(/^\.pragma.*$/m, "")
 const L = {}
-vm.runInNewContext(src + "\nthis.L = { SECTIONS, STATUS, ITEMS, defaults, resolve, segments, move, canMove, takeOut, putBack, sectionLabel, isPlugin, pluginOf, flexSection }", L)
+vm.runInNewContext(src + "\nthis.L = { SECTIONS, STATUS, ITEMS, defaults, resolve, segments, place, takeOut, putBack, sectionLabel, isPlugin, pluginOf, flexSection }", L)
 const B = L.L
 let failed = 0
 function test(name, fn) {
@@ -16,12 +16,12 @@ const eq = (a, b) => assert.deepStrictEqual(plain(a), plain(b))
 const DEF_END = ["plugins", "tray", "clock", "keepAwake", "update", "recording", "notifications", "lockStatus",
   "audio", "microphone", "kbLayout", "network", "bluetooth", "battery", "power"]
 
-test("defaults are today's order", () => eq(B.defaults(), { start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END }))
+test("defaults are today's order", () => eq(B.defaults(), { start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END, removed: [] }))
 test("nothing saved resolves to defaults", () => eq(B.resolve(undefined, []), B.defaults()))
 test("empty lists resolve to defaults", () => eq(B.resolve({ start: [], center: [], end: [] }, []), B.defaults()))
 test("a saved order is kept", () => {
   const saved = { start: ["logo", "workspaces", "network", "bluetooth"], center: ["clock"], end: ["activeWindow", "plugins", "tray",
-    "keepAwake", "update", "recording", "notifications", "lockStatus", "audio", "microphone", "kbLayout", "battery", "power"] }
+    "keepAwake", "update", "recording", "notifications", "lockStatus", "audio", "microphone", "kbLayout", "battery", "power"], removed: [] }
   eq(B.resolve(saved, []), saved)
 })
 test("unknown ids and junk are dropped", () => {
@@ -61,30 +61,6 @@ test("segments: a plugin entry splits a run", () => {
     { kind: "plugin", id: "plugin:x.y", pluginId: "x.y" },
     { kind: "status", id: "status:battery", ids: ["battery"] }])
 })
-test("move within a section", () => eq(B.move(B.defaults(), "workspaces", -1).start, ["workspaces", "logo"]))
-test("move up across into the previous section's end", () => {
-  const l = B.move(B.defaults(), "activeWindow", -1)
-  eq(l.start, ["logo", "workspaces", "activeWindow"]); eq(l.center, [])
-})
-test("move down across into the next section's start", () => {
-  const l = B.move(B.defaults(), "activeWindow", 1)
-  eq(l.center, []); eq(l.end[0], "activeWindow")
-})
-test("move into an empty section", () => {
-  let l = B.move(B.defaults(), "activeWindow", 1)        // center now empty
-  l = B.move(l, "workspaces", 1)                           // last of start -> start of center
-  eq(l.center, ["workspaces"])
-})
-test("no move past the very ends", () => {
-  eq(B.move(B.defaults(), "logo", -1), B.defaults())
-  eq(B.move(B.defaults(), "power", 1), B.defaults())
-  assert.strictEqual(B.canMove(B.defaults(), "logo", -1), false)
-  assert.strictEqual(B.canMove(B.defaults(), "power", 1), false)
-  assert.strictEqual(B.canMove(B.defaults(), "logo", 1), true)
-})
-test("move does not mutate its input", () => {
-  const d = B.defaults(); B.move(d, "workspaces", -1); eq(d, B.defaults())
-})
 test("takeOut puts the widget right after the plugin group", () => {
   const l = B.takeOut(B.defaults(), "x.y")
   eq(l.end.slice(0, 2), ["plugins", "plugin:x.y"])
@@ -102,11 +78,47 @@ test("every catalogue item has a section, label and icon", () => {
 
 test("the shown window title's section takes the free space", () => {
   assert.strictEqual(B.flexSection(B.defaults(), true), "center")
-  assert.strictEqual(B.flexSection(B.move(B.defaults(), "activeWindow", -1), true), "start")
-  assert.strictEqual(B.flexSection(B.move(B.defaults(), "activeWindow", 1), true), "end")
+  assert.strictEqual(B.flexSection(B.place(B.defaults(), "activeWindow", "start", 0), true), "start")
+  assert.strictEqual(B.flexSection(B.place(B.defaults(), "activeWindow", "end", 0), true), "end")
 })
 test("a hidden window title takes no space, so the center is centred", () => {
   assert.strictEqual(B.flexSection(B.defaults(), false), "")
+})
+
+test("place moves within a section", () => eq(B.place(B.defaults(), "workspaces", "start", 0).start, ["workspaces", "logo"]))
+test("place moves into another section at an index", () => {
+  const l = B.place(B.defaults(), "clock", "center", 0)
+  eq(l.center, ["clock", "activeWindow"]); assert.ok(l.end.indexOf("clock") < 0)
+})
+test("place clamps the index to the section", () => eq(B.place(B.defaults(), "logo", "end", 99).end.slice(-1), ["logo"]))
+test("place into removed takes the item off the bar", () => {
+  const l = B.place(B.defaults(), "battery", "removed", 0)
+  assert.ok(l.end.indexOf("battery") < 0); eq(l.removed, ["battery"])
+})
+test("place out of removed adds it back", () => {
+  const l = B.place(B.place(B.defaults(), "battery", "removed", 0), "battery", "start", 1)
+  eq(l.start, ["logo", "battery", "workspaces"]); eq(l.removed, [])
+})
+test("a plugin entry placed into removed goes back to its group", () => {
+  const l = B.place(B.takeOut(B.defaults(), "x.y"), "plugin:x.y", "removed", 0)
+  eq(l, B.defaults())
+})
+test("place does not mutate its input", () => { const d = B.defaults(); B.place(d, "logo", "end", 0); eq(d, B.defaults()) })
+test("removed items stay off the bar when the layout is repaired", () => {
+  const r = B.resolve({ start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END.filter(i => i !== "battery"), removed: ["battery"] }, [])
+  assert.ok(r.end.indexOf("battery") < 0); eq(r.removed, ["battery"])
+})
+test("removed keeps only known built-ins not also on the bar", () => {
+  const r = B.resolve({ start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END, removed: ["clock", "nope", "plugin:a.b", 5, "battery"] }, ["a.b"])
+  eq(r.removed, []); eq(r.end, DEF_END)
+})
+test("removing the window title leaves no flexible section", () => {
+  assert.strictEqual(B.flexSection(B.place(B.defaults(), "activeWindow", "removed", 0), true), "")
+})
+
+test("plugin entries are all kept while the widget list is unknown", () => {
+  const saved = { start: ["logo", "workspaces", "plugin:a.b"], center: ["activeWindow"], end: DEF_END, removed: [] }
+  eq(B.resolve(saved, null).start, ["logo", "workspaces", "plugin:a.b"])
 })
 
 console.log(failed ? `${failed} failed` : "all passed")
