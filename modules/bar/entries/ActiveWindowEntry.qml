@@ -12,8 +12,8 @@ Item {
   Component.onCompleted: bar.registerEntry(entry)
   Component.onDestruction: bar.unregisterEntry(entry)
   property string entryId: "activeWindow"
-  // Always there: it holds the free space even with the title switched off.
-  readonly property bool shown: true
+  // Switched off, it takes no room at all, and the center section is centred.
+  readonly property bool shown: bar.cfg.activeWindow.enabled
   property alias win: activeWin
   Layout.fillWidth: true
   Layout.fillHeight: true

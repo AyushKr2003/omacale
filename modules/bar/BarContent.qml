@@ -56,12 +56,11 @@ Item {
   }
   onLayoutChanged: updateSegs()
   Component.onCompleted: updateSegs()
-  // The section holding the window title: it takes that section's free space.
   // Widgets with a place of their own in the layout; the plugin pill leaves them out.
   readonly property var placedWidgets: BarLayout.SECTIONS.reduce((out, s) =>
     out.concat(layout[s].filter(id => BarLayout.isPlugin(id)).map(id => BarLayout.pluginOf(id))), [])
-  readonly property string titleIn: layout.start.indexOf("activeWindow") >= 0 ? "start"
-    : layout.end.indexOf("activeWindow") >= 0 ? "end" : "center"
+  // The section whose free space the window title takes ("" while it is off).
+  readonly property string titleIn: BarLayout.flexSection(layout, cfg.activeWindow.enabled)
 
   // Entries register as they are created. The items there is only one of are
   // also looked up by id; layoutGen re-runs whatever depends on the set.

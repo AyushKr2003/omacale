@@ -150,6 +150,16 @@ function putBack(layout, pluginId) {
   return l
 }
 
+// The section whose free space the window title takes: where it is, while it
+// is shown. With it switched off nothing takes the free space, so the center
+// section is centred on the bar.
+function flexSection(layout, titleShown) {
+  if (!titleShown) return ""
+  for (var s = 0; s < SECTIONS.length; s++)
+    if (layout[SECTIONS[s]].indexOf("activeWindow") >= 0) return SECTIONS[s]
+  return ""
+}
+
 function sectionLabel(section, vertical) {
   var names = vertical ? { start: "Top", center: "Middle", end: "Bottom" } : { start: "Left", center: "Center", end: "Right" }
   return names[section] || section

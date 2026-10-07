@@ -4,7 +4,7 @@
 const fs = require("fs"), vm = require("vm"), path = require("path"), assert = require("assert")
 const src = fs.readFileSync(path.join(__dirname, "../core/BarLayout.js"), "utf8").replace(/^\.pragma.*$/m, "")
 const L = {}
-vm.runInNewContext(src + "\nthis.L = { SECTIONS, STATUS, ITEMS, defaults, resolve, segments, move, canMove, takeOut, putBack, sectionLabel, isPlugin, pluginOf }", L)
+vm.runInNewContext(src + "\nthis.L = { SECTIONS, STATUS, ITEMS, defaults, resolve, segments, move, canMove, takeOut, putBack, sectionLabel, isPlugin, pluginOf, flexSection }", L)
 const B = L.L
 let failed = 0
 function test(name, fn) {
@@ -98,6 +98,15 @@ test("section labels follow the bar edge", () => {
 })
 test("every catalogue item has a section, label and icon", () => {
   for (const id in B.ITEMS) { const it = B.ITEMS[id]; assert.ok(it.section && it.label && it.icon, id) }
+})
+
+test("the shown window title's section takes the free space", () => {
+  assert.strictEqual(B.flexSection(B.defaults(), true), "center")
+  assert.strictEqual(B.flexSection(B.move(B.defaults(), "activeWindow", -1), true), "start")
+  assert.strictEqual(B.flexSection(B.move(B.defaults(), "activeWindow", 1), true), "end")
+})
+test("a hidden window title takes no space, so the center is centred", () => {
+  assert.strictEqual(B.flexSection(B.defaults(), false), "")
 })
 
 console.log(failed ? `${failed} failed` : "all passed")
