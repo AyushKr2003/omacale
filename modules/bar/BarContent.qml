@@ -8,6 +8,7 @@ import Quickshell.Services.UPower
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import "../.."
+import "../../core/BarLayout.js" as BarLayout
 
 // The Caelestia bar: logo, workspaces, active window, tray, clock, status
 // icons, power — in Caelestia's default order and metrics.
@@ -81,16 +82,7 @@ Item {
 
   // Popout lookup for a position `a` along the bar (Caelestia Bar.checkPopout).
   function popoutAt(a) {
-    const p = pointAlong(pointOn(statusCol, a))
-    if (cfg.popouts.statusIcons && p >= -statusPill.anchorsPad && p <= alen(statusCol) + statusPill.anchorsPad) {
-      for (let i = 0; i < statusCol.children.length; i++) {
-        const c = statusCol.children[i]
-        if (!c.visible || !c.popout) continue
-        if (p >= apos(c) - 3 && p <= apos(c) + alen(c) + 3)
-          return { name: c.popout, center: centreOf(c) }
-      }
-    }
-    return trayPill.popoutAt(a) || titleArea.popoutAt(a)
+    return statusPill.popoutAt(a) || trayPill.popoutAt(a) || titleArea.popoutAt(a)
   }
 
   // ------------------------------------------------------ bar focus
@@ -123,15 +115,7 @@ Item {
       }
     for (const s of trayPill.navStops()) out.push(s)
     for (const s of clockPill.navStops()) add(s.item, s.act, s)
-    for (let i = 0; i < statusCol.children.length; i++) {
-      const c = statusCol.children[i]
-      if (!c.visible || c instanceof Repeater) continue
-      if (c.popout && c.popout !== "update") add(c, () => root.scope.openPopoutKeys(c.popout))
-      else {
-        const area = [...c.children].find(k => k instanceof MouseArea)
-        if (area) add(c, () => { root.scope.barFocus = false; area.clicked(null) })
-      }
-    }
+    for (const s of statusPill.navStops()) add(s.item, s.act, s)
     for (const s of powerItem.navStops()) add(s.item, s.act, s)
     return out
   }
@@ -271,11 +255,8 @@ Item {
   // The microphone opens the same popout as the speaker, so it counts once.
   function statusPopouts() {
     const out = []
-    for (let i = 0; i < statusCol.children.length; i++) {
-      const c = statusCol.children[i]
-      if (c.visible && c.popout && out.indexOf(c.popout) < 0)
-        out.push(c.popout)
-    }
+    for (const p of statusPill.statusPopouts())
+      if (out.indexOf(p) < 0) out.push(p)
     return out
   }
 
@@ -283,14 +264,9 @@ Item {
   // or centred on the bar when the icon is hidden (a keyboard-layout popout
   // with the icon off still opens).
   function popoutCenterFor(name) {
-    for (const e of [trayPill, titleArea]) {
+    for (const e of [trayPill, titleArea, statusPill]) {
       const c = e.popoutCenterFor(name)
       if (c !== undefined) return c
-    }
-    for (let i = 0; i < statusCol.children.length; i++) {
-      const c = statusCol.children[i]
-      if (c.visible && c.popout === name)
-        return centreOf(c)
     }
     return vertical ? height / 2 : width / 2
   }
@@ -394,260 +370,7 @@ Item {
     ClockEntry { id: clockPill; bar: root }
 
     // --------------------------------------------------- status icons
-    Rectangle {
-      id: statusPill
-      readonly property int anchorsPad: Tk.padding.medium
-      // Not `statusCol.visibleChildren`: while the bar is hidden (fullscreen)
-      // every child reads invisible, the pill hides, and its children then
-      // stay invisible for good, so the pill never came back.
-      readonly property var st: root.cfg.status
-      visible: (st.keepAwake && IdleService.enabled) || (st.update && UpdateService.available)
-        || RecordService.running || st.notifications
-        || (st.lockStatus && (root.host.capsLock || root.host.numLock || lockStatus.visible))
-        || st.audio || st.microphone || st.kbLayout || st.network || st.bluetooth || st.battery
-      Layout.alignment: root.crossAlign
-      implicitWidth: root.vertical ? Tk.barInner : statusCol.implicitWidth + Tk.padding.medium * 2
-      implicitHeight: root.vertical ? statusCol.implicitHeight + Tk.padding.medium * 2 : Tk.barInner
-      radius: (root.vertical ? width : height) / 2
-      color: Colours.m3surfaceContainer
-      clip: true
-      Behavior on implicitHeight { enabled: root.vertical; Anim {} }
-      Behavior on implicitWidth { enabled: !root.vertical; Anim {} }
-
-      // Every icon sits in its own cell, centred across the bar. Filled from
-      // the pill's far end, so a new one grows in from the inner side.
-      GridLayout {
-        id: statusCol
-        readonly property real gapPx: Tk.spacing.medium / 2
-        x: root.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - Tk.padding.medium
-        y: root.vertical ? parent.height - height - Tk.padding.medium : Math.round((parent.height - height) / 2)
-        columns: root.vertical ? 1 : -1
-        rows: root.vertical ? -1 : 1
-        flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-        rowSpacing: gapPx
-        columnSpacing: gapPx
-
-        // Keep awake indicator
-        MIcon {
-          visible: root.cfg.status.keepAwake && IdleService.enabled
-          Layout.alignment: Qt.AlignCenter
-          text: "coffee"
-          color: Colours.m3secondary
-          fill: 1
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.host.toggle("utilities")
-          }
-        }
-
-        // Pending Omarchy update (stock omarchy.system-update): click runs it.
-        MIcon {
-          readonly property string popout: "update"
-          visible: root.cfg.status.update && UpdateService.available
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: UpdateService.running ? "downloading" : "system_update_alt"
-          color: Colours.m3primary
-          fill: 1
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: UpdateService.update()
-          }
-        }
-
-        // Screen recording active indicator
-        MIcon {
-          visible: RecordService.running
-          Layout.alignment: Qt.AlignCenter
-          text: "fiber_manual_record"
-          color: Colours.m3error
-          fill: 1
-          SequentialAnimation on opacity {
-            running: RecordService.running
-            loops: Animation.Infinite
-            NumberAnimation { from: 1; to: 0.2; duration: 600 }
-            NumberAnimation { from: 0.2; to: 1; duration: 600 }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.host.toggle("utilities")
-          }
-        }
-
-        // Notifications indicator: always there (when enabled) so the sidebar
-        // has a target; filled with unread notifications, outlined when empty.
-        MIcon {
-          visible: root.cfg.status.notifications
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: NotifService.dnd ? "notifications_off" : NotifService.count > 0 ? "notifications_unread" : "notifications"
-          color: NotifService.dnd ? Colours.m3error : Colours.m3secondary
-          fill: NotifService.count > 0 || NotifService.dnd ? 1 : 0
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.host.toggle("sidebar")
-          }
-        }
-
-        // caps/num lock (Caelestia status/LockStatus.qml): each grows in
-        // and fades/scales its own icon.
-        GridLayout {
-          id: lockStatus
-          readonly property string popout: "lockstatus"
-          readonly property bool caps: root.host.capsLock
-          readonly property bool num: root.host.numLock
-          property real gap: caps && num ? statusCol.gapPx : 0
-          // How much of the bar each icon takes, along it.
-          property real capsLen: caps ? (root.vertical ? capsIcon.implicitHeight : capsIcon.implicitWidth) : 0
-          property real numLen: num ? (root.vertical ? numIcon.implicitHeight : numIcon.implicitWidth) : 0
-          Layout.alignment: Qt.AlignCenter
-          visible: root.cfg.status.lockStatus && (capsLen > 0.5 || numLen > 0.5)
-          columns: root.vertical ? 1 : -1
-          rows: root.vertical ? -1 : 1
-          flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-          rowSpacing: Math.round(gap)
-          columnSpacing: Math.round(gap)
-          Behavior on gap { Anim { type: "slowEffects" } }
-          Behavior on capsLen { Anim { type: "slowEffects" } }
-          Behavior on numLen { Anim { type: "slowEffects" } }
-          Item {
-            implicitWidth: root.vertical ? capsIcon.implicitWidth : Math.round(lockStatus.capsLen)
-            implicitHeight: root.vertical ? Math.round(lockStatus.capsLen) : capsIcon.implicitHeight
-            MIcon {
-              id: capsIcon
-              anchors.centerIn: parent
-              scale: lockStatus.caps ? 1 : 0.5
-              opacity: lockStatus.caps ? 1 : 0
-              text: "keyboard_capslock_badge"
-              color: Colours.m3secondary
-              fill: 1
-              grade: 25
-              Behavior on opacity { Anim { type: "effects" } }
-              Behavior on scale { Anim {} }
-            }
-          }
-          Item {
-            implicitWidth: root.vertical ? numIcon.implicitWidth : Math.round(lockStatus.numLen)
-            implicitHeight: root.vertical ? Math.round(lockStatus.numLen) : numIcon.implicitHeight
-            MIcon {
-              id: numIcon
-              anchors.centerIn: parent
-              scale: lockStatus.num ? 1 : 0.5
-              opacity: lockStatus.num ? 1 : 0
-              text: "looks_one"
-              color: Colours.m3secondary
-              fill: 1
-              grade: 25
-              Behavior on opacity { Anim { type: "effects" } }
-              Behavior on scale { Anim {} }
-            }
-          }
-        }
-        MIcon {
-          readonly property string popout: "audio"
-          readonly property var sink: Pipewire.defaultAudioSink
-          readonly property real vol: sink && sink.audio ? sink.audio.volume : 0
-          readonly property bool muted: !sink || !sink.audio || sink.audio.muted
-          visible: root.cfg.status.audio
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: muted ? "no_sound" : vol >= 0.5 ? "volume_up" : vol > 0 ? "volume_down" : "volume_mute"
-          color: Colours.m3secondary
-          size: Tk.iconSize.medium
-          fill: 1
-        }
-        MIcon {
-          readonly property string popout: "audio"
-          readonly property var src: Pipewire.defaultAudioSource
-          readonly property bool muted: !src || !src.audio || src.audio.muted
-          // "Only while recording" keeps it out of the way until an app
-          // actually opens the microphone.
-          visible: root.cfg.status.microphone && (!root.cfg.status.microphoneInUseOnly || AudioService.capturing)
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: muted ? "mic_off" : "mic"
-          color: Colours.m3secondary
-          size: Tk.iconSize.medium
-          fill: 1
-        }
-        // Caelestia StatusIcons "kbLayout": the active layout's code in mono.
-        // KbService is only touched while the icon is on, so it costs nothing
-        // when off (its default, as in Caelestia's barconfig).
-        MText {
-          readonly property string popout: "kblayout"
-          visible: root.cfg.status.kbLayout
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: root.cfg.status.kbLayout ? KbService.code : ""
-          color: Colours.m3secondary
-          font.family: Tk.mono
-          font.pointSize: Tk.body.medium
-        }
-        MIcon {
-          readonly property string popout: "network"
-          visible: root.cfg.status.network
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: Sys.ethernet ? "cable" : Sys.wifi ? Sys.networkIcon(Sys.strength) : "wifi_off"
-          color: Colours.m3secondary
-        }
-        GridLayout {
-          readonly property string popout: "bluetooth"
-          // "Only when connected" hides the idle bluetooth glyph.
-          visible: root.cfg.status.bluetooth && (!root.cfg.status.bluetoothConnectedOnly
-            || Bluetooth.devices.values.some(d => d.connected))
-          Layout.alignment: Qt.AlignCenter
-          columns: root.vertical ? 1 : -1
-          rows: root.vertical ? -1 : 1
-          flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-          rowSpacing: statusCol.gapPx
-          columnSpacing: statusCol.gapPx
-          MIcon {
-            Layout.alignment: Qt.AlignCenter
-            animate: true
-            readonly property var adapter: Bluetooth.defaultAdapter
-            text: !adapter || !adapter.enabled ? "bluetooth_disabled"
-              : Bluetooth.devices.values.some(d => d.connected) ? "bluetooth_connected" : "bluetooth"
-            color: Colours.m3secondary
-          }
-          Repeater {
-            model: Bluetooth.devices.values.filter(d => d.state !== BluetoothDeviceState.Disconnected)
-            MIcon {
-              required property var modelData
-              Layout.alignment: Qt.AlignCenter
-              text: Sys.bluetoothIcon(modelData.icon)
-              color: Colours.m3secondary
-              fill: 1
-              SequentialAnimation on opacity {
-                running: modelData.state !== BluetoothDeviceState.Connected
-                alwaysRunToEnd: true
-                loops: Animation.Infinite
-                NumberAnimation { from: 1; to: 0; duration: Tk.durations.large; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.standardAccel }
-                NumberAnimation { from: 0; to: 1; duration: Tk.durations.large; easing.type: Easing.BezierSpline; easing.bezierCurve: Tk.curves.standardDecel }
-              }
-            }
-          }
-        }
-        MIcon {
-          readonly property string popout: "battery"
-          visible: root.cfg.status.battery
-          readonly property var dev: UPower.displayDevice
-          readonly property bool laptop: dev && dev.isLaptopBattery
-          readonly property bool charging: dev && [UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].indexOf(dev.state) >= 0
-          Layout.alignment: Qt.AlignCenter
-          animate: true
-          text: !laptop ? (PowerProfiles.profile === PowerProfile.PowerSaver ? "energy_savings_leaf"
-                         : PowerProfiles.profile === PowerProfile.Performance ? "rocket_launch" : "balance")
-                        : Sys.batteryIcon(dev.percentage, charging)
-          color: !UPower.onBattery || !dev || dev.percentage > 0.2 ? Colours.m3secondary : Colours.m3error
-          fill: 1
-        }
-      }
-    }
+    StatusRun { id: statusPill; bar: root; ids: BarLayout.STATUS }
 
     PowerEntry { id: powerItem; bar: root }
   }
