@@ -24,7 +24,7 @@ ColumnLayout {
     audio: "pages/AudioPage.qml", appVolumes: "pages/AppVolumes.qml",
     wallpapers: "pages/WallpaperGrid.qml", apps: "pages/AppsPage.qml", allApps: "pages/AllApps.qml", appInfo: "pages/AppInfo.qml",
     plugins: "pages/PluginsPage.qml", pluginInfo: "pages/PluginInfo.qml",
-    trayIcons: "pages/TrayIcons.qml", barPlugins: "pages/PinnedPlugins.qml"
+    trayIcons: "pages/TrayIcons.qml", barPlugins: "pages/PinnedPlugins.qml", barLayout: "pages/LayoutPage.qml"
   })
 
   RowLayout {
