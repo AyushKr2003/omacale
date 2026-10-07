@@ -21,6 +21,8 @@ Item {
   property bool last
 
   implicitHeight: col.implicitHeight
+  // The plugin list (names, which widgets are in the group) comes from Omarchy.
+  Component.onCompleted: PluginService.refresh()
 
   readonly property var layout: {
     const l = Config.o.bar.layout
