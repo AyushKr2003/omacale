@@ -38,6 +38,42 @@ QtObject {
     return null
   }
 
+  // Bar widgets (Settings › Taskbar › Plugins): enabled third-party plugins
+  // with a widget for the plugin pill.
+  readonly property var barWidgets: plugins.filter(p =>
+    !p.firstParty && p.enabled && p.kinds.indexOf("bar-widget") >= 0)
+
+  // Where a widget sits: "pinned", "overflow" (behind the pill's chevron) or
+  // "hidden" (bar.plugins.hidden: not in the bar, the plugin still runs).
+  function barMode(id) {
+    const c = Config.o.bar.plugins
+    return c.hidden.indexOf(id) >= 0 ? "hidden" : c.unpinned.indexOf(id) >= 0 ? "overflow" : "pinned"
+  }
+  // Hiding leaves the pin alone, so a widget shown again goes back where it was.
+  function setBarMode(id, mode) {
+    const c = Config.o.bar.plugins
+    const hidden = Array.from(c.hidden).filter(i => i !== id)
+    if (mode === "hidden") hidden.push(id)
+    else {
+      const unpinned = Array.from(c.unpinned).filter(i => i !== id)
+      if (mode === "overflow") unpinned.push(id)
+      Config.set("bar.plugins.unpinned", unpinned)
+    }
+    Config.set("bar.plugins.hidden", hidden)
+    // The pill is shown while any widget is in it: hiding the last one
+    // switches it off, bringing one back switches it on.
+    Config.set("bar.plugins.enabled", barWidgets.some(p => hidden.indexOf(p.id) < 0))
+  }
+  // The pill switch. Turned on with every widget hidden, it brings them back
+  // rather than showing an empty pill.
+  function setBarShown(on) {
+    if (on && barWidgets.every(p => barMode(p.id) === "hidden")) {
+      const ids = barWidgets.map(p => p.id)
+      Config.set("bar.plugins.hidden", Array.from(Config.o.bar.plugins.hidden).filter(i => ids.indexOf(i) < 0))
+    }
+    Config.set("bar.plugins.enabled", on)
+  }
+
   function setEnabled(id, on) {
     const p = byId(id)
     if (!p || busyId !== "" || !p.toggleable)

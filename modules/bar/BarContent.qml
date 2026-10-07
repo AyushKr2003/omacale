@@ -1060,9 +1060,11 @@ Item {
   //
   // Pinned widgets (Settings › Taskbar › Plugins) always show; the others
   // wait behind a chevron that hovering expands, like the compact tray.
+  // Hidden ones (bar.plugins.hidden) aren't made at all.
   Rectangle {
     id: pluginPill
-    readonly property var pluginsList: root.host.thirdPartyPlugins || []
+    readonly property var pluginsList: (root.host.thirdPartyPlugins || [])
+      .filter(e => root.cfg.plugins.hidden.indexOf(root.host.entryId(e)) < 0)
     readonly property var unpinned: root.cfg.plugins.unpinned
     // The padding at each end of the list, along the bar.
     readonly property real endPad: Tk.padding.medium

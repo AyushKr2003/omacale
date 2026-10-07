@@ -139,6 +139,9 @@ QtObject {
           // a list of pinned ids would have to be written before the plugin
           // registry has finished loading, and would miss the late ones.
           property list<string> unpinned: []
+          // Widgets left out of the bar altogether (the plugin keeps running;
+          // only its bar widget isn't made), like tray.hiddenIcons.
+          property list<string> hidden: []
         }
         property JsonObject clock: JsonObject {
           property bool enabled: true
