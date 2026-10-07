@@ -42,7 +42,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.45.4"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.48.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -429,12 +429,35 @@ Item {
     delegate: ScreenScope { host: root }
   }
 
+  // The session IPC (the power button's binds, and SUPER+ESC / the power key
+  // with keybinds.lua's optional rebinds): the drawer, or Omarchy's System
+  // menu when Settings › Session › Menu says so, when the drawer is off, when
+  // a fullscreen window would cover it (Omarchy's menu is an overlay), or
+  // while the screen is locked (there Omarchy's own behaviour is the safe one).
+  function openSession() {
+    const s = scopeFor(focusedScreen())
+    if (Config.o.session.menu === "omarchy" || !Config.o.session.enabled || (s && s.hasFullscreen))
+      Sys.run("omarchy-menu toggle system")
+    else lockProbe.running = true
+  }
+  Process {
+    id: lockProbe
+    command: ["omarchy-shell", "lock", "isLocked"]
+    // No answer (no lock service) counts as unlocked.
+    stdout: StdioCollector {
+      onStreamFinished: {
+        if (text.trim() === "true") Sys.run("omarchy-menu toggle system")
+        else root.toggle("session")
+      }
+    }
+  }
+
   IpcHandler {
     target: "omacale"
     // Quickshell IPC needs typed arguments and return types.
     function launcher(): void { root.toggle("launcher") }
     function dashboard(): void { root.toggle("dashboard") }
-    function session(): void { root.toggle("session") }
+    function session(): void { root.openSession() }
     function settings(): void { root.toggle("settings") }
     // Open settings on one page, e.g. "network" or "bluetooth".
     function settingsPage(page: string): void { root.toggle("settings", page) }

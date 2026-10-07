@@ -30,7 +30,9 @@ var values = {
     workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5, specialDisplay: "icons", specialShowWindows: true },
     activeWindow: { enabled: true, compact: false },
     tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
-    plugins: { enabled: true, compact: false, unpinned: [] },
+    plugins: { enabled: true, compact: false, unpinned: [], hidden: [] },
+    // Settings › Taskbar › Layout. Empty lists mean the default order (BarLayout.js).
+    layout: { start: [], center: [], end: [], removed: [] },
     clock: { enabled: true, showIcon: true, showDate: false, showSeconds: false, background: false },
     status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, update: true, notifications: true, bluetoothConnectedOnly: false, microphoneInUseOnly: false, kbLayout: false },
     popouts: { statusIcons: true, tray: true, activeWindow: true },
@@ -42,7 +44,14 @@ var values = {
     performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
   launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", menuPrefix: ":", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, wallpaperPicker: "omacale", themePicker: "omacale", favouriteApps: [], hiddenApps: [] },
-  session: { enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate" },
+  session: {
+    enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate",
+    menu: "omacale",        // what the session IPC opens: "omacale" (the drawer) or "omarchy" (its System menu)
+    gifSpeed: 0.7, gifPath: "", extraButtons: true,
+    // Caelestia session.icons / session.commands; "" = Omarchy's (or the built-in) default.
+    icons: { logout: "", shutdown: "", hibernate: "", reboot: "" },
+    commands: { logout: "", shutdown: "", hibernate: "", reboot: "", lock: "", screensaver: "" }
+  },
   sidebar: { enabled: true, width: 430 },
   // Workspace overview (SUPER + TAB). `scale` is a ceiling: the grid is shrunk
   // further whenever rows x columns would not fit the screen.

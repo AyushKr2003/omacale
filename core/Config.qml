@@ -139,6 +139,20 @@ QtObject {
           // a list of pinned ids would have to be written before the plugin
           // registry has finished loading, and would miss the late ones.
           property list<string> unpinned: []
+          // Widgets left out of the bar altogether (the plugin keeps running;
+          // only its bar widget isn't made), like tray.hiddenIcons.
+          property list<string> hidden: []
+        }
+        // Which items sit in the bar's start, center and end sections, in
+        // order (core/BarLayout.js). Empty means the default order, so a
+        // fresh install writes nothing; a missing item is put back by
+        // BarLayout.resolve in its default place.
+        property JsonObject layout: JsonObject {
+          property list<string> start: []
+          property list<string> center: []
+          property list<string> end: []
+          // Built-ins taken off the bar ("Not in the bar"), kept off until added back.
+          property list<string> removed: []
         }
         property JsonObject clock: JsonObject {
           property bool enabled: true
@@ -217,6 +231,24 @@ QtObject {
         property bool vimKeybinds: false
         property int dragThreshold: 30
         property string sleepAction: "hibernate"
+        property string menu: "omacale"
+        property real gifSpeed: 0.7
+        property string gifPath: ""
+        property bool extraButtons: true
+        property JsonObject icons: JsonObject {
+          property string logout: ""
+          property string shutdown: ""
+          property string hibernate: ""
+          property string reboot: ""
+        }
+        property JsonObject commands: JsonObject {
+          property string logout: ""
+          property string shutdown: ""
+          property string hibernate: ""
+          property string reboot: ""
+          property string lock: ""
+          property string screensaver: ""
+        }
       }
       property JsonObject overview: JsonObject {
         property bool enabled: true

@@ -168,3 +168,14 @@ FileDialogCurrent 1.0 components/filedialog/FileDialogCurrent.qml
 FileDialogHeader 1.0 components/filedialog/FileDialogHeader.qml
 FileDialogSidebar 1.0 components/filedialog/FileDialogSidebar.qml
 FolderContents 1.0 components/filedialog/FolderContents.qml
+LogoEntry 1.0 modules/bar/entries/LogoEntry.qml
+PowerEntry 1.0 modules/bar/entries/PowerEntry.qml
+ClockEntry 1.0 modules/bar/entries/ClockEntry.qml
+WorkspacesEntry 1.0 modules/bar/entries/WorkspacesEntry.qml
+ActiveWindowEntry 1.0 modules/bar/entries/ActiveWindowEntry.qml
+TrayEntry 1.0 modules/bar/entries/TrayEntry.qml
+StatusRun 1.0 modules/bar/entries/StatusRun.qml
+PluginsEntry 1.0 modules/bar/entries/PluginsEntry.qml
+SinglePluginEntry 1.0 modules/bar/entries/SinglePluginEntry.qml
+SessionPicture 1.0 modules/settings/cards/SessionPicture.qml
+LayoutPage 1.0 modules/settings/pages/LayoutPage.qml

@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import ".."
+import "../core/BarLayout.js" as BarLayout
 
 // Settings › Plugins: every Omarchy shell plugin, built-in and third-party.
 // Omarchy is the engine: `omarchy plugin list --json` says what is enabled
@@ -37,6 +38,72 @@ QtObject {
         return plugins[i]
     return null
   }
+
+  // Bar widgets (Settings › Taskbar › Plugins): enabled third-party plugins
+  // with a widget for the plugin pill.
+  readonly property var barWidgets: plugins.filter(p =>
+    !p.firstParty && p.enabled && p.kinds.indexOf("bar-widget") >= 0)
+
+  // Where a widget sits: "pinned", "overflow" (behind the pill's chevron) or
+  // "hidden" (bar.plugins.hidden: not in the bar, the plugin still runs).
+  function barMode(id) {
+    const c = Config.o.bar.plugins
+    return c.hidden.indexOf(id) >= 0 ? "hidden" : c.unpinned.indexOf(id) >= 0 ? "overflow" : "pinned"
+  }
+  // Hiding leaves the pin alone, so a widget shown again goes back where it was.
+  function setBarMode(id, mode) {
+    const c = Config.o.bar.plugins
+    const hidden = Array.from(c.hidden).filter(i => i !== id)
+    if (mode === "hidden") hidden.push(id)
+    else {
+      const unpinned = Array.from(c.unpinned).filter(i => i !== id)
+      if (mode === "overflow") unpinned.push(id)
+      Config.set("bar.plugins.unpinned", unpinned)
+    }
+    Config.set("bar.plugins.hidden", hidden)
+    // The pill is shown while any widget is in it: hiding the last one
+    // switches it off, bringing one back switches it on.
+    Config.set("bar.plugins.enabled", barWidgets.some(p => hidden.indexOf(p.id) < 0))
+  }
+  // The pill switch. Turned on with every widget hidden, it brings them back
+  // rather than showing an empty pill.
+  function setBarShown(on) {
+    if (on && barWidgets.every(p => barMode(p.id) === "hidden")) {
+      const ids = barWidgets.map(p => p.id)
+      Config.set("bar.plugins.hidden", Array.from(Config.o.bar.plugins.hidden).filter(i => ids.indexOf(i) < 0))
+    }
+    Config.set("bar.plugins.enabled", on)
+  }
+
+  // Settings › Taskbar › Layout. Resolved against the enabled bar widgets, so
+  // a widget that was disabled drops out of its place.
+  function barLayout() {
+    const l = Config.o.bar.layout
+    // Until `omarchy plugin list` has answered, the widget list is unknown:
+    // keep the saved widget places rather than drop them on the next write.
+    return BarLayout.resolve({ start: l.start, center: l.center, end: l.end, removed: l.removed },
+      loaded && !error ? barWidgets.map(p => p.id) : null)
+  }
+  function setBarLayout(l) {
+    Config.set("bar.layout.start", l.start)
+    Config.set("bar.layout.center", l.center)
+    Config.set("bar.layout.end", l.end)
+    Config.set("bar.layout.removed", l.removed || [])
+  }
+  // Settings › Taskbar › Layout's eye: the item's existing switch.
+  function itemShown(id) {
+    const it = BarLayout.ITEMS[id]
+    return !it || !it.key ? true : !!Config.get(it.key)
+  }
+  function setItemShown(id, on) {
+    const it = BarLayout.ITEMS[id]
+    if (!it || !it.key) return
+    if (it.key === "bar.plugins.enabled") setBarShown(on)
+    else Config.set(it.key, on)
+  }
+  // A widget out of the plugin pill, on the bar on its own, and back.
+  function takeOutWidget(id) { setBarLayout(BarLayout.takeOut(barLayout(), id)) }
+  function putBackWidget(id) { setBarLayout(BarLayout.putBack(barLayout(), id)) }
 
   function setEnabled(id, on) {
     const p = byId(id)
