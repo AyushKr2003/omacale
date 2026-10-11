@@ -30,6 +30,7 @@ var pages = [
       ] },
       { type: "custom", comp: "seeds", when: { key: "appearance.palette", value: "material" } },
       { type: "toggle", key: "appearance.seedFollowsTheme", when: { key: "appearance.palette", value: "material" }, label: "Follow theme switches", subtext: "Switching Omarchy theme drops a custom seed picked under another theme" },
+      { type: "toggle", key: "appearance.omarchySurfaces", when: { key: "appearance.palette", value: "material" }, label: "Colour Omarchy's menus too", subtext: "Omarchy's own menus, popups, notifications and pickers in these colours (a marked block in ~/.config/omarchy/shell.toml, removed when off). Their accent stays the theme's" },
       { type: "select", key: "appearance.variant", when: { key: "appearance.palette", value: "material" }, label: "Scheme", subtext: "How the palette is built from the seed colour", options: [
         { value: "tonalspot", label: "Tonal spot", icon: "palette" },
         { value: "vibrant", label: "Vibrant", icon: "colors" },

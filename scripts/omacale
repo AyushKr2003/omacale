@@ -188,6 +188,10 @@ notif_script() {
 }
 
 # And the OSD handover, for the same reason.
+# Omacale's block in Omarchy's user shell.toml (Settings › Wallpaper & style ›
+# "Colour Omarchy's menus too", services/OmarchySurfaces.qml).
+shell_toml() { PYTHONDONTWRITEBYTECODE=1 python3 "$src_plugin/scripts/shell-toml" "$@"; }
+
 osd_script() {
   local script="$src_plugin/scripts/osd-handover"
   [[ -x $dest_plugin/scripts/osd-handover ]] && script="$dest_plugin/scripts/osd-handover"
@@ -308,6 +312,9 @@ cmd_doctor() {
     if (( ! offline )); then
       chk "plugin is discovered by the shell" "plugin_listed"
       chk "bar layer is mapped" "bar_layer_present"
+      # A colour block left in Omarchy's shell.toml with the option off.
+      chk "no stray colour block in ~/.config/omarchy/shell.toml" \
+        "[[ \"\$(shell_toml status)\" == absent ]] || [[ \"\$(jq -r '.appearance.omarchySurfaces // false' '$settings_dir/settings.json' 2>/dev/null)\" == true ]]"
       if [[ "$(jq -r '.installedNotifClone // false' "$state_file")" == true ]]; then
         chk "notification daemon is Omacale's gated clone" \
           "notif_script status | grep -q '^daemon:    gated'"
@@ -807,6 +814,7 @@ cmd_uninstall() {
         fi
         shell_call shell reloadConfig
         remove_menu_block
+        shell_toml remove || true
         remove_plugin_dir; shell_call shell rescanPlugins
       fi
       say "Done."; return
@@ -822,6 +830,7 @@ cmd_uninstall() {
   [[ "$(jq -r '.installedOsdClone // false' "$state_file")" == true ]] && say "  osd        → given back to Omarchy"
   [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
   [[ "$(jq -r '.installedFont // false' "$state_file")" == true ]] && say "  icon font  → $FONT_PKG removed (Omacale installed it)"
+  [[ "$(shell_toml status 2>/dev/null)" == present ]] && say "  shell.toml → Omacale's colour block removed (~/.config/omarchy/shell.toml)"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
   else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
   confirm "Continue?"
@@ -859,6 +868,12 @@ cmd_uninstall() {
   step "Restore shell.json"
   restore_shell_json || fail "could not restore shell.json; nothing was removed. Snapshot: $snap_dir/shell.json"
   shell_call shell reloadConfig
+
+  if [[ "$(shell_toml status 2>/dev/null)" == present ]]; then
+    step "Give Omarchy's menus their theme colours back"
+    if shell_toml remove; then ok "Omacale's block removed from ~/.config/omarchy/shell.toml"
+    else warn "could not remove it; run: $src_plugin/scripts/shell-toml remove"; fi
+  fi
 
   # Runtime-only Hyprland state (blur rule, "try this session" binds) must be
   # read before the settings go away.
