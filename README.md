@@ -12,7 +12,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
 - **Material 3 colours** generated from your Omarchy theme.
-- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar › Layout). It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it.
+- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons, Omarchy's own widgets and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar). Status icons and widgets next to each other share one pill. It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it. With several screens, each can have its own edge or no bar at all, and the desktop clock, toasts and OSD can be kept to the screens you choose (Settings › Taskbar › Screens, Panels › Desktop, Notifications, OSD).
 - **Launcher**: apps, calculator (`>calc`), clipboard history (`>clipboard`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
 - **Dashboard**: weather, calendar, system resources, and media with synced lyrics.
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
@@ -22,7 +22,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Workspace overview** with live previews and drag-and-drop.
 - **Lock screen**: Caelestia's design on top of Omarchy's own lock and PAM.
 - **Desktop clock and audio visualiser** (optional).
-- **Plugin manager** and hosting for third-party Omarchy bar widgets. Each widget can be pinned, kept behind the plugin pill's chevron, or hidden from the bar (Settings › Taskbar › Plugins).
+- **Plugin manager** and hosting for Omarchy bar widgets, Omarchy's own (AI agents usage, weather, indicators, ...) and third-party ones. Omarchy's widgets get a place of their own on the bar; a new one that an Omarchy update adds is put on the bar by itself, and one that fails to load takes no room and says so in Settings. Third-party widgets sit in the plugin pill, each pinned, behind its chevron or hidden, or get a place of their own (Settings › Taskbar).
 - **Keyboard-driven**: every panel works with `h` `j` `k` `l`, Enter and Escape.
 - **Settings app** for everything above, applied live.
 - **UI scale**: follows Omarchy's font size (`[font] base-size` in `~/.config/omarchy/shell.toml`) or a size of your own, with separate text, padding, spacing and rounding scales. Unlike Caelestia, the drawers and bar scale with it too, so a smaller UI also takes less room. With `omacale.lua` loaded, Hyprland's gaps and window rounding follow as well: window corners stay concentric with the frame (window radius = frame radius − gap).

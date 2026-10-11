@@ -23,28 +23,29 @@ Rectangle {
   // every child reads invisible, the pill hides, and its children then
   // stay invisible for good, so the pill never came back.
   readonly property var st: bar.cfg.status
-  // Set by the lock icon while it is still folding away.
-  property bool lockShown: false
   // Whether an icon is on show: the one rule for both the pill and each of
   // its icons (`want`), so a pill can never be drawn with nothing in it.
-  function on(id) {
-    switch (id) {
-    case "keepAwake": return st.keepAwake && IdleService.enabled
-    case "update": return st.update && UpdateService.available
-    case "recording": return RecordService.running
-    case "lockStatus": return st.lockStatus && (bar.host.capsLock || bar.host.numLock || lockShown)
-    case "microphone": return st.microphone && (!st.microphoneInUseOnly || AudioService.capturing)
-    case "bluetooth": return st.bluetooth && (!st.bluetoothConnectedOnly || Bluetooth.devices.values.some(d => d.connected))
-    default: return !!st[id]
-    }
-  }
+  // BarContent.statusOn, which the chevron's "at most N" limit counts by too.
+  property bool lockShown: false
+  onLockShownChanged: bar.lockFolding = lockShown
+  function on(id) { return bar.statusOn(id) }
   readonly property bool shown: ids.some(id => on(id))
   visible: shown
   Layout.alignment: bar.crossAlign
-  implicitWidth: bar.vertical ? Tk.barInner : statusCol.implicitWidth + Tk.padding.medium * 2
-  implicitHeight: bar.vertical ? statusCol.implicitHeight + Tk.padding.medium * 2 : Tk.barInner
+  // Next to a widget, the two share one pill (BarContent's Section.runs draws
+  // it): no background of its own, and no padding on the joined side.
+  readonly property bool joinable: true
+  property bool joinBefore: false
+  property bool joinAfter: false
+  property real padStart: joinBefore ? 0 : Tk.padding.medium
+  property real padEnd: joinAfter ? 0 : Tk.padding.medium
+  // Joining and parting glide (a Behavior needs a plain property).
+  Behavior on padStart { Anim {} }
+  Behavior on padEnd { Anim {} }
+  implicitWidth: bar.vertical ? Tk.barInner : statusCol.implicitWidth + padStart + padEnd
+  implicitHeight: bar.vertical ? statusCol.implicitHeight + padStart + padEnd : Tk.barInner
   radius: (bar.vertical ? width : height) / 2
-  color: Colours.m3surfaceContainer
+  color: joinBefore || joinAfter ? "transparent" : Colours.m3surfaceContainer
   clip: true
   Behavior on implicitHeight { enabled: bar.vertical; Anim {} }
   Behavior on implicitWidth { enabled: !bar.vertical; Anim {} }
@@ -54,8 +55,8 @@ Rectangle {
   GridLayout {
     id: statusCol
     readonly property real gapPx: Tk.spacing.medium / 2
-    x: bar.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - Tk.padding.medium
-    y: bar.vertical ? parent.height - height - Tk.padding.medium : Math.round((parent.height - height) / 2)
+    x: bar.vertical ? Math.round((parent.width - width) / 2) : parent.width - width - run.padEnd
+    y: bar.vertical ? parent.height - height - run.padEnd : Math.round((parent.height - height) / 2)
     columns: bar.vertical ? 1 : -1
     rows: bar.vertical ? -1 : 1
     flow: bar.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight

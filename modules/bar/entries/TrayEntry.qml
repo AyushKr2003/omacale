@@ -19,7 +19,13 @@ Rectangle {
   Layout.alignment: bar.crossAlign
   readonly property var trayItems: SystemTray.items.values.filter(i => i.status !== Status.Passive
     && bar.cfg.tray.hiddenIcons.indexOf(i.id) < 0)
-  readonly property bool bg: bar.cfg.tray.background
+  // Next to status icons or widgets the tray joins their pill (BarContent's
+  // Section.runs): drawn as with a background of its own, but transparent.
+  readonly property bool joinable: true
+  property bool joinBefore: false
+  property bool joinAfter: false
+  readonly property bool joined: joinBefore || joinAfter
+  readonly property bool bg: bar.cfg.tray.background || joined
   readonly property int padding: bg ? Tk.padding.medium : Tk.padding.extraSmall
   readonly property int spacingN: bg ? Tk.spacing.medium : Tk.spacing.extraSmall
   visible: shown
@@ -46,7 +52,7 @@ Rectangle {
   implicitWidth: bar.vertical ? Tk.barInner : sizeLen
   implicitHeight: bar.vertical ? sizeLen : Tk.barInner
   radius: Tk.rounding.full
-  color: bg ? Colours.m3surfaceContainer : "transparent"
+  color: bg && !joined ? Colours.m3surfaceContainer : "transparent"
   clip: true
   Behavior on implicitHeight { enabled: bar.vertical; Anim {} }
   Behavior on implicitWidth { enabled: !bar.vertical; Anim {} }

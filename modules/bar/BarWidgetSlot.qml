@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import qs.Commons
 import "../.."
+import "../../core/BarLayout.js" as BarLayout
 
 // Slot that loads and hosts a single 3rd-party bar widget from the
 // barWidgetRegistry, injecting the PluginBarFacade as `bar`.
@@ -155,17 +156,9 @@ Item {
   clip: true
 
   // Category → stand-in icon for the proxy, so two wide plugins don't look
-  // alike. Unknown categories get the generic extension icon.
-  readonly property var categoryIcons: ({
-    "network": "lan", "fun": "mood", "media": "music_note", "system": "memory",
-    "productivity": "task_alt", "developer": "code", "development": "code",
-    "utilities": "build", "communication": "chat", "weather": "partly_cloudy_day",
-    "time": "schedule", "ai": "smart_toy", "status": "monitor_heart",
-    "plugin": "extension"
-  })
+  // alike (BarLayout.categoryIcon; unknown categories get the extension icon).
   readonly property string proxyIcon: {
-    var cat = moduleMetadata && moduleMetadata.category ? String(moduleMetadata.category).toLowerCase() : ""
-    return categoryIcons[cat] || "extension"
+    return BarLayout.categoryIcon(moduleMetadata ? moduleMetadata.category : "")
   }
 
   // Hosted text is drawn as curves. Omarchy widgets use Native or
@@ -515,7 +508,7 @@ Item {
       old.destroy()
     }
     if (!comp || comp.status !== Component.Ready) return
-    var item = null
+    var item = null, why = ""
     try {
       item = comp.createObject(stage, {
         bar: root.bar,
@@ -523,8 +516,12 @@ Item {
         settings: root.moduleSettings
       })
     } catch (e) {
+      why = String(e)
       console.warn("omacale: bar widget " + root.moduleName + " failed to start: " + e)
     }
+    // A widget that won't start (an Omarchy update changed what it expects)
+    // takes no room, and Settings › Taskbar says so on its row.
+    PluginService.setWidgetError(root.moduleName, item ? "" : (why || comp.errorString() || "it didn't start"))
     if (!item) return
     item.anchors.fill = stage
     activeItem = item
@@ -554,5 +551,10 @@ Item {
   }
   Component.onDestruction: {
     if (host) host.unregisterPluginSlot(root)
+    // See Bar.retireFacade: the widget outlives this slot's context.
+    if (activeItem && host && typeof host.retireFacade === "function" && "bar" in activeItem) {
+      const r = host.retireFacade(facade, moduleName)
+      if (r) activeItem.bar = r
+    }
   }
 }

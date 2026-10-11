@@ -26,6 +26,16 @@ Item {
   property string entryId: "plugins"
   property alias pill: pill
   readonly property bool shown: pill.visible && pill.anyShown
+  // Next to status icons or widgets, they share one pill (BarContent's
+  // Section.runs draws it): no background of its own, no padding where joined.
+  // Behind a closed chevron (BarContent's Loader): the pill lives on the
+  // overlay, outside the Loader, so it has to hide itself.
+  readonly property bool folded: !!parent && parent.folded === true
+  // How far its Loader is unfolded (BarContent): the overlay pill follows it.
+  readonly property real fold: !!parent && parent.foldProg !== undefined ? parent.foldProg : 1
+  readonly property bool joinable: true
+  property bool joinBefore: false
+  property bool joinAfter: false
   visible: shown
   Layout.alignment: bar.crossAlign
   implicitWidth: bar.vertical ? Tk.barInner : pill.implicitWidth
@@ -45,10 +55,17 @@ Item {
       .filter(e => bar.cfg.plugins.hidden.indexOf(bar.host.entryId(e)) < 0
         && bar.placedWidgets.indexOf(bar.host.entryId(e)) < 0)
     readonly property var unpinned: bar.cfg.plugins.unpinned
-    // The padding at each end of the list, along the bar.
-    readonly property real endPad: Tk.padding.medium
+    // The padding at each end of the list, along the bar: none on a side
+    // joined to a neighbour.
+    property real padStart: pluginsEntry.joinBefore ? 0 : Tk.padding.medium
+    property real padEnd: pluginsEntry.joinAfter ? 0 : Tk.padding.medium
+    // Joining and parting glide (a Behavior needs a plain property).
+    Behavior on padStart { Anim {} }
+    Behavior on padEnd { Anim {} }
     readonly property real listLen: bar.vertical ? pluginCol.implicitHeight : pluginCol.implicitWidth
-    readonly property bool anyShown: listLen - endPad * 2 > 0.5
+    // From the counted slots, not the list's length: that includes the
+    // padding, which depends on joining, which depends on this.
+    readonly property bool anyShown: overflowCount > 0 || pinnedLen > 0
     property bool expanded: false
     onOverflowCountChanged: if (overflowCount === 0) expanded = false
 
@@ -74,24 +91,25 @@ Item {
     }
     // The pill's size along the bar with the overflow closed: what the budget plans for.
     readonly property real collapsedLen: overflowCount === 0 && pinnedLen === 0 ? 0
-      : endPad * 2 + pinnedLen
+      : padStart + padEnd + pinnedLen
         + (overflowCount > 0 ? (bar.vertical ? overflowIcon.implicitHeight : overflowIcon.implicitWidth) : -pluginCol.gapPx)
 
-    visible: bar.cfg.plugins.enabled !== false && pluginsList.length > 0
-    opacity: anyShown ? 1 : 0
+    visible: bar.cfg.plugins.enabled !== false && pluginsList.length > 0 && pluginsEntry.fold > 0.001
+    opacity: anyShown ? pluginsEntry.fold : 0
     x: pluginsEntry.ox
     y: pluginsEntry.oy
     // Scrolled down to a single cell, pinned widgets included, when even they
     // don't fit: the pill gives way before the clock and status icons do.
-    readonly property real minLen: endPad * 2 + bar.cellLen
+    readonly property real minLen: padStart + padEnd + bar.cellLen
     // Capped by the space budget, leaving the tray its (collapsed) share.
     readonly property real sizeLen: anyShown ? Math.min(Math.max(minLen, bar.budget - bar.trayReserve), listLen) : 0
     implicitWidth: bar.vertical ? Tk.barInner : sizeLen
     implicitHeight: bar.vertical ? sizeLen : Tk.barInner
-    width: implicitWidth
-    height: implicitHeight
+    // Drawn as long as its Loader is unfolded; the placeholder keeps the full size.
+    width: bar.vertical ? implicitWidth : implicitWidth * pluginsEntry.fold
+    height: bar.vertical ? implicitHeight * pluginsEntry.fold : implicitHeight
     radius: (bar.vertical ? width : height) / 2
-    color: Colours.m3surfaceContainer
+    color: pluginsEntry.joinBefore || pluginsEntry.joinAfter ? "transparent" : Colours.m3surfaceContainer
     clip: true
 
     Behavior on implicitHeight { enabled: bar.vertical; Anim {} }
@@ -117,10 +135,10 @@ Item {
         width: bar.vertical ? parent.width : implicitWidth
         height: bar.vertical ? implicitHeight : parent.height
         columns: bar.vertical ? 1 : 1000
-        topPadding: bar.vertical ? pill.endPad : 0
-        bottomPadding: bar.vertical ? pill.endPad : 0
-        leftPadding: bar.vertical ? 0 : pill.endPad
-        rightPadding: bar.vertical ? 0 : pill.endPad
+        topPadding: bar.vertical ? pill.padStart : 0
+        bottomPadding: bar.vertical ? pill.padEnd : 0
+        leftPadding: bar.vertical ? 0 : pill.padStart
+        rightPadding: bar.vertical ? 0 : pill.padEnd
         spacing: gapPx
 
         Repeater {

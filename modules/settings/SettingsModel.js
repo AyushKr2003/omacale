@@ -214,17 +214,11 @@ var subpages = {
       ] },
       { type: "toggle", key: "bar.persistent", label: "Persistent", subtext: "Keep the bar visible at all times" },
       { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches its edge" },
-      { type: "section", text: "Components" },
-      { type: "nav", icon: "dashboard_customize", label: "Layout", subtext: "Move anything in the bar: start, center or end", page: "barLayout" },
-      { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
-      { type: "nav", icon: "web_asset", label: "Active window", subtext: "Title display, popout", page: "activeWindow" },
-      { type: "nav", icon: "widgets", label: "Tray", subtext: "System tray icons", page: "tray" },
-      { type: "nav", icon: "extension", label: "Plugins", subtext: "Which third-party widgets show in the bar", page: "barPlugins" },
-      { type: "nav", icon: "signal_cellular_alt", label: "Status icons", subtext: "Visible indicators", page: "status" },
-      { type: "nav", icon: "schedule", label: "Clock", subtext: "Show or hide, date, icon, background", page: "clock" },
-      { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the top; click opens the launcher" },
-      { type: "custom", comp: "logoPicker" },
-      { type: "toggle", key: "bar.power", label: "Power button", subtext: "Opens the session menu" },
+      // Everything in the bar, in one list per section: Omacale's items,
+      // Omarchy's widgets and plugins alike (pages/LayoutPage.qml). Each row's
+      // gear opens its own page below.
+      { type: "section", text: "Bar" },
+      { type: "custom", comp: "barLayout" },
       { type: "section", text: "Scroll actions" },
       { type: "toggle", key: "bar.scroll.workspaces", label: "Workspaces", subtext: "Scroll over the workspace indicator to switch workspaces" },
       { type: "toggle", key: "bar.scroll.volume", label: "Volume", subtext: "Scroll on the top half of the bar to adjust volume" },
@@ -295,13 +289,13 @@ var subpages = {
       { type: "custom", comp: "trayIcons" }
     ]
   },
-  barLayout: {
-    title: "Layout",
-    rows: [ { type: "custom", comp: "barLayout" } ]
-  },
-  barPlugins: {
-    title: "Bar plugins",
-    rows: [ { type: "custom", comp: "barPlugins" } ]
+  barButtons: {
+    title: "Logo and power",
+    rows: [
+      { type: "toggle", key: "bar.logo", label: "Logo", subtext: "Icon at the start of the bar; click opens the launcher" },
+      { type: "custom", comp: "logoPicker" },
+      { type: "toggle", key: "bar.power", label: "Power button", subtext: "Opens the session menu" }
+    ]
   },
   status: {
     title: "Status icons",

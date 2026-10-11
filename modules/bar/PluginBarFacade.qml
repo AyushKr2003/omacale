@@ -10,6 +10,7 @@ QtObject {
 
   required property var host
   required property string moduleName
+  readonly property string pluginId: moduleName
 
   readonly property color foreground: Colours.m3onSurface
   // Bar marks take the status icons' colour; popups keep `foreground`.
@@ -25,6 +26,7 @@ QtObject {
   readonly property int barSize: host ? host.pluginBarSize : Tk.barInner
   readonly property bool transparent: Config.o.appearance.transparency.enabled
   readonly property bool foregroundAnimationEnabled: true
+  // Omacale has no center hover reveal; the setter is accepted and ignored.
   readonly property bool centerHoverRevealSuppressed: false
   readonly property bool centerSectionRevealHeld: false
   // Widgets register their trigger buttons here so KeyboardPanel can forward
@@ -58,6 +60,8 @@ QtObject {
   function switchPanelFrom(owner, direction) { return _call("switchPluginPanelFrom", [facade, owner, direction], false) }
   function targetBelongsToWindow(target, window) { return _call("targetBelongsToWindow", [target, window], false) }
   function run(command) { if (command) Sys.run(String(command)) }
+  function setCenterHoverRevealSuppressed(value) {}
+  function shellQuote(value) { return "'" + String(value === undefined || value === null ? "" : value).replace(/'/g, "'\\''") + "'" }
 
   function moduleWidgets(id) {
     return String(id || "") === facade.moduleName ? _call("moduleWidgets", [facade.moduleName], []) : []
