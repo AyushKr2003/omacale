@@ -25,6 +25,8 @@ Item {
   required property var scope
   // A column on the left or right edge; a row on the top or bottom one.
   property bool vertical: true
+  // Which edge this screen's bar is on (ScreenScope.barPos).
+  property string edge: "left"
 
   readonly property int vPadding: Tk.padding.large
   readonly property var cfg: Config.o.bar

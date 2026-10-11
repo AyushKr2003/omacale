@@ -12,7 +12,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
 - **Material 3 colours** generated from your Omarchy theme.
-- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar › Layout). It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it.
+- **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar › Layout). It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it. With several screens, each can have its own edge or no bar at all, and the desktop clock, toasts and OSD can be kept to the screens you choose (Settings › Taskbar › Screens, Panels › Desktop, Notifications, OSD).
 - **Launcher**: apps, calculator (`>calc`), clipboard history (`>clipboard`), wallpaper and theme pickers (`>wallpaper`, `>theme`), and the Omarchy menu (`:`).
 - **Dashboard**: weather, calendar, system resources, and media with synced lyrics.
 - **Notifications**: toasts that stay above fullscreen windows, plus a history sidebar.
@@ -160,6 +160,7 @@ rsync -a --exclude .git ./ ~/.config/omarchy/plugins/omacale.bar/ && omarchy-res
 bash tests/test-restore.sh                                               # test suite
 node tests/test-layout.js                                                # bar layout model tests
 node tests/test-binds.js                                                 # keybinds.lua parser tests
+node tests/test-screens.js                                               # per-screen rules tests
 scripts/upstream-check                                                   # what changed in Omarchy since last verified
 ```
 
