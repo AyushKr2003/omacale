@@ -8,6 +8,8 @@ var values = {
     mode: "auto",            // auto | dark | light
     variant: "tonalspot",    // M3 dynamic scheme
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
+    seedTheme: "",           // the Omarchy theme a custom seed was picked under
+    seedFollowsTheme: true,  // a theme switch drops a seed picked under another theme
     animScale: 1.0,
     // Caelestia appearance.deformScale: how much drawers stretch as they
     // move (0 turns the jelly off).

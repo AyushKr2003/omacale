@@ -24,7 +24,9 @@ ConnectedRect {
       RowLabel {
         Layout.fillWidth: true
         text: "Seed colour"
-        subtext: root.seed === "" ? "Following the Omarchy theme accent" : "Custom " + root.seed.toUpperCase()
+        readonly property string from: Config.o.appearance.seedTheme
+        subtext: root.seed === "" ? "Following the Omarchy theme accent"
+          : "Custom " + root.seed.toUpperCase() + (from && from !== Colours.themeName ? ", picked under " + from : !from ? ", from before this theme" : "")
       }
       Rectangle {
         width: Tk.px(132); height: Tk.px(36); radius: height / 2
@@ -44,7 +46,7 @@ ConnectedRect {
             maximumLength: 6
             font.family: Tk.mono; font.pointSize: Tk.body.small
             validator: RegularExpressionValidator { regularExpression: /[0-9a-fA-F]{0,6}/ }
-            onEditingFinished: Config.set("appearance.seed", text.length === 6 ? "#" + text.toLowerCase() : "")
+            onEditingFinished: Colours.setSeed(text.length === 6 ? "#" + text.toLowerCase() : "")
             MText { visible: !hex.text; text: "auto"; color: Colours.m3outline; anchors.verticalCenter: parent.verticalCenter }
           }
         }
@@ -124,7 +126,7 @@ ConnectedRect {
           color: Qt.color(sw.colour).hslLightness > 0.55 ? "#1a1a1a" : "#ffffff"
         }
       }
-      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Config.set("appearance.seed", sw.value) }
+      MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Colours.setSeed(sw.value) }
     }
     MText {
       anchors.top: ring.bottom
