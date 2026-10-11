@@ -227,9 +227,19 @@ Item {
 
   // Omarchy's Menu.qml activateIndex(): a submenu or link is walked into, an
   // app row is launched, anything else runs its action.
+  // Omarchy's Style › Theme and Style › Background run its own image picker;
+  // here they open the launcher's carousel instead, unless Settings ›
+  // Keybinds › Picker says "Omarchy default". The ids are Omarchy's
+  // (default/omarchy/omarchy-menu.jsonc); nothing is written to its menu file.
+  readonly property var pickerRows: ({ "style.theme": "theme", "style.background": "wallpaper" })
   function activateMenuRow(row) {
     if (row.disabled) return
     if (row.kind === "menu" || row.kind === "link") { menuGo(row.target || row.itemId, true); return }
+    const picker = pickerRows[row.itemId]
+    if (picker && (picker === "theme" ? Config.o.launcher.themePicker : Config.o.launcher.wallpaperPicker) !== "omarchy") {
+      openMode(picker)
+      return
+    }
     if (row.kind === "app") {
       const entry = DesktopEntries.byId(row.appId)
       if (entry) entry.execute()

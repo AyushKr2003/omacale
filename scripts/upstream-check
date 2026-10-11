@@ -52,6 +52,8 @@ DEPENDS = [
     ("shell/Ui/KeyboardPanel.qml", "hosted widget panels: BarWidgetSlot's gap fix, keyboard focus"),
     ("bin/omarchy-capture-screenrecording", "recording state: RecordService marker location (markerProbe)"),
     ("shell/Commons/Style.qml", "UI scale: Tk.omarchyFont / omarchySpacing (fontScale, spacingScale), Bar.pluginIconScale"),
+    ("default/omarchy/omarchy-menu.jsonc", "menu ids Omacale acts on: style.theme / style.background (Launcher.pickerRows) and the system.* entries the session drawer copies"),
+    ("default/hypr/bindings/utilities.lua", "session: SUPER+ESCAPE / XF86PowerOff lines keybinds.lua rebinds and Settings › Keybinds restores on undo"),
 ]
 
 # What the host calls on a custom bar: `shell.bar.<member>` in shell.qml and
