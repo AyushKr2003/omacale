@@ -425,6 +425,30 @@ restore_preexisting_plugin() {
   fi
 }
 
+# Every icon is a Material Symbols glyph, so a missing font draws them as
+# their names. Install and upgrade both check it: the font may have been
+# removed since the first install. Before the restart at the end, which is
+# what makes a freshly installed font visible to QML. Not fatal -- without it
+# the bar still works. Records installedFont only for a font we installed.
+font_installed_by_us=false
+icon_font_step() {
+  step "Icon font"
+  if font_present; then
+    ok "Material Symbols Rounded already installed"
+  elif (( dry_run )); then
+    say "  ${d}[dry-run]${z} omarchy pkg add $FONT_PKG"
+  elif (( offline )); then
+    say "  ${d}skipped (offline)${z}"
+  elif omarchy pkg add "$FONT_PKG" && font_present; then
+    font_installed_by_us=true; ok "$FONT_PKG installed"
+  else
+    warn "could not install $FONT_PKG; icons will show as text until you run: omarchy pkg add $FONT_PKG"
+  fi
+  if (( ! dry_run )); then
+    jq --argjson f "$font_installed_by_us" '.installedFont = ((.installedFont // false) or $f)' "$state_file" | write_atomic "$state_file"
+  fi
+}
+
 cmd_install() {
   need jq; need cp; need sha256sum
   [[ ${EUID:-$(id -u)} -ne 0 ]] || fail "run as your normal user, not root"
@@ -476,25 +500,7 @@ cmd_install() {
 
   trap '(( dry_run )) || rollback_install' ERR
 
-  step "Icon font"
-  # Before the bar switch: the shell restart at the end is what makes a
-  # freshly installed font visible to QML. Not fatal -- without it the bar
-  # still works, its icons just draw as their names.
-  local font_installed_by_us=false
-  if font_present; then
-    ok "Material Symbols Rounded already installed"
-  elif (( dry_run )); then
-    say "  ${d}[dry-run]${z} omarchy pkg add $FONT_PKG"
-  elif (( offline )); then
-    say "  ${d}skipped (offline)${z}"
-  elif omarchy pkg add "$FONT_PKG" && font_present; then
-    font_installed_by_us=true; ok "$FONT_PKG installed"
-  else
-    warn "could not install $FONT_PKG; icons will show as text until you run: omarchy pkg add $FONT_PKG"
-  fi
-  if (( ! dry_run )); then
-    jq --argjson f "$font_installed_by_us" '.installedFont = $f' "$state_file" | write_atomic "$state_file"
-  fi
+  icon_font_step
 
   step "Install plugin"
   act "mkdir -p $plugins_dir" mkdir -p "$plugins_dir"
@@ -733,6 +739,8 @@ cmd_upgrade() {
     (( dry_run )) || ok "plugin files updated"
   fi
   shell_call shell rescanPlugins
+
+  icon_font_step
 
   # Rebuilt by this version's scripts (lock_script/notif_script read the copy
   # just put in place). One the watchdog handed back is tried again: the
