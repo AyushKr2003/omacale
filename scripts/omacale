@@ -32,7 +32,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.48.0"
+VERSION="0.48.1"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -701,12 +701,19 @@ cmd_install() {
 # the *first* install; settings are the user's and are kept.
 cmd_upgrade() {
   local from; from="$(jq -r '.version // "?"' "$state_file")"
-  local dev; dev="$(jq -r '.devLink // false' "$state_file")"
   step "Omacale $from → $VERSION — upgrade"
 
   step "Plugin files"
   if [[ -L $dest_plugin ]]; then
     ok "symlinked to $(readlink -- "$dest_plugin") (--dev); nothing to copy"
+  elif (( dev_link )); then
+    # --dev over a copied install: swap the copy for a link to this checkout.
+    if [[ -d $dest_plugin && "$(jq -r '.id // empty' "$dest_plugin/manifest.json" 2>/dev/null)" != "$PLUGIN_ID" ]]; then
+      fail "$dest_plugin does not look like Omacale's plugin; not replacing it"
+    fi
+    act "replace copy with symlink $dest_plugin → $src_plugin" bash -c 'rm -rf -- "$1" && ln -s -- "$2" "$1"' \
+      link "$dest_plugin" "$src_plugin"
+    (( dry_run )) || ok "symlinked to $src_plugin (--dev)"
   elif [[ -d $dest_plugin && "$(jq -r '.id // empty' "$dest_plugin/manifest.json" 2>/dev/null)" != "$PLUGIN_ID" ]]; then
     fail "$dest_plugin does not look like Omacale's plugin; not overwriting it"
   else
@@ -752,8 +759,23 @@ cmd_upgrade() {
     fi
   fi
 
+  # The bar may have been switched away since install (Settings, another bar
+  # plugin, a hand edit); an upgrade is a request for Omacale, so take it back.
+  local cur_bar="unset"; [[ -f $shell_json ]] && cur_bar="$(jq -r '.bar.id // "unset"' "$shell_json")"
+  if [[ $cur_bar != "$PLUGIN_ID" ]]; then
+    step "Switch the bar"
+    if (( dry_run )); then
+      say "  ${d}[dry-run]${z} set bar.id = $PLUGIN_ID in $shell_json (current: $cur_bar)"
+    else
+      json_ok "$shell_json" || fail "$shell_json is not valid JSON; refusing to touch it"
+      jq --arg id "$PLUGIN_ID" '.bar = ((.bar // {}) | .id = $id)' "$shell_json" | write_atomic "$shell_json"
+      ok "bar.id = $PLUGIN_ID (was: $cur_bar)"
+    fi
+  fi
+
+  local dev=false; [[ -L $dest_plugin ]] && dev=true
   if (( ! dry_run )); then
-    jq --arg v "$VERSION" '.version = $v' "$state_file" | write_atomic "$state_file"
+    jq --arg v "$VERSION" --argjson dev "$dev" '.version = $v | .devLink = $dev' "$state_file" | write_atomic "$state_file"
   fi
 
   step "Restart"
