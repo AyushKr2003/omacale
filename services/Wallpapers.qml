@@ -39,6 +39,31 @@ QtObject {
     onFileChanged: { root.reload(); root.themeTimer.restart() }
   }
   property Timer themeTimer: Timer { interval: 800; onTriggered: root.reload() }
+
+  // The current background, kept live while something showing it is open
+  // (Settings' wallpaper card holds it): Omarchy changes it by retargeting
+  // the current/background symlink -- Next wallpaper, a keybind, the
+  // picker -- and no file watch sees a symlink being replaced, so it is read
+  // as Omarchy's own background plugin does, by polling readlink.
+  property int currentHolds: 0
+  function holdCurrent() { currentHolds++; refreshCurrent() }
+  function releaseCurrent() { currentHolds = Math.max(0, currentHolds - 1) }
+  function refreshCurrent() { if (!currentProc.running) currentProc.running = true }
+  property Timer currentPoll: Timer {
+    interval: 500
+    repeat: true
+    running: root.currentHolds > 0
+    onTriggered: root.refreshCurrent()
+  }
+  property Process currentProc: Process {
+    command: ["readlink", "-f", Quickshell.env("HOME") + "/.local/state/omarchy/current/background"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const path = text.trim()
+        if (path && path !== root.currentWall) root.currentWall = path
+      }
+    }
+  }
   function url(path) { return path ? "file://" + path.split("/").map(encodeURIComponent).join("/") : "" }
   // Thumbnail of the current background (videos have no image of their own).
   readonly property string currentThumb: {
