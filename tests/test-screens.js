@@ -3,7 +3,7 @@
 const fs = require("fs"), vm = require("vm"), path = require("path"), assert = require("assert")
 const src = fs.readFileSync(path.join(__dirname, "../core/Screens.js"), "utf8").replace(/^\.pragma.*$/m, "")
 const ctx = {}
-vm.runInNewContext(src + "\nthis.S = { edgeFor, barOn, shownOn, targetFor, barScreen, positionsFrom, positionsWith }", ctx)
+vm.runInNewContext(src + "\nthis.S = { edgeFor, barOn, shownOn, targetFor, barScreen, positionsFrom, positionsWith, sharedEdges, dockEdgeFor }", ctx)
 const S = ctx.S
 let failed = 0
 function test(name, fn) {
@@ -49,6 +49,25 @@ test("setting a screen's edge replaces its entry; follow-the-bar removes it", ()
   assert.deepStrictEqual(Array.from(S.positionsWith(["HDMI-A-1=top", "eDP-1=left"], "HDMI-A-1", "bottom")), ["eDP-1=left", "HDMI-A-1=bottom"])
   assert.deepStrictEqual(Array.from(S.positionsWith(["HDMI-A-1=top"], "HDMI-A-1", "")), [])
 })
+
+// ---- the dock's edge
+const L = { x: 0, y: 0, width: 1920, height: 1080 }, R = { x: 1920, y: 0, width: 1920, height: 1080 }
+test("a screen's edge against another screen is shared", () => {
+  assert.deepStrictEqual(Array.from(S.sharedEdges(L, [L, R])), ["right"])
+  assert.deepStrictEqual(Array.from(S.sharedEdges(R, [L, R])), ["left"])
+  assert.deepStrictEqual(Array.from(S.sharedEdges(L, [L])), [])
+})
+test("screens that only touch at a corner share nothing", () =>
+  assert.deepStrictEqual(Array.from(S.sharedEdges(L, [L, { x: 1920, y: 1080, width: 1920, height: 1080 }])), []))
+test("auto puts the dock at the bottom", () => assert.strictEqual(S.dockEdgeFor("auto", "left", []), "bottom"))
+test("auto goes to the top when the bar is at the bottom", () => assert.strictEqual(S.dockEdgeFor("auto", "bottom", []), "top"))
+test("auto avoids an edge shared with another screen", () =>
+  assert.strictEqual(S.dockEdgeFor("auto", "left", ["bottom"]), "top"))
+test("auto with every free edge shared still avoids the bar", () =>
+  assert.strictEqual(S.dockEdgeFor("auto", "left", ["bottom", "top", "right"]), "bottom"))
+test("a chosen edge is kept, even a shared one", () => assert.strictEqual(S.dockEdgeFor("right", "left", ["right"]), "right"))
+test("the bar's own edge counts as auto", () => assert.strictEqual(S.dockEdgeFor("left", "left", []), "bottom"))
+test("a junk setting counts as auto", () => assert.strictEqual(S.dockEdgeFor("middle", "top", []), "bottom"))
 
 console.log(failed ? `${failed} failed` : "all passed")
 process.exit(failed ? 1 : 0)

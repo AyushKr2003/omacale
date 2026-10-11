@@ -271,6 +271,31 @@ QtObject {
           property string screensaver: ""
         }
       }
+      property JsonObject dock: JsonObject {
+        property bool enabled: false
+        // "auto" (opposite the bar) | "left" | "right" | "top" | "bottom".
+        property string position: "auto"
+        // "always" | "autohide" | "smart".
+        property string visibility: "autohide"
+        property int hideDelay: 400
+        property int iconSize: 48
+        // Desktop ids, in dock order.
+        property list<string> pinned: []
+        // The pins were seeded from the launcher's favourites once.
+        property bool seeded: false
+        property bool showRunning: true
+        // Whose open apps: "all", "monitor" (this screen's) or "workspace"
+        // (this screen's active workspace's). Pinned apps always show.
+        property string scope: "all"
+        // How much the icon under the pointer grows (1: not at all), and its
+        // name shown beside it.
+        property real magnify: 1
+        property bool labels: true
+        // Live previews of an app's windows while its icon is hovered.
+        property bool previews: true
+        // "all" | "focused" | a screen's name (core/Screens.js targetFor).
+        property string screen: "all"
+      }
       property JsonObject overview: JsonObject {
         property bool enabled: true
         property string position: "middle"

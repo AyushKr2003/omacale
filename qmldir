@@ -74,6 +74,7 @@ NavCursor 1.0 components/NavCursor.qml
 StylePreview 1.0 modules/settings/cards/StylePreview.qml
 singleton Sys 1.0 services/Sys.qml
 singleton IconFiles 1.0 services/IconFiles.qml
+singleton DockService 1.0 services/DockService.qml
 singleton Tk 1.0 core/Tk.qml
 Toggle 1.0 components/controls/Toggle.qml
 Utilities 1.0 modules/utilities/Utilities.qml
@@ -137,6 +138,9 @@ singleton LockFx 1.0 services/LockFx.qml
 singleton NotifHandover 1.0 services/NotifHandover.qml
 Handover 1.0 services/Handover.qml
 Overview 1.0 modules/overview/Overview.qml
+Dock 1.0 modules/dock/Dock.qml
+DockItem 1.0 modules/dock/DockItem.qml
+DockPreview 1.0 modules/dock/DockPreview.qml
 OverviewWindow 1.0 modules/overview/OverviewWindow.qml
 WindowInfo 1.0 modules/windowinfo/WindowInfo.qml
 WinfoPreview 1.0 modules/windowinfo/WinfoPreview.qml
@@ -148,6 +152,7 @@ PluginInfo 1.0 modules/settings/pages/PluginInfo.qml
 singleton WindowIcons 1.0 services/WindowIcons.qml
 FadeListView 1.0 components/containers/FadeListView.qml
 TrayIcons 1.0 modules/settings/pages/TrayIcons.qml
+DockPins 1.0 modules/settings/pages/DockPins.qml
 Background 1.0 modules/background/Background.qml
 DesktopClock 1.0 modules/background/DesktopClock.qml
 Visualiser 1.0 modules/background/Visualiser.qml

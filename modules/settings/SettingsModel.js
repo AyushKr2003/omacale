@@ -7,13 +7,13 @@
 //   section  { text }
 //   toggle   { key, label, subtext }
 //   stepper  { key, label, subtext, from, to, step }
-//   slider   { key, label, icon, from, to, step, unit: "%" | "x" | "px", commit?: "release" }
+//   slider   { key, label, icon, from, to, step, unit: "%" | "x" | "px" | "ms", commit?: "release" }
 //   select   { key, label, subtext, options: [{ value, label, icon }] }
 //   text     { key, label, subtext, placeholder }
 //   nav      { icon, label, subtext, page, status? }
 //   custom   { comp }  — rendered by a dedicated component
-// Any row can carry `when: { key, value }`; it is dimmed and inert unless
-// that setting has that value.
+// Any row can carry `when: { key, value }` (or `when: { key, values: [...] }`);
+// it is dimmed and inert unless that setting has that value (one of them).
 
 // "00:00" … "23:30", for the night light's custom times.
 function halfHours() {
@@ -126,6 +126,7 @@ var pages = [
     rows: [
       { type: "nav", icon: "dashboard", label: "Dashboard", page: "dashboard", status: "dashboard.enabled" },
       { type: "nav", icon: "dock_to_bottom", label: "Taskbar", page: "taskbar", status: "bar" },
+      { type: "nav", icon: "space_dashboard", label: "Dock", page: "dock", status: "dock.enabled" },
       { type: "nav", icon: "apps", label: "Launcher", page: "launcher", status: "launcher.enabled" },
       { type: "nav", icon: "dock_to_right", label: "Sidebar", page: "sidebar", status: "sidebar.enabled" },
       { type: "nav", icon: "construction", label: "Utilities", page: "utilities", status: "utilities.enabled" },
@@ -225,7 +226,9 @@ var subpages = {
     { type: "custom", comp: "screens", mode: "desktop" },
     { type: "section", text: "Popups" },
     { type: "custom", comp: "screenSelect", key: "notifs.screen", label: "Notifications", subtext: "Which screens show the notification popups" },
-    { type: "custom", comp: "screenSelect", key: "osd.screen", when: { key: "osd.enabled", value: true }, label: "OSD sliders", subtext: "Which screens show the volume and brightness sliders" }
+    { type: "custom", comp: "screenSelect", key: "osd.screen", when: { key: "osd.enabled", value: true }, label: "OSD sliders", subtext: "Which screens show the volume and brightness sliders" },
+    { type: "section", text: "Dock" },
+    { type: "custom", comp: "screenSelect", key: "dock.screen", when: { key: "dock.enabled", value: true }, label: "Dock", subtext: "Which screens show the dock" }
   ] },
   displayText: { title: "Text and cursor", rows: [
     { type: "custom", comp: "displayTextSize" },
@@ -323,6 +326,38 @@ var subpages = {
         { value: "shapes", label: "Shapes", icon: "category" }
       ] },
       { type: "toggle", key: "bar.workspaces.specialShowWindows", label: "Show windows", subtext: "Show icons of open windows on each special workspace" }
+    ]
+  },
+  dock: {
+    title: "Dock",
+    rows: [
+      { type: "toggle", key: "dock.enabled", label: "Enabled", subtext: "Pinned apps and open windows on one edge of the screen. Show or hide it with SUPER+CTRL+SHIFT+D (Settings \u203a Keybinds)" },
+      { type: "select", key: "dock.position", label: "Position", subtext: "Which edge it grows out of. Never the bar's. Automatic: the bottom, or the top with the bar at the bottom, skipping an edge another screen is against", options: [
+        { value: "auto", label: "Automatic", icon: "auto_awesome" },
+        { value: "bottom", label: "Bottom", icon: "vertical_align_bottom" },
+        { value: "top", label: "Top", icon: "vertical_align_top" },
+        { value: "left", label: "Left", icon: "align_horizontal_left" },
+        { value: "right", label: "Right", icon: "align_horizontal_right" }
+      ] },
+      { type: "select", key: "dock.visibility", label: "Visibility", subtext: "Always: stays out and windows make room. Auto-hide: comes out when the pointer touches the edge. Smart: stays out until a window covers it", options: [
+        { value: "always", label: "Always", icon: "visibility" },
+        { value: "autohide", label: "Auto-hide", icon: "visibility_off" },
+        { value: "smart", label: "Smart", icon: "auto_awesome" }
+      ] },
+      { type: "slider", key: "dock.hideDelay", when: { key: "dock.visibility", values: ["autohide", "smart"] }, label: "Hide delay", icon: "timer", from: 0, to: 2000, step: 100, unit: "ms" },
+      { type: "slider", key: "dock.iconSize", label: "Icon size", icon: "photo_size_select_small", from: 32, to: 72, step: 4, unit: "px" },
+      { type: "slider", key: "dock.magnify", label: "Magnify on hover", subtext: "Off at 1x", icon: "zoom_in", from: 1, to: 2, step: 0.05, unit: "x" },
+      { type: "toggle", key: "dock.previews", label: "Window previews", subtext: "Hover an open app for a moment to see its windows, live, and pick one" },
+      { type: "toggle", key: "dock.labels", label: "Names", subtext: "Show the app's name beside the icon under the pointer" },
+      { type: "toggle", key: "dock.showRunning", label: "Open apps", subtext: "Show apps with open windows, not only pinned ones" },
+      { type: "select", key: "dock.scope", label: "Which windows", subtext: "Count every window, only this screen's, or only those on its current workspace. Pinned apps always show", options: [
+        { value: "all", label: "All", icon: "select_all" },
+        { value: "monitor", label: "This screen", icon: "monitor" },
+        { value: "workspace", label: "This workspace", icon: "workspaces" }
+      ] },
+      { type: "nav", icon: "monitor", label: "Screens", subtext: "Which screens show the dock: in Display \u203a Shell on each screen", page: "displayShell" },
+      { type: "section", text: "Pinned" },
+      { type: "custom", comp: "dockPins" }
     ]
   },
   overview: {

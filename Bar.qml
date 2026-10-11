@@ -590,6 +590,7 @@ Item {
     function sidebar(): void { root.toggle("sidebar") }
     function utilities(): void { root.toggle("utilities") }
     function overview(): void { root.toggle("overview") }
+    function dock(): void { root.toggle("dock") }
     function toggles(): void { root.toggle("utilities") }
     // The active window's details and actions (Caelestia's window info).
     function windowInfo(): void { root.toggle("windowInfo") }

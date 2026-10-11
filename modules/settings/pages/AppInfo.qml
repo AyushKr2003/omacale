@@ -73,6 +73,17 @@ ColumnLayout {
     onToggled: c => root.setIn("launcher.hiddenApps", c)
   }
 
+  SectionHeader { row: ({ text: "Dock" }) }
+  RowToggle {
+    Layout.fillWidth: true
+    first: true
+    last: true
+    text: "Pinned"
+    subtext: Config.o.dock.enabled ? "Keep it in the dock, open or not" : "Keep it in the dock, open or not (the dock is off: Settings \u203a Panels \u203a Dock)"
+    checked: root.inList("dock.pinned")
+    onToggled: c => root.setIn("dock.pinned", c)
+  }
+
   SectionHeader { row: ({ text: "Details" }) }
   Repeater {
     id: details

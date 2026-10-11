@@ -65,3 +65,36 @@ function positionsWith(list, name, edge) {
   if (EDGES.indexOf(edge) >= 0) out.push(name + "=" + edge)
   return out
 }
+
+// The edges of a screen ({ x, y, width, height }, layout coordinates) that
+// another screen sits against, along more than a corner: the pointer slides
+// over them into the next screen instead of stopping there.
+function sharedEdges(me, screens) {
+  var out = []
+  var l = me.x, r = me.x + me.width, t = me.y, b = me.y + me.height
+  for (var i = 0; i < (screens ? screens.length : 0); i++) {
+    var o = screens[i]
+    if (!o || (o.x === me.x && o.y === me.y && o.width === me.width && o.height === me.height)) continue
+    var ol = o.x, or_ = o.x + o.width, ot = o.y, ob = o.y + o.height
+    var alongV = Math.min(b, ob) > Math.max(t, ot), alongH = Math.min(r, or_) > Math.max(l, ol)
+    if (alongV && or_ === l && out.indexOf("left") < 0) out.push("left")
+    if (alongV && ol === r && out.indexOf("right") < 0) out.push("right")
+    if (alongH && ob === t && out.indexOf("top") < 0) out.push("top")
+    if (alongH && ot === b && out.indexOf("bottom") < 0) out.push("bottom")
+  }
+  return out
+}
+
+// The dock's edge (dock.position). Never the bar's; a chosen edge is kept.
+// "auto" is the bottom, as docks are, else the top, else the side away from
+// the bar -- skipping edges shared with another screen (the pointer can't
+// rest there to bring the dock out), unless every one of them is.
+function dockEdgeFor(setting, barPos, shared) {
+  if (EDGES.indexOf(setting) >= 0 && setting !== barPos) return setting
+  var opposite = { left: "right", right: "left", top: "bottom", bottom: "top" }
+  var order = ["bottom", "top", opposite[barPos] || "right"]
+  var free = order.filter(function (e) { return e !== barPos })
+  var sh = listOf(shared)
+  for (var i = 0; i < free.length; i++) if (sh.indexOf(free[i]) < 0) return free[i]
+  return free[0]
+}
