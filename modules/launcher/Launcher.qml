@@ -481,7 +481,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             implicitSize: parent.height * 0.8
             asynchronous: true
-            source: parent.appIcon ? Quickshell.iconPath(parent.appIcon, "image-missing") : ""
+            source: parent.appIcon ? IconFiles.source(parent.appIcon, "image-missing") : ""
           }
           // Caelestia items/ActionItem.qml: the glyph at the row's start,
           // its own width, the text spacing.medium after it.

@@ -41,7 +41,7 @@ ColumnLayout {
         IconImage {
           asynchronous: true
           implicitSize: Math.round(Tk.iconSize.large * 1.8)
-          source: Quickshell.iconPath(app.modelData.icon, "image-missing")
+          source: IconFiles.source(app.modelData.icon, "image-missing")
         }
         ColumnLayout {
           Layout.fillWidth: true

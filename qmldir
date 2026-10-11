@@ -73,6 +73,7 @@ FocusRing 1.0 components/FocusRing.qml
 NavCursor 1.0 components/NavCursor.qml
 StylePreview 1.0 modules/settings/cards/StylePreview.qml
 singleton Sys 1.0 services/Sys.qml
+singleton IconFiles 1.0 services/IconFiles.qml
 singleton Tk 1.0 core/Tk.qml
 Toggle 1.0 components/controls/Toggle.qml
 Utilities 1.0 modules/utilities/Utilities.qml

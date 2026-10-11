@@ -59,7 +59,7 @@ Rectangle {
   // and any other URL (http://...) would be fetched just by being shown.
   // Omarchy's daemon already stores remote ones as empty; don't rely on it.
   function fileUrl(p) { return p.indexOf("/") === 0 ? "file://" + p : p.indexOf("file://") === 0 ? p : "" }
-  function iconUrl(p) { return p.indexOf("/") === -1 && p.indexOf(":") === -1 ? Quickshell.iconPath(p, true) : fileUrl(p) }
+  function iconUrl(p) { return p.indexOf("/") === -1 && p.indexOf(":") === -1 ? IconFiles.source(p) : fileUrl(p) }
 
   // A lone row is one line under the header, so the card is what reads as
   // the notification: ring the card (inside it, since it clips) rather than
