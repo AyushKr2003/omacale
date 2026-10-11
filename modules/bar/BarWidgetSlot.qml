@@ -122,9 +122,12 @@ Item {
 
   // `visible` of the item is its effective visibility, so the slot never hides
   // itself on it (that would latch it hidden). Like the stock bar, a widget
-  // with nothing to show gets a zero-height slot, which Column skips.
+  // with nothing to show gets a zero-height slot, which Column skips. So does
+  // one that sizes itself to nothing (Omarchy's Indicators with none active):
+  // the icon shape would otherwise round its zero length up to a whole cell.
+  readonly property bool empty: naturalWidth <= 0.5 || naturalHeight <= 0.5
   readonly property bool shown: activeItem !== null && activeItem.visible
-    && (!buttonHidden || pinned)
+    && !empty && (!buttonHidden || pinned)
   // An icon button is iconSlot long on the bar's axis on an Omarchy bar (tall
   // in a column, wide in a row): give it one uniform cell. Anything longer is a
   // stack and keeps its own length.
