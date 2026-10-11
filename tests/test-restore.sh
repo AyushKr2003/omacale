@@ -151,6 +151,18 @@ mkdir -p "$(dirname "$(EXT)")"; { echo '{'; old_block " (created, dir)"; echo '}
 run uninstall
 check "created file removed again" test "$before" = "$(snapshot_tree)"
 
+echo "V. Omacale's colour block in Omarchy's shell.toml goes on uninstall"
+ST() { echo "$H/.config/omarchy/shell.toml"; }
+new_home; cp "$real_shell_json" "$(SJ)"
+printf '[font]\nbase-size = 10\n' > "$(ST)"
+before="$(snapshot_tree)"
+run install
+env HOME="$H" python3 "$here/../scripts/shell-toml" set $'popups.background=#112233\nmenu.text=#eeeeee'
+check "block written"                 grep -q 'omacale:surfaces' "$(ST)"
+run uninstall
+check "shell.toml restored exactly"   test "$before" = "$(snapshot_tree)"
+check "scripts/shell-toml unit tests" bash -c "bash '$here/test-shell-toml.sh' >/dev/null"
+
 echo "O. look'n'feel file is valid Lua"
 check "omacale.lua parses"         luac -p "$here/../omacale.lua"
 

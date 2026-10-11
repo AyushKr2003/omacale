@@ -179,3 +179,4 @@ PluginsEntry 1.0 modules/bar/entries/PluginsEntry.qml
 SinglePluginEntry 1.0 modules/bar/entries/SinglePluginEntry.qml
 SessionPicture 1.0 modules/settings/cards/SessionPicture.qml
 LayoutPage 1.0 modules/settings/pages/LayoutPage.qml
+singleton OmarchySurfaces 1.0 services/OmarchySurfaces.qml

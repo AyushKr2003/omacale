@@ -8,6 +8,7 @@ var values = {
     mode: "auto",            // auto | dark | light
     variant: "tonalspot",    // M3 dynamic scheme
     seed: "",                // "" = Omarchy theme accent, else "#rrggbb"
+    omarchySurfaces: false,  // Material colours on Omarchy's own menus too (a block in ~/.config/omarchy/shell.toml)
     animScale: 1.0,
     // Caelestia appearance.deformScale: how much drawers stretch as they
     // move (0 turns the jelly off).

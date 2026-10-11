@@ -536,6 +536,8 @@ Item {
   // Keeps Hyprland's gaps and window rounding in step with the UI scale
   // through omacale.lua (services/HyprLook.qml). Referenced to create it.
   readonly property string hyprLook: HyprLook.args
+  // Omarchy's own menus in Omacale's colours, when chosen (services/OmarchySurfaces.qml).
+  readonly property bool omarchySurfaces: OmarchySurfaces.on
 
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to

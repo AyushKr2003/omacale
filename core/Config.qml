@@ -77,6 +77,7 @@ QtObject {
         property string mode: "auto"
         property string variant: "tonalspot"
         property string seed: ""
+        property bool omarchySurfaces: false
         property real animScale: 1.0
         property real deformScale: 1.0
         property JsonObject scale: JsonObject {

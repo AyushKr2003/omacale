@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+# shell-toml: Omacale's one block in Omarchy's user shell.toml
+# (~/.config/omarchy/shell.toml), for Settings › Wallpaper & style ›
+# "Colour Omarchy's menus too". Omarchy watches that file live and lets its
+# keys win over the theme's (Commons/Color.qml mergeShell), so the block
+# paints Omarchy's own menus, popups and notifications in Omacale's palette.
+#
+#   shell-toml set "<section>.<key>=<value>\n..."   write or rewrite the block
+#   shell-toml remove                                 take the block out again
+#   shell-toml status                                 "present" or "absent"
+#
+# The block is marked, always last (Omarchy's parser lets later lines win),
+# and never sets a key the user set themselves outside it. Removing it gives
+# the file back byte for byte: the marker records the padding it added, and
+# whether it created the file. OMACALE_SHELL_TOML overrides the path (tests).
+import os
+import re
+import sys
+
+sys.dont_write_bytecode = True
+
+PATH = os.environ.get("OMACALE_SHELL_TOML") or os.path.expanduser("~/.config/omarchy/shell.toml")
+BEGIN = "# >>> omacale:surfaces v1"
+END = "# <<< omacale:surfaces <<<"
+BLOCK_RE = re.compile(r"(?P<pad>\n*)" + re.escape(BEGIN) + r" pad=(?P<n>\d+) created=(?P<c>[01]) >>>\n.*?" + re.escape(END) + r"\n?", re.S)
+
+
+def read():
+    try:
+        with open(PATH, encoding="utf-8") as f:
+            return f.read(), True
+    except FileNotFoundError:
+        return "", False
+
+
+def write(text):
+    os.makedirs(os.path.dirname(PATH), exist_ok=True)
+    tmp = PATH + ".omacale.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, PATH)
+
+
+def strip(text):
+    """The file without our block: (rest, created-by-us or None if absent)."""
+    m = BLOCK_RE.search(text)
+    if not m:
+        return text, None
+    n = int(m.group("n"))
+    start = m.start("pad") + (len(m.group("pad")) - n)
+    return text[:start] + text[m.end():], m.group("c") == "1"
+
+
+def user_keys(text):
+    """section.key of every key the user set (Omarchy's parse rules)."""
+    keys, section = set(), ""
+    for raw in text.split("\n"):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        s = re.match(r"^\[([A-Za-z0-9_-]+)\]\s*(#.*)?$", line)
+        if s:
+            section = s.group(1)
+            continue
+        kv = re.match(r"^([A-Za-z0-9_-]+)\s*=", line)
+        if kv and section:
+            keys.add(section + "." + kv.group(1))
+    return keys
+
+
+def cmd_set(spec):
+    text, existed = read()
+    rest, created = strip(text)
+    if created is None:
+        created = not existed
+    mine = user_keys(rest)
+    sections = {}
+    for line in spec.split("\n"):
+        line = line.strip()
+        if "=" not in line or "." not in line.split("=", 1)[0]:
+            continue
+        key, value = line.split("=", 1)
+        section, name = key.strip().split(".", 1)
+        if section + "." + name in mine:
+            continue
+        sections.setdefault(section, []).append((name, value.strip()))
+    if not sections:
+        cmd_remove()
+        return
+    pad = "" if not rest else ("\n" if rest.endswith("\n") else "\n\n")
+    body = [f"{BEGIN} pad={len(pad)} created={1 if created else 0} >>>",
+            "# Written by Omacale (Settings › Wallpaper & style); turning the option off removes it."]
+    for section, pairs in sections.items():
+        body.append(f"[{section}]")
+        body.extend(f'{name} = "{value}"' for name, value in pairs)
+    body.append(END)
+    new = rest + pad + "\n".join(body) + "\n"
+    if new != text:
+        write(new)
+
+
+def cmd_remove():
+    text, existed = read()
+    if not existed:
+        return
+    rest, created = strip(text)
+    if created is None:
+        return
+    if created and not rest.strip():
+        os.remove(PATH)
+    else:
+        write(rest)
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: shell-toml set <spec> | remove | status")
+    if sys.argv[1] == "set" and len(sys.argv) == 3:
+        cmd_set(sys.argv[2])
+    elif sys.argv[1] == "remove":
+        cmd_remove()
+    elif sys.argv[1] == "status":
+        print("present" if strip(read()[0])[1] is not None else "absent")
+    else:
+        sys.exit("usage: shell-toml set <spec> | remove | status")
+
+
+if __name__ == "__main__":
+    main()

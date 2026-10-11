@@ -333,6 +333,7 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 ## Scope: what Omacale changes, and what it doesn't
 
 - **Everything Omacale needs lives in this repo.** Don't edit files outside `shell/omacale/` (the user's `~/.config/hypr/*.lua`, `autostart.lua`, `shell.json` by hand, other dotfiles) to make Omacale work. Hyprland-side settings go in `omacale.lua` (look'n'feel, env) or `keybinds.lua` (binds), which the user loads themselves -- and only when there is no way to do it inside the shell.
+- **The one write outside Omacale's own files is opt-in and reversible:** Settings › Wallpaper & style › "Colour Omarchy's menus too" (`appearance.omarchySurfaces`, off by default) keeps a marked block in Omarchy's user `~/.config/omarchy/shell.toml` through `scripts/shell-toml` (`services/OmarchySurfaces.qml`). It never sets a key the user set, gives the file back byte for byte when turned off, and uninstall removes it (`tests/test-shell-toml.sh`, test-restore case V); `doctor` flags a stray block.
 - **Host plugins generically; don't special-case one.** Hosting fixes must hold for any well-behaved Omarchy widget (sizing, visibility, teardown, settings at creation). When a single third-party plugin misbehaves because of its own bug (writes into its plugin folder, reads settings too early, ...), say so and leave it -- there can be hundreds of plugins, and per-plugin compat code doesn't scale. No plugin names in Omacale code.
 
 ## Style for new code
