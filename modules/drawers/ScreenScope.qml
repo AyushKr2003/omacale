@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../.."
+import "../../core/Screens.js" as Screens
 
 // Everything on one monitor, laid out like Caelestia's drawers window: a
 // full-screen layer whose background is one SDF blob (frame + drawers, with a
@@ -24,7 +25,16 @@ Scope {
   // inset by the bar on its edge, and a right-hand bar mirrors the drawers that
   // live on the right (session, sidebar, utilities, toasts) over to the left,
   // out of the popouts' way.
-  readonly property string barPos: host.position
+  // Per screen (core/Screens.js): this screen's own edge (Settings › Taskbar ›
+  // Screens), whether it has a bar at all (Caelestia bar.excludedScreens), and
+  // whether the desktop widgets, toasts and OSD show here.
+  readonly property var connected: Quickshell.screens.map(s => s.name)
+  readonly property string focusedName: Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : ""
+  readonly property string barPos: Screens.edgeFor(screen.name, Screens.positionsFrom(cfg.bar.screenPositions), host.position)
+  readonly property bool barExcluded: !Screens.barOn(screen.name, cfg.bar.excludedScreens, connected)
+  readonly property bool desktopHere: Screens.shownOn(screen.name, cfg.background.excludedScreens)
+  readonly property bool toastsHere: Screens.targetFor(screen.name, cfg.notifs.screen, focusedName, connected)
+  readonly property bool osdHere: Screens.targetFor(screen.name, cfg.osd.screen, focusedName, connected)
   readonly property bool barVert: barPos === "left" || barPos === "right"
   readonly property bool mirror: barPos === "right"
   // A bottom bar puts utilities on top and the notification sidebar under it
@@ -55,7 +65,7 @@ Scope {
   // until Omarchy closes it (OsdService.dismissed).
   property int osdHold: 0
   function showOsd(hold) {
-    if (hasFullscreen || !cfg.osd.enabled) return
+    if (hasFullscreen || !cfg.osd.enabled || !osdHere) return
     osdHold = hold || 0
     osd = true
     if (osdHold < 0) osdTimer.stop()
@@ -80,7 +90,8 @@ Scope {
   // nothing else: the frame, the reserved edges and every drawer stay, as in
   // Caelestia's non-persistent bar at rest. What points at the bar (its
   // popouts, its focus mode, the hover reveal, the wheel) is off meanwhile.
-  readonly property bool barOff: host.barHidden
+  // Omarchy's bar toggle, or no bar on this screen: the frame and the drawers stay.
+  readonly property bool barOff: host.barHidden || barExcluded
   onBarOffChanged: if (barOff) {
     barFocus = false
     popout = ""
@@ -354,10 +365,14 @@ Scope {
   Reserve { anchors.bottom: true; exclusiveZone: scope.zoneFor("bottom") }
 
   // Desktop clock and visualiser, under the windows (Caelestia's background).
-  Background {
-    screen: scope.screen
-    barPos: scope.barPos
-    barZone: scope.zoneFor(scope.barPos)
+  // The desktop clock and visualiser, on the screens they aren't excluded from.
+  LazyLoader {
+    active: scope.desktopHere
+    Background {
+      screen: scope.screen
+      barPos: scope.barPos
+      barZone: scope.zoneFor(scope.barPos)
+    }
   }
 
   // The lock card drawn above the session lock, and its closing after
@@ -393,7 +408,7 @@ Scope {
     // Kept up through the outro so the last toast can finish leaving. The
     // first half of the test is deliberately computed outside this window, so
     // a surface that was taken down can always bring itself back.
-    visible: NotifService.popupsEnabled
+    visible: NotifService.popupsEnabled && scope.toastsHere
       && ((NotifService.popups.length > 0 && !toastStack.suppressed) || toastStack.implicitHeight > 0)
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
@@ -1237,6 +1252,7 @@ Scope {
         width: scope.barVert ? Tk.barWidth : win.width
         height: scope.barVert ? win.height : Tk.barWidth
         vertical: scope.barVert
+        edge: scope.barPos
         // Slid, never faded, with the frame's breadth; gone as soon as it
         // starts to hide (Caelestia's content Loader is active only while
         // the bar should be visible).

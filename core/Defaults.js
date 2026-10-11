@@ -25,6 +25,7 @@ var values = {
   border: { thickness: 10, rounding: 25, smoothing: 20 },
   bar: {
     position: "left",
+    excludedScreens: [], screenPositions: [],   // per screen (core/Screens.js)
     persistent: true,
     showOnHover: true,
     logo: true,
@@ -88,9 +89,10 @@ var values = {
   // Omarchy's own OSD has stepped aside for them (scripts/osd-handover);
   // toasts (Omacale's): every other Omarchy OSD as a utilities toast;
   // autoFellBack: as lock's.
-  osd: { enabled: true, hideDelay: 2000, enableBrightness: true, enableMicrophone: false, toasts: true, autoFellBack: false, fellBackVersion: "" },
+  osd: { enabled: true, hideDelay: 2000, enableBrightness: true, enableMicrophone: false, toasts: true, screen: "all", autoFellBack: false, fellBackVersion: "" },
   // Caelestia backgroundconfig.hpp (the wallpaper itself stays Omarchy's).
   background: {
+    excludedScreens: [],
     desktopClock: {
       enabled: false, scale: 1.0, position: "bottom-right", invertColors: false,
       background: { enabled: false, opacity: 0.7, blur: true },
@@ -101,7 +103,7 @@ var values = {
   general: { clock24: true, weatherLocation: "", units: "metric" },
   // popups.enabled only takes effect once the notification daemon has handed
   // its own toasts over (scripts/notif-popups). autoFellBack: as lock's.
-  notifs: { groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 }, autoFellBack: false, fellBackVersion: "" },
+  notifs: { screen: "all", groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 }, autoFellBack: false, fellBackVersion: "" },
   // Caelestia services / dashboard polling. Steps are Omarchy's 5%, not
   // Caelestia's 10%, so the bar scrolls like Omarchy's volume keys.
   services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 }

@@ -106,6 +106,10 @@ QtObject {
         // left | right | top | bottom, or "omarchy" to follow Omarchy's own
         // bar position (shell.json, `omarchy bar position`).
         property string position: "left"
+        // Caelestia bar.excludedScreens: screens (connector names) with no bar.
+        property list<string> excludedScreens: []
+        // A screen's own edge, as "screen=edge" (core/Screens.js); else `position`.
+        property list<string> screenPositions: []
         property bool persistent: true
         property bool showOnHover: true
         property bool logo: true
@@ -312,10 +316,14 @@ QtObject {
         property bool enableBrightness: true
         property bool enableMicrophone: false
         property bool toasts: true
+        // "all" | "focused" | a screen's name (core/Screens.js targetFor).
+        property string screen: "all"
         property bool autoFellBack: false
         property string fellBackVersion: ""
       }
       property JsonObject background: JsonObject {
+        // Screens without the desktop clock and visualiser.
+        property list<string> excludedScreens: []
         property JsonObject desktopClock: JsonObject {
           property bool enabled: false
           property real scale: 1.0
@@ -346,6 +354,8 @@ QtObject {
         property string units: "metric"
       }
       property JsonObject notifs: JsonObject {
+        // Where the toasts show: "all" | "focused" | a screen's name.
+        property string screen: "all"
         property int groupPreviewNum: 3
         property bool openExpanded: false
         property JsonObject popups: JsonObject {

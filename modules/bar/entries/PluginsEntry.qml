@@ -135,6 +135,7 @@ Item {
             // (the plugin facade), which would shadow ours here.
             host: pluginsEntry.bar.host
             vertical: pluginsEntry.bar.vertical
+            edge: pluginsEntry.bar.edge
             cellLen: pluginsEntry.bar.cellLen
             collapsed: !pinned && !pill.expanded
             onShownChanged: pill.recount()

@@ -186,6 +186,7 @@ var subpages = {
     rows: [
       { type: "section", text: "Popups" },
       { type: "custom", comp: "notifs" },
+      { type: "custom", comp: "screenSelect", key: "notifs.screen", label: "Screen", subtext: "Which screens show the popups" },
       { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows. Off, Omarchy draws its own" },
       { type: "slider", key: "notifs.popups.width", label: "Popup width (at 100% scale)", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Toasts" },
@@ -218,6 +219,8 @@ var subpages = {
       ] },
       { type: "toggle", key: "bar.persistent", label: "Persistent", subtext: "Keep the bar visible at all times" },
       { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches its edge" },
+      { type: "section", text: "Screens" },
+      { type: "custom", comp: "screens", mode: "bar" },
       { type: "section", text: "Components" },
       { type: "nav", icon: "dashboard_customize", label: "Layout", subtext: "Move anything in the bar: start, center or end", page: "barLayout" },
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
@@ -435,6 +438,7 @@ var subpages = {
     rows: [
       { type: "toggle", key: "osd.enabled", label: "Omacale OSD", subtext: "Caelestia's sliders out of the edge of the frame, and toasts for every other Omarchy OSD" },
       { type: "custom", comp: "osd" },
+      { type: "custom", comp: "screenSelect", key: "osd.screen", when: { key: "osd.enabled", value: true }, label: "Screen", subtext: "Which screens show the sliders" },
       { type: "section", text: "Sliders" },
       { type: "toggle", key: "osd.enableBrightness", when: { key: "osd.enabled", value: true }, label: "Brightness", subtext: "Shown once Omarchy has reported the display's level" },
       { type: "toggle", key: "osd.enableMicrophone", when: { key: "osd.enabled", value: true }, label: "Microphone", subtext: "The input volume, and show the OSD when it changes" },
@@ -447,6 +451,8 @@ var subpages = {
   desktop: {
     title: "Desktop",
     rows: [
+      { type: "section", text: "Screens" },
+      { type: "custom", comp: "screens", mode: "desktop" },
       { type: "section", text: "Desktop clock" },
       { type: "toggle", key: "background.desktopClock.enabled", label: "Desktop clock", subtext: "A large clock and date drawn on the wallpaper" },
       { type: "select", key: "background.desktopClock.position", when: { key: "background.desktopClock.enabled", value: true }, label: "Position", subtext: "Where on the screen the clock sits", options: [

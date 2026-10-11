@@ -28,6 +28,8 @@ Item {
   required property var host
   // A slot in a column (left or right bar) or in a row (top or bottom bar).
   property bool vertical: true
+  // The edge of the bar this slot is in (BarContent.edge), per screen.
+  property string edge: host ? host.position : "left"
   // One facade per slot, not per plugin id: a widget on each monitor gets its
   // own click targets and popout, and the facade dies with the widget.
   readonly property var bar: facade
@@ -319,16 +321,16 @@ Item {
   readonly property real hostedCardX: {
     if (!cardSurfaceActive) return 0
     var edge = Tk.barWidth + Tk.spacing.medium
-    if (host.position === "left") return edge
-    if (host.position === "right") return hostedScreenW - hostedCardW - edge
+    if (root.edge === "left") return edge
+    if (root.edge === "right") return hostedScreenW - hostedCardW - edge
     return Math.round(Math.max(Tk.padding.medium, Math.min(hostedCentre.x - hostedCardW / 2, hostedScreenW - hostedCardW - Tk.padding.medium)))
   }
   readonly property real hostedCardY: {
     if (!cardSurfaceActive) return 0
     var cardH = Number(compatibilityCard.height) || 300
     var edge = Tk.barWidth + Tk.spacing.medium
-    if (host.position === "top") return edge
-    if (host.position === "bottom") return hostedScreenH - cardH - edge
+    if (root.edge === "top") return edge
+    if (root.edge === "bottom") return hostedScreenH - cardH - edge
     return Math.round(Math.max(Tk.padding.medium, Math.min(hostedCentre.y - cardH / 2, hostedScreenH - cardH - Tk.padding.medium)))
   }
 
@@ -439,6 +441,8 @@ Item {
     id: facade
     host: root.host
     moduleName: root.moduleName
+    position: root.edge
+    vertical: root.vertical
   }
 
   // The fallback is deliberately owned by Omacale rather than inferred from

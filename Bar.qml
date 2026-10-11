@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.Commons
+import "core/Screens.js" as Screens
 
 // Omacale — entry point of the `omacale.bar` bar plugin. The Omarchy shell
 // host injects the properties below, exactly as it does for the stock bar.
@@ -34,7 +35,12 @@ Item {
     return edges.indexOf(p) >= 0 ? p : "left"
   }
   readonly property bool vertical: position === "left" || position === "right"
-  Binding { target: Tk; property: "barEdge"; value: root.position }
+  // Settings, the carousels and the style preview open on the focused screen:
+  // its bar's edge.
+  Binding {
+    target: Tk; property: "barEdge"
+    value: Screens.edgeFor(Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : "", Screens.positionsFrom(Config.o.bar.screenPositions), root.position)
+  }
   // The bar's breadth in px, for the host (Omarchy's notification service sizes
   // itself around a visible bar with it).
   readonly property int barSize: barHidden ? 0 : Tk.barWidth
@@ -49,6 +55,12 @@ Item {
   function focusedScreen() {
     const m = Hyprland.focusedMonitor
     return m ? m.name : (Quickshell.screens.length ? Quickshell.screens[0].name : "")
+  }
+  // Where something of the bar's opens from a key: the focused screen, or the
+  // nearest one that has a bar when that one has none (Settings › Taskbar ›
+  // Screens).
+  function barScreen() {
+    return Screens.barScreen(focusedScreen(), Config.o.bar.excludedScreens, Quickshell.screens.map(s => s.name))
   }
   function toggle(name, arg) { toggleRequested(name, focusedScreen(), arg || "") }
 
@@ -261,7 +273,7 @@ Item {
   }
 
   function summonBarWidget(id) {
-    return openBarWidget(String(id || ""), focusedScreen())
+    return openBarWidget(String(id || ""), barScreen())
   }
   function hideBarWidget(id) {
     var t = widgetTargets[id]
@@ -297,7 +309,7 @@ Item {
   // and the host then does nothing.
   function panelWidgetIdAt(section, index) {
     if (barHidden) return ""
-    var ids = panelOrder(focusedScreen())
+    var ids = panelOrder(barScreen())
     var n = parseInt(index, 10)
     return n >= 1 && n <= ids.length ? ids[n - 1] : ""
   }
@@ -486,11 +498,11 @@ Item {
     // keyboard on the focused monitor; again closes it.
     // SUPER+CTRL+0: the bar takes the keyboard, a cursor walks its items.
     function barFocus(): void {
-      const s = root.scopeFor(root.focusedScreen())
+      const s = root.scopeFor(root.barScreen())
       if (s) s.toggleBarFocus()
     }
     function popout(name: string): void {
-      const s = root.scopeFor(root.focusedScreen())
+      const s = root.scopeFor(root.barScreen())
       if (!s) return
       if (s.popout === name) s.popout = ""
       else s.openPopoutKeys(name)

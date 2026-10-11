@@ -62,6 +62,7 @@ Item {
         entry: singlePluginEntry.hostEntry
         host: singlePluginEntry.bar.host
         vertical: singlePluginEntry.bar.vertical
+        edge: singlePluginEntry.bar.edge
         cellLen: singlePluginEntry.bar.cellLen
         pinned: true
         collapsed: false

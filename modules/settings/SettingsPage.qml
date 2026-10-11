@@ -12,7 +12,7 @@ ColumnLayout {
   readonly property var rows: page ? page.rows : []
   spacing: Tk.spacing.extraLargeIncreased
 
-  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture") }
+  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect") }
   function isFirst(i) { return i === 0 || !groupable(rows[i - 1]) }
   function isLast(i) { return i === rows.length - 1 || !groupable(rows[i + 1]) }
   readonly property var files: ({
@@ -25,7 +25,8 @@ ColumnLayout {
     wallpapers: "pages/WallpaperGrid.qml", apps: "pages/AppsPage.qml", allApps: "pages/AllApps.qml", appInfo: "pages/AppInfo.qml",
     plugins: "pages/PluginsPage.qml", pluginInfo: "pages/PluginInfo.qml",
     trayIcons: "pages/TrayIcons.qml", barPlugins: "pages/PinnedPlugins.qml", barLayout: "pages/LayoutPage.qml",
-    sessionPicture: "cards/SessionPicture.qml"
+    sessionPicture: "cards/SessionPicture.qml",
+    screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml"
   })
 
   RowLayout {
