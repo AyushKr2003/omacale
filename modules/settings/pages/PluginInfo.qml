@@ -79,20 +79,31 @@ ColumnLayout {
     onToggled: c => PluginService.setEnabled(root.plugin.id, c)
   }
 
-  // Bar widgets: pinned, or behind the plugin pill's chevron.
+  // Bar widgets: in the bar or not (bar.plugins.hidden), then pinned or
+  // behind the plugin pill's chevron.
+  readonly property bool isWidget: !!root.plugin && root.plugin.enabled && root.plugin.kinds.indexOf("bar-widget") >= 0
+  readonly property bool widgetHidden: !!root.plugin && Config.o.bar.plugins.hidden.indexOf(root.plugin.id) >= 0
   RowToggle {
     Layout.fillWidth: true
     Layout.topMargin: Tk.spacing.small
     first: true
+    last: root.widgetHidden
+    visible: root.isWidget
+    text: "Show in the bar"
+    subtext: "Off, its widget is left out of the bar. The plugin keeps running"
+    checked: !root.widgetHidden
+    onToggled: c => PluginService.setBarMode(root.plugin.id,
+      !c ? "hidden" : Config.o.bar.plugins.unpinned.indexOf(root.plugin.id) >= 0 ? "overflow" : "pinned")
+  }
+  RowToggle {
+    Layout.fillWidth: true
+    first: false
     last: true
-    visible: !!root.plugin && root.plugin.enabled && root.plugin.kinds.indexOf("bar-widget") >= 0
+    visible: root.isWidget && !root.widgetHidden
     text: "Pinned to the bar"
     subtext: "Off, it waits behind the plugin pill's chevron"
     checked: !!root.plugin && Config.o.bar.plugins.unpinned.indexOf(root.plugin.id) < 0
-    onToggled: c => {
-      const l = Array.from(Config.o.bar.plugins.unpinned).filter(i => i !== root.plugin.id)
-      Config.set("bar.plugins.unpinned", c ? l : l.concat([root.plugin.id]))
-    }
+    onToggled: c => PluginService.setBarMode(root.plugin.id, c ? "pinned" : "overflow")
   }
 
   // Third-party only: update from git / remove (confirmed inline).

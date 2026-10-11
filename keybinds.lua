@@ -58,7 +58,11 @@ o.bind("SUPER + CTRL + code:19", "Omacale bar focus", "omarchy-shell omacale bar
 -- ...or give the same key the Omarchy menu itself, drawn by Omacale (the ":"
 -- prefix the launcher opens on). Pick one of these two, not both.
 -- o.rebind("SUPER + SPACE", "Omacale menu", "omarchy-shell omacale menu")                   -- was: Omarchy menu
--- o.rebind("SUPER + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")      -- was: System menu
+-- Session: Omacale's session drawer for the System-menu key and the power key, or
+-- Omarchy's menu when Settings › Session › Menu says so, while the screen is locked,
+-- or if Omacale is not running ("||": omarchy-shell fails when its target is missing).
+-- o.rebind("SUPER + ESCAPE", "Omacale System menu", "omarchy-shell omacale session || omarchy-menu toggle system")      -- was: System menu
+-- o.rebind("XF86PowerOff", "Omacale power menu", "omarchy-shell omacale session || omarchy-menu toggle system", { locked = true })  -- was: Power menu
 -- o.rebind("SUPER + CTRL + SPACE", "Omacale wallpaper picker", "omarchy-shell omacale wallpapers")       -- was: Background switcher
 -- o.rebind("SUPER + SHIFT + CTRL + SPACE", "Omacale theme picker", "omarchy-shell omacale themes")       -- was: Theme menu
 -- o.rebind("SUPER + TAB", "Omacale workspace overview", "omarchy-shell omacale overview")                -- was: Next workspace

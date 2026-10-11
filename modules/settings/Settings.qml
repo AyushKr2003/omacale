@@ -17,6 +17,9 @@ Item {
   property string version: ""
   signal closeRequested()
   signal popOutRequested()
+  // A page wants a file (Omacale's own FileDialog, opened by ScreenScope);
+  // `pick` gets the chosen path.
+  signal fileRequested(string title, var filters, var pick)
 
   // ------------------------------------------------------------- state
   property string pageId: "style"

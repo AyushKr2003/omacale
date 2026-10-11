@@ -2,9 +2,11 @@ import QtQuick
 import QtQuick.Layouts
 import "../../.."
 
-// Settings › Taskbar › Plugins: which third-party widgets sit in the bar's
-// plugin pill, and which wait behind its chevron. Enabling a plugin is
-// Settings › Plugins; this only decides how much room it takes.
+// Settings › Taskbar › Plugins: the plugin pill, and for each third-party
+// widget whether it is pinned in the pill, waits behind its chevron, or is
+// left out of the bar (bar.plugins.hidden, like the tray's hiddenIcons).
+// Enabling a plugin is Settings › Plugins; this only decides where its widget
+// goes. The modes and the pill switch are kept in step by PluginService.
 ColumnLayout {
   id: root
   property var row
@@ -12,24 +14,37 @@ ColumnLayout {
   property bool first
   property bool last
 
-  readonly property var widgets: PluginService.plugins.filter(p =>
-    !p.firstParty && p.enabled && p.kinds.indexOf("bar-widget") >= 0)
-  readonly property var unpinned: Config.o.bar.plugins.unpinned
-
-  function setPinned(id, on) {
-    const l = Array.from(unpinned).filter(i => i !== id)
-    Config.set("bar.plugins.unpinned", on ? l : l.concat([id]))
-  }
+  readonly property var widgets: PluginService.barWidgets
+  readonly property var modes: [
+    { value: "pinned", label: "Pinned", icon: "push_pin" },
+    { value: "overflow", label: "Behind chevron", icon: "expand_less" },
+    { value: "hidden", label: "Hidden", icon: "visibility_off" }
+  ]
+  readonly property var subtexts: ({
+    pinned: "Always in the bar",
+    overflow: "Shows when you hover the pill's chevron",
+    hidden: "Not in the bar. The plugin keeps running"
+  })
 
   spacing: Tk.spacing.extraSmall / 2
   Component.onCompleted: PluginService.refresh()
 
+  RowToggle {
+    Layout.fillWidth: true
+    first: true
+    last: true
+    text: "Show plugins"
+    subtext: "The pill of third-party widgets in the bar"
+    checked: Config.o.bar.plugins.enabled
+    onToggled: c => PluginService.setBarShown(c)
+  }
+
+  SectionHeader { row: ({ text: "Widgets" }) }
+
   MText {
     Layout.fillWidth: true
-    Layout.bottomMargin: Tk.spacing.small
-    text: root.widgets.length === 0
-      ? "No third-party bar widgets are enabled. Add them in Settings › Plugins."
-      : "Pinned widgets always show in the pill. The rest wait behind its chevron, which opens when you hover it — they keep running either way."
+    visible: root.widgets.length === 0
+    text: "No third-party bar widgets are enabled. Add them in Settings › Plugins."
     color: Colours.m3outline
     wrapMode: Text.WordWrap
   }
@@ -38,40 +53,18 @@ ColumnLayout {
     id: rep
     model: root.widgets
 
-    ConnectedRect {
-      id: pr
+    RowSelect {
+      id: wr
       required property var modelData
       required property int index
-      readonly property bool isPinned: root.unpinned.indexOf(modelData.id) < 0
+      readonly property string mode: PluginService.barMode(modelData.id)
       Layout.fillWidth: true
       first: index === 0
       last: index === rep.count - 1
-      implicitHeight: pl.implicitHeight + Tk.padding.medium * 2
-
-      StateLayer { onClicked: root.setPinned(pr.modelData.id, !pr.isPinned) }
-      RowLayout {
-        id: pl
-        anchors.fill: parent
-        anchors.margins: Tk.padding.medium
-        anchors.leftMargin: Tk.padding.largeIncreased
-        anchors.rightMargin: Tk.padding.largeIncreased
-        spacing: Tk.spacing.medium
-        MIcon {
-          text: pr.isPinned ? "push_pin" : "widgets"
-          size: Tk.iconSize.medium
-          fill: pr.isPinned ? 1 : 0
-          color: pr.isPinned ? Colours.m3primary : Colours.m3outline
-        }
-        RowLabel {
-          Layout.fillWidth: true
-          text: pr.modelData.name
-          subtext: pr.isPinned ? "Always in the bar" : "Behind the chevron"
-        }
-        MSwitch {
-          checked: pr.isPinned
-          onToggled: c => root.setPinned(pr.modelData.id, c)
-        }
-      }
+      settings: root.settings
+      row: ({ label: modelData.name, subtext: root.subtexts[mode], options: root.modes })
+      value: mode
+      onPicked: v => PluginService.setBarMode(modelData.id, v)
     }
   }
 }

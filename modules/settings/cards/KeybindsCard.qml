@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import "../../.."
+import "BindParse.js" as BindParse
 
 // Omacale keybinds, read from keybinds.lua (the same file `omacale binds`
 // prints). Copy one line, copy everything, or try them for this session
@@ -18,9 +19,11 @@ ColumnLayout {
 
   readonly property string file: String(Qt.resolvedUrl("../../../keybinds.lua")).replace("file://", "")
   property string source: ""
-  property var binds: []        // { keys, desc, cmd, line, optional, note }
+  property var binds: []        // BindParse.parseBind: { keys, desc, cmd, opts, line, optional, rebind, note }
   property var active: ({})     // description -> true when bound in Hyprland
-  property var tried: []        // keys bound by "Try" in this session
+  property var tried: []        // binds made by "Try" in this session: { keys, restore }
+  // Omarchy's own binds, to put back a key a tried rebind replaced.
+  property string stockText: ""
   property real keysWidth: Tk.px(230)  // widest key combo, so every label lines up
   property string toast: ""
 
@@ -29,12 +32,7 @@ ColumnLayout {
     printErrors: false
     onLoaded: {
       root.source = text()
-      const out = []
-      String(text()).split("\n").forEach(l => {
-        const m = l.match(/^\s*(--\s*)?o\.(re)?bind\("([^"]+)",\s*"([^"]+)",\s*"([^"]+)"\)\s*(--\s*(.*))?$/)
-        if (m) out.push({ optional: !!m[1], rebind: !!m[2], keys: m[3], desc: m[4], cmd: m[5], note: m[7] || "", line: l.replace(/^\s*--\s*/, "").replace(/\s+--.*$/, "") })
-      })
-      root.binds = out
+      root.binds = String(text()).split("\n").map(l => BindParse.parseBind(l)).filter(b => !!b)
     }
   }
 
@@ -51,7 +49,12 @@ ColumnLayout {
       }
     }
   }
-  Component.onCompleted: bindProbe.running = true
+  Process {
+    id: stockRead
+    command: ["bash", "-c", "cat \"${OMARCHY_PATH:-/usr/share/omarchy}\"/default/hypr/bindings/*.lua"]
+    stdout: StdioCollector { onStreamFinished: root.stockText = text }
+  }
+  Component.onCompleted: { bindProbe.running = true; stockRead.running = true }
   Timer { id: reprobe; interval: 400; onTriggered: bindProbe.running = true }
   Timer { id: toastTimer; interval: 2200; onTriggered: root.toast = "" }
 
@@ -66,14 +69,25 @@ ColumnLayout {
     const todo = binds.filter(b => !b.optional && !active[b.desc])
     if (!todo.length) { toast = "All Omacale binds are already active"; toastTimer.restart(); return }
     Quickshell.execDetached(["hyprctl", "eval", todo.map(b => b.line).join("\n")])
-    tried = tried.concat(todo.map(b => b.keys))
+    tried = tried.concat(todo.map(b => ({ keys: b.keys, restore: "" })))
     toast = todo.length + " binds active until Hyprland reloads"
+    toastTimer.restart()
+    reprobe.restart()
+  }
+  // One optional bind, for this session. A rebind first frees the key, and
+  // undoing it puts Omarchy's own bind for that key back.
+  function tryOne(b) {
+    const restore = b.rebind ? BindParse.stockLine(stockText, b.keys) : ""
+    const call = b.line.replace(/^o\.rebind\(/, "o.bind(")
+    Quickshell.execDetached(["hyprctl", "eval", (b.rebind ? 'hl.unbind("' + b.keys + '")\n' : "") + call])
+    tried = tried.filter(t => t.keys !== b.keys).concat([{ keys: b.keys, restore: restore }])
+    toast = b.keys + " active until Hyprland reloads"
     toastTimer.restart()
     reprobe.restart()
   }
   function undoTry() {
     if (!tried.length) return
-    Quickshell.execDetached(["hyprctl", "eval", tried.map(k => 'hl.unbind("' + k + '")').join("\n")])
+    Quickshell.execDetached(["hyprctl", "eval", tried.map(t => 'hl.unbind("' + t.keys + '")' + (t.restore ? "\n" + t.restore : "")).join("\n")])
     tried = []
     toast = "Session binds removed"
     toastTimer.restart()
@@ -160,17 +174,25 @@ ColumnLayout {
   // A picker bind is followed by its choice of picker, in the same group.
   readonly property var pickers: ({
     "omarchy-shell omacale wallpapers": { key: "launcher.wallpaperPicker", what: "wallpaper", menu: "Background switcher" },
-    "omarchy-shell omacale themes": { key: "launcher.themePicker", what: "theme", menu: "Theme menu" }
+    "omarchy-shell omacale themes": { key: "launcher.themePicker", what: "theme", menu: "Theme menu" },
+    "omarchy-shell omacale session || omarchy-menu toggle system": { key: "session.menu", label: "Menu",
+      subtext: "Omacale's session drawer, or Omarchy's System menu",
+      options: [
+        { value: "omacale", label: "Omacale session", icon: "power_settings_new" },
+        { value: "omarchy", label: "Omarchy menu", icon: "menu" }
+      ] }
   })
   readonly property var optionalRows: {
     const out = []
-    binds.filter(b => b.optional).forEach(b => {
+    const opt = binds.filter(b => b.optional)
+    opt.forEach((b, i) => {
       out.push({ bind: b })
       const p = pickers[b.cmd]
-      if (p) out.push({
-        type: "select", key: p.key, label: "Picker",
-        subtext: "Omacale's " + p.what + " carousel, or Omarchy's " + p.menu,
-        options: [
+      // Binds sharing a command share one picker, after the last of them.
+      if (p && !(opt[i + 1] && opt[i + 1].cmd === b.cmd)) out.push({
+        type: "select", key: p.key, label: p.label || "Picker",
+        subtext: p.subtext || "Omacale's " + p.what + " carousel, or Omarchy's " + p.menu,
+        options: p.options || [
           { value: "omacale", label: "Omacale launcher", icon: "view_carousel" },
           { value: "omarchy", label: "Omarchy default", icon: "menu" }
         ]
@@ -282,6 +304,8 @@ ColumnLayout {
         border.color: Colours.m3outlineVariant
         MText { id: st; anchors.centerIn: parent; text: br.isActive ? "Active" : "Not bound"; font.pointSize: Tk.label.small; weight: Font.Medium; color: br.isActive ? Colours.m3onTertiaryContainer : Colours.m3outline }
       }
+      // An optional bind replaces an Omarchy default: try it on its own.
+      IconButton { visible: br.bind.optional; type: "text"; icon: br.isActive ? "check" : "play_arrow"; iconSize: Tk.iconSize.small; disabled: br.isActive; onClicked: root.tryOne(br.bind) }
       IconButton { type: "text"; icon: "content_copy"; iconSize: Tk.iconSize.small; onClicked: root.copy(br.bind.line, br.bind.keys) }
     }
   }
