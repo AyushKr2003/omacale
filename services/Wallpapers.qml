@@ -60,7 +60,8 @@ QtObject {
     stdout: StdioCollector {
       onStreamFinished: {
         const path = text.trim()
-        if (path && path !== root.currentWall) root.currentWall = path
+        // A live preview retargets the link too; stopPreview restores currentWall.
+        if (path && path !== root.currentWall && !root.previewPath) root.currentWall = path
       }
     }
   }

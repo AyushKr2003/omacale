@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.49.1 - 2026-10-11
+
+### Fixed
+- **settings**: The wallpaper card in Settings › Wallpaper & style follows the wallpaper while it is open (#20)
+
 ## 0.49.0 - 2026-10-11
 
 ### Added
