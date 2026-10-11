@@ -174,7 +174,8 @@ Item {
     { name: "Wallpaper", comment: "Change the wallpaper", icon: "wallpaper", autocomplete: "wallpaper", cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' },
     { name: "Random", comment: "Next background", icon: "wallpaper", cmd: "omarchy theme bg next" },
     { name: "Nightlight", comment: "Toggle night light", icon: "nightlight", cmd: "omarchy toggle nightlight" },
-    { name: "Screenshot", comment: "Capture a region", icon: "screenshot_region", cmd: "omarchy capture screenshot" },
+    // The launcher slides out and is destroyed first (~500ms), or it is in the shot.
+    { name: "Screenshot", comment: "Capture a region", icon: "screenshot_region", cmd: "sleep 0.7; omarchy capture screenshot" },
     { name: "Update", comment: "Update the system", icon: "system_update_alt", cmd: "omarchy launch floating-terminal-with-presentation omarchy update" }
   ]
 
