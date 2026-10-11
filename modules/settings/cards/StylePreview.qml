@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
+import Quickshell.Io
 import "../../.."
 
 // Caelestia's wallpaper card, upgraded: the current wallpaper with a live
@@ -11,6 +12,15 @@ ColumnLayout {
   id: root
   property var settings
   property var row
+  // aether (an optional theme generator) is offered only when installed.
+  property bool hasAether: false
+  // The current wallpaper, for "From wallpaper" (Wallpapers lists it on demand).
+  Component.onCompleted: Wallpapers.reload()
+  Process {
+    running: true
+    command: ["sh", "-c", "command -v aether"]
+    onExited: code => root.hasAether = code === 0
+  }
   property bool first
   property bool last
   spacing: Tk.spacing.large
@@ -145,16 +155,27 @@ ColumnLayout {
     spacing: Tk.spacing.small
     component Action: IconTextButton {
       property string cmd
+      property string picker: ""
       type: "tonal"
       isRound: true
       shapeMorph: true
       fontSize: Tk.body.medium
       horizontalPadding: Tk.padding.large
       verticalPadding: Tk.padding.small
-      onClicked: Sys.run(cmd)
+      // The pickers follow Settings › Keybinds › Picker, as the binds do.
+      onClicked: picker ? root.settings.pickerRequested(picker) : Sys.run(cmd)
     }
-    Action { icon: "wallpaper"; text: "Wallpaper"; cmd: 'background=$(omarchy-theme-bg-switcher); [[ -n $background ]] && omarchy-theme-bg-set "$background"' }
+    Action { icon: "wallpaper"; text: "Wallpaper"; picker: "wallpaper" }
     Action { icon: "skip_next"; text: "Next wallpaper"; cmd: "omarchy-theme-bg-next" }
-    Action { icon: "palette"; text: "Theme"; cmd: 'theme=$(omarchy-theme-switcher); [[ -n $theme ]] && omarchy-theme-set "$theme"' }
+    Action { icon: "palette"; text: "Theme"; picker: "theme" }
+    // A whole Omarchy theme from the wallpaper (aether, when installed), so
+    // the apps, borders, GTK and the shell all change together. Light or dark
+    // as the shell is now.
+    Action {
+      visible: root.hasAether && Wallpapers.currentWall !== "" && !Wallpapers.isVideo(Wallpapers.currentWall)
+      icon: "auto_awesome"
+      text: "From wallpaper"
+      onClicked: Quickshell.execDetached(["aether", "--generate", Wallpapers.currentWall].concat(Colours.light ? ["--light-mode"] : []))
+    }
   }
 }

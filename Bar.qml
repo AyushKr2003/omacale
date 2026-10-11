@@ -434,6 +434,18 @@ Item {
   // menu when Settings › Session › Menu says so, when the drawer is off, when
   // a fullscreen window would cover it (Omarchy's menu is an overlay), or
   // while the screen is locked (there Omarchy's own behaviour is the safe one).
+  // The wallpaper and theme pickers, as Settings › Keybinds › Picker says:
+  // the launcher's carousel, or Omarchy's own menu. The IPC, Settings ›
+  // Wallpaper & style and the launcher's ":" menu all come through here.
+  function openWallpapers() {
+    if (Config.o.launcher.wallpaperPicker === "omarchy") Sys.run("omarchy-menu toggle background")
+    else toggle("launcher", "wallpaper")
+  }
+  function openThemes() {
+    if (Config.o.launcher.themePicker === "omarchy") Sys.run("omarchy-menu toggle theme")
+    else toggle("launcher", "theme")
+  }
+
   function openSession() {
     const s = scopeFor(focusedScreen())
     if (Config.o.session.menu === "omarchy" || !Config.o.session.enabled || (s && s.hasFullscreen))
@@ -486,14 +498,8 @@ Item {
     // Caelestia's launcher carousels: ">wallpaper " and ">theme ".
     // Settings › Keybinds › Picker picks the launcher carousel or Omarchy's
     // own menu, so one bind follows the setting without being rewritten.
-    function wallpapers(): void {
-      if (Config.o.launcher.wallpaperPicker === "omarchy") Sys.run("omarchy-menu toggle background")
-      else root.toggle("launcher", "wallpaper")
-    }
-    function themes(): void {
-      if (Config.o.launcher.themePicker === "omarchy") Sys.run("omarchy-menu toggle theme")
-      else root.toggle("launcher", "theme")
-    }
+    function wallpapers(): void { root.openWallpapers() }
+    function themes(): void { root.openThemes() }
     // The Omarchy menu, walked inside the launcher (the ":" prefix).
     function menu(): void { root.toggle("launcher", "menu") }
     // Omarchy's clipboard history, in the launcher (">clipboard ").

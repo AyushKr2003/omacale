@@ -21,6 +21,8 @@ var pages = [
     description: "Palette, scheme, transparency, scale",
     rows: [
       { type: "custom", comp: "preview" },
+      { type: "nav", icon: "wallpaper", label: "Wallpapers", subtext: "Every wallpaper of the current theme", page: "wallpapers" },
+      { type: "nav", icon: "palette", label: "Themes", subtext: "Every installed Omarchy theme", page: "themes" },
       { type: "section", text: "Colours" },
       { type: "select", key: "appearance.palette", label: "Palette", subtext: "Material colours generated from a seed, or the Omarchy theme's own colours", options: [
         { value: "material", label: "Material", icon: "palette" },

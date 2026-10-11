@@ -465,6 +465,12 @@ Scope {
     if (fromDrawer) settings = false
     filePicker.open()
   }
+  // Settings › Wallpaper & style's buttons: the drawer makes way for the picker.
+  function openPicker(kind, fromDrawer) {
+    if (fromDrawer) settings = false
+    if (kind === "theme") host.openThemes()
+    else host.openWallpapers()
+  }
   FileDialog {
     id: filePicker
     filterLabel: "Image files"
@@ -521,6 +527,7 @@ Scope {
         version: scope.host.version
         onCloseRequested: scope.settingsWindow = false
         onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, false)
+        onPickerRequested: kind => scope.openPicker(kind, false)
       }
     }
   }
@@ -1549,6 +1556,7 @@ Scope {
             onCloseRequested: scope.settings = false
             onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
             onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, true)
+            onPickerRequested: kind => scope.openPicker(kind, true)
             keyHook: e => screenScope.drawerKey(e)
             pageId: scope.nexusPage
             stack: scope.nexusStack
