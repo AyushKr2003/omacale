@@ -1,8 +1,6 @@
 # Changelog
 
-What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. New changes go under **Unreleased** and move under their version when it is bumped.
-
-## Unreleased
+What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
 ## 0.48.1 - 2026-10-11
 
