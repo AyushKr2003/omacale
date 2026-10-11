@@ -25,6 +25,12 @@ ColumnLayout {
   property bool last
   spacing: Tk.spacing.large
 
+  // The card shows the current background, so it keeps it live while open.
+  QtObject {
+    Component.onCompleted: Wallpapers.holdCurrent()
+    Component.onDestruction: Wallpapers.releaseCurrent()
+  }
+
   readonly property real sw: settings ? settings.screenWidth : 1920
   readonly property real sh: settings ? settings.screenHeight : 1080
 
@@ -45,9 +51,15 @@ ColumnLayout {
       layer.effect: ShaderMaskEffect { maskItem: mask }
 
       Rectangle { anchors.fill: parent; color: Colours.m3surfaceContainer }
+      // The background itself, not the current/background symlink: Omarchy
+      // switches wallpapers by retargeting the link, so its URL never
+      // changed and the card kept the old picture until Settings reopened.
+      // A video has no image of its own: its thumbnail, else the link.
       Image {
         anchors.fill: parent
-        source: "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
+        source: Wallpapers.currentWall && !Wallpapers.isVideo(Wallpapers.currentWall) ? Wallpapers.url(Wallpapers.currentWall)
+          : Wallpapers.currentThumb ? Wallpapers.url(Wallpapers.currentThumb)
+          : "file://" + Quickshell.env("HOME") + "/.local/state/omarchy/current/background"
         fillMode: Image.PreserveAspectCrop
         sourceSize.width: 1024
         asynchronous: true
