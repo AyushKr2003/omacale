@@ -81,8 +81,41 @@ Item {
         cellLen: singlePluginEntry.bar.cellLen
         pinned: true
         collapsed: false
+        revealHeld: singlePluginEntry.revealHeld
       }
     }
+  }
+
+  // Hovering its neighbours, or the gap between them, reveals what the
+  // widget hides while idle (Omarchy's Indicators: the inactive ones, which
+  // otherwise take no room at all), as hovering its section does on
+  // Omarchy's bar. Released a moment after the pointer leaves, as Omarchy
+  // does, so a neighbour moved by the reveal doesn't close it again.
+  property bool revealHeld: false
+  Timer { id: revealRelease; interval: 120; onTriggered: singlePluginEntry.revealHeld = false }
+  function hoverAt(a, onBar) {
+    if (onBar && nearPointer(a)) { revealRelease.stop(); revealHeld = true }
+    else if (revealHeld && !revealRelease.running) revealRelease.start()
+  }
+  // From the start of the item just before it to the end of the item just
+  // after it, in its section: the icon itself, not the whole run of status
+  // icons it may be part of. Measured on the neighbours: a hidden entry is
+  // left out of the layout, so its own position is stale.
+  function edgeItem(e, last) {
+    const cells = typeof e.cells === "function" ? e.cells() : []
+    return cells.length ? cells[last ? cells.length - 1 : 0].cell : e
+  }
+  function nearPointer(a) {
+    const all = bar.entries(), i = all.indexOf(singlePluginEntry)
+    if (i < 0 || !parent) return false
+    const near = e => !!e.parent && e.parent.parent === parent.parent && e.shown
+    let prev = null, next = null
+    for (let j = i - 1; j >= 0 && !prev; j--) if (near(all[j])) prev = all[j]
+    for (let j = i + 1; j < all.length && !next; j++) if (near(all[j])) next = all[j]
+    const first = prev ? edgeItem(prev, true) : shown ? singlePluginEntry : next ? edgeItem(next, false) : null
+    const last = next ? edgeItem(next, false) : shown ? singlePluginEntry : prev ? edgeItem(prev, true) : null
+    if (!first || !last) return false
+    return bar.pointAlong(bar.pointOn(first, a)) >= 0 && bar.pointAlong(bar.pointOn(last, a)) <= bar.alen(last)
   }
 
   function navStops() {

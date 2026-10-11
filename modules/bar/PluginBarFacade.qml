@@ -27,9 +27,12 @@ QtObject {
   readonly property int barSize: host ? host.pluginBarSize : Tk.barInner
   readonly property bool transparent: Config.o.appearance.transparency.enabled
   readonly property bool foregroundAnimationEnabled: true
-  // Omacale has no center hover reveal; the setter is accepted and ignored.
+  // Omacale never suppresses the hover reveal; the setter is accepted and ignored.
   readonly property bool centerHoverRevealSuppressed: false
-  readonly property bool centerSectionRevealHeld: false
+  // Omarchy's bar sets this while its section is hovered, and Indicators then
+  // shows its inactive indicators too. Here the widget's own entry sets it
+  // while its neighbours are hovered (SinglePluginEntry.revealHeld).
+  property bool centerSectionRevealHeld: false
   // Widgets register their trigger buttons here so KeyboardPanel can forward
   // a click through its overlay to another widget on the same bar.
   property var clickTargets: []

@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.49.3 - 2026-10-11
+
+### Added
+- **bar**: Hovering the icons on either side of Omarchy's Indicators widget, or the gap between them, shows its inactive indicators, as on Omarchy's own bar
+
 ## 0.49.2 - 2026-10-11
 
 ### Fixed

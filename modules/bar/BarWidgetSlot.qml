@@ -150,6 +150,8 @@ Item {
   // Unpinned and the pill's overflow closed: the widget keeps running (its
   // state, IPC and popups stay alive), it just takes no room.
   property bool collapsed: false
+  // Its neighbours on the bar are hovered (SinglePluginEntry.revealHeld).
+  property bool revealHeld: false
 
   readonly property real takenLen: shown && !collapsed ? Math.round(visualLen) : 0
   implicitWidth: vertical ? Tk.barInner : takenLen
@@ -439,6 +441,7 @@ Item {
     moduleName: root.moduleName
     position: root.edge
     vertical: root.vertical
+    centerSectionRevealHeld: root.revealHeld
   }
 
   // The fallback is deliberately owned by Omacale rather than inferred from
