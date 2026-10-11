@@ -88,6 +88,8 @@ var values = {
   // autoFellBack: as lock's.
   osd: { enabled: true, hideDelay: 2000, enableBrightness: true, enableMicrophone: false, toasts: true, screen: "all", autoFellBack: false, fellBackVersion: "" },
   // Caelestia backgroundconfig.hpp (the wallpaper itself stays Omarchy's).
+  // Settings › Display › Cursor: 0 / "auto" leave Omarchy's (or the user's) own.
+  display: { cursorSize: 0, zeroScaling: "auto", linkBrightness: false, quickOnConnect: false, nightTemp: 4000, nightSchedule: "off", nightFrom: "20:00", nightTo: "07:00" },
   background: {
     excludedScreens: [],
     desktopClock: {

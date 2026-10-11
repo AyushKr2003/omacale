@@ -15,6 +15,16 @@
 // Any row can carry `when: { key, value }`; it is dimmed and inert unless
 // that setting has that value.
 
+// "00:00" … "23:30", for the night light's custom times.
+function halfHours() {
+  var out = []
+  for (var h = 0; h < 24; h++) for (var m = 0; m < 60; m += 30) {
+    var t = (h < 10 ? "0" : "") + h + ":" + (m ? "30" : "00")
+    out.push({ value: t, label: t })
+  }
+  return out
+}
+
 var pages = [
   {
     id: "style", label: "Wallpaper & style", icon: "palette", category: "appearance",
@@ -89,6 +99,14 @@ var pages = [
     rows: [ { type: "custom", comp: "network" } ]
   },
   {
+    // Caelestia's nexus has a "Display" stub (PageRegistry, TODO); this is Omacale's.
+    id: "display", label: "Display", icon: "monitor", category: "connectivity",
+    description: "Arrangement, brightness, profiles, night light",
+    // The screens and the selected one; the rest is on the sub-pages below
+    // (display*), each reached from a row on the page.
+    rows: [ { type: "custom", comp: "display" } ]
+  },
+  {
     id: "bluetooth", label: "Connected devices", icon: "devices_other", noFill: true, category: "connectivity",
     description: "Bluetooth, pairing",
     rows: [ { type: "custom", comp: "bluetooth" } ]
@@ -135,7 +153,6 @@ var pages = [
       { type: "stepper", key: "services.resourceUpdateInterval", label: "System stats refresh", subtext: "CPU, memory and GPU update interval (ms)", from: 500, to: 10000, step: 500 },
       { type: "section", text: "Input increments" },
       { type: "stepper", key: "services.volumeStep", label: "Volume step", subtext: "Amount the volume changes per scroll (%)", from: 1, to: 50, step: 1 },
-      { type: "stepper", key: "services.brightnessStep", label: "Brightness step", subtext: "Amount the brightness changes per scroll (%)", from: 1, to: 50, step: 1 },
       { type: "section", text: "Service tuning" },
       { type: "stepper", key: "services.visualiserBars", label: "Visualiser bars", subtext: "Number of bars in the audio visualisers", from: 10, to: 120, step: 2 }
     ]
@@ -172,6 +189,60 @@ var pages = [
 ]
 
 var subpages = {
+  // ---- Settings › Display's sub-pages (pages/Display*.qml); every display
+  // setting lives here, other pages link to them.
+  displayProfiles: { title: "Profiles", rows: [
+    { type: "custom", comp: "displayProfiles" },
+    { type: "section", text: "Connecting a screen" },
+    { type: "toggle", key: "display.quickOnConnect", label: "Ask what to do", subtext: "Extend / Mirror / Only laptop / Only external when a screen is plugged in (also the optional display key, Settings › Keybinds)" }
+  ] },
+  displayWorkspaces: { title: "Workspaces", rows: [ { type: "custom", comp: "displayWorkspaces" } ] },
+  displayBrightness: { title: "Brightness", rows: [
+    { type: "custom", comp: "displayBrightnessList" },
+    { type: "section", text: "Together" },
+    { type: "toggle", key: "display.linkBrightness", label: "Same brightness on every screen", subtext: "One slider and the bar's scroll move every screen; the brightness keys too with their optional binds (Settings › Keybinds)" },
+    { type: "section", text: "Scrolling on the bar" },
+    { type: "toggle", key: "bar.scroll.brightness", label: "Scroll to change brightness", subtext: "The bottom half of the bar changes the brightness of the screen it is on" },
+    { type: "stepper", key: "services.brightnessStep", label: "Brightness step", subtext: "How much one scroll changes it (%)", from: 1, to: 50, step: 1 }
+  ] },
+  displayNight: { title: "Night light", rows: [
+    { type: "custom", comp: "displayNight" },
+    { type: "section", text: "Schedule" },
+    { type: "select", key: "display.nightSchedule", label: "Schedule", icon: "schedule", subtext: "Switching it by hand holds until the schedule's next change", options: [
+      { value: "off", label: "Off", icon: "block" }, { value: "sun", label: "Sunset to sunrise", icon: "wb_twilight" }, { value: "custom", label: "Custom times", icon: "schedule" }
+    ] },
+    { type: "select", key: "display.nightFrom", when: { key: "display.nightSchedule", value: "custom" }, label: "From", icon: "bedtime", options: halfHours() },
+    { type: "select", key: "display.nightTo", when: { key: "display.nightSchedule", value: "custom" }, label: "To", icon: "wb_sunny", options: halfHours() }
+  ] },
+  displayShell: { title: "Shell on each screen", rows: [
+    { type: "section", text: "Taskbar" },
+    { type: "custom", comp: "screens", mode: "bar" },
+    { type: "section", text: "Desktop clock and visualiser" },
+    { type: "custom", comp: "screens", mode: "desktop" },
+    { type: "section", text: "Popups" },
+    { type: "custom", comp: "screenSelect", key: "notifs.screen", label: "Notifications", subtext: "Which screens show the notification popups" },
+    { type: "custom", comp: "screenSelect", key: "osd.screen", when: { key: "osd.enabled", value: true }, label: "OSD sliders", subtext: "Which screens show the volume and brightness sliders" }
+  ] },
+  displayText: { title: "Text and cursor", rows: [
+    { type: "custom", comp: "displayTextSize" },
+    { type: "section", text: "Cursor" },
+    // Real cursor theme sizes; a stepper from 0 started at an unusable 4px.
+    { type: "select", key: "display.cursorSize", label: "Cursor size", subtext: "Hyprland draws it at this size times each screen's scale, so it matches on every screen; apps started earlier keep the old size until restarted", options: [
+      { value: "0", label: "Omarchy's", icon: "arrow_selector_tool" },
+      { value: "16", label: "16 px", icon: "arrow_selector_tool" },
+      { value: "20", label: "20 px", icon: "arrow_selector_tool" },
+      { value: "24", label: "24 px", icon: "arrow_selector_tool" },
+      { value: "32", label: "32 px", icon: "arrow_selector_tool" },
+      { value: "40", label: "40 px", icon: "arrow_selector_tool" },
+      { value: "48", label: "48 px", icon: "arrow_selector_tool" },
+      { value: "64", label: "64 px", icon: "arrow_selector_tool" }
+    ] },
+    { type: "select", key: "display.zeroScaling", label: "X11 app scaling", subtext: "Zero scaling keeps X11 apps sharp but small on scaled screens. Needs omacale.lua loaded; lines after it in looknfeel.lua win", options: [
+      { value: "auto", label: "Leave as set", icon: "sync_alt" },
+      { value: "on", label: "Zero scaling (sharp)", icon: "texture" },
+      { value: "off", label: "Scaled (blurry, right size)", icon: "zoom_in" }
+    ] }
+  ] },
   wallpapers: { title: "Wallpapers", rows: [ { type: "custom", comp: "wallpapers" } ] },
   themes: { title: "Themes", rows: [ { type: "custom", comp: "wallpapers", themes: true } ] },
   allApps: { title: "All apps", rows: [ { type: "custom", comp: "allApps" } ] },
@@ -182,7 +253,7 @@ var subpages = {
     rows: [
       { type: "section", text: "Popups" },
       { type: "custom", comp: "notifs" },
-      { type: "custom", comp: "screenSelect", key: "notifs.screen", label: "Screen", subtext: "Which screens show the popups" },
+      { type: "nav", icon: "monitor", label: "Screens", subtext: "Which screens show the popups: in Display › Shell on each screen", page: "displayShell" },
       { type: "toggle", key: "notifs.popups.enabled", label: "Show popups", subtext: "Draw arriving notifications as Caelestia-style toasts, on top of everything including fullscreen windows. Off, Omarchy draws its own" },
       { type: "slider", key: "notifs.popups.width", label: "Popup width (at 100% scale)", icon: "notifications", from: 320, to: 600, step: 10, unit: "px" },
       { type: "section", text: "Toasts" },
@@ -215,8 +286,7 @@ var subpages = {
       ] },
       { type: "toggle", key: "bar.persistent", label: "Persistent", subtext: "Keep the bar visible at all times" },
       { type: "toggle", key: "bar.showOnHover", label: "Show on hover", subtext: "Reveal the bar when the cursor reaches its edge" },
-      { type: "section", text: "Screens" },
-      { type: "custom", comp: "screens", mode: "bar" },
+      { type: "nav", icon: "monitor", label: "Screens", subtext: "Which screens have a bar, and its edge on each: in Display › Shell on each screen", page: "displayShell" },
       { type: "section", text: "Components" },
       { type: "nav", icon: "dashboard_customize", label: "Layout", subtext: "Move anything in the bar: start, center or end", page: "barLayout" },
       { type: "nav", icon: "workspaces", label: "Workspaces", subtext: "Indicators, window icons", page: "workspaces" },
@@ -231,7 +301,7 @@ var subpages = {
       { type: "section", text: "Scroll actions" },
       { type: "toggle", key: "bar.scroll.workspaces", label: "Workspaces", subtext: "Scroll over the workspace indicator to switch workspaces" },
       { type: "toggle", key: "bar.scroll.volume", label: "Volume", subtext: "Scroll on the top half of the bar to adjust volume" },
-      { type: "toggle", key: "bar.scroll.brightness", label: "Brightness", subtext: "Scroll on the bottom half of the bar to adjust brightness" }
+      { type: "nav", icon: "brightness_6", label: "Brightness", subtext: "Scrolling on the bottom half, and its step: in Display › Brightness", page: "displayBrightness" }
     ]
   },
   workspaces: {
@@ -434,7 +504,7 @@ var subpages = {
     rows: [
       { type: "toggle", key: "osd.enabled", label: "Omacale OSD", subtext: "Caelestia's sliders out of the edge of the frame, and toasts for every other Omarchy OSD" },
       { type: "custom", comp: "osd" },
-      { type: "custom", comp: "screenSelect", key: "osd.screen", when: { key: "osd.enabled", value: true }, label: "Screen", subtext: "Which screens show the sliders" },
+      { type: "nav", icon: "monitor", label: "Screens", subtext: "Which screens show the sliders: in Display › Shell on each screen", page: "displayShell" },
       { type: "section", text: "Sliders" },
       { type: "toggle", key: "osd.enableBrightness", when: { key: "osd.enabled", value: true }, label: "Brightness", subtext: "Shown once Omarchy has reported the display's level" },
       { type: "toggle", key: "osd.enableMicrophone", when: { key: "osd.enabled", value: true }, label: "Microphone", subtext: "The input volume, and show the OSD when it changes" },
@@ -447,8 +517,7 @@ var subpages = {
   desktop: {
     title: "Desktop",
     rows: [
-      { type: "section", text: "Screens" },
-      { type: "custom", comp: "screens", mode: "desktop" },
+      { type: "nav", icon: "monitor", label: "Screens", subtext: "Which screens show the clock and visualiser: in Display › Shell on each screen", page: "displayShell" },
       { type: "section", text: "Desktop clock" },
       { type: "toggle", key: "background.desktopClock.enabled", label: "Desktop clock", subtext: "A large clock and date drawn on the wallpaper" },
       { type: "select", key: "background.desktopClock.position", when: { key: "background.desktopClock.enabled", value: true }, label: "Position", subtext: "Where on the screen the clock sits", options: [

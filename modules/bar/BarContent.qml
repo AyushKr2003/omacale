@@ -380,7 +380,9 @@ Item {
     // handover is in; Omarchy's own otherwise).
     const svc = Config.o.services
     if (a < alen(root) / 2) { if (cfg.scroll.volume) Quickshell.execDetached(["omarchy-audio-output-volume", (dy > 0 ? "+" : "-") + svc.volumeStep]) }
-    else if (cfg.scroll.brightness) Quickshell.execDetached(["omarchy-brightness-display", dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-"])
+    // The screen this bar is on, not the focused one; DisplayService brings
+    // the others along when the displays share one brightness.
+    else if (cfg.scroll.brightness) DisplayService.stepBrightness(screen.name, dy > 0 ? "+" + svc.brightnessStep + "%" : svc.brightnessStep + "%-")
   }
 
   // Shared by the clock entry (ClockEntry reads bar.sysClock).

@@ -106,8 +106,26 @@ local state_dir = (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local
 local state_ok, state = pcall(dofile, state_dir .. "/hypr.lua")
 for k, v in pairs(omacale_scaled(state_ok and state or nil)) do vars[k] = v end
 
+-- Settings › Display › Cursor (services/HyprLook.qml writes them to the same
+-- file): a cursor size of the user's own (0 leaves Omarchy's / the user's,
+-- and only newly started apps take a new size), and XWayland's zero scaling
+-- ("auto" leaves it). Lines in looknfeel.lua after this file's dofile win.
+local function omacale_display(s)
+  s = type(s) == "table" and s or {}
+  local size = tonumber(s.cursorSize) or 0
+  if size >= 8 and size <= 128 then
+    hl.env("XCURSOR_SIZE", tostring(size))
+    hl.env("HYPRCURSOR_SIZE", tostring(size))
+  end
+  if s.zeroScaling == "on" or s.zeroScaling == "off" then
+    hl.config({ xwayland = { force_zero_scaling = s.zeroScaling == "on" } })
+  end
+end
+omacale_display(state_ok and state or nil)
+
 -- Global, so the shell can reach it through `hyprctl eval`.
 function omacale_apply(s)
+  omacale_display(s)
   local v = omacale_scaled(s)
   hl.config({
     general = { gaps_in = v.windowGapsIn, gaps_out = v.windowGapsOut, gaps_workspaces = v.workspaceGaps },
