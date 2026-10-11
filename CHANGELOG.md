@@ -2,6 +2,20 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.49.0 - 2026-10-11
+
+### Added
+- **style**: Omacale's wallpaper and theme pickers open from every entry point (Settings, the `:` menu, the binds), and **From wallpaper** builds a whole Omarchy theme from your wallpaper with aether (#12)
+- **colours**: The Omarchy palette matches Omarchy's own panels exactly, light or dark by Omarchy's rule; a custom seed is dropped on a theme switch unless you turn that off (#13)
+- **colours**: Opt-in: Omarchy's own menus, popups and notifications in Omacale's Material colours (#14)
+- **screens**: With several screens, each bar has its own edge or none, and the desktop clock, toasts and OSD can be kept to the screens you choose (#15)
+- **display**: Settings › Display (Super+Ctrl+D): arrangement, resolution and scale, profiles, a display menu, brightness per screen, night light, workspaces per screen (#16)
+- **taskbar**: One list for the whole bar, with Omarchy's own widgets in it, a chevron to tuck items behind, and joined pills (#17)
+
+### Fixed
+- **icons**: App icons show when the GTK icon theme isn't installed (#11)
+- **install**: An upgrade checks the icon font too (#18)
+
 ## 0.48.1 - 2026-10-11
 
 ### Fixed
