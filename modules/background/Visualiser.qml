@@ -6,8 +6,9 @@ import "../.."
 //
 // Caelestia's optional blur masks its own wallpaper item with the bars. Here
 // it is Hyprland's blur on this window's layer (Bar.applyDesktopBlur), so it
-// costs no textures. When no app has a playback stream open, cava isn't run
-// at all and the bars settle to nothing.
+// costs no textures. cava runs whenever the bars are shown, as Caelestia's
+// does: gating it on a playback stream (read from Pipewire's node list) left
+// it off for users whose streams that list doesn't report as playback.
 Item {
   id: root
 
@@ -21,7 +22,7 @@ Item {
   property real zoneBottom: 0
 
   readonly property var cfg: Config.o.background.visualiser
-  readonly property bool wantCava: shown && AudioService.hasPlayback
+  readonly property bool wantCava: shown
   onWantCavaChanged: Sys.visualiserWanted += wantCava ? 1 : -1
   Component.onDestruction: if (wantCava) Sys.visualiserWanted -= 1
 
