@@ -152,6 +152,9 @@ ColumnLayout {
   // on the page, with three buttons where Caelestia has two.
   ButtonRow {
     Layout.alignment: Qt.AlignHCenter
+    // As far from the rows under it as from the picture above it: the
+    // Wallpapers / Themes rows follow straight on and the pills touched them.
+    Layout.bottomMargin: root.spacing
     spacing: Tk.spacing.small
     component Action: IconTextButton {
       property string cmd
