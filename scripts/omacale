@@ -839,6 +839,10 @@ cmd_uninstall() {
   [[ "$(jq -r '.installedCava // false' "$state_file")" == true ]] && say "  cava       → removed (Omacale installed it)"
   [[ "$(jq -r '.installedFont // false' "$state_file")" == true ]] && say "  icon font  → $FONT_PKG removed (Omacale installed it)"
   [[ "$(shell_toml status 2>/dev/null)" == present ]] && say "  shell.toml → Omacale's colour block removed (~/.config/omarchy/shell.toml)"
+  # The boot menu (Settings › Boot menu) is root's file on /boot: uninstall
+  # never touches it, only says how to give it back to Omarchy.
+  [[ -n "$(jq -r '.boot.applied // ""' "$settings_dir/settings.json" 2>/dev/null)" ]] && \
+    say "  boot menu  → keeps Omacale's look; Omarchy's back with: pkexec /usr/bin/python3 -I $src_plugin/scripts/limine-style restore-default"
   if (( keep_settings )); then say "  settings   → kept ($settings_dir)"
   else say "  settings   → $(jq -r 'if .pre.settingsDirExisted then "restored to their pre-install copy" else "removed (~/.config/omacale)" end' "$state_file")"; fi
   confirm "Continue?"

@@ -186,6 +186,47 @@ var pages = [
     rows: [ { type: "custom", comp: "looknfeel" } ]
   },
   {
+    // The Limine boot menu's look (services/BootMenu.qml, scripts/limine-style).
+    // Nothing reaches /boot until Apply, which asks for your password.
+    id: "boot", label: "Boot menu", icon: "settings_power", category: "system",
+    description: "Limine's picture, colours, title and timeout",
+    // Pinned above the rows, so every change shows while you scroll to it.
+    header: "bootPreview",
+    rows: [
+      { type: "section", text: "Picture" },
+      { type: "custom", comp: "bootWallpaper" },
+      { type: "select", key: "boot.wallpaperStyle", label: "Fit", subtext: "How the picture fills the screen", options: [
+        { value: "stretched", label: "Stretched", icon: "fit_screen" },
+        { value: "centered", label: "Centred", icon: "center_focus_strong" },
+        { value: "tiled", label: "Tiled", icon: "grid_view" }
+      ] },
+      { type: "custom", comp: "colour", key: "boot.backdrop", label: "Around the picture", subtext: "Fills the screen around a centred picture" },
+      { type: "section", text: "Text and colours" },
+      { type: "text", key: "boot.branding", label: "Title", subtext: "The line at the top of the menu", placeholder: "Omarchy Bootloader" },
+      { type: "custom", comp: "colour", key: "boot.brandingColor", label: "Title colour", subtext: "Also the help line" },
+      { type: "custom", comp: "colour", key: "boot.foreground", label: "Text colour" },
+      { type: "custom", comp: "colour", key: "boot.background", label: "Background colour", subtext: "Behind the text; the whole screen without a picture" },
+      { type: "slider", key: "boot.backgroundAlpha", label: "Background see-through", icon: "opacity", from: 0, to: 100, step: 5, unit: "%" },
+      { type: "select", key: "boot.fontScale", label: "Text size", subtext: "Limine's own picks 2x from 2560x1440", options: [
+        { value: "", label: "Automatic", icon: "auto_awesome" },
+        { value: "1x1", label: "Normal", icon: "text_fields" },
+        { value: "2x2", label: "2x", icon: "format_size" },
+        { value: "3x3", label: "3x", icon: "format_size" },
+        { value: "4x4", label: "4x", icon: "format_size" }
+      ] },
+      { type: "section", text: "Margin" },
+      { type: "toggle", key: "boot.marginCustom", label: "Own margin", subtext: "Off: Limine's own, none without a picture and 64 px with one" },
+      { type: "slider", key: "boot.margin", when: { key: "boot.marginCustom", value: true }, label: "Margin", icon: "padding", from: 0, to: 240, step: 8, unit: "px" },
+      { type: "slider", key: "boot.marginGradient", when: { key: "boot.marginCustom", value: true }, label: "Soft edge", icon: "blur_on", from: 0, to: 64, step: 2, unit: "px" },
+      { type: "section", text: "Behaviour" },
+      { type: "stepper", key: "boot.timeout", label: "Seconds before it starts", subtext: "Limine's own is 5. Never instant, so the menu and your snapshots stay reachable", from: 1, to: 30, step: 1 },
+      { type: "toggle", key: "boot.rememberLast", label: "Remember the last choice", subtext: "Start what you picked last time" },
+      { type: "toggle", key: "boot.hideHelp", label: "Hide the help line", subtext: "The key hints under the title" },
+      { type: "section", text: "Apply" },
+      { type: "custom", comp: "bootActions" }
+    ]
+  },
+  {
     id: "about", label: "About", icon: "info", category: "about",
     description: "Omacale, system, reset",
     rows: [ { type: "custom", comp: "about" } ]

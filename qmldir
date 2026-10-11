@@ -55,6 +55,7 @@ RowSelect 1.0 modules/settings/rows/RowSelect.qml
 RowSlider 1.0 modules/settings/rows/RowSlider.qml
 RowStepper 1.0 modules/settings/rows/RowStepper.qml
 RowText 1.0 modules/settings/rows/RowText.qml
+RowColour 1.0 modules/settings/rows/RowColour.qml
 RowToggle 1.0 modules/settings/rows/RowToggle.qml
 ScreenScope 1.0 modules/drawers/ScreenScope.qml
 SectionHeader 1.0 components/SectionHeader.qml
@@ -99,6 +100,7 @@ LogoPicker 1.0 modules/settings/cards/LogoPicker.qml
 WallpaperItem 1.0 modules/launcher/WallpaperItem.qml
 WallpaperList 1.0 modules/launcher/WallpaperList.qml
 singleton Wallpapers 1.0 services/Wallpapers.qml
+singleton BootMenu 1.0 services/BootMenu.qml
 WallLuminance 1.0 core/WallLuminance.qml
 AppVolumes 1.0 modules/settings/pages/AppVolumes.qml
 AudioDeviceList 1.0 modules/settings/pages/AudioDeviceList.qml
@@ -179,6 +181,9 @@ StatusRun 1.0 modules/bar/entries/StatusRun.qml
 PluginsEntry 1.0 modules/bar/entries/PluginsEntry.qml
 SinglePluginEntry 1.0 modules/bar/entries/SinglePluginEntry.qml
 SessionPicture 1.0 modules/settings/cards/SessionPicture.qml
+BootPreview 1.0 modules/settings/cards/BootPreview.qml
+BootWallpaper 1.0 modules/settings/cards/BootWallpaper.qml
+BootActions 1.0 modules/settings/cards/BootActions.qml
 LayoutPage 1.0 modules/settings/pages/LayoutPage.qml
 singleton OmarchySurfaces 1.0 services/OmarchySurfaces.qml
 ScreensCard 1.0 modules/settings/pages/ScreensCard.qml

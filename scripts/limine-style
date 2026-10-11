@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+# limine-style: the look of the Limine boot menu, for Settings › Boot menu.
+# The one part of Omacale that runs as root (through pkexec), so it is
+# deliberately small and strict:
+#
+#   limine-style apply '<json>' [--dry-run]   set the look (see FIELDS)
+#   limine-style undo                          put back the header before the last change
+#   limine-style restore-default               Omarchy's look again (its template)
+#   limine-style status                        the header's look keys, as JSON
+#
+# Safety, all enforced here and covered by tests/test-limine-style.sh:
+# - Only the header of limine.conf (the lines before the first entry, a line
+#   starting with "/") is touched, only for the keys in LOOK, and only with
+#   lines built from validated values. The entries must come out byte for
+#   byte the same, or nothing is written.
+# - The ESP is locked as Limine's own tools lock it (flock on
+#   /run/lock/boot-partition.lock), the old file is backed up, the new one
+#   written to a temporary file and renamed into place.
+# - limine-enroll-config runs after every write: with config enrollment on,
+#   a changed limine.conf that isn't enrolled does not boot. If it fails, the
+#   backup goes back and is enrolled again.
+# - A wallpaper is copied onto the ESP (Limine reads nothing else) only if it
+#   is a regular file the calling user can read, at most 16 MB, and really a
+#   PNG, JPEG, BMP or QOI file.
+#
+# LIMINE_STYLE_ROOT / _TEMPLATE / _ENROLL redirect the paths for the tests;
+# they are ignored when running as root.
+import datetime
+import difflib
+import fcntl
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import time
+
+sys.dont_write_bytecode = True
+
+IS_ROOT = os.geteuid() == 0
+TEST_ROOT = None if IS_ROOT else os.environ.get("LIMINE_STYLE_ROOT")
+ROOT = TEST_ROOT or "/"
+TEMPLATE = (None if IS_ROOT else os.environ.get("LIMINE_STYLE_TEMPLATE")) or "/usr/share/omarchy/default/limine/limine.conf"
+ENROLL = (None if IS_ROOT else os.environ.get("LIMINE_STYLE_ENROLL")) or "/usr/bin/limine-enroll-config"
+LOCK = os.path.join(ROOT, "run/lock/boot-partition.lock")
+MAX_WALLPAPER = 16 * 1024 * 1024
+KEEP_BACKUPS = 5
+
+# The header keys this script may set or remove. Anything else in the header
+# (default_entry, hash_mismatch_panic, serial, ...) is never touched.
+LOOK = ["timeout", "remember_last_entry", "interface_help_hidden",
+        "interface_branding", "interface_branding_color", "interface_help_color",
+        "interface_help_color_bright", "wallpaper", "wallpaper_style", "backdrop",
+        "term_background", "term_foreground", "term_foreground_bright",
+        "term_background_bright", "term_margin", "term_margin_gradient",
+        "term_font_scale"]
+ALIASES = {"interface_branding_colour": "interface_branding_color",
+           "interface_help_colour": "interface_help_color",
+           "interface_help_colour_bright": "interface_help_color_bright"}
+
+HEX6 = re.compile(r"^[0-9a-fA-F]{6}$")
+MAGIC = [(b"\x89PNG\r\n\x1a\n", "png"), (b"\xff\xd8\xff", "jpg"), (b"BM", "bmp"), (b"qoif", "qoi")]
+
+
+class Refused(Exception):
+    pass
+
+
+def esp_path():
+    # As limine-entry-tool reads it: ESP_PATH= in /etc/default/limine.
+    path = "/boot"
+    try:
+        with open(os.path.join(ROOT, "etc/default/limine"), encoding="utf-8") as f:
+            for line in f:
+                m = re.match(r'^\s*ESP_PATH\s*=\s*"?([^"\n]*)"?\s*$', line)
+                if m: path = m.group(1)
+    except FileNotFoundError:
+        pass
+    if not re.match(r"^/[A-Za-z0-9._/-]*$", path) or ".." in path.split("/"):
+        raise Refused(f"odd ESP_PATH {path!r}")
+    return os.path.join(ROOT, path.lstrip("/"))
+
+
+# ---------------------------------------------------------------- values
+def hex6(v, name):
+    v = str(v)
+    if not HEX6.match(v): raise Refused(f"{name}: not an RRGGBB colour")
+    return v.lower()
+
+
+def text(v, name, limit=64):
+    v = str(v)
+    if not v or len(v) > limit or any(ord(c) < 32 or ord(c) == 127 for c in v) or v != v.strip():
+        raise Refused(f"{name}: 1-{limit} printable characters")
+    return v
+
+
+def build(fields, esp):
+    """The look as {limine key: value or None (remove)} from the page's fields."""
+    allowed = {"branding", "brandingColor", "helpColor", "foreground", "background",
+               "backgroundAlpha", "timeout", "rememberLast", "hideHelp",
+               "wallpaper", "wallpaperStyle", "backdrop",
+               "margin", "marginGradient", "fontScale"}
+    if not isinstance(fields, dict): raise Refused("the look must be an object")
+    unknown = set(fields) - allowed
+    if unknown: raise Refused("unknown fields: " + ", ".join(sorted(unknown)))
+    out = {}
+    if "branding" in fields: out["interface_branding"] = text(fields["branding"], "branding")
+    if "brandingColor" in fields: out["interface_branding_color"] = hex6(fields["brandingColor"], "brandingColor")
+    if "helpColor" in fields:
+        out["interface_help_color"] = hex6(fields["helpColor"], "helpColor")
+        out["interface_help_color_bright"] = out["interface_help_color"]
+    if "foreground" in fields:
+        out["term_foreground"] = out["term_foreground_bright"] = hex6(fields["foreground"], "foreground")
+    if "background" in fields:
+        bg = hex6(fields["background"], "background")
+        alpha = fields.get("backgroundAlpha", 0)
+        if not isinstance(alpha, int) or isinstance(alpha, bool) or not 0 <= alpha <= 255:
+            raise Refused("backgroundAlpha: 0-255")
+        # Limine's TT is transparency: 00 opaque, ff invisible.
+        out["term_background"] = (f"{alpha:02x}" + bg) if alpha else bg
+    elif "backgroundAlpha" in fields:
+        raise Refused("backgroundAlpha needs background")
+    if "timeout" in fields:
+        t = fields["timeout"]
+        if t is None: out["timeout"] = None
+        elif t == "no": out["timeout"] = "no"
+        # Never 0: that boots without showing the menu, and the snapshots
+        # would be out of reach.
+        elif isinstance(t, int) and not isinstance(t, bool) and 1 <= t <= 30: out["timeout"] = str(t)
+        else: raise Refused("timeout: 1-30, \"no\" or null")
+    for k, key in (("rememberLast", "remember_last_entry"), ("hideHelp", "interface_help_hidden")):
+        if k in fields:
+            if not isinstance(fields[k], bool): raise Refused(f"{k}: true or false")
+            out[key] = "yes" if fields[k] else None
+    if "wallpaperStyle" in fields:
+        if fields["wallpaperStyle"] not in ("stretched", "centered", "tiled"): raise Refused("wallpaperStyle")
+        out["wallpaper_style"] = fields["wallpaperStyle"]
+    if "backdrop" in fields: out["backdrop"] = hex6(fields["backdrop"], "backdrop")
+    if "wallpaper" in fields:
+        w = fields["wallpaper"]
+        if w in (None, ""):
+            out["wallpaper"] = None
+            out["wallpaper_style"] = None
+        else:
+            out["wallpaper"] = ("copy", check_wallpaper(w, esp))
+    # null = Limine's own (0, or 64 and 4 over a wallpaper). Capped so the
+    # menu always keeps room on a 1280x720 screen.
+    for k, key, top in (("margin", "term_margin", 240), ("marginGradient", "term_margin_gradient", 64)):
+        if k in fields:
+            v = fields[k]
+            if v is None: out[key] = None
+            elif isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= top: out[key] = str(v)
+            else: raise Refused(f"{k}: 0-{top} or null")
+    if "fontScale" in fields:
+        v = fields["fontScale"]
+        if v is None: out["term_font_scale"] = None
+        elif v in ("1x1", "2x2", "3x3", "4x4"): out["term_font_scale"] = v
+        else: raise Refused("fontScale: 1x1-4x4 or null")
+    return out
+
+
+def check_wallpaper(path, esp):
+    if not isinstance(path, str) or not path.startswith("/") or "\0" in path or "\n" in path:
+        raise Refused("wallpaper: an absolute path")
+    real = os.path.realpath(path)
+    if real == esp or real.startswith(esp.rstrip("/") + "/"):
+        raise Refused("wallpaper: pick a file outside the boot partition")
+    try:
+        fd = os.open(real, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError as e:
+        raise Refused(f"wallpaper: {e.strerror}")
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode): raise Refused("wallpaper: not a regular file")
+        # Root reads it for the caller, so only what the caller could read.
+        uid = int(os.environ.get("PKEXEC_UID", os.getuid()))
+        if st.st_uid != uid and not st.st_mode & stat.S_IROTH:
+            raise Refused("wallpaper: not your file")
+        if st.st_size > MAX_WALLPAPER: raise Refused("wallpaper: larger than 16 MB")
+        data = b""
+        while len(data) <= MAX_WALLPAPER:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk: break
+            data += chunk
+        if len(data) > MAX_WALLPAPER: raise Refused("wallpaper: larger than 16 MB")
+    finally:
+        if fd is not None: os.close(fd)
+    for magic, ext in MAGIC:
+        if data.startswith(magic): return (data, ext)
+    raise Refused("wallpaper: not a PNG, JPEG, BMP or QOI image")
+
+
+# ---------------------------------------------------------------- the file
+def split(content):
+    """(header lines, entries text, newline). Lines keep their endings."""
+    nl = "\r\n" if "\r\n" in content else "\n"
+    lines = content.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("/"):
+            return lines[:i], "".join(lines[i:]), nl
+    raise Refused("limine.conf has no boot entries; not touching it")
+
+
+def key_of(line):
+    m = re.match(r"^\s*([A-Za-z_]+)\s*:", line)
+    if not m: return None
+    return ALIASES.get(m.group(1), m.group(1))
+
+
+def header_look(header):
+    out = {}
+    for line in header:
+        k = key_of(line)
+        if k in LOOK and k not in out: out[k] = line.split(":", 1)[1].strip()
+    return out
+
+
+def set_header(header, look, nl):
+    """The header with each key in `look` set (value) or removed (None)."""
+    out, placed = [], set()
+    for line in header:
+        k = key_of(line)
+        if k in look:
+            if look[k] is not None and k not in placed:
+                out.append(f"{k}: {look[k]}{nl}")
+                placed.add(k)
+            continue          # later duplicates and removed keys go
+        out.append(line)
+    add = [k for k in look if look[k] is not None and k not in placed]
+    if add:
+        if out and not out[-1].endswith(("\n", "\r")): out[-1] += nl
+        # Before the blank lines that separate the header from the entries.
+        tail = []
+        while out and not out[-1].strip(): tail.insert(0, out.pop())
+        out += [f"{k}: {look[k]}{nl}" for k in add] + (tail or [nl])
+    return out
+
+
+def read(path):
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def write_atomic(path, data):
+    tmp = os.path.join(os.path.dirname(path), ".omacale-limine.tmp")
+    with open(tmp, "w", encoding="utf-8", newline="") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    try:  # a FAT ESP may refuse a mode it can't store; the mount decides then
+        os.chmod(tmp, 0o644 if not os.path.exists(path) else stat.S_IMODE(os.stat(path).st_mode))
+    except OSError:
+        pass
+    os.replace(tmp, path)
+    dfd = os.open(os.path.dirname(path), os.O_RDONLY)
+    try: os.fsync(dfd)
+    except OSError: pass
+    finally: os.close(dfd)
+
+
+def backups_dir(esp):
+    return os.path.join(esp, "omacale", "backups")
+
+
+def backup(esp, content):
+    d = backups_dir(esp)
+    os.makedirs(d, mode=0o755, exist_ok=True)
+    name = "limine.conf." + datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    write_atomic(os.path.join(d, name), content)
+    olds = sorted(f for f in os.listdir(d) if f.startswith("limine.conf."))
+    for f in olds[:-KEEP_BACKUPS]: os.remove(os.path.join(d, f))
+    return os.path.join(d, name)
+
+
+def lock():
+    os.makedirs(os.path.dirname(LOCK), exist_ok=True)
+    fd = os.open(LOCK, os.O_RDWR | os.O_CREAT, 0o644)
+    deadline = time.time() + 30
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd
+        except BlockingIOError:
+            if time.time() > deadline:
+                os.close(fd)
+                raise Refused("the boot partition is busy (a Limine tool holds it); try again")
+            time.sleep(0.2)
+
+
+def enroll():
+    if not os.path.exists(ENROLL): return ""
+    env = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C"}
+    r = subprocess.run([ENROLL], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=120)
+    if r.returncode != 0: raise RuntimeError(r.stdout.strip() or f"exit {r.returncode}")
+    return r.stdout
+
+
+def commit(esp, conf, old, new, wallpaper=None):
+    """Write `new` over `old` with a backup, enroll; roll back on failure."""
+    if split(new)[1] != split(old)[1]: raise Refused("internal: the entries would change")
+    if new == old and wallpaper is None: return None
+    bak = backup(esp, old)
+    if wallpaper is not None:
+        data, ext = wallpaper
+        d = os.path.join(esp, "omacale")
+        free = shutil.disk_usage(esp).free
+        if free < len(data) + 1024 * 1024: raise Refused("not enough room on the boot partition")
+        for e in ("png", "jpg", "bmp", "qoi"):
+            p = os.path.join(d, "wallpaper." + e)
+            if e != ext and os.path.exists(p): os.remove(p)
+        tmp = os.path.join(d, ".wallpaper.tmp")
+        with open(tmp, "wb") as f:
+            f.write(data); f.flush(); os.fsync(f.fileno())
+        try: os.chmod(tmp, 0o644)
+        except OSError: pass
+        os.replace(tmp, os.path.join(d, "wallpaper." + ext))
+    write_atomic(conf, new)
+    if read(conf) != new: raise RuntimeError("limine.conf did not read back as written")
+    try:
+        enroll()
+    except Exception as e:
+        write_atomic(conf, old)
+        try: enroll()
+        except Exception as e2: raise RuntimeError(f"enrolling failed ({e}), and so did enrolling the backup ({e2}); backup: {bak}")
+        raise RuntimeError(f"enrolling failed, the old limine.conf is back: {e}")
+    return bak
+
+
+def template_look():
+    try:
+        header = read(TEMPLATE).splitlines(keepends=True)
+    except FileNotFoundError:
+        raise Refused(f"Omarchy's template is missing ({TEMPLATE})")
+    look = header_look(header)
+    return {k: look.get(k) for k in LOOK}
+
+
+# ---------------------------------------------------------------- commands
+def main(argv):
+    if not argv or argv[0] not in ("apply", "undo", "restore-default", "status"):
+        print("usage: limine-style apply '<json>' [--dry-run] | undo | restore-default | status", file=sys.stderr)
+        return 2
+    if not IS_ROOT and not TEST_ROOT:
+        print("limine-style must run as root (pkexec)", file=sys.stderr)
+        return 2
+    cmd = argv[0]
+    esp = esp_path()
+    conf = os.path.join(esp, "limine.conf")
+    if not os.path.isfile(conf) or os.path.islink(conf):
+        print(f"no limine.conf at {conf}", file=sys.stderr)
+        return 3
+    fd = None
+    try:
+        fd = lock()
+        old = read(conf)
+        header, entries, nl = split(old)
+        if cmd == "status":
+            look = header_look(header)
+            look["omacaleWallpaper"] = any(os.path.exists(os.path.join(esp, "omacale", "wallpaper." + e)) for e in ("png", "jpg", "bmp", "qoi"))
+            look["backups"] = len([f for f in os.listdir(backups_dir(esp))]) if os.path.isdir(backups_dir(esp)) else 0
+            # What protects a change: a fallback Limine to boot if the main one
+            # won't, and whether the config is enrolled (then limine-enroll-config
+            # after a change is what keeps it booting).
+            look["fallback"] = os.path.isfile(os.path.join(esp, "EFI", "BOOT", "BOOTX64.EFI"))
+            enrolled = ""
+            for f in ("etc/limine-entry-tool.conf", "etc/default/limine"):
+                try:
+                    for line in open(os.path.join(ROOT, f), encoding="utf-8"):
+                        m = re.match(r'^\s*ENABLE_ENROLL_LIMINE_CONFIG\s*=\s*"?(\w*)"?', line)
+                        if m: enrolled = m.group(1)
+                except FileNotFoundError:
+                    pass
+            look["enrollConfig"] = enrolled == "yes"
+            print(json.dumps(look))
+            return 0
+        wallpaper = None
+        if cmd == "apply":
+            if len(argv) < 2: raise Refused("apply needs the look as JSON")
+            try: fields = json.loads(argv[1])
+            except ValueError: raise Refused("the look is not valid JSON")
+            look = build(fields, esp)
+            if isinstance(look.get("wallpaper"), tuple):
+                wallpaper = look["wallpaper"][1]
+                look["wallpaper"] = "boot():/omacale/wallpaper." + wallpaper[1]
+            new = "".join(set_header(header, look, nl)) + entries
+            if "--dry-run" in argv[2:]:
+                sys.stdout.writelines(difflib.unified_diff(old.splitlines(True), new.splitlines(True), "limine.conf", "limine.conf (new)"))
+                return 0
+        elif cmd == "restore-default":
+            new = "".join(set_header(header, template_look(), nl)) + entries
+        else:  # undo
+            d = backups_dir(esp)
+            olds = sorted(f for f in os.listdir(d) if f.startswith("limine.conf.")) if os.path.isdir(d) else []
+            if not olds: raise Refused("nothing to undo")
+            prev_header = split(read(os.path.join(d, olds[-1])))[0]
+            # A wallpaper the older header names may have been replaced or
+            # removed since: drop it rather than point Limine at nothing.
+            wp = header_look(prev_header).get("wallpaper", "")
+            m = re.match(r"^boot\(\):/omacale/(wallpaper\.(png|jpg|bmp|qoi))$", wp)
+            if wp and (not m or not os.path.exists(os.path.join(esp, "omacale", m.group(1)))):
+                prev_header = set_header(prev_header, {"wallpaper": None}, nl)
+            new = "".join(prev_header) + entries
+        os.makedirs(os.path.join(esp, "omacale"), mode=0o755, exist_ok=True)
+        bak = commit(esp, conf, old, new, wallpaper)
+        if cmd == "undo":
+            # The backup just restored is used up; the one commit() made of
+            # the undone state goes too, so undo walks back one step at a time.
+            d = backups_dir(esp)
+            for f in sorted(f for f in os.listdir(d) if f.startswith("limine.conf."))[-2 if bak else -1:]:
+                os.remove(os.path.join(d, f))
+        if cmd == "restore-default" and "wallpaper" not in header_look(split(new)[0]):
+            for e in ("png", "jpg", "bmp", "qoi"):
+                p = os.path.join(esp, "omacale", "wallpaper." + e)
+                if os.path.exists(p): os.remove(p)
+        print(json.dumps({"changed": bak is not None or wallpaper is not None, "backup": bak}))
+        return 0
+    except Refused as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 4
+    except Exception as e:
+        print(f"failed: {e}", file=sys.stderr)
+        return 5
+    finally:
+        os.close(fd)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

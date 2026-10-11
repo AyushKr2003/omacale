@@ -15,7 +15,7 @@ ColumnLayout {
   // sub-page opened from the bottom of a long one scrolled out of view.
   onPageChanged: flick.contentY = -flick.topMargin
 
-  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect") }
+  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect" || r.comp === "colour" || r.comp === "bootWallpaper") }
   function isFirst(i) { return i === 0 || !groupable(rows[i - 1]) }
   function isLast(i) { return i === rows.length - 1 || !groupable(rows[i + 1]) }
   readonly property var files: ({
@@ -31,7 +31,8 @@ ColumnLayout {
     sessionPicture: "cards/SessionPicture.qml",
     screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml",
     display: "pages/DisplayPage.qml", displayProfiles: "pages/DisplayProfiles.qml", displayWorkspaces: "pages/DisplayWorkspaces.qml",
-    displayBrightnessList: "pages/DisplayBrightnessList.qml", displayNight: "pages/DisplayNight.qml", displayTextSize: "pages/DisplayTextSize.qml"
+    displayBrightnessList: "pages/DisplayBrightnessList.qml", displayNight: "pages/DisplayNight.qml", displayTextSize: "pages/DisplayTextSize.qml",
+    bootPreview: "cards/BootPreview.qml", bootWallpaper: "cards/BootWallpaper.qml", bootActions: "cards/BootActions.qml", colour: "rows/RowColour.qml"
   })
 
   RowLayout {
@@ -52,6 +53,19 @@ ColumnLayout {
       weight: Font.Medium
       elide: Text.ElideRight
     }
+  }
+
+  // A page's `header` card stays put above the scrolling rows, as wide as
+  // they are, and never taller than a third of the page.
+  Loader {
+    id: header
+    readonly property real maxW: Math.min(Tk.sizes.nexusMaxContentWidth, root.width)
+    Layout.alignment: Qt.AlignHCenter
+    Layout.preferredWidth: Math.round(Math.min(maxW, root.height / 3 * 16 / 9))
+    visible: active
+    active: !!(root.page && root.page.header)
+    source: active ? Qt.resolvedUrl(root.files[root.page.header]) : ""
+    onLoaded: item.settings = root.settings
   }
 
   FadeFlickable {
