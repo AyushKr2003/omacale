@@ -217,7 +217,9 @@ Item {
     "omarchy.power": { popout: "battery" },
     "omarchy.keyboard-layout": { popout: "kblayout" },
     "omarchy.system-update": { popout: "update" },
-    "omarchy.active-window": { popout: "activewindow" }
+    "omarchy.active-window": { popout: "activewindow" },
+    // SUPER+CTRL+D (Omarchy's "Display"): Settings › Display.
+    "omarchy.monitor": { settings: "display" }
   })
   function popoutId(name) {
     for (const id in widgetTargets) if (widgetTargets[id].popout === name) return id
@@ -259,6 +261,10 @@ Item {
     if (barHidden) return false
     var t = widgetTargets[id]
     var s = scopeFor(screenName)
+    if (t && t.settings && s) {
+      toggleRequested("settings", s.screen.name, t.settings)
+      return true
+    }
     if (t && s) {
       if (t.onBar && s.statusPopouts().indexOf(t.popout) < 0) return false
       s.openPopoutKeys(t.popout)
@@ -277,6 +283,10 @@ Item {
   }
   function hideBarWidget(id) {
     var t = widgetTargets[id]
+    if (t && t.settings) {
+      for (const s of scopes) if (s.settings && s.nexusPage === t.settings) s.settings = false
+      return true
+    }
     if (t) {
       for (const s of scopes) if (s.popout === t.popout) s.popout = ""
       return true
@@ -293,6 +303,7 @@ Item {
   }
   function isBarWidgetOpen(id) {
     var t = widgetTargets[id]
+    if (t && t.settings) return scopes.some(s => s.settings && s.nexusPage === t.settings)
     if (t) {
       for (const s of scopes) if (s.popout === t.popout) return true
       return false
@@ -493,6 +504,20 @@ Item {
     function windowInfo(): void { root.toggle("windowInfo") }
     function dashboardTab(tab: string): void { root.toggle("dashboard", tab) }
     function close(): void { root.toggle("close") }
+    // The brightness keys (optional binds in keybinds.lua): the focused
+    // screen steps; with "Same brightness on every display" all of them do.
+    function brightness(step: string): void {
+      if (!/^(\+\d+%|\d+%-|\d+%)$/.test(step)) return
+      const m = Hyprland.focusedMonitor
+      DisplayService.stepBrightness(m ? m.name : (Quickshell.screens[0] ? Quickshell.screens[0].name : ""), step)
+    }
+    // Settings › Display's pending change: keep | revert | status.
+    function display(action: string): string {
+      if (action === "menu") root.displayMenu()
+      else if (action === "keep") DisplayService.keep()
+      else if (action === "revert") DisplayService.revert()
+      return DisplayService.confirming ? "confirming " + DisplayService.seconds : DisplayService.previewPending ? "applying" : "idle"
+    }
     // Any bar popout by Omacale's own name (network, bluetooth, audio,
     // battery, kblayout, lockstatus, update, activewindow), opened with the
     // keyboard on the focused monitor; again closes it.
@@ -556,6 +581,41 @@ Item {
   readonly property string hyprLook: HyprLook.args
   // Omarchy's own menus in Omacale's colours, when chosen (services/OmarchySurfaces.qml).
   readonly property bool omarchySurfaces: OmarchySurfaces.on
+  // Settings › Display › Identify: every screen's name on it for a moment.
+  Variants {
+    model: DisplayService.identifying ? Quickshell.screens : []
+    DisplayIdentify {}
+  }
+  // Settings › Display › Apply: keep or revert, on every screen.
+  Variants {
+    model: DisplayService.confirming ? Quickshell.screens : []
+    DisplayConfirm {}
+  }
+  Connections {
+    target: DisplayService
+    function onPreviewEnded(fromSettings) { if (fromSettings) root.toggle("settings", "display") }
+  }
+  // Night light's schedule lives in a singleton, created on first use: use
+  // it here so it runs from startup, not only once Settings is opened.
+  readonly property bool nightOn: NightLight.on
+  // The display-switch menu, on the screen that had focus when it opened.
+  property string quickScreen: ""
+  function displayMenu() {
+    if (DisplayService.quickOpen) { DisplayService.quickShow(false); return }
+    quickScreen = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : (Quickshell.screens[0] ? Quickshell.screens[0].name : "")
+    DisplayService.quickShow(true)
+  }
+  Variants {
+    model: DisplayService.quickOpen && !DisplayService.confirming ? Quickshell.screens.filter(s => s.name === root.quickScreen) : []
+    DisplayQuick {}
+  }
+  // Settings › Display › "Ask when a display is connected": the menu, once
+  // hyprmoncfg has had a moment to apply its own profile for the new set.
+  Timer {
+    id: connectedAsk
+    interval: 1500
+    onTriggered: if (!DisplayService.quickOpen && !DisplayService.confirming) root.displayMenu()
+  }
 
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to
@@ -619,6 +679,7 @@ Item {
   Connections {
     target: Hyprland
     function onRawEvent(e) {
+      if (e.name === "monitoraddedv2" && Config.o.display.quickOnConnect) connectedAsk.restart()
       if (e.name !== "configreloaded") return
       if (root.blur) root.applyBlur()
       if (root.clockBlur || root.visBlur) root.applyDesktopBlur()

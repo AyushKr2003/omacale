@@ -372,13 +372,24 @@ Item {
     id: menu
     readonly property bool open: root.menuOwner !== null
     readonly property point anchorPos: root.menuAnchor ? root.menuAnchor.mapToItem(root, root.menuAnchor.width, root.menuAnchor.height) : Qt.point(0, 0)
-    readonly property bool above: anchorPos.y + implicitHeight + Tk.spacing.small > root.height - Tk.padding.large
+    // A long list (a display's 16 sharp scales) is capped to the panel and
+    // scrolls, and the menu is kept inside the panel; Caelestia's menus are
+    // short enough never to need it.
+    readonly property real room: root.height - Tk.padding.large * 2
+    readonly property bool above: anchorPos.y + height + Tk.spacing.small > root.height - Tk.padding.large
     x: Math.max(Tk.padding.large, anchorPos.x - width)
-    y: above ? anchorPos.y - (root.menuAnchor ? root.menuAnchor.height : 0) - height - Tk.spacing.small : anchorPos.y + Tk.spacing.small
-    implicitWidth: Math.max(Tk.px(200), menuCol.implicitWidth + menuCol.anchors.margins * 2)
-    implicitHeight: menuCol.implicitHeight + menuCol.anchors.margins * 2
+    y: Math.max(Tk.padding.large, Math.min(root.height - Tk.padding.large - height,
+      above ? anchorPos.y - (root.menuAnchor ? root.menuAnchor.height : 0) - height - Tk.spacing.small : anchorPos.y + Tk.spacing.small))
+    implicitWidth: Math.max(Tk.px(200), menuCol.implicitWidth + Tk.padding.extraSmall * 2)
+    implicitHeight: Math.min(room, menuCol.implicitHeight + Tk.padding.extraSmall * 2)
     width: implicitWidth
     height: implicitHeight
+    // Open on the current choice.
+    onOpenChanged: if (open) Qt.callLater(() => {
+      const i = (root.menuOptions || []).findIndex(o => o.value === root.menuValue)
+      const it = i >= 0 ? menuRep.itemAt(i) : null
+      menuFlick.contentY = it ? Math.max(0, Math.min(menuFlick.contentHeight - menuFlick.height, it.y + it.height / 2 - menuFlick.height / 2)) : 0
+    })
     radius: Tk.rounding.large
     level: 2
     opacity: open ? 1 : 0
@@ -396,41 +407,50 @@ Item {
       anchors.fill: parent
       radius: parent.radius
       color: Colours.m3surfaceContainerLow
-      ColumnLayout {
-        id: menuCol
+      Flickable {
+        id: menuFlick
         anchors.fill: parent
         anchors.margins: Tk.padding.extraSmall
-        spacing: 0
-        Repeater {
-          id: menuRep
-          model: root.menuOptions
-          Rectangle {
-            id: mi
-            required property var modelData
-            required property int index
-            readonly property bool sel: modelData.value === root.menuValue
-            Layout.fillWidth: true
-            implicitWidth: miRow.implicitWidth + Tk.padding.medium * 2
-            implicitHeight: miRow.implicitHeight + Tk.padding.medium * 2
-            radius: sel ? Tk.rounding.medium : Tk.rounding.extraSmall
-            topLeftRadius: index === 0 ? Tk.rounding.medium : radius
-            topRightRadius: index === 0 ? Tk.rounding.medium : radius
-            bottomLeftRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
-            bottomRightRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
-            color: Qt.alpha(Colours.m3tertiaryContainer, sel ? 1 : 0)
-            Behavior on radius { Anim {} }
-            StateLayer {
-              color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface
-              disabled: !menu.open
-              onClicked: { if (root.menuPick) root.menuPick(mi.modelData.value); root.closeMenu() }
-            }
-            RowLayout {
-              id: miRow
-              anchors.fill: parent
-              anchors.margins: Tk.padding.medium
-              spacing: Tk.spacing.small
-              MIcon { Layout.alignment: Qt.AlignVCenter; text: mi.modelData.icon || ""; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurfaceVariant }
-              MText { Layout.alignment: Qt.AlignVCenter; Layout.fillWidth: true; text: mi.modelData.label; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface }
+        clip: true
+        contentWidth: width
+        contentHeight: menuCol.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: contentHeight > height
+        ColumnLayout {
+          id: menuCol
+          width: menuFlick.width
+          spacing: 0
+          Repeater {
+            id: menuRep
+            model: root.menuOptions
+            Rectangle {
+              id: mi
+              required property var modelData
+              required property int index
+              readonly property bool sel: modelData.value === root.menuValue
+              Layout.fillWidth: true
+              implicitWidth: miRow.implicitWidth + Tk.padding.medium * 2
+              implicitHeight: miRow.implicitHeight + Tk.padding.medium * 2
+              radius: sel ? Tk.rounding.medium : Tk.rounding.extraSmall
+              topLeftRadius: index === 0 ? Tk.rounding.medium : radius
+              topRightRadius: index === 0 ? Tk.rounding.medium : radius
+              bottomLeftRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
+              bottomRightRadius: index === menuRep.count - 1 ? Tk.rounding.medium : radius
+              color: Qt.alpha(Colours.m3tertiaryContainer, sel ? 1 : 0)
+              Behavior on radius { Anim {} }
+              StateLayer {
+                color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface
+                disabled: !menu.open
+                onClicked: { if (root.menuPick) root.menuPick(mi.modelData.value); root.closeMenu() }
+              }
+              RowLayout {
+                id: miRow
+                anchors.fill: parent
+                anchors.margins: Tk.padding.medium
+                spacing: Tk.spacing.small
+                MIcon { Layout.alignment: Qt.AlignVCenter; text: mi.modelData.icon || ""; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurfaceVariant }
+                MText { Layout.alignment: Qt.AlignVCenter; Layout.fillWidth: true; text: mi.modelData.label; color: mi.sel ? Colours.m3onTertiaryContainer : Colours.m3onSurface }
+              }
             }
           }
         }

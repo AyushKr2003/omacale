@@ -16,7 +16,9 @@ Rectangle {
   property var host
   property var scope
 
-  property bool nightlightOn: false
+  // services/NightLight.qml reads Omarchy's own status; the state file this
+  // used to probe is gone from current Omarchy, so it always showed off.
+  readonly property bool nightlightOn: NightLight.on
 
   readonly property var micSrc: Pipewire.defaultAudioSource
   readonly property bool micOn: micSrc && micSrc.audio ? !micSrc.audio.muted : true
@@ -61,7 +63,7 @@ Rectangle {
     else if (id === "settings") openSettings("")
     else if (id === "gameMode") GameMode.toggle()
     else if (id === "dnd") NotifService.toggleDnd()
-    else if (id === "nightlight") { Sys.run("omarchy toggle nightlight"); nlProbe.running = true }
+    else if (id === "nightlight") NightLight.set(!NightLight.on)
   }
 
   // Caelestia closes the utilities drawer and opens its settings window;
@@ -72,12 +74,6 @@ Rectangle {
   }
   readonly property var settingsPages: ({ wifi: "network", bluetooth: "bluetooth" })
 
-  Process {
-    id: nlProbe
-    command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/nightlight ]] && echo 1 || echo 0"]
-    stdout: SplitParser { onRead: line => root.nightlightOn = String(line).trim() === "1" }
-  }
-  Timer { interval: 3000; running: root.toggles.some(t => t.id === "nightlight"); repeat: true; triggeredOnStart: true; onTriggered: nlProbe.running = true }
 
   implicitHeight: layout.implicitHeight + Tk.padding.extraLargeIncreased
   radius: Tk.rounding.large

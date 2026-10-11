@@ -183,3 +183,16 @@ LayoutPage 1.0 modules/settings/pages/LayoutPage.qml
 singleton OmarchySurfaces 1.0 services/OmarchySurfaces.qml
 ScreensCard 1.0 modules/settings/pages/ScreensCard.qml
 ScreenSelect 1.0 modules/settings/rows/ScreenSelect.qml
+singleton DisplayService 1.0 services/DisplayService.qml
+singleton NightLight 1.0 services/NightLight.qml
+DisplayIdentify 1.0 modules/display/DisplayIdentify.qml
+DisplayConfirm 1.0 modules/display/DisplayConfirm.qml
+DisplayQuick 1.0 modules/display/DisplayQuick.qml
+DisplayPage 1.0 modules/settings/pages/DisplayPage.qml
+DisplayEditor 1.0 modules/settings/pages/DisplayEditor.qml
+DisplayProfiles 1.0 modules/settings/pages/DisplayProfiles.qml
+DisplayWorkspaces 1.0 modules/settings/pages/DisplayWorkspaces.qml
+DisplayNight 1.0 modules/settings/pages/DisplayNight.qml
+DisplayTextSize 1.0 modules/settings/pages/DisplayTextSize.qml
+DisplayBrightnessList 1.0 modules/settings/pages/DisplayBrightnessList.qml
+DisplaysCard 1.0 modules/utilities/DisplaysCard.qml

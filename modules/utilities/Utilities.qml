@@ -34,6 +34,7 @@ Item {
     spacing: Tk.spacing.medium
 
     IdleInhibitCard { Layout.fillWidth: true }
+    DisplaysCard { Layout.fillWidth: true }
     RecordCard {
       Layout.fillWidth: true
       z: 1

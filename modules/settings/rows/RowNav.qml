@@ -9,6 +9,8 @@ ConnectedRect {
   property var settings
   readonly property string status: {
     if (row.subtext) return row.subtext
+    // "fn:<id>": a live line from DisplayService (Settings › Display's rows).
+    if (String(row.status || "").startsWith("fn:")) return DisplayService.navStatus(row.status.slice(3))
     if (row.status === "bar") return Config.o.bar.persistent ? "Always visible" : Config.o.bar.showOnHover ? "Reveal on hover" : "Hidden until toggled"
     if (row.status) return Config.get(row.status) ? "Enabled" : "Disabled"
     return ""

@@ -11,6 +11,9 @@ ColumnLayout {
   property bool isSub: false
   readonly property var rows: page ? page.rows : []
   spacing: Tk.spacing.extraLargeIncreased
+  // A new page starts at its top; the old position would leave a short
+  // sub-page opened from the bottom of a long one scrolled out of view.
+  onPageChanged: flick.contentY = -flick.topMargin
 
   function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect") }
   function isFirst(i) { return i === 0 || !groupable(rows[i - 1]) }
@@ -26,7 +29,9 @@ ColumnLayout {
     plugins: "pages/PluginsPage.qml", pluginInfo: "pages/PluginInfo.qml",
     trayIcons: "pages/TrayIcons.qml", barPlugins: "pages/PinnedPlugins.qml", barLayout: "pages/LayoutPage.qml",
     sessionPicture: "cards/SessionPicture.qml",
-    screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml"
+    screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml",
+    display: "pages/DisplayPage.qml", displayProfiles: "pages/DisplayProfiles.qml", displayWorkspaces: "pages/DisplayWorkspaces.qml",
+    displayBrightnessList: "pages/DisplayBrightnessList.qml", displayNight: "pages/DisplayNight.qml", displayTextSize: "pages/DisplayTextSize.qml"
   })
 
   RowLayout {
