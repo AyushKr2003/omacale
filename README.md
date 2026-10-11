@@ -164,6 +164,7 @@ scripts/upstream-check                                                   # what 
 ```
 
 Architecture, conventions and design tokens are documented in [`CLAUDE.md`](CLAUDE.md).
+What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Limitations
 
