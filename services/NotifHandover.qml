@@ -24,6 +24,18 @@ Handover {
   // Stock differs from the Service.qml the patch was tested against.
   readonly property bool unverified: installed && fields.verified === "no"
 
+  readonly property bool wanted: NotifService.popupsOn
+  property bool attempted: false
+  function maybeInstall() {
+    if (!ready || !wanted || clone !== "" || busy || attempted || fellBack)
+      return
+    attempted = true
+    install()
+  }
+  onReadyChanged: maybeInstall()
+  onWantedChanged: maybeInstall()
+  onFellBackChanged: maybeInstall()
+
   // Which daemon draws the toasts may have changed; ask again once the
   // plugin reload has had a moment.
   onChanged: reprobe.restart()
