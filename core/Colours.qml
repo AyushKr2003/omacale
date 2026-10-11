@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import ".."
+import "ThemeMode.js" as ThemeMode
 
 // Material 3 "tonal spot" scheme, the same scheme Caelestia generates from
 // the wallpaper. Here the seed is the active Omarchy theme's accent, so the
@@ -17,10 +18,12 @@ QtObject {
   // ------------------------------------------------------------- inputs
   readonly property string seedSetting: Config.o.appearance.seed
   readonly property color seed: /^#[0-9a-fA-F]{6}$/.test(seedSetting) ? seedSetting : Color.accent
-  readonly property bool themeLight: {
-    const b = Color.background
-    return (0.2126 * b.r + 0.7152 * b.g + 0.0722 * b.b) > 0.5
-  }
+  // Light or dark as Omarchy decides it (ThemeMode.js: the theme's `mode`,
+  // `theme_type`, a light.mode file, then its background), so the shell, GTK
+  // and the templates always agree.
+  property string themeText: ""
+  property bool themeLightFile: false
+  readonly property bool themeLight: ThemeMode.resolveMode(themeText, themeLightFile) === "light"
   readonly property string mode: Config.o.appearance.mode
   // Settings › Style › Palette: "omarchy" skips the generated scheme and
   // paints with the theme's own colours (see `om` below).
@@ -56,12 +59,40 @@ QtObject {
       })
       root.themeRaw = raw
       root.themeSwatches = out.slice(0, 9)
+      root.themeText = text()
     }
+  }
+  readonly property FileView themeLightMode: FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/light.mode"
+    printErrors: false
+    onLoaded: root.themeLightFile = true
+    onLoadFailed: root.themeLightFile = false
   }
   // Omarchy pushes theme switches over IPC; re-read colors.toml when the
   // theme's colours move (the seed alone misses it when a custom seed is set).
   readonly property string themeKey: String(Color.accent) + String(Color.background) + String(Color.foreground)
-  onThemeKeyChanged: themeColors.reload()
+  onThemeKeyChanged: { themeColors.reload(); themeLightMode.reload() }
+
+  // The active theme's name, for a custom seed picked under another theme:
+  // with appearance.seedFollowsTheme on (the default) a theme switch drops
+  // it, so the colours follow the new theme instead of quietly keeping the
+  // old seed.
+  property string themeName: ""
+  readonly property FileView themeNameFile: FileView {
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.themeName = text().trim()
+  }
+  function setSeed(value) {
+    Config.set("appearance.seed", value)
+    Config.set("appearance.seedTheme", value ? themeName : "")
+  }
+  onThemeNameChanged: {
+    const a = Config.o.appearance
+    if (themeName && a.seedFollowsTheme && a.seed && a.seedTheme && a.seedTheme !== themeName) setSeed("")
+  }
 
   // ------------------------------------------------------- colour maths
   function lin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
@@ -154,7 +185,12 @@ QtObject {
   function lum(c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
   function hex(h) { return Qt.rgba(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255, 1) }
   readonly property var om: {
-    const bg = Color.background, fg = Color.foreground
+    // The surfaces Omarchy draws its own panels in (the theme's shell.toml
+    // [popups]: the theme's background and foreground unless the theme says
+    // otherwise, as aether's do), so Omacale's match them. Alpha stays
+    // Omacale's (Settings › Transparency).
+    const pb = Color.popups.background
+    const bg = Qt.rgba(pb.r, pb.g, pb.b, 1), fg = Color.popups.text
     const raw = themeRaw
     const named = (keys, fallback) => { for (const k of keys) if (raw[k]) return hex(raw[k]); return fallback }
     // Text on a colour: whichever of background/foreground contrasts more.

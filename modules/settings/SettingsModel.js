@@ -29,6 +29,7 @@ var pages = [
         { value: "omarchy", label: "Omarchy", icon: "format_paint" }
       ] },
       { type: "custom", comp: "seeds", when: { key: "appearance.palette", value: "material" } },
+      { type: "toggle", key: "appearance.seedFollowsTheme", when: { key: "appearance.palette", value: "material" }, label: "Follow theme switches", subtext: "Switching Omarchy theme drops a custom seed picked under another theme" },
       { type: "select", key: "appearance.variant", when: { key: "appearance.palette", value: "material" }, label: "Scheme", subtext: "How the palette is built from the seed colour", options: [
         { value: "tonalspot", label: "Tonal spot", icon: "palette" },
         { value: "vibrant", label: "Vibrant", icon: "colors" },
