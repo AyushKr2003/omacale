@@ -30,7 +30,7 @@ Rectangle {
     if (s.indexOf("file://") === 0 || s.charAt(0) === "/") return s
     // Anything else with a scheme (http://...) would be fetched just by
     // being shown; only icon-theme names are left (see NotifGroup.fileUrl).
-    return s.indexOf(":") === -1 ? Quickshell.iconPath(s, true) : ""
+    return s.indexOf(":") === -1 ? IconFiles.source(s) : ""
   }
 
   readonly property string imageSource: root.resolve(modelData ? modelData.image : "")

@@ -115,7 +115,7 @@ QtObject {
   }
   function themed(name) {
     const n = norm(name)
-    return n && Quickshell.iconPath(n, true) !== "" ? n : ""
+    return n && IconFiles.exists(n) ? n : ""
   }
 
   function webappIcon(cls) {
@@ -206,9 +206,14 @@ QtObject {
     const icon = iconName(d)
     if (icon.startsWith("/")) return "file://" + icon
     if (icon.startsWith("file://") || icon.startsWith("image://") || icon.startsWith("qrc:/")) return icon
-    return Quickshell.iconPath(icon, "application-x-executable")
+    return IconFiles.source(icon, "application-x-executable")
   }
 
+  // Names only IconFiles can draw count once its index has landed.
+  property Connections filesWatch: Connections {
+    target: IconFiles
+    function onRevisionChanged() { root.cache = {}; root.revision++ }
+  }
   property Connections entriesWatch: Connections {
     target: DesktopEntries.applications
     function onValuesChanged() { root.rebuild() }
