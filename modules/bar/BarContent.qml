@@ -47,8 +47,35 @@ Item {
   }
 
   // ------------------------------------------------------------ layout
-  readonly property var widgetIds: (host.thirdPartyPlugins || []).map(e => host.entryId(e))
-  readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end, removed: cfg.layout.removed }, widgetIds)
+  // null until the shell has registered its widgets and Omarchy's bar
+  // config has arrived: "not known yet" keeps every placed widget (resolve),
+  // where an empty list would drop them and build them again a moment later.
+  readonly property var widgetIds: host.widgetIds && host.widgetIds.length ? host.widgetIds : null
+  readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end, removed: cfg.layout.removed, drawer: cfg.layout.drawer }, widgetIds)
+  // What each section draws, the chevron's items included (BarLayout.render):
+  // the drawer, plus the icons past bar.layout.maxShown.
+  readonly property var rendered: BarLayout.render(layout, cfg.layout.maxShown, id => root.onShow(id))
+  // Whether an item is on show, for the "at most N" limit. Status icons follow
+  // statusOn, the one rule StatusRun draws them by.
+  function onShow(id) {
+    if (BarLayout.isPlugin(id)) return !!widgetIds && widgetIds.indexOf(BarLayout.pluginOf(id)) >= 0
+    if (BarLayout.STATUS.indexOf(id) >= 0) return statusOn(id)
+    // From the data, never from the entries: they are rebuilt from what
+    // this decides, and asking one that is being torn down fails.
+    if (id === "tray") return cfg.tray.enabled && SystemTray.items.values.some(i => i.status !== Status.Passive
+      && cfg.tray.hiddenIcons.indexOf(i.id) < 0)
+    if (id === "plugins") return cfg.plugins.enabled !== false && (host.thirdPartyPlugins || []).some(e =>
+      cfg.plugins.hidden.indexOf(host.entryId(e)) < 0 && placedWidgets.indexOf(host.entryId(e)) < 0)
+    return true
+  }
+  // Set by the lock icon while it is still folding away (StatusRun).
+  property bool lockFolding: false
+  function statusOn(id) {
+    // The lock icon stays while it is still folding away.
+    return PluginService.statusOn(id) || (id === "lockStatus" && cfg.status.lockStatus && lockFolding)
+  }
+  // The chevron's items are drawn while it is open (OverflowEntry).
+  property bool drawerOpen: false
   // The section models, replaced only when they really change, so a settings
   // write that leaves the layout alone doesn't recreate every entry.
   property var segs: ({ start: [], center: [], end: [] })
@@ -57,14 +84,16 @@ Item {
   // rebuild the pill's hosted widgets.
   property var placedWidgets: []
   function updateSegs() {
-    const next = { start: BarLayout.segments(layout.start), center: BarLayout.segments(layout.center), end: BarLayout.segments(layout.end) }
+    const r = rendered
+    const next = { start: BarLayout.segments(r.start), center: BarLayout.segments(r.center), end: BarLayout.segments(r.end) }
     if (JSON.stringify(next) !== JSON.stringify(segs)) segs = next
-    const placed = BarLayout.SECTIONS.reduce((out, s) =>
+    // The drawer's widgets too: kept out of the pill even with the chevron off the bar.
+    const placed = BarLayout.SECTIONS.concat(["drawer"]).reduce((out, s) =>
       out.concat(layout[s].filter(id => BarLayout.isPlugin(id)).map(id => BarLayout.pluginOf(id))), [])
     if (JSON.stringify(placed) !== JSON.stringify(placedWidgets)) placedWidgets = placed
   }
   // A Settings edit writes each list in turn; settle on the result once.
-  onLayoutChanged: Qt.callLater(updateSegs)
+  onRenderedChanged: Qt.callLater(updateSegs)
   Component.onCompleted: updateSegs()
   // The section whose free space the window title takes ("" while it is off).
   readonly property string titleIn: BarLayout.flexSection(layout, cfg.activeWindow.enabled)
@@ -82,6 +111,16 @@ Item {
     layoutGen++
   }
   function entryFor(id) { void layoutGen; return entryMap[id] || null }
+  // The chevron's items on the bar right now (open), in bar order.
+  function drawerItems() {
+    const out = []
+    for (const box of [startBox, centerBox, endBox])
+      for (let i = 0; i < box.rep.count; i++) {
+        const l = box.rep.itemAt(i)
+        if (l && l.item && l.drawer && l.visible) out.push(l.item)
+      }
+    return out
+  }
   readonly property var wsE: entryFor("workspaces")
   readonly property var titleE: entryFor("activeWindow")
   readonly property var trayE: entryFor("tray")
@@ -94,7 +133,8 @@ Item {
     for (const box of [startBox, centerBox, endBox])
       for (let i = 0; i < box.rep.count; i++) {
         const l = box.rep.itemAt(i)
-        if (l && l.item) out.push(l.item)
+        // Folded behind a closed chevron: not on the bar for anything.
+        if (l && l.item && !l.folded) out.push(l.item)
       }
     return out
   }
@@ -350,7 +390,7 @@ Item {
   // handler inside the bar is no good: leaving the layer surface altogether
   // never reaches it, and the group would stay open.
   // Open while the pointer is on the group; ScreenScope drives this.
-  readonly property bool groupsExpanded: (!!trayE && trayE.expanded) || (!!pluginsE && pluginsE.expanded)
+  readonly property bool groupsExpanded: (!!trayE && trayE.expanded) || (!!pluginsE && pluginsE.expanded) || drawerOpen
 
   function hoverAt(a, onBar) {
     for (const e of entries())
@@ -421,6 +461,32 @@ Item {
   component Section: GridLayout {
     id: box
     property var segList: []
+    // The Repeater's model, kept in step with segList row by row: an entry
+    // that stays where it is keeps its delegate (and a hosted widget its
+    // state) when others change, and one that folds behind the chevron or
+    // comes back only has its `drawer` flag changed; only what moved is made
+    // again, never the whole section.
+    ListModel { id: segModel }
+    function rowOf(seg) {
+      return { segId: seg.id, kind: seg.kind, idsStr: seg.ids ? seg.ids.join(",") : "", pluginId: seg.pluginId || "", drawer: !!seg.drawer }
+    }
+    function sync() {
+      const next = segList || []
+      for (let i = 0; i < next.length; i++) {
+        let j = -1
+        for (let k = i; k < segModel.count; k++) if (segModel.get(k).segId === next[i].id) { j = k; break }
+        // Out of place: made again where it belongs. A ListModel move()
+        // reorders the Repeater's items but not the GridLayout they sit in,
+        // which kept drawing them in the old order.
+        if (j > i) segModel.remove(j)
+        if (j !== i) segModel.insert(i, rowOf(next[i]))
+        else if (segModel.get(i).drawer !== !!next[i].drawer) segModel.setProperty(i, "drawer", !!next[i].drawer)
+      }
+      while (segModel.count > next.length) segModel.remove(segModel.count - 1)
+    }
+    onSegListChanged: sync()
+    Component.onCompleted: sync()
+    property string sec
     property alias rep: srep
     readonly property bool any: {
       void root.layoutGen
@@ -434,21 +500,103 @@ Item {
     columns: root.vertical ? 1 : -1
     rows: root.vertical ? -1 : 1
     flow: root.vertical ? GridLayout.TopToBottom : GridLayout.LeftToRight
-    rowSpacing: root.gap
-    columnSpacing: root.gap
+    // The gaps are each Loader's leading margin instead (`lead`), so one that
+    // folds behind the chevron takes its gap with it, gradually.
+    rowSpacing: 0
+    columnSpacing: 0
+    // The first entry on show: it has no gap before it.
+    readonly property Item firstShown: {
+      void root.layoutGen
+      for (let i = 0; i < srep.count; i++) {
+        const l = srep.itemAt(i)
+        if (l && l.item && l.item.shown && l.foldProg > 0.001) return l
+      }
+      return null
+    }
+    // Neighbouring pills (status icons, widgets) share one pill: runs of
+    // shown entries that are `joinable`, as [{ a, b }] (first and last
+    // Loader). Each joined entry drops its own background and its padding on
+    // the joined side, and `backdrops` draws the run's pill behind them.
+    readonly property var runs: {
+      void root.layoutGen
+      const out = []
+      let cur = null
+      for (let i = 0; i < srep.count; i++) {
+        const l = srep.itemAt(i)
+        const it = l ? l.item : null
+        if (!it || !it.shown || l.foldProg <= 0.001) continue      // hidden: takes no room, joins nothing
+        if (it.joinable === true) {
+          if (cur) { cur.b = l; cur.n++ } else { cur = { a: l, b: l, n: 1 } }
+        } else { if (cur) out.push(cur); cur = null }
+      }
+      if (cur) out.push(cur)
+      return out.filter(r => r.n > 1)
+    }
+    function joinOf(loader) {
+      for (const r of runs) {
+        if (r.a === loader) return { before: false, after: true }
+        if (r.b === loader) return { before: true, after: false }
+        // Inside a run: between its first and last, along the bar.
+        const p = root.apos(loader), pa = root.apos(r.a), pb = root.apos(r.b)
+        if (p > pa && p < pb) return { before: true, after: true }
+      }
+      return { before: false, after: false }
+    }
     Repeater {
       id: srep
-      model: box.segList
+      model: segModel
       Loader {
-        required property var modelData
+        id: ld
+        required property string segId
+        required property string kind
+        required property string idsStr
+        required property string pluginId
+        required property bool drawer
+        required property int index
+        readonly property var join: { void box.runs; return box.joinOf(ld) }
+        Binding { target: ld.item; property: "joinBefore"; value: ld.join.before; when: !!ld.item && ld.item.joinable === true }
+        Binding { target: ld.item; property: "joinAfter"; value: ld.join.after; when: !!ld.item && ld.item.joinable === true }
+        // Behind the chevron, and it is closed.
+        readonly property bool folded: drawer && !root.drawerOpen
+        // How far it is unfolded, 0..1. The chevron's items come out one after
+        // another from the chevron's side (and go back the other way round):
+        // its length, its gap, its opacity and a short slide follow this.
+        readonly property int drawerCount: box.segList.filter(s => s.drawer).length
+        readonly property int drawerOrder: {
+          if (!drawer) return 0
+          const n = box.segList.slice(0, index).filter(s => s.drawer).length
+          // Counted from the chevron: in the end section it is after them.
+          return box.sec === "end" ? drawerCount - 1 - n : n
+        }
+        property real foldProg: folded ? 0 : 1
+        Behavior on foldProg {
+          SequentialAnimation {
+            PauseAnimation { duration: (ld.folded ? ld.drawerCount - 1 - ld.drawerOrder : ld.drawerOrder) * 35 }
+            Anim { type: "spatial" }
+          }
+        }
+        // A gap before every entry but the first on show.
+        readonly property real lead: box.firstShown === ld ? 0 : root.gap * foldProg
+        Layout.topMargin: root.vertical ? lead : 0
+        Layout.leftMargin: root.vertical ? 0 : lead
+        Layout.preferredHeight: drawer && root.vertical && item ? item.implicitHeight * foldProg : -1
+        Layout.preferredWidth: drawer && !root.vertical && item ? item.implicitWidth * foldProg : -1
+        clip: drawer && foldProg < 1
+        opacity: drawer ? foldProg : 1
+        // Toward the chevron while folding: before it in the end section.
+        transform: Translate {
+          readonly property real d: ld.drawer ? (1 - ld.foldProg) * root.cellLen * (box.sec === "end" ? 1 : -1) : 0
+          x: root.vertical ? 0 : d
+          y: root.vertical ? d : 0
+        }
         Layout.fillWidth: !!item && item.Layout.fillWidth
         Layout.fillHeight: !!item && item.Layout.fillHeight
         Layout.alignment: item ? item.Layout.alignment : 0
-        visible: !!item && item.shown
-        sourceComponent: root.entryComponent(modelData)
+        visible: !!item && item.shown && foldProg > 0.001
+        sourceComponent: root.entryComponent({ kind: kind, id: segId })
         onLoaded: {
-          if (modelData.kind === "status") item.ids = modelData.ids
-          else if (modelData.kind === "plugin") item.pluginId = modelData.pluginId
+          if (kind === "status") item.ids = idsStr.split(",")
+          else if (kind === "plugin") item.pluginId = pluginId
         }
       }
     }
@@ -457,7 +605,7 @@ Item {
     if (seg.kind === "status") return cStatus
     if (seg.kind === "plugin") return cSinglePlugin
     return ({ logo: cLogo, workspaces: cWorkspaces, activeWindow: cActiveWindow, plugins: cPlugins,
-      tray: cTray, clock: cClock, power: cPower })[seg.id] || null
+      tray: cTray, clock: cClock, power: cPower, overflow: cOverflow })[seg.id] || null
   }
   Component { id: cLogo; LogoEntry { bar: root } }
   Component { id: cWorkspaces; WorkspacesEntry { bar: root } }
@@ -468,10 +616,32 @@ Item {
   Component { id: cStatus; StatusRun { bar: root } }
   Component { id: cPower; PowerEntry { bar: root } }
   Component { id: cSinglePlugin; SinglePluginEntry { bar: root } }
+  Component { id: cOverflow; OverflowEntry { bar: root } }
 
   Item {
     id: col
     anchors.fill: parent
+
+    // The shared pills behind joined entries (Section.runs), one per run,
+    // from its first entry's start to its last entry's end.
+    Repeater {
+      model: [startBox, centerBox, endBox].reduce((out, b) => out.concat(b.runs.map(r => ({ box: b, a: r.a, b: r.b }))), [])
+      Rectangle {
+        required property var modelData
+        readonly property Item box: modelData.box
+        readonly property Item first: modelData.a
+        readonly property Item last: modelData.b
+        // Across the bar it is centred on the section, whatever each entry's
+        // own breadth; along it, from the first entry to the end of the last.
+        x: box.x + (root.vertical ? Math.round((box.width - width) / 2) : first.x)
+        y: box.y + (root.vertical ? first.y : Math.round((box.height - height) / 2))
+        width: root.vertical ? Tk.barInner : last.x + last.width - first.x
+        height: root.vertical ? last.y + last.height - first.y : Tk.barInner
+        radius: (root.vertical ? width : height) / 2
+        color: Colours.m3surfaceContainer
+        visible: box.visible
+      }
+    }
     // Padded at its two ends along the bar.
     anchors.topMargin: root.vertical ? root.vPadding : 0
     anchors.bottomMargin: root.vertical ? root.vPadding : 0
@@ -481,6 +651,7 @@ Item {
     Section {
       id: startBox
       segList: root.segs.start
+      sec: "start"
       x: 0; y: 0
       width: root.vertical ? col.width : root.startLen
       height: root.vertical ? root.startLen : col.height
@@ -488,6 +659,7 @@ Item {
     Section {
       id: centerBox
       segList: root.segs.center
+      sec: "center"
       x: root.vertical ? 0 : root.centerPos
       y: root.vertical ? root.centerPos : 0
       width: root.vertical ? col.width : root.centerLen
@@ -496,6 +668,7 @@ Item {
     Section {
       id: endBox
       segList: root.segs.end
+      sec: "end"
       x: root.vertical ? 0 : col.width - root.endLen
       y: root.vertical ? col.height - root.endLen : 0
       width: root.vertical ? col.width : root.endLen

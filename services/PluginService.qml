@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Bluetooth
 import ".."
 import "../core/BarLayout.js" as BarLayout
 
@@ -39,13 +40,47 @@ QtObject {
     return null
   }
 
-  // Bar widgets (Settings › Taskbar › Plugins): enabled third-party plugins
-  // with a widget for the plugin pill.
-  readonly property var barWidgets: plugins.filter(p =>
-    !p.firstParty && p.enabled && p.kinds.indexOf("bar-widget") >= 0)
+  // Every enabled bar widget, Omarchy's own included (Settings › Taskbar):
+  // `source` "omarchy" or "plugin", `duplicateOf` the Omacale item an Omarchy
+  // widget would stand in for (BarLayout.DUPLICATES; null if none).
+  // widgetCatalog is every bar widget, enabled or not (Settings › Taskbar's
+  // add list).
+  readonly property var widgetCatalog: plugins.filter(p =>
+    p.kinds.indexOf("bar-widget") >= 0 && BarLayout.NEVER.indexOf(p.id) < 0).map(p =>
+    Object.assign({}, p, {
+      source: p.firstParty ? "omarchy" : "plugin",
+      duplicateOf: p.firstParty && BarLayout.DUPLICATES.hasOwnProperty(p.id) ? BarLayout.DUPLICATES[p.id] : null
+    }))
+  readonly property var barWidgets: widgetCatalog.filter(p => p.enabled)
+  // Whether a status icon is on show: the one rule the bar (StatusRun,
+  // BarContent's "at most N" count) and Settings › Taskbar's notes go by.
+  function statusOn(id) {
+    const st = Config.o.bar.status
+    switch (id) {
+    case "keepAwake": return st.keepAwake && IdleService.enabled
+    case "update": return st.update && UpdateService.available
+    case "recording": return RecordService.running
+    case "lockStatus": return st.lockStatus && (Sys.capsLock || Sys.numLock)
+    case "microphone": return st.microphone && (!st.microphoneInUseOnly || AudioService.capturing)
+    case "bluetooth": return st.bluetooth && (!st.bluetoothConnectedOnly || Bluetooth.devices.values.some(d => d.connected))
+    default: return !!st[id]
+    }
+  }
 
-  // Where a widget sits: "pinned", "overflow" (behind the pill's chevron) or
-  // "hidden" (bar.plugins.hidden: not in the bar, the plugin still runs).
+  // Widgets that failed to start in the bar, id -> why (BarWidgetSlot).
+  property var widgetErrors: ({})
+  function setWidgetError(id, why) {
+    if (!id || (widgetErrors[id] || "") === why) return
+    const next = Object.assign({}, widgetErrors)
+    if (why) next[id] = why
+    else delete next[id]
+    widgetErrors = next
+  }
+  // The plugin pill's widgets: the third-party ones.
+  readonly property var pillWidgets: barWidgets.filter(p => p.source === "plugin")
+
+  // Where a pill widget sits: "pinned", "overflow" (behind the pill's chevron)
+  // or "hidden" (bar.plugins.hidden: not in the bar, the plugin still runs).
   function barMode(id) {
     const c = Config.o.bar.plugins
     return c.hidden.indexOf(id) >= 0 ? "hidden" : c.unpinned.indexOf(id) >= 0 ? "overflow" : "pinned"
@@ -63,34 +98,114 @@ QtObject {
     Config.set("bar.plugins.hidden", hidden)
     // The pill is shown while any widget is in it: hiding the last one
     // switches it off, bringing one back switches it on.
-    Config.set("bar.plugins.enabled", barWidgets.some(p => hidden.indexOf(p.id) < 0))
+    Config.set("bar.plugins.enabled", pillWidgets.some(p => hidden.indexOf(p.id) < 0))
   }
   // The pill switch. Turned on with every widget hidden, it brings them back
   // rather than showing an empty pill.
   function setBarShown(on) {
-    if (on && barWidgets.every(p => barMode(p.id) === "hidden")) {
-      const ids = barWidgets.map(p => p.id)
+    if (on && pillWidgets.every(p => barMode(p.id) === "hidden")) {
+      const ids = pillWidgets.map(p => p.id)
       Config.set("bar.plugins.hidden", Array.from(Config.o.bar.plugins.hidden).filter(i => ids.indexOf(i) < 0))
     }
     Config.set("bar.plugins.enabled", on)
   }
 
-  // Settings › Taskbar › Layout. Resolved against the enabled bar widgets, so
+  function savedLayout() {
+    const l = Config.o.bar.layout
+    return { start: l.start, center: l.center, end: l.end, removed: l.removed, drawer: l.drawer }
+  }
+  // Settings › Taskbar's bar. Resolved against the enabled bar widgets, so
   // a widget that was disabled drops out of its place.
   function barLayout() {
-    const l = Config.o.bar.layout
     // Until `omarchy plugin list` has answered, the widget list is unknown:
     // keep the saved widget places rather than drop them on the next write.
-    return BarLayout.resolve({ start: l.start, center: l.center, end: l.end, removed: l.removed },
-      loaded && !error ? barWidgets.map(p => p.id) : null)
+    return BarLayout.resolve(savedLayout(), loaded && !error ? barWidgets.map(p => p.id) : null)
   }
   function setBarLayout(l) {
     Config.set("bar.layout.start", l.start)
     Config.set("bar.layout.center", l.center)
     Config.set("bar.layout.end", l.end)
     Config.set("bar.layout.removed", l.removed || [])
+    Config.set("bar.layout.drawer", l.drawer || [])
   }
-  // Settings › Taskbar › Layout's eye: the item's existing switch.
+  // Moving an item in Settings: a pill widget dropped on "Not in the bar"
+  // goes back into the pill.
+  function placeItem(id, list, index) {
+    setBarLayout(BarLayout.place(barLayout(), id, list, index, pillWidgets.map(p => p.id)))
+  }
+  // Widgets the bar's registry has that were never offered go on the bar
+  // (Bar.qml calls this once the registry settles). widgets: [{ id,
+  // firstParty }]; omarchyIds: the widgets in Omarchy's own bar layout.
+  // The saved places of widgets not loaded yet are kept (resolve with null).
+  // After the first adoption, each widget put on the bar is marked New in
+  // Settings and announced, since it appeared without being asked for.
+  function adoptWidgets(widgets, omarchyIds) {
+    const c = Config.o.bar.layout
+    const first = !c.adopted
+    const before = BarLayout.resolve(savedLayout(), null)
+    const r = BarLayout.adoptNew(before, widgets, Array.from(c.seen), first, omarchyIds)
+    if (!r.changed) return
+    setBarLayout(r.layout)
+    Config.set("bar.layout.seen", r.seen)
+    Config.set("bar.layout.adopted", true)
+    if (first) return
+    const placed = r.layout.end.filter(id => before.end.indexOf(id) < 0).map(id => BarLayout.pluginOf(id))
+    if (!placed.length) return
+    // A new Omarchy widget that is off is turned on, so Omarchy's plugin list
+    // agrees with the bar (enable only writes shell.json, nothing reloads).
+    for (const id of placed) {
+      const w = widgets.find(x => x.id === id)
+      if (w && w.enabled === false) Quickshell.execDetached(["omarchy", "plugin", "enable", id])
+    }
+    Qt.callLater(refresh)
+    Config.set("bar.layout.fresh", Array.from(c.fresh).concat(placed))
+    const names = placed.map(id => { const w = widgets.find(x => x.id === id); return w && w.name ? w.name : id })
+    Toaster.toast(placed.length === 1 ? "New bar widget" : "New bar widgets",
+      names.join(", ") + (placed.length === 1 ? " is" : " are") + " on the bar now. Move or remove it in Settings › Taskbar",
+      "widgets", Toaster.info, 0, "omacale:new-widgets")
+  }
+  // Settings › Taskbar's reset: the default layout, and a first adoption
+  // again (Bar.qml answers adoptRequested), so Omarchy's widgets come back as
+  // on its own bar.
+  signal adoptRequested()
+  function resetBarLayout() {
+    setBarLayout({ start: [], center: [], end: [], removed: [], drawer: [] })
+    Config.set("bar.layout.seen", [])
+    Config.set("bar.layout.fresh", [])
+    Config.set("bar.layout.adopted", false)
+    adoptRequested()
+  }
+  // Pill widgets that waited behind the pill's own chevron
+  // (bar.plugins.unpinned, before the chevron for everything) go behind the
+  // bar's chevron instead, in the same order. Run with adoption; a no-op once
+  // done, as Settings no longer offers the pill's chevron.
+  function moveUnpinned() {
+    const unpinned = Array.from(Config.o.bar.plugins.unpinned)
+    if (!unpinned.length) return
+    let l = BarLayout.resolve(savedLayout(), null)
+    for (const id of unpinned)
+      if (!BarLayout.find(l, "plugin:" + id) && l.drawer.indexOf("plugin:" + id) < 0 && l.removed.indexOf("plugin:" + id) < 0)
+        l = BarLayout.place(l, "plugin:" + id, "drawer", l.drawer.length, [])
+    setBarLayout(l)
+    Config.set("bar.plugins.unpinned", [])
+  }
+  function clearFresh() { if (Config.o.bar.layout.fresh.length) Config.set("bar.layout.fresh", []) }
+
+  // Add a widget from Settings › Taskbar's add list at the end of the end
+  // section. A disabled one is enabled first (Omarchy's `plugin enable`), and
+  // placed once that succeeded.
+  property string placeAfterEnable: ""
+  function addWidget(id) {
+    const w = widgetCatalog.find(p => p.id === id)
+    if (!w) return
+    if (w.enabled) {
+      setBarLayout(BarLayout.appendEnd(BarLayout.resolve(savedLayout(), null), "plugin:" + id))
+      return
+    }
+    placeAfterEnable = id
+    setEnabled(id, true)
+  }
+  // The eye on a built-in's row: the item's existing switch.
   function itemShown(id) {
     const it = BarLayout.ITEMS[id]
     return !it || !it.key ? true : !!Config.get(it.key)
@@ -202,6 +317,14 @@ QtObject {
     onExited: (code) => {
       if (code !== 0)
         root.error = String(toggleErr.text).trim().split("\n").pop() || "omarchy plugin failed"
+      else if (root.placeAfterEnable !== "") {
+        // Seen, so adoption doesn't add it a second time.
+        const id = root.placeAfterEnable
+        root.setBarLayout(BarLayout.appendEnd(BarLayout.resolve(root.savedLayout(), null), "plugin:" + id))
+        if (Config.o.bar.layout.seen.indexOf(id) < 0)
+          Config.set("bar.layout.seen", Array.from(Config.o.bar.layout.seen).concat([id]))
+      }
+      root.placeAfterEnable = ""
       root.busyId = ""
       root.refresh()
     }

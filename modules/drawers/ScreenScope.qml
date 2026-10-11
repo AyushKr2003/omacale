@@ -1135,7 +1135,15 @@ Scope {
       }
       onWheel: e => { if (!scope.barOff && barDepth(e.x, e.y) < win.bw) bar.handleWheel(barAlong(e.x, e.y), e.angleDelta.y) }
       onPositionChanged: e => {
-        if (win.fs > 0 || scope.settings) return
+        if (win.fs > 0) return
+        // With Settings open the bar's groups (the chevron, the compact tray)
+        // still open under the pointer -- Settings › Taskbar is where you try
+        // them -- but nothing else reacts: no popouts over the panel, no
+        // drawers.
+        if (scope.settings) {
+          bar.hoverAt(barAlong(e.x, e.y), barDepth(e.x, e.y) < win.bw && win.barProg > 0.5)
+          return
+        }
         const x = e.x, y = e.y, dx = x - dragStart.x, dy = y - dragStart.y
 
         // Auto-hiding bar: reveal at the bar's edge, hide once well away.

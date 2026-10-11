@@ -27,7 +27,7 @@ ColumnLayout {
     audio: "pages/AudioPage.qml", appVolumes: "pages/AppVolumes.qml",
     wallpapers: "pages/WallpaperGrid.qml", apps: "pages/AppsPage.qml", allApps: "pages/AllApps.qml", appInfo: "pages/AppInfo.qml",
     plugins: "pages/PluginsPage.qml", pluginInfo: "pages/PluginInfo.qml",
-    trayIcons: "pages/TrayIcons.qml", barPlugins: "pages/PinnedPlugins.qml", barLayout: "pages/LayoutPage.qml",
+    trayIcons: "pages/TrayIcons.qml", barLayout: "pages/LayoutPage.qml",
     sessionPicture: "cards/SessionPicture.qml",
     screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml",
     display: "pages/DisplayPage.qml", displayProfiles: "pages/DisplayProfiles.qml", displayWorkspaces: "pages/DisplayWorkspaces.qml",

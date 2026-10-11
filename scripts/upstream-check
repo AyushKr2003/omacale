@@ -157,6 +157,15 @@ def main(argv):
     for name in sorted(set(contract) - before):
         changes.setdefault(CONTRACT_AREA, []).append(f"newly called: bar.{name}")
 
+    # The hosted-widget API, checked member by member whatever the lock says:
+    # a member PluginBarFacade lacks breaks the widgets that use it.
+    facade = subprocess.run([os.path.join(HERE, "..", "tests", "test-facade.sh")],
+                            env=dict(os.environ, OMARCHY_PATH=OMARCHY),
+                            capture_output=True, text=True)
+    if facade.returncode != 0:
+        changes.setdefault("hosted bar widgets: PluginBarFacade", []).extend(
+            l.strip() for l in facade.stdout.splitlines()[1:] if l.strip())
+
     print(f"verified against: {known.get('omarchy', '?')} ({known.get('recorded', '?')})")
     print(f"installed:        {omarchy_version()}")
     if not changes:

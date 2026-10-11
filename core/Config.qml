@@ -158,8 +158,22 @@ QtObject {
           property list<string> start: []
           property list<string> center: []
           property list<string> end: []
-          // Built-ins taken off the bar ("Not in the bar"), kept off until added back.
+          // Built-ins and widgets taken off the bar ("Not in the bar"), kept off until added back.
           property list<string> removed: []
+          // Bar widgets already offered once (BarLayout.adoptNew): one that
+          // isn't here is new, and goes on the bar. `adopted` is false until
+          // the first adoption, which only places Omarchy's own bar's widgets.
+          property list<string> seen: []
+          property bool adopted: false
+          // Widgets adoption put on the bar since Settings › Taskbar was last
+          // open: marked New there.
+          property list<string> fresh: []
+          // Behind the chevron (BarLayout.render): items placed there, and
+          // with maxShown > 0 the shown icons after it past that many.
+          property list<string> drawer: []
+          property int maxShown: 0
+          // Settings › Taskbar's add list: Omarchy's versions of built-ins too.
+          property bool showDuplicates: false
         }
         property JsonObject clock: JsonObject {
           property bool enabled: true
