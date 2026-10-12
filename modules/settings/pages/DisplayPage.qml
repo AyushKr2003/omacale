@@ -153,6 +153,8 @@ ColumnLayout {
     }
   }
 
+  MirrorCard { Layout.topMargin: Tk.spacing.small }
+
   // ---- changes waiting for Apply
   ConnectedRect {
     Layout.fillWidth: true

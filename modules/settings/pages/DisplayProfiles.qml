@@ -39,6 +39,8 @@ ColumnLayout {
       MText { Layout.fillWidth: true; wrapMode: Text.WordWrap; text: "hyprmoncfg: " + DisplayService.lastError; color: Colours.m3error; font.pointSize: Tk.body.small }
     }
   }
+  MirrorCard { Layout.bottomMargin: Tk.spacing.small }
+
   RowToggle {
     Layout.fillWidth: true
     first: true
