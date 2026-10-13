@@ -23,6 +23,7 @@ o.bind("SUPER + N", "Omacale notifications sidebar", "omarchy-shell omacale side
 o.bind("SUPER + U", "Omacale quick toggles", "omarchy-shell omacale utilities")
 o.bind("SUPER + SHIFT + ESCAPE", "Omacale session menu", "omarchy-shell omacale session")
 o.bind("SUPER + SHIFT + I", "Omacale settings", "omarchy-shell omacale settings")
+o.bind("SUPER + CTRL + SHIFT + D", "Omacale dock", "omarchy-shell omacale dock")
 
 -- ── Dashboard tabs ──────────────────────────────────────────────────────────
 

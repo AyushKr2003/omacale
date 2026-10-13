@@ -57,6 +57,11 @@ var values = {
     commands: { logout: "", shutdown: "", hibernate: "", reboot: "", lock: "", screensaver: "" }
   },
   sidebar: { enabled: true, width: 430 },
+  // The app dock (modules/dock): a drawer on one frame edge with pinned apps
+  // and running windows. position "auto" is the edge opposite the bar;
+  // visibility "always" reserves its room, "autohide" shows it on the edge's
+  // hover, "smart" stays out until a window overlaps it.
+  dock: { enabled: false, position: "auto", visibility: "autohide", hideDelay: 400, iconSize: 48, pinned: [], seeded: false, showRunning: true, scope: "all", magnify: 1, labels: true, previews: true, screen: "all" },
   // Workspace overview (SUPER + TAB). `scale` is a ceiling: the grid is shrunk
   // further whenever rows x columns would not fit the screen.
   overview: { enabled: true, position: "middle", detached: false, gap: 48, rows: 2, columns: 5, scale: 0.18, hideEmptyRows: true, previews: true, showIcons: true },
