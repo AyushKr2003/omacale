@@ -65,7 +65,9 @@ ColumnLayout {
             let icon = trayRow.modelData.icon
             if (icon.indexOf("?path=") >= 0) {
               const [name, path] = icon.split("?path=")
-              icon = "file://" + path + "/" + name.slice(name.lastIndexOf("/") + 1)
+              const file = name.slice(name.lastIndexOf("/") + 1)
+              const themed = Quickshell.iconPath(file, true)
+              icon = themed ? themed : "file://" + path + "/" + file
             }
             return icon
           }

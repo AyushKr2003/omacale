@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.1 - 2026-10-14
+
+### Fixed
+- **tray**: Tray icons that give only an icon name and a theme path (Dropbox, for one) show in the bar and in Settings › Tray icons instead of a blank gap; the icon theme is tried first, as Omarchy and Caelestia do (#25)
+
 ## 0.53.0 - 2026-10-13
 
 ### Added
