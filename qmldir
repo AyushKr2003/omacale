@@ -13,6 +13,7 @@ singleton AppService 1.0 services/AppService.qml
 singleton Colours 1.0 core/Colours.qml
 singleton Config 1.0 core/Config.qml
 singleton Liquid 1.0 core/Liquid.qml
+singleton Glass 1.0 core/Glass.qml
 BlobDeform 1.0 components/shapes/BlobDeform.qml
 LiquidDetach 1.0 components/shapes/LiquidDetach.qml
 LiquidDrawer 1.0 components/shapes/LiquidDrawer.qml
@@ -26,6 +27,7 @@ singleton GameMode 1.0 services/GameMode.qml
 IconButton 1.0 components/controls/IconButton.qml
 IdleInhibitCard 1.0 modules/utilities/IdleInhibitCard.qml
 singleton HyprLook 1.0 services/HyprLook.qml
+singleton GlassBlur 1.0 services/GlassBlur.qml
 singleton IdleService 1.0 services/IdleService.qml
 singleton UpdateService 1.0 services/UpdateService.qml
 singleton KbService 1.0 services/KbService.qml

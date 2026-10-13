@@ -430,6 +430,16 @@ QtObject {
           property bool stray: true
         }
       }
+      property JsonObject glass: JsonObject {
+        property bool enabled: false
+        property real opacity: 0.36
+        property string tone: "clear"
+        property real toneAmount: 0.5
+        property real light: 1.0
+        property bool pointer: true
+        property bool tuneBlur: true
+        property int frost: 5
+      }
     }
   }
 }

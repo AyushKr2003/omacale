@@ -32,6 +32,11 @@ ShaderEffect {
   property real smoothing: Tk.smoothing
   property real frameRadius: Tk.borderRounding
   property color color: Colours.m3surface
+  // Glass (core/Glass.qml): Glass.a / Glass.b, or zero for the plain fill,
+  // and the pointer its light follows (Glass.pointer).
+  property vector4d glassA: Qt.vector4d(0, 0, 0, 0)
+  property vector4d glassB: Qt.vector4d(0, 0, 0, 0)
+  property vector2d pointer: Qt.vector2d(0, 0)
 
   readonly property var fill: BlobFill.radii(rects, corners, radius,
     framed ? [hole.x, hole.y, hole.width, hole.height] : null, smoothing, excluded, cornerFill)

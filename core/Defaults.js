@@ -124,6 +124,19 @@ var values = {
     narrow: 0.07, rounding: true,
     sag: 220, wobble: 260,
     detach: { neckBreak: true, ripples: true, stray: true }
+  },
+  // Glass (Settings › Glass): Vitreus's glass on the frame and drawers --
+  // translucent over Hyprland's blur, smoked or milky, lit on the edge.
+  // Off, they are drawn as Caelestia's (or with Transparency, as that).
+  glass: {
+    enabled: false,
+    opacity: 0.36,           // how much of the body covers what is behind (pleamar's glass: 36%)
+    tone: "clear",           // clear | auto (smoke on dark, milk on light) | smoke | milk
+    toneAmount: 0.5,
+    light: 1.0,              // edge light
+    pointer: true,           // the light follows the pointer
+    tuneBlur: true,          // Hyprland's blur set for glass while it is on (services/GlassBlur.qml)
+    frost: 5                 // that blur's size
   }
 }
 

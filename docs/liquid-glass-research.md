@@ -1,8 +1,10 @@
 # Liquid glass for Omacale: research and plan
 
-Status: research, nothing built yet. Written 2026-10-13 against Hyprland 0.56.2 and
-Quickshell 0.3.1 (both what this machine runs), Vitreus and pleamar as checked out
-under `shell/`.
+Status: option A is built (Settings › Glass, `core/Glass.qml`, the glass path in
+`shaders/blob.frag`); option C is researched and planned, not built. Written
+2026-10-13 against Hyprland 0.56.2 and Quickshell 0.3.1 (both what this machine
+runs), Vitreus and pleamar as checked out under `shell/`. §8 lists what the second
+pass checked and corrected.
 
 Liquid motion (Settings › Motion) gave Omacale Vitreus's *movement*. This document
 is about the other half of Vitreus: the *material*, the "liquid glass" the drawers
@@ -19,7 +21,7 @@ pixels behind the window.
 | Layer | What it does | Who does it in Vitreus | Needs the pixels behind? |
 |---|---|---|---|
 | **1. Frost** | The blurred background seen through the drawer | The compositor, asked through `ext-background-effect-v1` (Hyprland, KWin) | No: the compositor has them |
-| **2. Light** | Tint, rim light, a shine that follows the pointer, fresnel at the edge, shadow; "smoke" (darker) and "milk" (lighter) tones | pleamar's shape shader, from the shape's signed distance | No |
+| **2. Light** | A translucent tinted fill, the edge light (which can follow the pointer), "smoke" (darker) and "milk" (lighter) veils, a shadow round the shape | pleamar's shape shader, from the shape's signed distance | No |
 | **3. Lens** | Real refraction: the background bent at the bevel, colour fringes (dispersion), a magnifying "dome", `frost: auto` (frosted only over busy content) | pleamar itself: it screen-captures the output and computes the background | **Yes** |
 
 The key fact for planning: **Vitreus ships with the lens off.** Its default glass is
@@ -63,32 +65,53 @@ That is the full machinery Omacale would need to copy for real refraction in-pro
 | Capability | Available here? | Notes |
 |---|---|---|
 | Compositor blur behind a layer (`hl.layer_rule … blur`) | **Yes**, used today | Omacale's Transparency setting already does this (`Bar.qml applyBlur`) |
-| `ext-background-effect-v1` blur region (`BackgroundEffect.blurRegion` on a window) | **Yes**: Quickshell 0.3.x, Hyprland supports the protocol | A `Region` of rects or items; lets us ask for blur exactly where the drawers are, instead of the whole layer |
+| `ext-background-effect-v1` blur region (`BackgroundEffect.blurRegion` on a window) | **Yes**, checked: Quickshell 0.3.1 ships `Quickshell.Wayland._BackgroundEffect`, and Hyprland 0.56.2's binary carries `ext_background_effect_manager_v1` | An attached property on a window, taking a `Region`; `null` removes the blur. `Region` does rounded rects (`radius`, per-corner radii) and nests (`Intersection.Subtract`), but a wl_region is still a union of rectangles, so a rounded corner is a staircase, and a neck or a drop isn't a rounded rect at all |
 | Custom fragment shaders (`ShaderEffect`, `.qsb`) | **Yes** | `blob.frag` already draws every drawer from SDFs: everything layer 2 needs is there |
 | Pointer position over our surfaces | **Yes**, over the drawers (`MouseArea` hover) | Outside the input mask nothing arrives (see CLAUDE.md "The pointer leaving the bar reaches nothing"); fine for a shine that follows the pointer over a drawer |
 | Live screen capture (`ScreencopyView { live: true; captureSource: screen }`) | **Yes** (wlr-screencopy / ext-image-copy-capture) | Includes our own surface, so we would have to unmix as pleamar does |
 | Live window capture (`captureSource: Toplevel`) | **Yes** (hyprland-toplevel-export) | The overview uses it; one capture per window, so it can't stand in for "everything behind" |
 | Reading the pixels behind our own surface directly | **No** | No Wayland or Qt API for it. This is the whole problem |
 | Hiding our layer from screencopy (`no_screen_share` layer rule) | Exists | It blacks the surface out rather than skipping it. Our window is full-screen, so the capture would be black. No help |
-| **HyprGlass** Hyprland plugin | Installable (`hyprpm`) | Real refraction done *inside the compositor*; layer surfaces supported (beta, March 2026). See §3.C |
+| **HyprGlass** Hyprland plugin | Installable (`hyprpm`), not installed here (`hyprctl plugin list`: none) | Real refraction done *inside the compositor*; layer surfaces supported (beta, March 2026). See §3.C |
 
 ---
 
 ## 3. The options
 
-### A. Drawn glass on compositor blur: Vitreus's default look, in Omacale's shader
+### A. Drawn glass on compositor blur: Vitreus's default look, in Omacale's shader (built)
 
 **What:** layers 1 and 2. Drawers become translucent with Hyprland's blur behind them
-(already there as Transparency). `blob.frag` adds the light from the SDF it already
-computes:
+(the same layer rule as Transparency). `blob.frag` adds the light from the SDF it
+already computes. This is pleamar's `shape.wgsl` path *without* a lens (the `else`
+branch after `if (glass > 0.0 && u.backdrop.x > 0.5 …)`), which is all Vitreus's
+default glass is:
 
-- **Bevel normal** from the distance field's gradient near the edge: `n = normalize(vec3(-∇d * slope(t), 1))`, with pleamar's `rim_height`/`rim_slope` profile over a bevel width.
-- **Rim light:** a thin bright line on the edge facing the light, a softer one on the opposite edge (pleamar: `rim * (0.85·facing + 0.4·away + 0.12)`).
-- **Fresnel:** Schlick with F0 = 0.04, brightening the edge seen edge-on.
-- **Specular / shine:** from a fixed top-left light, or from the pointer while it is over a drawer (Vitreus `shine: pointer`).
-- **Tint, smoke, milk:** pleamar's `glass_tone` (darken brights for light text, lift darks for dark text), applied to the surface colour.
-- **Inner shadow** under the bevel, so the glass reads as having thickness.
-- **Blur region:** `BackgroundEffect.blurRegion` covering the drawers' rects, instead of a whole-layer rule. It's tighter and can be switched off per drawer.
+- **Fill:** the surface colour at the body's opacity (pleamar: `mix(1, 0.36, glass)`;
+  Omacale: Settings › Glass › Opacity, 30-100%), plus a 0.1 lift in the 2 px inside
+  the edge (pleamar's `rim:`, which Vitreus sets to 10%).
+- **Smoke / milk:** a veil of black at `0.35·smoke` and white at `0.3·milk` over the
+  blur. pleamar's `glass_tone` only applies when it has the background (the lens);
+  over the compositor's blur, a veil "is as near as it gets".
+- **Edge light:** `shine = rim·(0.85·facing^1.6 + 0.4·away^1.6 + 0.12) + 0.14·fresnel`,
+  with `rim = 1 − smoothstep(0.4, 3, inside)`, `fresnel = exp(−inside/10)`, the light
+  from the top left `(−0.55, −0.83)`, painted white over everything. There's no
+  Schlick term or specular lobe: the first draft of this doc had both, and pleamar
+  has neither.
+- **Light that follows the pointer** (`shine: pointer`): one direction per shape,
+  from its centre to the pointer. In one merged SDF, "the shape" is the nearest rect
+  (the smallest `d[i]`). The frame keeps the top-left light, and the fillet between a
+  drawer and the frame turns from one to the other (`smoothstep(−k, k, dFrame − dn)`),
+  so there's no seam.
+- **Shadow round the shape only:** under glass, MultiEffect's shadow (drawn under the
+  whole layer) would show through, so with glass on the layer is off and the shader
+  draws `0.22·(1 − smoothstep(0, 18 px, d))²` outside the shape. That also saves the
+  screen-sized offscreen pass.
+
+**Why not `BackgroundEffect.blurRegion`:** the layer rule with `ignore_alpha` blurs
+exactly where our pixels are opaque enough, which follows the fillets, necks, drops
+and ripples. A region would have to be rebuilt from the rects every frame of a
+liquid animation and would still be rectangles. The rule stays. The threshold
+(`Glass.blurFloor`) sits above the shadow's peak and below the body's opacity.
 
 **Can't do:** bend what is behind, colour fringes on the background, auto-frost.
 Frost strength is Hyprland's global blur, not per drawer.
@@ -137,22 +160,37 @@ loop. pleamar's own glass profile credits it.
 
 Layer support:
 
-- `layers = { enabled = true }`, then `hg.layer("omacale", { preset = …, mask_threshold = … })`.
-- **Alpha mask** mode: glass follows our visible alpha, so it follows the blob's
-  fillets, necks and drops exactly. `mask_threshold` must sit above our shadow's
-  opacity.
-- Or it takes our `ext-background-effect-v1` region.
+- `hg.config({ layers = { enabled = true } })`, then per namespace
+  `hg.layer("omacale", { preset = …, mask_mode = "alpha", mask_threshold = …, mask_feather = …, live_resample = … })`
+  (`exclude = true` opts a namespace out).
+- **`mask_mode`**: `auto` (default: where the client asks for blur, otherwise where
+  it is visible), `region` (only the `ext-background-effect` region), `alpha` (only
+  where content is visible). Omacale wants **`alpha`**: it follows the blob's fillets,
+  necks and drops exactly, as our Hyprland blur rule does. `mask_threshold` must sit
+  above our shadow's opacity. With glass on that is `Glass.blurFloor` (0.25 at
+  most), the same number the blur rule uses.
+- `hyprglass_item_v1`, a protocol of its own for subsurfaces: a preset and a shape
+  (rect + four radii) per item. Quickshell has no client for it, and our drawers
+  aren't subsurfaces, so it's no use to us.
 - Presets: `subtle`, `glass`, `clear`, `high_contrast`, `pomme`, or custom
-  (`refraction_strength`, `chromatic_aberration`, `specular_strength`/`angle`,
-  `bevel_*`, `tint_color`).
-- `live_resample` capped at 30 fps per layer, with cached backgrounds.
+  (`hg.preset(name, { … })`, with per-theme variants and `inherits`). Overridable
+  options and their global defaults: `refraction_strength` 0.6,
+  `chromatic_aberration` 0.5, `glass_opacity` 1.0, `blur_strength` 2.0,
+  `edge_thickness` 0.06, `specular_strength` 0.8, `specular_angle` 0,
+  `fresnel_strength` 0.6, `bevel_strength` 0, `bevel_size` 6, `lens_distortion` 0.5,
+  `blur_iterations` 3, `tint_color` 0x8899aa22; per theme, `brightness`, `contrast`,
+  `saturation`, `vibrancy`, `adaptive_dim`/`adaptive_boost`.
+- `live_resample` (on by default, `live_resample_fps` 30) re-renders when what is
+  behind changes, from a cached background; `force_live_resample` does every frame.
+- `hyprctl hyprglass status` (`-j`) says whether it can draw; "hook missing" means a
+  Hyprland update broke the layer hook. `stats` and `items` exist too.
 
 **What Omacale would do:**
 
 - Draw the drawers translucent (as with Transparency on) so there is something to
   see through.
-- Detect the plugin (`hyprctl hyprglass status`), and offer "Use HyprGlass" in
-  Settings only when it is loaded.
+- Detect the plugin (`hyprctl -j hyprglass status`; "hook missing" counts as absent),
+  and offer "Use HyprGlass" in Settings only when it can draw.
 - Ship the `hg.layer("^omacale(-notifications)?$", …)` lines in `omacale.lua`,
   guarded so they do nothing without the plugin. Settings changes apply live through
   `hyprctl eval`, the same way `HyprLook` does it.
@@ -198,88 +236,133 @@ not the window under it reads as a trick. At most a garnish for the frame and ba
 
 ---
 
-## 5. Settings sketch (option A, plus C)
+## 5. Settings (as built, plus C)
 
-A new page next to Motion, Appearance › **Glass**, off by default. "Off" means
-Omacale draws exactly as today.
+Settings › Frame & motion › **Glass** (a page next to Motion), off by default. Off,
+Omacale draws exactly as before: the shader returns its old output, the layer and
+shadow are Caelestia's, and Colours only reads Transparency.
 
 | Row | Key | Default |
 |---|---|---|
 | Glass (master toggle) | `glass.enabled` | off |
-| Preset: Clear / Frosted / Smoked / Milky / Custom | `glass.preset` | Frosted |
-| Surface opacity (how much shows through) | `glass.opacity` | 0.55 |
-| Tint strength | `glass.tint` | 0.2 |
-| Rim light | `glass.rim` | 0.6 |
-| Shine (specular) | `glass.shine` | 0.5 |
-| Shine follows the pointer | `glass.shinePointer` | on |
-| Bevel width (at 100% scale) | `glass.bevel` | 16 px |
-| Smoke / Milk (Custom only) | `glass.smoke`, `glass.milk` | 0 |
-| Blur behind | `glass.blur` | on (uses `BackgroundEffect`) |
-| Use HyprGlass when installed (shown only if detected) | `glass.hyprglass` | off |
-| HyprGlass preset (subtle / glass / clear / high contrast) | `glass.hyprglassPreset` | subtle |
-| Per-drawer toggles | `glass.drawers.*` | all on |
+| Opacity (how much of the body covers what is behind) | `glass.opacity` | 0.36, pleamar's (30-100%) |
+| Tone: Clear / Auto / Smoked / Milky | `glass.tone` | clear, as Vitreus (auto: smoked on a dark scheme, milky on a light one) |
+| Smoke / Milk / Tone strength (the one row for the tone chosen) | `glass.toneAmount` | 0.5 |
+| Tune Hyprland's blur for glass | `glass.tuneBlur` | on (§9) |
+| Frost (Hyprland's blur size; passes follow) | `glass.frost` | 5 (1-12) |
+| Edge light | `glass.light` | 1x (0-2x) |
+| Light follows the pointer | `glass.pointer` | on |
+| *Planned:* Use HyprGlass when installed (shown only if detected) | `glass.hyprglass` | off |
+| *Planned:* HyprGlass preset | `glass.hyprglassPreset` | subtle |
 
-As with liquid motion: one reader singleton (`core/Glass.qml`), pure math in a `.js`
-with node tests, zero-cost paths when off, a live preview card (the Motion preview
-drawn in glass over the current wallpaper).
+Glass implies Transparency's palette (`Colours.transparent`), with the body's
+opacity as the base alpha, so the cards inside the drawers are veils over the glass,
+as Vitreus's are, not opaque plates on it. The toasts' window gets the same
+translucent colours and blur, but not the edge light (it isn't drawn by `blob.frag`).
+
+Left out on purpose, for now: presets (four numbers don't need them), a bevel
+(pleamar draws no bevel without the lens), per-drawer toggles (a glass frame with one
+opaque drawer reads as a bug), and a preview card (the drawers themselves are the
+preview).
 
 ---
 
-## 6. Shader sketch for option A
+## 6. The shader (as built)
 
-`blob.frag` already ends with the merged signed distance `merged` and an
-antialiased `alpha`. Glass adds roughly this before the final colour:
+Three uniforms at the end of `blob.frag`'s block: `glassA` (on, body opacity, smoke,
+milk), `glassB` (edge light, shadow alpha, shadow reach, pointer on) and `pointer`.
+With `glassA.x == 0` the shader writes exactly its old output and returns, so every
+other `BlobSurface` (Settings' frame, the style and Motion previews, `BlobPopup`),
+which leaves them at zero, is unchanged. The glass path, in order:
 
-```glsl
-// Bevel: t = 0 at the edge, 1 where the flat top starts.
-float inside = -merged;                              // px inside the shape
-float t = clamp(inside / bevel, 0.0, 1.0);
-vec2 g = vec2(dFdx(merged), dFdy(merged));           // or central differences of the SDF
-vec2 outward = length(g) > 1e-4 ? normalize(g) : vec2(0.0);
-float slope = (t < 1.0) ? rimSlope(t) : 0.0;         // pleamar's (1-(1-t)^3)^(1/3) derivative
-vec3 n = normalize(vec3(outward * slope, 1.0));
+1. `outward` from `dFdx/dFdy(merged)`, `inside = max(−merged, 0)`.
+2. The light direction: top left, or towards the pointer from the nearest rect's
+   centre, blended into the top left over the frame fillet.
+3. `shine` as pleamar's (above), times the edge light.
+4. Premultiplied `over`s: the shadow outside the shape, the fill (lifted on its
+   inner 2 px) at the body's opacity, the smoke veil, the milk veil, the white shine.
 
-// Light: fixed top-left, or the pointer while it is over a drawer.
-vec2 toLight = pointerOn > 0.5 ? normalize(pointer - pixel) : normalize(vec2(-0.55, -0.83));
-float facing = max(dot(outward, -toLight), 0.0);
-float away   = max(dot(outward,  toLight), 0.0);
-float rimBand = 1.0 - smoothstep(0.4, 3.0, inside);   // a 1-3 px band at the edge
-float fresnel = 0.04 + 0.96 * pow(1.0 - n.z, 5.0);
-float light = rimBand * (0.85 * facing + 0.4 * away + 0.12) * rim + 0.14 * fresnel;
-float spec = pow(max(dot(reflect(vec3(-toLight, -1.0), n), vec3(0, 0, 1)), 0.0), 32.0) * shine;
-
-vec3 c = glassTone(color.rgb, smoke, milk);          // pleamar glass_tone
-c = mix(c, tintColor, tint);
-c += vec3(light + spec);
-float a = opacity * alpha;                           // translucent: the compositor's blur shows
-fragColor = vec4(c * a, a);                          // premultiplied, as today
-```
-
-New uniforms: `bevel`, `rim`, `shine`, `tint`, `tintColor`, `smoke`, `milk`,
-`opacity`, `pointer`, `pointerOn`. All of them are 0 or no-ops when glass is off,
-the same rule as the liquid neck.
+The pointer is `ScreenScope`'s `interactions` MouseArea, bound only while the light
+follows it, so moving the pointer doesn't redraw the frame otherwise. When the
+pointer leaves the input mask, the light stays where it last pointed (see CLAUDE.md,
+"The pointer leaving the bar reaches nothing").
 
 ---
 
 ## 7. Risks and open questions
 
 - **Readability.** Translucent drawers over a busy window hurt text. Vitreus answers
-  with smoke/milk and auto-frost. We get smoke/milk, but auto-frost needs the
-  background (option B or C). Mitigation: a higher default opacity, and smoke on for
-  dark themes.
-- **Blur region shape.** `ext-background-effect` regions are rectangles. Rounded
-  corners, necks and drops would blur a little outside the shape, unless the region
-  is built from the blob's rects inset by their radii, or we keep the alpha-based
-  layer rule (Hyprland's `ignore_alpha`), which follows the real shape. Test both.
-- **Shadow.** Today's MultiEffect shadow sits under an opaque blob. Under glass it
-  would show through, so it has to be cut out under the shape (pleamar: "under
-  glass the shadow does not show through, only around it").
+  with smoke/milk and auto-frost. We get smoke/milk (Auto picks smoke on dark
+  schemes), but auto-frost needs the background (option B or C). Seen over a playing
+  video: the smoked body plus the cards' layer alpha keeps the dashboard and sidebar
+  readable at the default 50%.
+- **Blur region shape.** Settled: the alpha-based layer rule stays (see §3.A).
+- **Shadow.** Settled: with glass on, the shader draws it round the shape only.
+- **Pointer cost.** With the light following the pointer, every pointer move over the
+  frame or a drawer is one full-screen pass of `blob.frag`. It's the same pass a drawer
+  animation already costs each frame. The toggle turns it off.
 - **HyprGlass churn.** Every Omarchy Hyprland bump needs a matching plugin branch.
   `scripts/upstream-check` should report the plugin's status, and Settings should
   say when it is paused.
-- **Fullscreen and the toast window.** The toasts live on a separate overlay surface.
-  They get glass only if that window gets the same treatment (its own
-  `BackgroundEffect` and namespace in the HyprGlass rule).
+- **The toast window.** The toasts live on a separate overlay surface. They get the
+  translucent colours and the blur (the rule matches `omacale-notifications`), but
+  not the edge light. Under HyprGlass their namespace goes in the same rule.
+
+---
+
+## 8. Second pass (2026-10-13): what was checked and corrected
+
+- **Checked on this machine:** Quickshell 0.3.1 has `BackgroundEffect` (attached
+  `blurRegion: Region`). Hyprland 0.56.2 implements `ext-background-effect-v1`.
+  HyprGlass isn't installed. Hyprland's blur is 3 passes of size 8.
+- **Corrected:** pleamar's no-lens light has no Schlick fresnel and no specular lobe.
+  Its fresnel is `exp(−inside/10)`, and `facing`/`away` are raised to 1.6. Smoke and
+  milk without the lens are black/white veils, not `glass_tone`. The fill is 36%
+  opaque at `glass: 100%`. Vitreus's `rim: 10%` is the 2 px inner lift, not the
+  edge light. (§3.A, §6.)
+- **Corrected:** Quickshell's `Region` *does* take corner radii. The reason to keep
+  the layer rule is the liquid shapes, not the rounding.
+- **New about HyprGlass:** `mask_mode = "alpha"` is the setting Omacale needs.
+  `hyprglass_item_v1` is subsurface-only. The full option list and defaults are in §3.C.
+- **Next for C:** a `HyprGlassService` that polls `hyprctl -j hyprglass status` on
+  start and on `configreloaded`; Settings rows shown only when it can draw; and
+  `hg.layer("^omacale(-notifications)?$", { mask_mode = "alpha", mask_threshold = Glass.blurFloor, preset = … })`
+  through `hyprctl eval`, guarded by `if hg then … end`, mirrored in `omacale.lua`.
+  With it on, `Glass.light` goes to 0 so the two rims don't double up.
+
+---
+
+## 9. Third pass: why it didn't look like Vitreus, and the blur under it
+
+The first build looked flat and dirty next to Vitreus. Most of that wasn't the shader:
+
+- **The blur was the user's, made for opaque windows.** This machine's
+  `~/.config/hypr/looknfeel.lua` sets `noise = 0.1` (Hyprland's default is 0.0117,
+  so ~8.5x the grain), `vibrancy = 0.5` (default 0.1696) and size 8 × 3 passes.
+  Through a clear body that reads as film grain, neon colour and a smear. Vitreus
+  doesn't set Hyprland's blur at all. Its look assumes the stock noise and vibrancy,
+  and a light frost (the Glass page's slider runs Hyprland's size 0-20, passes
+  `1 + floor((size − 1) / 6)`).
+- **Hyprland 0.56 can't scope this to our layer.** Checked against the binary and by
+  `hyprctl eval`: a layer rule takes `blur`, `ignore_alpha`, `xray`, `blur_popups`,
+  `no_anim`, `above_lock`, `no_screen_share`, and nothing else (`blur_size`:
+  "unknown field"). Noise, vibrancy, size and passes are global.
+- **So `services/GlassBlur.qml` sets them globally, at runtime, only while glass is
+  on** (Settings › Glass › "Tune Hyprland's blur for glass", on by default):
+  `enabled = true`, noise and vibrancy back to Hyprland's defaults, size = Frost,
+  passes 1/2/3 for sizes ≤3/≤8/more. The user's values are read once into
+  `$XDG_RUNTIME_DIR/omacale-glass-blur.orig` and put back, exactly, when glass or the
+  tuning goes off. `hyprctl reload` re-reads them from the user's config before
+  re-tuning, and a shell restart keeps the file (Hyprland is still running ours).
+  Windows that blur (a translucent terminal) get the same blur while glass is on.
+  That is the cost, and why it's a switch.
+- **The material was heavier than Vitreus's.** Body at 50% with a 17% smoke veil
+  (tone "auto" on a dark scheme), against Vitreus's tint at 36% with no smoke. The
+  defaults are now pleamar's: 36%, clear.
+
+Verified live: off → on → `hyprctl reload` → frost change → off. Each left Hyprland
+with the expected values, and off restored `size 8, passes 3, noise 0.1,
+vibrancy 0.5` and removed the file.
 
 ---
 
@@ -287,7 +370,8 @@ the same rule as the liquid neck.
 
 - Vitreus: `shell/Vitreus/vitreus.plm` (glass bodies, `lens: glass_bend`), `pages/bar_glass.plm`. Upstream: <https://github.com/natepayn3/Vitreus> (MIT)
 - pleamar: `shell/pleamar/src/lens.rs`, `src/backdrop.wgsl`, `src/shape.wgsl`, `src/platform/wayland.rs`. Upstream: <https://github.com/k4ditano/pleamar>
-- HyprGlass: [repository and README](https://github.com/hyprnux/hyprglass), [issue #6, glass on layer surfaces](https://github.com/hyprnux/hyprglass/issues/6)
+- HyprGlass: [repository and README](https://github.com/hyprnux/hyprglass) (layer options, `mask_mode`, `hyprglass_item_v1`, option defaults), [issue #6, glass on layer surfaces](https://github.com/hyprnux/hyprglass/issues/6)
+- Quickshell: [Region](https://quickshell.org/docs/v0.3.1/types/Quickshell/Region) (corner radii, nesting)
 - Quickshell: [ScreencopyView](https://quickshell.org/docs/v0.3.1/types/Quickshell.Wayland/ScreencopyView), [BackgroundEffect](https://quickshell.org/docs/v0.3.1/types/Quickshell.Wayland/BackgroundEffect), [ext-background-effect support commit](https://git.outfoxxed.me/quickshell/quickshell/commit/d7451848238f7f7ade38f00fe7ef91da1cc719a6)
 - Protocol: [ext-background-effect-v1](https://wayland.app/protocols/ext-background-effect-v1), [Phoronix on its merge](https://www.phoronix.com/news/Wayland-Background-Effect)
 - Hyprland: [layer rules](https://wiki.hypr.land/configuring/core/rules/layer-rules/) (`blur`, `ignore_alpha`, `no_screen_share`)

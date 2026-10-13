@@ -48,7 +48,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.51.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.52.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -670,6 +670,8 @@ Item {
   // Keeps Hyprland's gaps and window rounding in step with the UI scale
   // through omacale.lua (services/HyprLook.qml). Referenced to create it.
   readonly property string hyprLook: HyprLook.args
+  // Hyprland's blur while Settings › Glass tunes it (services/GlassBlur.qml).
+  readonly property string glassBlur: GlassBlur.args
   // Omarchy's own menus in Omacale's colours, when chosen (services/OmarchySurfaces.qml).
   readonly property bool omarchySurfaces: OmarchySurfaces.on
   // Settings › Display › Identify: every screen's name on it for a moment.
@@ -711,8 +713,10 @@ Item {
   // Transparency: blur the Omacale layer behind translucent surfaces. This is
   // a runtime Hyprland rule (hyprctl eval) — nothing is written to
   // ~/.config/hypr, and it disappears on the next Hyprland reload.
-  readonly property bool blur: Config.o.appearance.transparency.enabled
-  readonly property real ignoreAlpha: Math.max(0, Config.o.appearance.transparency.layers - 0.05)
+  // Glass (core/Glass.qml) is translucent too, and its threshold leaves out
+  // its shadow, which it draws round the shape itself.
+  readonly property bool blur: Config.o.appearance.transparency.enabled || Glass.enabled
+  readonly property real ignoreAlpha: Glass.enabled ? Glass.blurFloor : Math.max(0, Config.o.appearance.transparency.layers - 0.05)
   // The toasts are a second surface (overlay layer, so a fullscreen window
   // can't cover them), and they take the same translucent surface colours as
   // the frame -- so they need the same blur behind them.

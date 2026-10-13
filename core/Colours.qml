@@ -32,8 +32,10 @@ QtObject {
   readonly property string variant: Config.o.appearance.variant
 
   // Caelestia's Colours.transparency: light schemes get 0.1 less base alpha.
-  readonly property bool transparent: Config.o.appearance.transparency.enabled
-  readonly property real trBase: Math.max(0, Math.min(1, Config.o.appearance.transparency.base - (light ? 0.1 : 0)))
+  // Glass (core/Glass.qml) is translucent too, its body as opaque as it says.
+  readonly property bool glass: Config.o.glass.enabled
+  readonly property bool transparent: Config.o.appearance.transparency.enabled || glass
+  readonly property real trBase: Math.max(0, Math.min(1, glass ? Config.o.glass.opacity : Config.o.appearance.transparency.base - (light ? 0.1 : 0)))
   readonly property real trLayers: Math.max(0, Math.min(1, Config.o.appearance.transparency.layers))
   readonly property real baseAlpha: transparent ? trBase : 1
   readonly property real layerAlpha: transparent ? trLayers : 1

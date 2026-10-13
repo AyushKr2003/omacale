@@ -16,6 +16,11 @@
 // that joins a moving drawer to the frame and its neighbours), and up to
 // four ellipses melted into everything (the ripples and the stray drop a
 // drawer leaves on the edge it broke away from).
+//
+// Glass (core/Glass.qml, Vitreus's default glass: pleamar's shape.wgsl
+// without its lens) draws the same shape as a translucent body that
+// Hyprland blurs behind, smoked or milky, with light on its edge and its
+// shadow only outside it. Off (glassA.x == 0), the output is the plain fill.
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -65,6 +70,9 @@ layout(std140, binding = 0) uniform buf {
     vec4 b2;
     vec4 b3;
     vec4 bk;          // each bump's blend
+    vec4 glassA;      // glass: on (> 0), body opacity, smoke, milk
+    vec4 glassB;      // edge light, shadow alpha, shadow reach (px), light follows the pointer (> 0.5)
+    vec2 pointer;     // the pointer, in px
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -163,6 +171,11 @@ float bumpInto(float merged, vec2 pixel, vec4 b, float k) {
     return smin(merged, sdEllipse(pixel, b.xy, b.zw), max(k, 0.5));
 }
 
+// Paint `col` at coverage `a` over premultiplied `c`.
+vec4 over(vec4 c, vec3 col, float a) {
+    return vec4(col * a + c.rgb * (1.0 - a), a + c.a * (1.0 - a));
+}
+
 bool excluded(int i, int j) {
     if (i == 5 && j == 6 && excl56 > 0.5) return true;
     if (i == 1 && j == 8 && excl18 > 0.5) return true;
@@ -245,6 +258,7 @@ void main() {
         }
     }
 
+    float dFrame = 1e10;
     if (framed) {
         // The outer box reaches 50px past the screen so its own corners
         // never show; only the inner (hole) edge is visible.
@@ -286,7 +300,7 @@ void main() {
 
         float minThick = min(min(innerTop - outerTop, outerBot - innerBot), min(innerLeft - outerLeft, outerRight - innerRight));
         float kFrame = clamp(min(k, minThick - 1.0), 1.0, k);
-        float dFrame = smaxSharpA(dOuter, -dInner, kFrame);
+        dFrame = smaxSharpA(dOuter, -dInner, kFrame);
 
         // Omacale: between the launcher (r1) and the clipboard preview (r8)
         // the two frame fillets would overlap and meet in a point; in that
@@ -315,5 +329,50 @@ void main() {
 
     float fw = max(fwidth(merged), 0.0001);
     float alpha = 1.0 - smoothstep(-fw, fw, merged);
-    fragColor = vec4(color.rgb * color.a * alpha, color.a * alpha) * qt_Opacity;
+    if (glassA.x <= 0.0) {
+        fragColor = vec4(color.rgb * color.a * alpha, color.a * alpha) * qt_Opacity;
+        return;
+    }
+
+    // Glass: pleamar shape.wgsl, the path without a lens. Its light comes
+    // from the top left, or, following the pointer, from the pointer as seen
+    // from the centre of the drawer nearest this pixel (one direction per
+    // shape: from the pixel itself it would fan out into a cone); the frame
+    // keeps the top-left light, and the fillet between a drawer and the
+    // frame turns from one to the other.
+    vec2 g = vec2(dFdx(merged), dFdy(merged));
+    vec2 outward = g / max(length(g), 1e-6);
+    float inside = max(-merged, 0.0);
+    vec2 toLight = normalize(vec2(-0.55, -0.83));
+    if (glassB.w > 0.5) {
+        int near = -1;
+        float dn = 1e10;
+        for (int i = 0; i < 10; i++) if (d[i] < dn) { dn = d[i]; near = i; }
+        if (near >= 0) {
+            vec2 v = pointer - ctrs[near];
+            vec2 toPointer = length(v) > 1e-3 ? normalize(v) : toLight;
+            toLight = normalize(mix(toLight, toPointer, smoothstep(-k, k, dFrame - dn)) + vec2(1e-5));
+        }
+    }
+    // The edge that faces the light shines thin and strong, the opposite
+    // one weaker (the light coming out), and the closer to the edge the
+    // brighter: the glass seen edge-on.
+    float rim = 1.0 - smoothstep(0.4, 3.0, inside);
+    float facing = pow(max(dot(outward, toLight), 0.0), 1.6);
+    float away = pow(max(-dot(outward, toLight), 0.0), 1.6);
+    float fresnel = exp(-inside / 10.0);
+    float shine = (rim * (0.85 * facing + 0.4 * away + 0.12) + 0.14 * fresnel) * glassB.x;
+
+    // Its shadow, only round it: under glass a shadow would show through.
+    float sh = glassB.y * pow(1.0 - smoothstep(0.0, max(glassB.z, 1.0), merged), 2.0) * (1.0 - alpha);
+    vec4 c = vec4(0.0, 0.0, 0.0, sh);
+    // The body: its colour, lit a little along the inside of its edge, as
+    // translucent as it says, so Hyprland's blur shows through; smoke and
+    // milk are a veil of black or white over that blur.
+    vec3 tone = color.rgb + vec3(0.1 * glassB.x * smoothstep(-2.2, -0.4, merged));
+    c = over(c, clamp(tone, 0.0, 1.0), alpha * glassA.y);
+    c = over(c, vec3(0.0), alpha * glassA.z * 0.35);
+    c = over(c, vec3(1.0), alpha * glassA.w * 0.3);
+    c = over(c, vec3(1.0), clamp(shine, 0.0, 1.0) * alpha);
+    fragColor = c * qt_Opacity;
 }

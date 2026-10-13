@@ -28,6 +28,7 @@ function halfHours() {
 
 var LIQUID_ON = { key: "liquid.enabled", value: true }
 var LIQUID_CUSTOM = [LIQUID_ON, { key: "liquid.preset", value: "custom" }]
+var GLASS_ON = { key: "glass.enabled", value: true }
 
 // Does a row's `when` hold, `get` reading a setting.
 // A list may reach here as QML's own sequence, which Array.isArray doesn't
@@ -109,7 +110,34 @@ var pages = [
       { type: "section", text: "Motion" },
       { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "animation", from: 0.25, to: 2, step: 0.05, unit: "x" },
       { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" },
-      { type: "nav", icon: "water_drop", label: "Motion", subtext: "Springs, necks and drops", page: "liquid", status: "liquid.enabled" }
+      { type: "nav", icon: "water_drop", label: "Motion", subtext: "Springs, necks and drops", page: "liquid", status: "liquid.enabled" },
+      { type: "nav", icon: "blur_on", label: "Glass", subtext: "Translucent drawers lit on the edge", page: "glass", status: "glass.enabled" }
+    ]
+  },
+  {
+    // Omacale's own (core/Glass.qml): Vitreus's glass on Caelestia's
+    // drawers. Off, nothing on this page changes anything.
+    id: "glass", label: "Glass", icon: "blur_on", category: "appearance",
+    description: "Translucent drawers lit on the edge",
+    rows: [
+      { type: "toggle", key: "glass.enabled", label: "Glass", subtext: "The frame and drawers turn to glass over Hyprland's blur, lit along their edge. Off, they are drawn as Caelestia's" },
+      { type: "section", text: "Glass", when: GLASS_ON },
+      { type: "slider", key: "glass.opacity", when: GLASS_ON, label: "Opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
+      { type: "select", key: "glass.tone", when: GLASS_ON, label: "Tone", icon: "contrast", subtext: "Smoked glass darkens what is behind, so light text reads over anything; milky glass lightens it, for dark text", options: [
+        { value: "clear", label: "Clear", icon: "circle" },
+        { value: "auto", label: "Auto", icon: "brightness_auto" },
+        { value: "smoke", label: "Smoked", icon: "dark_mode" },
+        { value: "milk", label: "Milky", icon: "light_mode" }
+      ] },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "smoke" }], hide: true, label: "Smoke", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "milk" }], hide: true, label: "Milk", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "auto" }], hide: true, label: "Tone strength", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "section", text: "Blur", when: GLASS_ON },
+      { type: "toggle", key: "glass.tuneBlur", when: GLASS_ON, label: "Tune Hyprland's blur for glass", subtext: "While glass is on: no grain, natural colour, the frost below. Your own blur settings come back when it is off" },
+      { type: "slider", key: "glass.frost", when: [GLASS_ON, { key: "glass.tuneBlur", value: true }], label: "Frost", icon: "blur_on", from: 1, to: 12, step: 1 },
+      { type: "section", text: "Light", when: GLASS_ON },
+      { type: "slider", key: "glass.light", when: GLASS_ON, label: "Edge light", icon: "flare", from: 0, to: 2, step: 0.05, unit: "x" },
+      { type: "toggle", key: "glass.pointer", when: GLASS_ON, label: "Light follows the pointer", subtext: "Over a drawer the light comes from the pointer instead of the top left" }
     ]
   },
   {

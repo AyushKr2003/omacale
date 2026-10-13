@@ -12,7 +12,7 @@ Omacale is a **Caelestia-style desktop shell for Omarchy**, shipped as one Omarc
 
 `shell/caelestia-kde/` (Caelestia's KDE fork) is the reference for the one thing Caelestia proper doesn't have: the bar on any edge (`modules/bar/BarWrapper.qml`, `Bar.qml`, `components/*`, `modules/drawers/Panels.qml`). Nothing else comes from it.
 
-`shell/Vitreus/` (a pleamar shell, `vitreus.plm`, `pages/bar_shapes.plm`) and `shell/pleamar/` (its runtime and language docs) are the reference for one opt-in feature only: **liquid motion** (Settings › Motion, off by default). Nothing else comes from them, and with the feature off Omacale must stay exactly Caelestia.
+`shell/Vitreus/` (a pleamar shell, `vitreus.plm`, `pages/bar_shapes.plm`) and `shell/pleamar/` (its runtime and language docs) are the reference for two opt-in features only: **liquid motion** (Settings › Motion) and **glass** (Settings › Glass), both off by default. Nothing else comes from them, and with the features off Omacale must stay exactly Caelestia.
 
 Other directories under `shell/` (`lacuna-shell`, `ruixen-shell`, `Shibumi-Shell`) are unrelated references. Don't pull from them unless asked.
 
@@ -72,6 +72,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `Osd.qml`, `FilledSlider.qml`, `OsdService.qml` (Settings › Panels › OSD) | `modules/osd/Content.qml`, `Wrapper.qml`, `components/controls/FilledSlider.qml`, `drawers/Panels.qml` (the OSD hovers from the right edge, slides out from behind an open sidebar or session menu, and gives way to utilities). Its drawer is `r9`. Omarchy keeps the keys and the brightness control; the volume and brightness OSDs reach Omacale through the `osd` handover (see below) |
 | `Toaster.qml`, `Toasts.qml`, `ToastItem.qml` (Settings › Notifications › Toasts; IPC `toast`) | `plugin/src/Caelestia/toaster.cpp` (C++ in Caelestia; `Toaster` is its QML port, `Toast.lock`/`unlock` included), `modules/utilities/toasts/Toasts.qml`, `ToastItem.qml`. The toasts are raised in `Toaster` itself, from the services Caelestia raises them in (DND, audio devices, game mode, charger, now playing). Not ported: battery level (Omarchy's battery service warns), VPN, keyboard layout limit. `m3success*` are Caelestia's extra success roles |
 | `core/Liquid.qml`, `core/LiquidMath.js`, `components/Spring.qml`, `components/shapes/LiquidDrawer.qml`, `LiquidDetach.qml`, `modules/settings/cards/LiquidPreview.qml`, `LiquidPreset.qml` (Settings › Motion) | no Caelestia original: Vitreus (`shell/Vitreus/vitreus.plm` `spring drip`/`hang`/`splash`, `*.bell`, `dk`/`dc` drawers, `dj.*` drip; `pages/bar_shapes.plm` `box drawer`). See "Liquid motion" below |
+| `core/Glass.qml` + the glass path in `shaders/blob.frag` (Settings › Glass) | no Caelestia original: Vitreus's default glass, pleamar `src/shape.wgsl` without its lens. See "Glass" below and `docs/liquid-glass-research.md` |
 | `omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
@@ -289,6 +290,17 @@ Settings › Motion (`liquid.*`, off by default) is Omacale's own feature: Vitre
 - **The neck break (`LiquidDetach`)** runs for the window info popout (`pDet`, itself a `Spring` while popouts are liquid) and Settings (`1 - nOff`), from the bar edge at the point they leave. Vitreus's moments: `out > 0.84` lets go (bounce, ripples 1100 ms, stray drop), back under 0.84 and under 0.06 on the way back. Only one detach's bumps are drawn at a time (popout first).
 - **`Spring` only ticks while moving** and snaps to its target while not `live`, so an idle shell costs nothing and toggling liquid mid-way can't strand a drawer. `absorb` stops a closing drawer at 1 instead of swinging back into view.
 - Settings' `when` takes a list of conditions (all must hold) and `hide: true` drops a row instead of dimming it (the Custom sliders). `SettingsModel.whenHolds` tells one condition from a list by its `key`, since QML hands the list back as a sequence `Array.isArray` doesn't know.
+
+## Glass
+
+Settings › Glass (`glass.*`, off by default) is Vitreus's default glass on Caelestia's frame and drawers: translucent over Hyprland's blur, smoked or milky, lit on the edge. Like liquid motion, **with it off nothing may change**. The research and the plan for real refraction (HyprGlass) are in `docs/liquid-glass-research.md`.
+
+- **`core/Glass.qml` is the one reader of `Config.o.glass`**, except `Colours`, which takes the body's opacity as its base alpha and turns `transparent` on (the cards in the drawers become veils, as Vitreus's are). It hands the shader `Glass.a` / `Glass.b` (zero while off) and Bar's blur rule `blurFloor`.
+- **The shader's glass path is pleamar's no-lens path, term for term** (fill at the body's opacity with a 2px inner lift, black/white veils for smoke/milk, `shine` from the top left or the pointer, a shadow round the shape only). With `glassA.x == 0` it returns the old output before any of it, so every other `BlobSurface` is untouched. Rebuild the `.qsb` after touching it.
+- **With glass on, ScreenScope's background layer is off** (no MultiEffect) and its opacity is 1: the shader draws the translucency and the shadow itself, since a shadow under glass would show through.
+- **The blur stays the alpha layer rule** (`Bar.applyBlur`), never `BackgroundEffect.blurRegion`: the rule follows the fillets, necks and drops; a region is rectangles. `ignore_alpha` (`Glass.blurFloor`) sits between the shader's shadow peak (0.22) and the body's opacity (≥ 0.3).
+- **The light follows the pointer** through `interactions.mouseX/Y`, bound only while `Glass.pointer`; outside the input mask it stays where it was.
+- **Hyprland's blur is tuned while glass is on (`services/GlassBlur.qml`, `glass.tuneBlur`).** A user's grainy `noise`/strong `vibrancy`/heavy size × passes ruin a clear body, and Hyprland 0.56 has no per-layer blur settings, so the global ones are set by `hyprctl eval` and the user's own are kept in `$XDG_RUNTIME_DIR/omacale-glass-blur.orig` and restored exactly when glass goes off (re-read on `configreloaded`). Never write them to the user's config.
 
 ## The notification daemon clone
 

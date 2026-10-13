@@ -1110,13 +1110,15 @@ Scope {
     Item {
       anchors.fill: parent
       // Caelestia draws the blob opaque and fades the whole layer (and so
-      // its shadow) by the surface's alpha.
-      opacity: Colours.m3surface.a
+      // its shadow) by the surface's alpha. Glass is translucent in the
+      // shader, and draws its own shadow round the shape only (one under
+      // the glass would show through it).
+      opacity: Glass.enabled ? 1 : Colours.m3surface.a
       // Only when there is a shadow to draw. The layer is a screen-sized
       // texture that the frame shader renders into and MultiEffect then
       // blurs; with shadows off that whole round trip produced the same
       // pixels the shader can write straight to the window.
-      layer.enabled: scope.cfg.appearance.shadow
+      layer.enabled: scope.cfg.appearance.shadow && !Glass.enabled
       layer.effect: MultiEffect {
         shadowEnabled: true
         blurMax: 15
@@ -1129,6 +1131,11 @@ Scope {
         frameRadius: Tk.borderRounding * (1 - win.fs)
         color: Qt.alpha(Colours.m3surface, 1)
         Behavior on color { CAnim {} }
+        glassA: Glass.a
+        glassB: Glass.b
+        // Only bound while the light follows it, so the pointer moving
+        // doesn't redraw the frame otherwise.
+        pointer: Glass.pointer ? Qt.vector2d(interactions.mouseX, interactions.mouseY) : Qt.vector2d(0, 0)
 
         // r0 dashboard, r1 launcher, r2 session, r3 popout, r4 settings,
         // r5 utilities, r6 sidebar, r7 overview, r8 clipboard preview, r9 OSD.

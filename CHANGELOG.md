@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.52.0 - 2026-10-13
+
+### Added
+- **glass**: Glass (Settings › Glass, off by default): the frame and drawers turn to Vitreus's glass, translucent over Hyprland's blur and lit along their edge, with the light following the pointer over a drawer, a shadow only round them, and a clear, smoked or milky tone
+- **glass**: While glass is on, Hyprland's blur is tuned for it (no grain, natural colour, a Frost slider for its strength); your own blur settings come back exactly when it is off
+
 ## 0.51.0 - 2026-10-13
 
 ### Changed
