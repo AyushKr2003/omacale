@@ -67,7 +67,12 @@ ConnectedRect {
           text: String(root.value)
           font.pointSize: Tk.body.small
           validator: IntValidator { bottom: root.row.from; top: root.row.to }
-          onEditingFinished: Config.set(root.row.key, Math.max(root.row.from, Math.min(root.row.to, parseInt(text) || root.row.from)))
+          // Typing replaces the text binding; put it back, or the buttons
+          // would change the value while the field kept showing the typed one.
+          onEditingFinished: {
+            Config.set(root.row.key, Math.max(root.row.from, Math.min(root.row.to, parseInt(text) || root.row.from)))
+            text = Qt.binding(() => String(root.value))
+          }
         }
         WheelHandler { onWheel: e => root.step(e.angleDelta.y > 0 ? 1 : -1) }
       }

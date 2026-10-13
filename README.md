@@ -22,6 +22,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 - **Status toasts**: Caelestia's small toasts above the utilities corner for do not disturb, game mode, the charger, and audio device changes (Settings › Notifications › Toasts).
 - **Session menu**: Caelestia's drawer with your own icons, commands and picture, Omarchy's suspend/hibernate checks, plus Lock and Screensaver; optional binds make Super+Esc and the power key open it (falling back to Omarchy's System menu when locked or when Omacale isn't running).
 - **Workspace overview** with live previews and drag-and-drop.
+- **Boot menu** (Settings › Boot menu): give Omarchy's Limine boot menu your own picture, colours (or the theme's), title, text size, margin and timeout, with a live preview pinned above the settings. Applying asks your password; only the menu's look changes, your boot entries and snapshots are left alone, a backup is kept, and Undo or Omarchy's look are one click away.
 - **Lock screen**: Caelestia's design on top of Omarchy's own lock and PAM.
 - **Desktop clock and audio visualiser** (optional).
 - **Plugin manager** and hosting for Omarchy bar widgets, Omarchy's own (AI agents usage, weather, indicators, ...) and third-party ones. Omarchy's widgets get a place of their own on the bar; a new one that an Omarchy update adds is put on the bar by itself, and one that fails to load takes no room and says so in Settings. Third-party widgets sit in the plugin pill, each pinned, behind its chevron or hidden, or get a place of their own (Settings › Taskbar).

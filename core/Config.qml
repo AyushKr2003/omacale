@@ -246,6 +246,24 @@ QtObject {
         property list<string> favouriteApps: []
         property list<string> hiddenApps: []
       }
+      property JsonObject boot: JsonObject {
+        property string branding: "Omarchy Bootloader"
+        property string brandingColor: "9ece6a"
+        property string foreground: "c0caf5"
+        property string background: "1a1b26"
+        property int backgroundAlpha: 0
+        property string wallpaper: ""
+        property string wallpaperStyle: "stretched"
+        property string backdrop: "1a1b26"
+        property int timeout: 5
+        property bool rememberLast: false
+        property bool hideHelp: false
+        property bool marginCustom: false
+        property int margin: 64
+        property int marginGradient: 4
+        property string fontScale: ""
+        property string applied: ""
+      }
       property JsonObject session: JsonObject {
         property bool enabled: true
         property bool gif: true

@@ -48,6 +48,18 @@ var values = {
     performance: { showCpu: true, showGpu: true, showMemory: true, showStorage: true, showNetwork: true, showBattery: true }
   },
   launcher: { enabled: true, maxShown: 7, maxWallpapers: 9, actionPrefix: ">", menuPrefix: ":", vimKeybinds: false, dangerousActions: true, dragThreshold: 50, wallpaperPicker: "omacale", themePicker: "omacale", favouriteApps: [], hiddenApps: [] },
+  // Settings › Boot menu: the look of the Limine boot menu, applied to
+  // /boot/limine.conf by scripts/limine-style (pkexec) only when asked.
+  // Omarchy's own values (default/limine/limine.conf); timeout 5 = Limine's own.
+  // `applied` is the JSON last written, to tell unapplied changes.
+  boot: {
+    branding: "Omarchy Bootloader", brandingColor: "9ece6a", foreground: "c0caf5", background: "1a1b26",
+    backgroundAlpha: 0, wallpaper: "", wallpaperStyle: "stretched", backdrop: "1a1b26",
+    timeout: 5, rememberLast: false, hideHelp: false,
+    // Limine's own margin unless marginCustom; fontScale "" = by resolution.
+    marginCustom: false, margin: 64, marginGradient: 4, fontScale: "",
+    applied: ""
+  },
   session: {
     enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate",
     menu: "omacale",        // what the session IPC opens: "omacale" (the drawer) or "omarchy" (its System menu)

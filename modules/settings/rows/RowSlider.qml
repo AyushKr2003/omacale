@@ -10,7 +10,8 @@ ConnectedRect {
   readonly property real value: Number(Config.get(row.key))
   readonly property real frac: (value - row.from) / (row.to - row.from)
   function fmt(v) {
-    if (row.unit === "%") return Math.round(v * 100) + "%"
+    // A 0-1 fraction, or already a percentage (Boot menu's 0-100).
+    if (row.unit === "%") return Math.round(row.to > 1 ? v : v * 100) + "%"
     if (row.unit === "x") return v.toFixed(2).replace(/0$/, "") + "×"
     if (row.unit === "px") return Math.round(v) + " px"
     return String(v)
