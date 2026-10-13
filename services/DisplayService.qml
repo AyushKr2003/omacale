@@ -34,7 +34,7 @@ QtObject {
   readonly property bool hasInternal: monitors.some(m => m.internal)
   readonly property bool hasExternal: monitors.some(m => !m.internal)
 
-  function start() { probe.running = true; hyprRead.running = true; brightnessRead() ; textRead.running = true }
+  function start() { probe.running = true; hyprRead.running = true; brightnessRead() ; textRead.running = true; mirrorRead.running = true }
   function stop() { sock.connected = false; reconnect.stop() }
 
   property Process probe: Process {
@@ -220,7 +220,15 @@ QtObject {
   // ------------------------------------------------- laptop panel / mirror
   function setInternal(on) { Quickshell.execDetached(["omarchy-hyprland-monitor-internal", on ? "on" : "off"]); later.restart() }
   function setMirror(on) { Quickshell.execDetached(["omarchy-hyprland-monitor-internal-mirror", on ? "on" : "off"]); later.restart() }
-  property Timer later: Timer { interval: 900; onTriggered: root.hyprRead.running = true }
+  property Timer later: Timer { interval: 900; onTriggered: { root.hyprRead.running = true; root.mirrorRead.running = true } }
+  // Omarchy's mirror toggle is a monitor rule Hyprland reads on every reload,
+  // so while it is on it mirrors over whatever layout hyprmoncfg applies:
+  // every profile looks the same. Settings › Display says so (MirrorCard).
+  property bool omarchyMirror: false
+  property Process mirrorRead: Process {
+    command: ["omarchy-hyprland-toggle-enabled", "internal-monitor-mirror"]
+    onExited: code => root.omarchyMirror = code === 0
+  }
 
   // Let hyprmoncfg manage the displays (its own plugin's "manage").
   function manage() {
