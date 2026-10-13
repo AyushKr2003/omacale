@@ -63,6 +63,7 @@ RowStepper 1.0 modules/settings/rows/RowStepper.qml
 RowText 1.0 modules/settings/rows/RowText.qml
 RowToggle 1.0 modules/settings/rows/RowToggle.qml
 ScreenScope 1.0 modules/drawers/ScreenScope.qml
+GlassBackdrop 1.0 modules/drawers/GlassBackdrop.qml
 SectionHeader 1.0 components/SectionHeader.qml
 SeedPicker 1.0 modules/settings/cards/SeedPicker.qml
 Session 1.0 modules/session/Session.qml

@@ -2,6 +2,15 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.0 - 2026-10-13
+
+### Added
+- **glass**: Real glass (Settings › Glass › Lens, on with glass): the frame and drawers show what is behind them themselves, rebuilt from the wallpaper and each window's own capture, so there is no screen capture of the shell to undo. The bevel bends it (with colour fringes), the body frosts it with its own blur (Frost, 0% is clear glass), magnifies it a little towards the middle (Magnify), and tones it as pleamar's glass does; the tint thickens over busy backgrounds so text on the glass stays readable
+- **glass**: A gleam on the bevel where it catches the light, and a Bevel width setting
+
+### Fixed
+- **glass**: Turning Hyprland's blur off behind the shell (Transparency or Glass going off) now takes effect without a Hyprland reload
+
 ## 0.52.1 - 2026-10-13
 
 ### Changed

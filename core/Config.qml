@@ -439,6 +439,12 @@ QtObject {
         property bool pointer: true
         property bool tuneBlur: true
         property int frost: 5
+        property real bevel: 18
+        property bool lens: true
+        property real lensFrost: 0.5
+        property real dome: 0.35
+        property real refraction: 1.0
+        property real dispersion: 0.35
       }
     }
   }

@@ -1,7 +1,10 @@
 # Liquid glass for Omacale: research and plan
 
 Status: option A is built (Settings › Glass, `core/Glass.qml`, the glass path in
-`shaders/blob.frag`); option C is researched and planned, not built. Written
+`shaders/blob.frag`), and so is pleamar's full lens -- refraction, its own frost,
+tone -- by a route none of A–D is: the backdrop rebuilt from the wallpaper and
+per-window captures (§11, §12).
+Option C is researched and planned, not built. Written
 2026-10-13 against Hyprland 0.56.2 and Quickshell 0.3.1 (both what this machine
 runs), Vitreus and pleamar as checked out under `shell/`. §8 lists what the second
 pass checked and corrected.
@@ -393,6 +396,105 @@ and 0.35 matched best side by side on this screen. So:
 - **Secondary text keeps its contrast**: under glass, `m3onSurfaceVariant` is taken 40%
   of the way to `m3onSurface`. Vitreus does the same job by holding every text colour
   at 4.5:1 against a reference a little lighter than its glass (`iris_palette`).
+
+---
+
+## 11. Fifth pass: real refraction, from a backdrop we build ourselves
+
+Side by side with Vitreus's screenshots, what was still missing was the *edge*: theirs
+reads as a slab with thickness (a bright rim, then a band where what is behind is
+bent and squeezed, then the flat), ours as a tinted sheet with a 2 px line. That band
+is the lens, and option B said the lens can't be done well in QML because the only
+picture of what is behind is a screen capture with our own glass in it.
+
+**But nothing behind our glass needs a capture of the screen.** Behind the frame
+there is only the wallpaper (the reserved edges keep windows out), and Omacale knows
+the file. Behind a drawer there are this screen's windows, and Hyprland will export
+each one on its own (`hyprland-toplevel-export`, which the overview already uses).
+Those captures are the windows' own buffers: no layer surface is in them, ours
+included. Laid where Hyprland lays them (`at`, `size`, rounding, border, stacking),
+over the wallpaper drawn as Omarchy draws it (`PreserveAspectCrop`), they *are* what
+is behind, with:
+
+- **no unmixing** (nothing of ours to take out), so no error over text, no unknown
+  pixels under opaque content;
+- **no feedback loop** (painting the glass changes no capture);
+- **no frame lag of our own** (a window's capture is its latest buffer; the
+  composite is drawn in the same frame as the glass that bends it).
+
+`modules/drawers/GlassBackdrop.qml` builds it: an `Image` of `current/background`
+and a `Repeater` over `Hyprland.toplevels` (one delegate per toplevel, kept for its
+life, so a refresh moves a capture instead of restarting it), each a bordered,
+rounded `ScreencopyView`, all inside a hidden item that a mipmapped
+`ShaderEffectSource` turns into the `backdrop` sampler of `blob.frag`. The captures
+are live only while a drawer is open; with only the frame showing, the picture is
+the still wallpaper and costs nothing. Measured with the dashboard open over a
+busy terminal: +4% shell CPU, +2% Hyprland, against the lens off.
+
+**The shader** ports pleamar's lens term for term (`rim_height`, `rim_slope`,
+`refract_offset` with its `tanh` cap, Cauchy dispersion at 611/549/464 nm, Schlick
+reflection of the room round the glass on the steep part), with two changes:
+
+- **It is only the bevel.** The flat stays Hyprland's blur, which is always right
+  (it has the clock and visualiser, other layer surfaces, everything). The lens paints
+  the same glass as the body (tint at the body's opacity, smoke/milk veils) over the
+  rebuilt backdrop, frosted to Hyprland's blur at the inner end of the bevel (mip
+  level `Glass.frostLod`, from GlassBlur's size and passes) and sharper towards the
+  edge, and fades into the body where the bevel flattens: where the two show the same
+  thing, there is no seam. Where the rebuild is wrong for a moment (a window mid-drag)
+  the error is only inside a band that is bending everything anyway.
+- **A gleam**, without the lens too: the bevel lit as a surface from the same side as
+  the rim light, a Blinn-Phong lobe where its tilt is half the light's, minus the
+  flat's share. A soft line a little inside the lit edge, which is what makes a slab
+  read as thick.
+
+A strip of frame narrower than the bevel gets a bevel its own width (the screen edge
+cuts the frame; it isn't an edge of the glass). Unknown pixels (a video wallpaper, a
+window whose first frame hasn't arrived) are transparent in the backdrop, and the lens
+weighs itself by that alpha: there, the drawn glass shows.
+
+Not covered by the rebuild: other clients' layer surfaces (another bar, a third-party
+OSD), and windows that refuse capture (`noscreenshare`, which export black). Both
+only ever reach the bevel band.
+
+## 12. Sixth pass: the whole body is the lens
+
+Bending only the bevel over Hyprland's blur still read as frost with a glass rim. Turning
+the blur off (a "clear glass" tried in between) read as a transparent panel: over a video,
+the drawer's text sat on a sharp moving picture. Vitreus's glass with the lens on is
+neither: the whole body is what is behind, frosted by pleamar itself, toned, livened and
+tinted. With the rebuilt backdrop Omacale can do the same, so it does:
+
+- **The body is drawn from the backdrop**, opaque wherever the backdrop is known.
+  Hyprland's blur is off behind `omacale` while the lens is on. The toasts, which the
+  lens doesn't draw, keep theirs. Where nothing is known, the plain tint over the real
+  screen shows.
+- **The blur rules are named** (`omacale-blur`, `omacale-blur-toasts`). Hyprland's Lua
+  rules are added, not replaced, so an unnamed `blur = false` never undid an earlier
+  `blur = true`. A named rule replaces its namesake.
+- **Our own frost.** `GlassBackdrop` also gives the shader the backdrop blurred
+  (`frosted`: MultiEffect's Gaussian, 8–32 px from Settings › Glass › Lens › Frost).
+  Two traps on the way. The `ShaderEffectSource`'s mip levels read back sharp, so
+  sampling "deeper" was no blur, and a spiral of taps over them drew ghost copies. And a
+  mix of sharp and blurred is a ghost, not a weaker frost. So any frost at all is the
+  frosted texture, and 0 is the sharp one (clear glass).
+- **pleamar's colour:** `glass_tone` on the real colours (milk lifts the darks more than
+  the brights, smoke takes the brights down more), +18% saturation, and a tint of 22% at
+  the default 36% Opacity, more over bright or busy backgrounds.
+- **Busy is measured per drawer.** Any per-pixel measure of busyness (sharp against
+  frosted, or the frosted one's local variation) has edges of its own, and the tint drew
+  them on the glass: outlines of subtitles at three offsets, lace over a hedge. The
+  measure is a 4×4 grid over the nearest drawer, one value for all of it, so the tint is
+  even.
+- **Dome:** what is behind is magnified a little towards a drawer's middle
+  (Settings › Magnify), fading out in the bevel, which bends its own way.
+
+Settings › Glass › Lens: Real glass (`glass.lens`, on), Frost (`glass.lensFrost`, 50%),
+Refraction (1x), Colour fringes (35%), Magnify (`glass.dome`, 35%), Bevel (18 px).
+Hyprland's blur rows now only concern the toasts and the glass without the lens.
+
+Measured with the sidebar open over a playing 1080p video: 18% shell CPU, 7% Hyprland
+(drawers closed: 0% and 4%).
 
 ---
 

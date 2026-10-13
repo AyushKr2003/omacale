@@ -1106,6 +1106,20 @@ Scope {
     readonly property var cpRect: cpVis ? cpLiq.rect([cpx, cpy, cpw, cph]) : null
     readonly property var osdRect: osdVis ? osdLiq.rect([osdX, osdY, osdW, osdH]) : null
 
+    // What the glass's bevel bends (Glass.lens): the wallpaper and this
+    // screen's windows, rebuilt; live only while a drawer is open.
+    readonly property bool anyDrawer: !!(dRect || lRect || sRect || pRect || nRect || uRect || sbRect || oRect || cpRect || osdRect)
+    Loader {
+      id: glassBackdrop
+      anchors.fill: parent
+      active: Glass.lens
+      sourceComponent: GlassBackdrop {
+        screen: scope.screen
+        live: win.anyDrawer && !scope.hasFullscreen
+        frost: Glass.frostPx
+      }
+    }
+
     // ---------------------------------------------------- background
     Item {
       anchors.fill: parent
@@ -1133,6 +1147,11 @@ Scope {
         Behavior on color { CAnim {} }
         glassA: Glass.a
         glassB: Glass.b
+        glassC: glassBackdrop.item ? Glass.c : Qt.vector4d(0, Glass.c.y, Glass.c.z, Glass.c.w)
+        glassD: Glass.d
+        backdrop: glassBackdrop.item ? glassBackdrop.item.texture : noBackdrop
+        frosted: glassBackdrop.item ? glassBackdrop.item.frosted : noBackdrop
+        Image { id: noBackdrop; visible: false }
         // Only bound while the light follows it, so the pointer moving
         // doesn't redraw the frame otherwise.
         pointer: Glass.pointer ? Qt.vector2d(interactions.mouseX, interactions.mouseY) : Qt.vector2d(0, 0)

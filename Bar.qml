@@ -48,7 +48,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.52.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.53.0"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -715,18 +715,27 @@ Item {
   // ~/.config/hypr, and it disappears on the next Hyprland reload.
   // Glass (core/Glass.qml) is translucent too, and its threshold leaves out
   // its shadow, which it draws round the shape itself.
-  readonly property bool blur: Config.o.appearance.transparency.enabled || Glass.enabled
+  // With the lens on, the glass draws what is behind itself, frosted its own
+  // way, so Hyprland's blur stays off behind the frame and drawers; the
+  // toasts aren't drawn by the lens and keep it.
+  readonly property bool blur: Config.o.appearance.transparency.enabled || (Glass.enabled && !Glass.lens)
+  readonly property bool toastBlur: Config.o.appearance.transparency.enabled || Glass.enabled
   readonly property real ignoreAlpha: Glass.enabled ? Glass.blurFloor : Math.max(0, Config.o.appearance.transparency.layers - 0.05)
   // The toasts are a second surface (overlay layer, so a fullscreen window
   // can't cover them), and they take the same translucent surface colours as
   // the frame -- so they need the same blur behind them.
+  // Named, so each call replaces the last: Hyprland adds an unnamed Lua rule
+  // beside the old ones, and `blur = false` never undid an earlier `true`.
   function applyBlur() {
     Quickshell.execDetached(["hyprctl", "eval",
-      'hl.layer_rule({ match = { namespace = "^omacale(-notifications)?$" }, blur = ' + (blur ? "true" : "false") +
+      'hl.layer_rule({ name = "omacale-blur", match = { namespace = "^omacale$" }, blur = ' + (blur ? "true" : "false") +
+      ', ignore_alpha = ' + ignoreAlpha.toFixed(2) + ' }); ' +
+      'hl.layer_rule({ name = "omacale-blur-toasts", match = { namespace = "^omacale-notifications$" }, blur = ' + (toastBlur ? "true" : "false") +
       ', ignore_alpha = ' + ignoreAlpha.toFixed(2) + ' })'])
   }
   onBlurChanged: applyBlur()
-  onIgnoreAlphaChanged: if (blur) applyBlur()
+  onToastBlurChanged: applyBlur()
+  onIgnoreAlphaChanged: if (blur || toastBlur) applyBlur()
 
   // The desktop clock's plate and the desktop visualiser blur the wallpaper
   // behind them (Caelestia's background blur options). Omarchy draws the
@@ -758,7 +767,7 @@ Item {
 
   Component.onCompleted: {
     thirdPartyPlugins = collectedPlugins
-    if (blur) applyBlur()
+    if (blur || toastBlur) applyBlur()
     if (clockBlur || visBlur) applyDesktopBlur()
     applyLockRule()
     // The OSD handover's clone only takes Omarchy's OSDs while this bar is
@@ -776,7 +785,7 @@ Item {
     function onRawEvent(e) {
       if (e.name === "monitoraddedv2" && Config.o.display.quickOnConnect) connectedAsk.restart()
       if (e.name !== "configreloaded") return
-      if (root.blur) root.applyBlur()
+      if (root.blur || root.toastBlur) root.applyBlur()
       if (root.clockBlur || root.visBlur) root.applyDesktopBlur()
       root.applyLockRule()
     }

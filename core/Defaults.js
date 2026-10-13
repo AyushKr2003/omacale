@@ -136,7 +136,13 @@ var values = {
     light: 1.0,              // edge light
     pointer: true,           // the light follows the pointer
     tuneBlur: true,          // Hyprland's blur set for glass while it is on (services/GlassBlur.qml)
-    frost: 5                 // that blur's size
+    frost: 5,                // that blur's size
+    bevel: 18,               // how wide the glass's rounded edge is (px)
+    lens: true,              // the bevel bends what is behind (modules/drawers/GlassBackdrop.qml)
+    lensFrost: 0.5,          // the lens's own frost (0 is clear glass)
+    dome: 0.35,              // what is behind, a little magnified towards a drawer's middle
+    refraction: 1.0,         // how thick the glass is: how much it bends
+    dispersion: 0.35         // colour fringes where it bends hard
   }
 }
 

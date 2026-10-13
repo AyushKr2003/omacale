@@ -37,6 +37,14 @@ ShaderEffect {
   property vector4d glassA: Qt.vector4d(0, 0, 0, 0)
   property vector4d glassB: Qt.vector4d(0, 0, 0, 0)
   property vector2d pointer: Qt.vector2d(0, 0)
+  // Glass.c / Glass.d (the bevel, its lens, its gleam), and what the lens
+  // bends: a GlassBackdrop's texture. Without one the lens stays off, and
+  // the sampler gets an empty image (null logs a warning on every surface).
+  property vector4d glassC: Qt.vector4d(0, 0, 0, 0)
+  property vector4d glassD: Qt.vector4d(0, 0, 0, 0)
+  property var backdrop: noBackdrop
+  property var frosted: noBackdrop
+  Image { id: noBackdrop; visible: false }
 
   readonly property var fill: BlobFill.radii(rects, corners, radius,
     framed ? [hole.x, hole.y, hole.width, hole.height] : null, smoothing, excluded, cornerFill)
