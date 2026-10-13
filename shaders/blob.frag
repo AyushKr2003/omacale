@@ -9,6 +9,13 @@
 // each rect's per-corner radii after corner fill (BlobFill.js) and its
 // deformation matrix (BlobDeform.qml). One full-screen pass draws them all,
 // where Caelestia draws one quad per shape.
+//
+// Omacale's liquid motion (core/Liquid.qml, Vitreus's necks) adds two
+// things, both zero -- and so exactly Caelestia's output -- while it is off:
+// a per-rect extra blend in the deformation's spare 4th component (the neck
+// that joins a moving drawer to the frame and its neighbours), and up to
+// four ellipses melted into everything (the ripples and the stray drop a
+// drawer leaves on the edge it broke away from).
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -41,7 +48,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 c7;
     vec4 c8;
     vec4 c9;
-    vec4 d0;          // deformation: m00, m01, m11 (symmetric 2x2), 0
+    vec4 d0;          // deformation: m00, m01, m11 (symmetric 2x2), extra blend (liquid neck)
     vec4 d1;
     vec4 d2;
     vec4 d3;
@@ -53,6 +60,11 @@ layout(std140, binding = 0) uniform buf {
     vec4 d9;
     float excl56;     // > 0.5: r5 and r6 don't blend (Caelestia BlobRect.exclude)
     float excl18;     // > 0.5: r1 and r8 don't blend
+    vec4 b0;          // liquid bumps: centre x, y, radius x, y (r <= 0.3 disables)
+    vec4 b1;
+    vec4 b2;
+    vec4 b3;
+    vec4 bk;          // each bump's blend
 };
 
 float sdRoundedBox(vec2 p, vec2 c, vec2 hs, float r) {
@@ -128,6 +140,29 @@ vec3 deformAt(int i) {
     return d.xyz;
 }
 
+float neckAt(int i) {
+    if (i == 0) return d0.w;
+    if (i == 1) return d1.w;
+    if (i == 2) return d2.w;
+    if (i == 3) return d3.w;
+    if (i == 4) return d4.w;
+    if (i == 5) return d5.w;
+    if (i == 6) return d6.w;
+    if (i == 7) return d7.w;
+    if (i == 8) return d8.w;
+    return d9.w;
+}
+
+// An ellipse's distance, near enough at the edge for a blend.
+float sdEllipse(vec2 p, vec2 c, vec2 r) {
+    return (length((p - c) / r) - 1.0) * min(r.x, r.y);
+}
+
+float bumpInto(float merged, vec2 pixel, vec4 b, float k) {
+    if (b.z <= 0.3 || b.w <= 0.3) return merged;
+    return smin(merged, sdEllipse(pixel, b.xy, b.zw), max(k, 0.5));
+}
+
 bool excluded(int i, int j) {
     if (i == 5 && j == 6 && excl56 > 0.5) return true;
     if (i == 1 && j == 8 && excl18 > 0.5) return true;
@@ -145,12 +180,14 @@ void main() {
     // Phase 1: each rect's distance, through its deformation. Caelestia
     // blob.frag main(), phase 1.
     float d[10];
+    float neck[10];
     vec2 ctrs[10];
     vec2 halves[10]; // screen-space half extents of the deformed rect
     for (int i = 0; i < 10; i++) {
         vec4 r = rectAt(i);
         ctrs[i] = r.xy + r.zw * 0.5;
         halves[i] = r.zw * 0.5;
+        neck[i] = max(neckAt(i), 0.0);
         if (r.z <= 0.5 || r.w <= 0.5) { d[i] = 1e10; continue; }
 
         vec3 m = deformAt(i);
@@ -201,9 +238,10 @@ void main() {
     for (int i = 0; i < 10; i++) {
         if (d[i] >= 1e9) continue;
         for (int j = i + 1; j < 10; j++) {
-            if (d[j] >= 1e9 || max(d[i], d[j]) >= k) continue;
+            float kij = k + max(neck[i], neck[j]);
+            if (d[j] >= 1e9 || max(d[i], d[j]) >= kij) continue;
             if (excluded(i, j)) continue;
-            merged = min(merged, smin(d[i], d[j], k));
+            merged = min(merged, smin(d[i], d[j], kij));
         }
     }
 
@@ -262,7 +300,18 @@ void main() {
             if (pixel.x > gapL && pixel.x < gapR) kFrameJoin = clamp((gapR - gapL) * 0.5, 1.0, k);
         }
         merged = smin(merged, dFrame, kFrameJoin);
+        // The liquid neck: a wider fillet between a moving drawer and the
+        // frame. smin is monotone, so this only ever adds to the one above.
+        for (int i = 0; i < 10; i++) {
+            if (d[i] >= 1e9 || neck[i] <= 0.0) continue;
+            merged = min(merged, smin(d[i], dFrame, kFrameJoin + neck[i]));
+        }
     }
+
+    merged = bumpInto(merged, pixel, b0, bk.x);
+    merged = bumpInto(merged, pixel, b1, bk.y);
+    merged = bumpInto(merged, pixel, b2, bk.z);
+    merged = bumpInto(merged, pixel, b3, bk.w);
 
     float fw = max(fwidth(merged), 0.0001);
     float alpha = 1.0 - smoothstep(-fw, fw, merged);

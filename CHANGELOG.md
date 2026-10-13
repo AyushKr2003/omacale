@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.50.0 - 2026-10-13
+
+### Added
+- **motion**: Liquid motion (Settings › Motion, off by default): drawers move on springs, joined to the frame by a liquid neck, bulge on the overshoot and settle with a sag and a wobble; the window info panel and Settings break away from the bar with ripples and a stray drop. Presets (Subtle, Balanced, Bouncy) or Custom, per-drawer switches and a live preview
+
 ## 0.49.4 - 2026-10-13
 
 ### Fixed

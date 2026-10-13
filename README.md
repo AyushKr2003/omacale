@@ -11,6 +11,7 @@ Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's
 ## Features
 
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
+- **Liquid motion** (optional, off by default; Settings › Motion): the drawers move on springs that overshoot and settle and can be turned round mid-way, are joined to the frame by a liquid neck that is thickest halfway, are a little narrower on the way and round as a drop before they square up, bulge on the overshoot, and sag and shake once as they land. They can slide out of the frame as Caelestia's do, or grow out of it from a narrow drop. The window info panel and Settings stay joined to the bar by a thread that stretches and snaps as they leave, leaving two ripples and a small drop on the edge. Pick a preset (Subtle, Balanced, Bouncy) or tune every number under Custom, turn each piece and each drawer on or off, and watch it in the live preview at the top of the page. Off, everything moves exactly as Caelestia's.
 - **Material 3 colours** generated from your Omarchy theme, or the theme's own colours, light or dark exactly as Omarchy decides it. Optionally Omarchy's own menus, popups and notifications follow the Material palette too (a marked, removable block in `~/.config/omarchy/shell.toml`).
 - **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons, Omarchy's own widgets and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar). Status icons and widgets next to each other share one pill. It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it. With several screens, each can have its own edge or no bar at all, and the desktop clock, toasts and OSD can be kept to the screens you choose (Settings › Taskbar › Screens, Panels › Desktop, Notifications, OSD).
 - **Pickers everywhere**: Settings › Wallpaper & style, the `:` menu's Style › Theme / Background and the picker binds all open Omacale's carousels (or Omarchy's menus, if you prefer), and **From wallpaper** builds a whole Omarchy theme from your wallpaper with aether, when it is installed.
@@ -177,10 +178,12 @@ What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md).
 - Caelestia's battery level warnings aren't ported, since Omarchy's battery service already sends them. Its VPN and keyboard layout toasts aren't either, since Omacale has neither feature.
 - The lock screen shows the wallpaper by default. With **Use the wallpaper** off it shows a blurred snapshot of the screen, as Caelestia does; if the snapshot can't be taken (the display is off, say), it falls back to the wallpaper. With a video wallpaper, the blur applies to its still frame only.
 - Notifications support their default action only; there are no inline replies (Caelestia has none either).
+- Liquid motion is motion only, not glass: Quickshell can't see what is behind its own window, so there is no refraction. The frame and drawers keep Omacale's own surface (and its transparency and blur settings).
 
 ## Credits
 
 - UI and shaders: [caelestia-dots/shell](https://github.com/caelestia-dots/shell) (GPL-3.0)
+- Liquid motion: the springs, necks and drops of [Vitreus](https://github.com/natepayn3/Vitreus) (MIT), written for [pleamar](https://github.com/k4ditano/pleamar)
 - Workspace overview: adapted from [omarchy-overview](https://github.com/AyushKr2003/omarchy-overview) and [quickshell-overview](https://github.com/Shanu-Kumawat/quickshell-overview)
 - Fonts: Google Sans Flex and Rubik (SIL Open Font License)
 

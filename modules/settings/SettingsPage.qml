@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import "../.."
+import "SettingsModel.js" as Model
 
 // Caelestia PageBase: title (with a back button on sub-pages) above a
 // scrolling column of rows capped at 800px and centred, fading at the edges.
@@ -15,13 +16,14 @@ ColumnLayout {
   // sub-page opened from the bottom of a long one scrolled out of view.
   onPageChanged: flick.contentY = -flick.topMargin
 
-  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect") }
+  function groupable(r) { return r.type !== "section" && (r.type !== "custom" || r.comp === "seeds" || r.comp === "logoPicker" || r.comp === "sessionPicture" || r.comp === "screenSelect" || r.comp === "liquidPreset") }
   function isFirst(i) { return i === 0 || !groupable(rows[i - 1]) }
   function isLast(i) { return i === rows.length - 1 || !groupable(rows[i + 1]) }
+  function holds(r) { return Model.whenHolds(r.when, k => Config.get(k)) }
   readonly property var files: ({
     toggle: "rows/RowToggle.qml", stepper: "rows/RowStepper.qml", slider: "rows/RowSlider.qml", select: "rows/RowSelect.qml",
     text: "rows/RowText.qml", nav: "rows/RowNav.qml", section: "../../components/SectionHeader.qml",
-    preview: "cards/StylePreview.qml", seeds: "cards/SeedPicker.qml", logoPicker: "cards/LogoPicker.qml", keybinds: "cards/KeybindsCard.qml", lock: "cards/LockCard.qml", notifs: "cards/NotifCard.qml", osd: "cards/OsdCard.qml", looknfeel: "cards/LookNFeelCard.qml", about: "cards/AboutCard.qml",
+    preview: "cards/StylePreview.qml", liquidPreview: "cards/LiquidPreview.qml", liquidPreset: "cards/LiquidPreset.qml", seeds: "cards/SeedPicker.qml", logoPicker: "cards/LogoPicker.qml", keybinds: "cards/KeybindsCard.qml", lock: "cards/LockCard.qml", notifs: "cards/NotifCard.qml", osd: "cards/OsdCard.qml", looknfeel: "cards/LookNFeelCard.qml", about: "cards/AboutCard.qml",
     network: "pages/NetworkPage.qml", networkDetail: "pages/NetworkDetail.qml",
     bluetooth: "pages/BluetoothPage.qml", btPair: "pages/BtPairing.qml", btDevice: "pages/BtDevice.qml",
     audio: "pages/AudioPage.qml", appVolumes: "pages/AppVolumes.qml",
@@ -75,8 +77,10 @@ ColumnLayout {
         Loader {
           required property var modelData
           required property int index
-          readonly property bool live: !modelData.when || Config.get(modelData.when.key) === modelData.when.value
+          readonly property bool live: root.holds(modelData)
           Layout.fillWidth: true
+          // `hide: true` leaves the row out while its `when` doesn't hold.
+          visible: live || !modelData.hide
           enabled: live
           opacity: live ? 1 : 0.38
           Behavior on opacity { Anim { type: "effects" } }

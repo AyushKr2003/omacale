@@ -17,8 +17,11 @@ ShaderEffect {
   property real radius: Tk.rounding.extraLarge
   // BlobGroup.cornerFill.
   property bool cornerFill: true
-  // Per rect, a vector4d (m00, m01, m11, 0); missing is no deformation.
+  // Per rect, a vector4d (m00, m01, m11, liquid neck); missing is no deformation.
   property var deforms: []
+  // Liquid motion's ripples and stray drop: up to four [cx, cy, rx, ry, blend]
+  // ellipses melted into everything; missing or null is none.
+  property var bumps: []
   // [[i, j], ...]: pairs that neither blend nor square each other's corners.
   // Only (5, 6) and (1, 8) are honoured by the shader.
   property var excluded: []
@@ -42,6 +45,11 @@ ShaderEffect {
     return c ? Qt.vector4d(c[0], c[1], c[2], c[3]) : Qt.vector4d(0, 0, 0, 0)
   }
   function deformAt(i) { return deforms[i] || Qt.vector4d(1, 0, 1, 0) }
+  function bumpAt(i) {
+    const b = bumps[i]
+    return b ? Qt.vector4d(b[0], b[1], b[2], b[3]) : Qt.vector4d(0, 0, 0, 0)
+  }
+  function bumpBlend(i) { const b = bumps[i]; return b ? b[4] : 0 }
   function excludes(i, j) { return excluded.some(p => (p[0] === i && p[1] === j) || (p[0] === j && p[1] === i)) }
 
   fragmentShader: Qt.resolvedUrl("../../shaders/blob.frag.qsb")
@@ -80,4 +88,9 @@ ShaderEffect {
   property vector4d d9: deformAt(9)
   property real excl56: excludes(5, 6) ? 1 : 0
   property real excl18: excludes(1, 8) ? 1 : 0
+  property vector4d b0: bumpAt(0)
+  property vector4d b1: bumpAt(1)
+  property vector4d b2: bumpAt(2)
+  property vector4d b3: bumpAt(3)
+  property vector4d bk: Qt.vector4d(bumpBlend(0), bumpBlend(1), bumpBlend(2), bumpBlend(3))
 }
