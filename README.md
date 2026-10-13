@@ -6,12 +6,17 @@ A [Caelestia](https://github.com/caelestia-dots/shell)-style desktop shell for [
 
 ![Omacale preview](preview.webp)
 
+![Omacale with the Glass theme](glass-preview.webp)
+
+*The Glass theme (Settings › Glass): frosted drawers over Hyprland's blur, lit along their edge.*
+
 Omacale is a single Omarchy bar plugin (`omacale.bar`). It runs inside Omarchy's own shell: no extra daemon, no build step, no required Hyprland changes. Caelestia provides the look; Omarchy stays the engine.
 
 ## Features
 
 - **Frame and drawers**: Caelestia's shader-drawn screen frame, with dashboard, launcher, sidebar, utilities, session and settings sliding out of it.
 - **Liquid motion** (optional, off by default; Settings › Motion): the drawers move on springs that overshoot and settle and can be turned round mid-way, are joined to the frame by a liquid neck that is thickest halfway, are a little narrower on the way and round as a drop before they square up, bulge on the overshoot, and sag and shake once as they land. They can slide out of the frame as Caelestia's do, or grow out of it from a narrow drop. The window info panel and Settings stay joined to the bar by a thread that stretches and snaps as they leave, leaving two ripples and a small drop on the edge. Pick a preset (Subtle, Balanced, Bouncy) or tune every number under Custom, turn each piece and each drawer on or off, and watch it in the live preview at the top of the page. Off, everything moves exactly as Caelestia's.
+- **Glass** (optional, off by default; Settings › Glass): the frame and drawers turn to frosted glass, as in Vitreus. They're translucent over Hyprland's blur and lighter than what's behind them, with faint veil cards, an edge lit from the top left or from the pointer, and a shadow only around them. Frosted, Clear or Smoked tone. While it is on, Hyprland's blur is tuned for it (no grain, natural colour, adjustable strength), and your own blur settings come back exactly when it's off. Off, everything looks exactly as Caelestia's.
 - **Material 3 colours** generated from your Omarchy theme, or the theme's own colours, light or dark exactly as Omarchy decides it. Optionally Omarchy's own menus, popups and notifications follow the Material palette too (a marked, removable block in `~/.config/omarchy/shell.toml`).
 - **Bar**: workspaces, active window (live preview and window actions), tray, clock, status icons and popouts. Crowded items collapse on their own. Every item can be dragged to the bar's start, center or end, single status icons, Omarchy's own widgets and plugin widgets included, or taken off the bar and added back later (Settings › Taskbar). Status icons and widgets next to each other share one pill. It can sit on any edge of the screen (Settings › Taskbar › Position: left, right, top, bottom, or follow Omarchy's own bar position); the frame, drawers and popouts follow it. With several screens, each can have its own edge or no bar at all, and the desktop clock, toasts and OSD can be kept to the screens you choose (Settings › Taskbar › Screens, Panels › Desktop, Notifications, OSD).
 - **Pickers everywhere**: Settings › Wallpaper & style, the `:` menu's Style › Theme / Background and the picker binds all open Omacale's carousels (or Omarchy's menus, if you prefer), and **From wallpaper** builds a whole Omarchy theme from your wallpaper with aether, when it is installed.
