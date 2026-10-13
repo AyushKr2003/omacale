@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import "../.."
@@ -141,16 +142,55 @@ Item {
     if (!vertical) return logicalBreadth
     return naturalHeight > Style.bar.iconSlot + 1 ? naturalHeight : logicalCell
   }
-  // How much of the bar the slot takes, along it.
-  readonly property real visualLen: placeholder ? cellLen
+  // How much of the bar the slot takes, along it: the widget's whole length,
+  // or, as an idle stack, the stack's on the way to it.
+  readonly property real fullLen: placeholder ? cellLen
     : shape === "icon" ? (vertical ? stageHeight : stageWidth) * iconScale
     : shape === "rotated" || shape === "label" ? naturalWidth * iconScale
     : cellLen
+  readonly property real visualLen: idleStack ? stackLen + (fullLen - stackLen) * Math.min(1, spread) : fullLen
+
+  // An indicator host (Omarchy's Indicators: `activeIndicatorIds` and
+  // `revealInactiveIndicators`) with none active is drawn as a stack of dim
+  // chips, one per indicator, instead of taking no room; hovering it spreads
+  // the chips out into the indicators themselves. With one active it is the
+  // widget as it is, and hovering it reveals the rest, as on Omarchy's bar.
+  // Set once per widget (onActiveItemChanged): as a binding it loops through
+  // the reveal it turns on.
+  property bool indicatorHost: false
+  // Not measured: the widget only has a size once the stack holds it revealed.
+  readonly property bool idleStack: indicatorHost && !!activeItem.activeIndicatorIds
+    && activeItem.activeIndicatorIds.length === 0
+    && !!activeItem.indicatorEntries && activeItem.indicatorEntries.length > 0
+  // The indicators are a row (a column on a vertical bar) of status cells.
+  readonly property real stackCell: Style.bar.statusSlot
+  readonly property int stackCount: idleStack ? Math.round((vertical ? naturalHeight : naturalWidth) / stackCell) : 0
+  readonly property real chipLen: stackCell * iconScale
+  // Chips shown while stacked, the last in front: round discs in a cascade,
+  // as GitHub Primer's AvatarStack -- the disc behind the front one shows
+  // half of itself, the ones further back a sliver, each a step fainter and
+  // smaller, parted by a ring in the pill's colour.
+  readonly property int stackShown: Math.min(stackCount, 3)
+  readonly property real chipDisc: Math.round(Tk.barInner * 0.82)
+  readonly property real stackNear: Math.round(chipDisc * 0.55)
+  readonly property real stackFar: Math.round(chipDisc * 0.35)
+  // Where chip i sits along the stack, from its start.
+  function stackPos(i) {
+    let at = 0
+    for (let j = 0; j < Math.min(i, stackShown - 1); j++) at += j + 1 === stackShown - 1 ? stackNear : stackFar
+    return at
+  }
+  // Stacked, the chips are discs; spread out, cells.
+  readonly property real stackLen: chipDisc + stackPos(stackShown - 1)
+  // 0 stacked, 1 spread out.
+  property real spread: idleStack && !revealHeld ? 0 : 1
+  Behavior on spread { Anim {} }
+  readonly property bool stacked: idleStack && !(revealHeld && spread >= 0.999)
 
   // Unpinned and the pill's overflow closed: the widget keeps running (its
   // state, IPC and popups stay alive), it just takes no room.
   property bool collapsed: false
-  // Its neighbours on the bar are hovered (SinglePluginEntry.revealHeld).
+  // The pointer is on it (SinglePluginEntry.revealHeld).
   property bool revealHeld: false
 
   readonly property real takenLen: shown && !collapsed ? Math.round(visualLen) : 0
@@ -441,8 +481,88 @@ Item {
     moduleName: root.moduleName
     position: root.edge
     vertical: root.vertical
-    centerSectionRevealHeld: root.revealHeld
+    // Held while stacked too: the stack is drawn from the revealed indicators.
+    centerSectionRevealHeld: root.revealHeld || root.idleStack
   }
+
+  // The idle stack: the first few cells of the revealed widget, read off the
+  // stage, drawn larger and in the status icons' colour rather than Omarchy's
+  // dim, the last one in front. The rest wait under the last one and come
+  // out as the stack spreads.
+  Item {
+    id: stackView
+    anchors.fill: parent
+    visible: root.stacked
+    readonly property real sp: Math.min(1, root.spread)
+    // Stacked chips are drawn at the status icons' size; spread out, at the widget's own.
+    readonly property real grow: 1 + 0.1 * Math.max(0, 1 - root.spread)
+
+    Repeater {
+      model: stackView.visible ? root.stackCount : 0
+      Item {
+        id: chip
+        required property int index
+        readonly property bool extra: index >= root.stackShown
+        // 0 for the front chip, 1 for the one behind it, ...
+        readonly property int depth: extra ? root.stackShown : root.stackShown - 1 - index
+        // The cell is centred on its disc while stacked.
+        readonly property real at: ((extra ? 0 : root.stackPos(index)) - (root.chipLen - root.chipDisc) / 2) * (1 - stackView.sp) + index * root.chipLen * stackView.sp
+        readonly property real fade: [1, 0.7, 0.55, 0][Math.min(depth, 3)]
+        x: root.vertical ? 0 : at
+        y: root.vertical ? at : 0
+        width: root.vertical ? stackView.width : root.chipLen
+        height: root.vertical ? root.chipLen : stackView.height
+        z: extra ? -1 : index
+        opacity: fade + (1 - fade) * stackView.sp
+        scale: 1 - Math.min(depth, 2) * 0.08 * (1 - stackView.sp)
+
+        ShaderEffectSource {
+          id: cell
+          anchors.centerIn: parent
+          sourceItem: stage
+          hideSource: true
+          sourceRect: root.vertical ? Qt.rect(0, chip.index * root.stackCell, root.stageWidth, root.stackCell)
+            : Qt.rect(chip.index * root.stackCell, 0, root.stackCell, root.stageHeight)
+          width: sourceRect.width * root.iconScale * stackView.grow
+          height: sourceRect.height * root.iconScale * stackView.grow
+          textureSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
+          smooth: true
+          // Only the mask; the cell is drawn by `raw` and the fill below.
+          visible: false
+          layer.enabled: true
+        }
+        ShaderEffectSource {
+          anchors.fill: cell
+          sourceItem: cell
+          opacity: stackView.sp
+        }
+        Rectangle {
+          anchors.centerIn: parent
+          width: root.chipDisc
+          height: width
+          radius: width / 2
+          color: Colours.m3surfaceContainerHighest
+          border.width: Math.max(1.5, Tk.px(1.5))
+          border.color: Colours.m3surfaceContainer
+          opacity: 1 - stackView.sp
+        }
+        // The cell's dim icon filled with the status icons' colour (as ColouredIcon).
+        Rectangle {
+          anchors.fill: cell
+          color: Colours.m3secondary
+          opacity: 1 - stackView.sp
+          layer.enabled: true
+          layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: cell
+            maskThresholdMin: 0.2
+            maskSpreadAtMin: 0.2
+          }
+        }
+      }
+    }
+  }
+
 
   // The fallback is deliberately owned by Omacale rather than inferred from
   // a plugin's text tree. That avoids hiding arbitrary plugin state or
@@ -507,6 +627,7 @@ Item {
 
   onActiveItemChanged: {
     primaryButton = null
+    indicatorHost = !!activeItem && "activeIndicatorIds" in activeItem && "revealInactiveIndicators" in activeItem
     settleLater()
   }
 
