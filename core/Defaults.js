@@ -108,7 +108,42 @@ var values = {
   notifs: { screen: "all", groupPreviewNum: 3, openExpanded: false, popups: { enabled: true, width: 430 }, autoFellBack: false, fellBackVersion: "" },
   // Caelestia services / dashboard polling. Steps are Omarchy's 5%, not
   // Caelestia's 10%, so the bar scrolls like Omarchy's volume keys.
-  services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 }
+  services: { mediaUpdateInterval: 500, resourceUpdateInterval: 1000, volumeStep: 5, brightnessStep: 5, visualiserBars: 60 },
+  // Liquid motion (Settings › Motion): springs, necks and drops on
+  // top of Caelestia's drawers. Off, Omacale moves exactly as
+  // Caelestia does. `preset` other than "custom" overrides the numbers below
+  // (core/LiquidMath.js PRESETS); "custom" uses them.
+  liquid: {
+    enabled: false,
+    preset: "balanced",      // subtle | balanced | bouncy | custom
+    style: "slide",          // slide (Caelestia's path) | drop (grow out of a narrow drop)
+    drawers: { dashboard: true, launcher: true, session: true, utilities: true, sidebar: true, popouts: true, osd: true, settings: true, overview: true },
+    stiffness: 170, damping: 18,
+    bulge: 0.6,
+    neck: true, neckWidth: 20,
+    narrow: 0.07, rounding: true,
+    sag: 220, wobble: 260,
+    detach: { neckBreak: true, ripples: true, stray: true }
+  },
+  // Glass (Settings › Glass): Vitreus's glass on the frame and drawers --
+  // translucent over Hyprland's blur, smoked or milky, lit on the edge.
+  // Off, they are drawn as Caelestia's (or with Transparency, as that).
+  glass: {
+    enabled: false,
+    opacity: 0.36,           // how much of the body covers what is behind (pleamar's glass: 36%)
+    tone: "milk",            // milk (Frosted: lifted towards white, Vitreus's look) | clear | smoke
+    toneAmount: 0.35,
+    light: 1.0,              // edge light
+    pointer: true,           // the light follows the pointer
+    tuneBlur: true,          // Hyprland's blur set for glass while it is on (services/GlassBlur.qml)
+    frost: 5,                // that blur's size
+    bevel: 18,               // how wide the glass's rounded edge is (px)
+    lens: true,              // the bevel bends what is behind (modules/drawers/GlassBackdrop.qml)
+    lensFrost: 0.5,          // the lens's own frost (0 is clear glass)
+    dome: 0.35,              // what is behind, a little magnified towards a drawer's middle
+    refraction: 1.0,         // how thick the glass is: how much it bends
+    dispersion: 0.35         // colour fringes where it bends hard
+  }
 }
 
 function get(obj, key) {

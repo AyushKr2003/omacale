@@ -8,7 +8,7 @@ import "../.."
 // on each of the symmetric 2x2 matrix's three components, so it wobbles
 // once as it settles.
 //
-// `vec` feeds the blob shader (dN); `matrixAt()` is the same deformation
+// `vec` feeds the blob shader (dN, with the liquid neck in w); `matrixAt()` is the same deformation
 // for the drawer's content, as Caelestia's `panel.transform`.
 Item {
   id: root
@@ -26,7 +26,10 @@ Item {
   property real m00: 1
   property real m01: 0
   property real m11: 1
-  readonly property vector4d vec: Qt.vector4d(m00, m01, m11, 0)
+  // Omacale's liquid neck (LiquidDrawer.neck): extra blend, px, in the
+  // vector's spare component; 0 is Caelestia's.
+  property real extra: 0
+  readonly property vector4d vec: Qt.vector4d(m00, m01, m11, extra)
 
   // The deformation about (ox, oy), in the coordinates of an item that is
   // drawn in the rect: T(o) * M * T(-o), row-major as Qt.matrix4x4 takes it.

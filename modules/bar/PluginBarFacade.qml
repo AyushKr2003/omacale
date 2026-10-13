@@ -30,8 +30,9 @@ QtObject {
   // Omacale never suppresses the hover reveal; the setter is accepted and ignored.
   readonly property bool centerHoverRevealSuppressed: false
   // Omarchy's bar sets this while its section is hovered, and Indicators then
-  // shows its inactive indicators too. Here the widget's own entry sets it
-  // while its neighbours are hovered (SinglePluginEntry.revealHeld).
+  // shows its inactive indicators too. Here the slot sets it while the
+  // widget is hovered (SinglePluginEntry.revealHeld) or drawn as an idle
+  // stack (BarWidgetSlot.idleStack).
   property bool centerSectionRevealHeld: false
   // Widgets register their trigger buttons here so KeyboardPanel can forward
   // a click through its overlay to another widget on the same bar.

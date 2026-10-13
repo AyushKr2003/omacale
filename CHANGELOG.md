@@ -2,6 +2,36 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.0 - 2026-10-13
+
+### Added
+- **glass**: Real glass (Settings › Glass › Lens, on with glass): the frame and drawers show what is behind them themselves, rebuilt from the wallpaper and each window's own capture, so there is no screen capture of the shell to undo. The bevel bends it (with colour fringes), the body frosts it with its own blur (Frost, 0% is clear glass), magnifies it a little towards the middle (Magnify), and tones it as pleamar's glass does; the tint thickens over busy backgrounds so text on the glass stays readable
+- **glass**: A gleam on the bevel where it catches the light, and a Bevel width setting
+
+### Fixed
+- **glass**: Turning Hyprland's blur off behind the shell (Transparency or Glass going off) now takes effect without a Hyprland reload
+
+## 0.52.1 - 2026-10-13
+
+### Changed
+- **glass**: Glass is frosted by default, lighter than what is behind it as Vitreus's is, instead of a dark tint; the cards on it are faint veils, and secondary text is brighter so it still reads. The tone is Frosted, Clear or Smoked (Auto is gone and reads as Frosted)
+
+## 0.52.0 - 2026-10-13
+
+### Added
+- **glass**: Glass (Settings › Glass, off by default): the frame and drawers turn to Vitreus's glass, translucent over Hyprland's blur and lit along their edge, with the light following the pointer over a drawer, a shadow only round them, and a clear, smoked or milky tone
+- **glass**: While glass is on, Hyprland's blur is tuned for it (no grain, natural colour, a Frost slider for its strength); your own blur settings come back exactly when it is off
+
+## 0.51.0 - 2026-10-13
+
+### Changed
+- **bar**: With none of its indicators active, Omarchy's Indicators widget is a small stack of three round chips instead of taking no room; hovering it spreads the stack out into every indicator. With some active, hovering the widget itself (no longer its neighbours) reveals the inactive ones
+
+## 0.50.0 - 2026-10-13
+
+### Added
+- **motion**: Liquid motion (Settings › Motion, off by default): drawers move on springs, joined to the frame by a liquid neck, bulge on the overshoot and settle with a sag and a wobble; the window info panel and Settings break away from the bar with ripples and a stray drop. Presets (Subtle, Balanced, Bouncy) or Custom, per-drawer switches and a live preview
+
 ## 0.49.4 - 2026-10-13
 
 ### Fixed

@@ -12,8 +12,9 @@
 //   text     { key, label, subtext, placeholder }
 //   nav      { icon, label, subtext, page, status? }
 //   custom   { comp }  — rendered by a dedicated component
-// Any row can carry `when: { key, value }`; it is dimmed and inert unless
-// that setting has that value.
+// Any row can carry `when: { key, value }` (or a list of them, all of which
+// must hold); it is dimmed and inert unless that setting has that value, or
+// left out altogether with `hide: true`.
 
 // "00:00" … "23:30", for the night light's custom times.
 function halfHours() {
@@ -23,6 +24,20 @@ function halfHours() {
     out.push({ value: t, label: t })
   }
   return out
+}
+
+var LIQUID_ON = { key: "liquid.enabled", value: true }
+var LIQUID_CUSTOM = [LIQUID_ON, { key: "liquid.preset", value: "custom" }]
+var GLASS_ON = { key: "glass.enabled", value: true }
+
+// Does a row's `when` hold, `get` reading a setting.
+// A list may reach here as QML's own sequence, which Array.isArray doesn't
+// know, so a single condition is told by its `key`.
+function whenHolds(when, get) {
+  if (!when) return true
+  var all = when.key !== undefined ? [when] : when
+  for (var i = 0; i < all.length; i++) if (get(all[i].key) !== all[i].value) return false
+  return true
 }
 
 var pages = [
@@ -94,7 +109,86 @@ var pages = [
       { type: "toggle", key: "appearance.shadow", label: "Shadow", subtext: "Soft shadow under the frame and drawers" },
       { type: "section", text: "Motion" },
       { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "animation", from: 0.25, to: 2, step: 0.05, unit: "x" },
-      { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" }
+      { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" },
+      { type: "nav", icon: "water_drop", label: "Motion", subtext: "Springs, necks and drops", page: "liquid", status: "liquid.enabled" },
+      { type: "nav", icon: "blur_on", label: "Glass", subtext: "Translucent drawers lit on the edge", page: "glass", status: "glass.enabled" }
+    ]
+  },
+  {
+    // Omacale's own (core/Glass.qml): Vitreus's glass on Caelestia's
+    // drawers. Off, nothing on this page changes anything.
+    id: "glass", label: "Glass", icon: "blur_on", category: "appearance",
+    description: "Translucent drawers lit on the edge",
+    rows: [
+      { type: "toggle", key: "glass.enabled", label: "Glass", subtext: "The frame and drawers turn to glass over Hyprland's blur, lit along their edge. Off, they are drawn as Caelestia's" },
+      { type: "section", text: "Glass", when: GLASS_ON },
+      { type: "slider", key: "glass.opacity", when: GLASS_ON, label: "Opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
+      { type: "select", key: "glass.tone", when: GLASS_ON, label: "Tone", icon: "contrast", subtext: "Frosted glass lifts what is behind towards white, as Vitreus's does; smoked glass darkens it", options: [
+        { value: "milk", label: "Frosted", icon: "ac_unit" },
+        { value: "clear", label: "Clear", icon: "circle" },
+        { value: "smoke", label: "Smoked", icon: "dark_mode" }
+      ] },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "milk" }], hide: true, label: "Frost", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "smoke" }], hide: true, label: "Smoke", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "section", text: "Lens", when: GLASS_ON },
+      { type: "toggle", key: "glass.lens", when: GLASS_ON, label: "Real glass", subtext: "The glass shows what is behind it itself -- the wallpaper and the windows, rebuilt from their own captures -- bent at the edge, frosted its own way, toned and magnified. Off, it is a tint over Hyprland's blur" },
+      { type: "slider", key: "glass.lensFrost", when: [GLASS_ON, { key: "glass.lens", value: true }], label: "Frost", icon: "blur_on", subtext: "0 is clear glass", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.refraction", when: [GLASS_ON, { key: "glass.lens", value: true }], label: "Refraction", icon: "lens_blur", from: 0, to: 2, step: 0.05, unit: "x" },
+      { type: "slider", key: "glass.dispersion", when: [GLASS_ON, { key: "glass.lens", value: true }], label: "Colour fringes", icon: "looks", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.dome", when: [GLASS_ON, { key: "glass.lens", value: true }], label: "Magnify", icon: "zoom_in", from: 0, to: 1, step: 0.05, unit: "%" },
+      { type: "slider", key: "glass.bevel", when: GLASS_ON, label: "Bevel", icon: "rounded_corner", from: 6, to: 40, step: 1, unit: "px" },
+      { type: "section", text: "Hyprland's blur", when: GLASS_ON },
+      { type: "toggle", key: "glass.tuneBlur", when: GLASS_ON, label: "Tune Hyprland's blur for glass", subtext: "Behind the toasts, and the glass without the lens. While glass is on: no grain, natural colour, the frost below. Your own blur settings come back when it is off" },
+      { type: "slider", key: "glass.frost", when: [GLASS_ON, { key: "glass.tuneBlur", value: true }], label: "Blur", icon: "blur_on", from: 1, to: 12, step: 1 },
+      { type: "section", text: "Light", when: GLASS_ON },
+      { type: "slider", key: "glass.light", when: GLASS_ON, label: "Edge light", icon: "flare", from: 0, to: 2, step: 0.05, unit: "x" },
+      { type: "toggle", key: "glass.pointer", when: GLASS_ON, label: "Light follows the pointer", subtext: "Over a drawer the light comes from the pointer instead of the top left" }
+    ]
+  },
+  {
+    // Omacale's own (core/Liquid.qml): liquid motion on Caelestia's
+    // drawers. Off, nothing on this page changes anything.
+    id: "liquid", label: "Motion", icon: "water_drop", category: "appearance",
+    description: "Springs, necks and drops",
+    rows: [
+      { type: "custom", comp: "liquidPreview" },
+      { type: "toggle", key: "liquid.enabled", label: "Motion", subtext: "Drawers move on springs and melt out of the frame like a drop. Off, they move as Caelestia's" },
+      { type: "section", text: "Motion", when: LIQUID_ON },
+      { type: "custom", comp: "liquidPreset", when: LIQUID_ON, label: "Preset", icon: "water_drop", subtext: "How lively the springs are", options: [
+        { value: "subtle", label: "Subtle", icon: "water" },
+        { value: "balanced", label: "Balanced", icon: "water_drop" },
+        { value: "bouncy", label: "Bouncy", icon: "bubble_chart" },
+        { value: "custom", label: "Custom", icon: "tune" }
+      ] },
+      { type: "select", key: "liquid.style", when: LIQUID_ON, label: "Drawers come out", icon: "move_down", subtext: "Slide out of the frame, or grow out of it from a narrow drop (the sidebar, utilities, Settings and the overview keep their own way)", options: [
+        { value: "slide", label: "Slide", icon: "swipe_down" },
+        { value: "drop", label: "Drop", icon: "water_drop" }
+      ] },
+      { type: "section", text: "Custom", when: LIQUID_CUSTOM, hide: true },
+      { type: "slider", key: "liquid.stiffness", when: LIQUID_CUSTOM, hide: true, label: "Stiffness", icon: "speed", from: 60, to: 600, step: 5 },
+      { type: "slider", key: "liquid.damping", when: LIQUID_CUSTOM, hide: true, label: "Damping", icon: "airwave", from: 4, to: 60, step: 1 },
+      { type: "slider", key: "liquid.bulge", when: LIQUID_CUSTOM, hide: true, label: "Overshoot bulge", icon: "expand", from: 0, to: 2, step: 0.05, unit: "x" },
+      { type: "slider", key: "liquid.neckWidth", when: LIQUID_CUSTOM, hide: true, label: "Neck width (at 100% scale)", icon: "join", from: 0, to: 60, step: 1, unit: "px" },
+      { type: "slider", key: "liquid.narrow", when: LIQUID_CUSTOM, hide: true, label: "Narrower on the way", icon: "compress", from: 0, to: 0.3, step: 0.01, unit: "%" },
+      { type: "slider", key: "liquid.sag", when: LIQUID_CUSTOM, hide: true, label: "Sag on landing", icon: "south", from: 0, to: 600, step: 10 },
+      { type: "slider", key: "liquid.wobble", when: LIQUID_CUSTOM, hide: true, label: "Wobble on landing", icon: "vibration", from: 0, to: 800, step: 10 },
+      { type: "section", text: "Shape", when: LIQUID_ON },
+      { type: "toggle", key: "liquid.neck", when: LIQUID_ON, label: "Liquid neck", subtext: "A moving drawer is joined to the frame by a neck that is thickest halfway" },
+      { type: "toggle", key: "liquid.rounding", when: LIQUID_ON, label: "Round as a drop", subtext: "A drawer starts round and squares up as it grows" },
+      { type: "section", text: "Drawers", when: LIQUID_ON },
+      { type: "toggle", key: "liquid.drawers.dashboard", when: LIQUID_ON, label: "Dashboard" },
+      { type: "toggle", key: "liquid.drawers.launcher", when: LIQUID_ON, label: "Launcher", subtext: "And the clipboard preview beside it" },
+      { type: "toggle", key: "liquid.drawers.popouts", when: LIQUID_ON, label: "Bar popouts" },
+      { type: "toggle", key: "liquid.drawers.sidebar", when: LIQUID_ON, label: "Sidebar", subtext: "Its spring and neck; it keeps its shape, which utilities share" },
+      { type: "toggle", key: "liquid.drawers.utilities", when: LIQUID_ON, label: "Utilities" },
+      { type: "toggle", key: "liquid.drawers.session", when: LIQUID_ON, label: "Session menu" },
+      { type: "toggle", key: "liquid.drawers.osd", when: LIQUID_ON, label: "OSD" },
+      { type: "toggle", key: "liquid.drawers.settings", when: LIQUID_ON, label: "Settings" },
+      { type: "toggle", key: "liquid.drawers.overview", when: LIQUID_ON, label: "Overview" },
+      { type: "section", text: "Detach", when: LIQUID_ON },
+      { type: "toggle", key: "liquid.detach.neckBreak", when: LIQUID_ON, label: "Neck break", subtext: "The window info panel and Settings stay joined to the bar by a thread that stretches and snaps" },
+      { type: "toggle", key: "liquid.detach.ripples", when: [LIQUID_ON, { key: "liquid.detach.neckBreak", value: true }], label: "Ripples", subtext: "Two ripples run along the bar where it snapped" },
+      { type: "toggle", key: "liquid.detach.stray", when: [LIQUID_ON, { key: "liquid.detach.neckBreak", value: true }], label: "Stray drop", subtext: "A small drop is left hanging for a moment" }
     ]
   },
   {

@@ -400,6 +400,52 @@ QtObject {
         property int brightnessStep: 5
         property int visualiserBars: 60
       }
+      property JsonObject liquid: JsonObject {
+        property bool enabled: false
+        property string preset: "balanced"
+        property string style: "slide"
+        property JsonObject drawers: JsonObject {
+          property bool dashboard: true
+          property bool launcher: true
+          property bool session: true
+          property bool utilities: true
+          property bool sidebar: true
+          property bool popouts: true
+          property bool osd: true
+          property bool settings: true
+          property bool overview: true
+        }
+        property real stiffness: 170
+        property real damping: 18
+        property real bulge: 0.6
+        property bool neck: true
+        property real neckWidth: 20
+        property real narrow: 0.07
+        property bool rounding: true
+        property real sag: 220
+        property real wobble: 260
+        property JsonObject detach: JsonObject {
+          property bool neckBreak: true
+          property bool ripples: true
+          property bool stray: true
+        }
+      }
+      property JsonObject glass: JsonObject {
+        property bool enabled: false
+        property real opacity: 0.36
+        property string tone: "milk"
+        property real toneAmount: 0.35
+        property real light: 1.0
+        property bool pointer: true
+        property bool tuneBlur: true
+        property int frost: 5
+        property real bevel: 18
+        property bool lens: true
+        property real lensFrost: 0.5
+        property real dome: 0.35
+        property real refraction: 1.0
+        property real dispersion: 0.35
+      }
     }
   }
 }
