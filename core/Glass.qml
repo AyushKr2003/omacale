@@ -15,8 +15,11 @@ QtObject {
   readonly property QtObject cfg: Config.o.glass
   readonly property bool enabled: cfg.enabled
   readonly property real opacity: Math.max(0.3, Math.min(1, cfg.opacity))
-  // Auto: smoked behind light text (a dark scheme), milky behind dark text.
-  readonly property string tone: cfg.tone === "auto" ? (Colours.light ? "milk" : "smoke") : cfg.tone
+  // Frosted ("milk") is the default: Vitreus's glass reads lighter than what
+  // is behind it (measured in its screenshots, 20-40 levels over the
+  // wallpaper beside it), which only a lift towards white gives over a blur
+  // we never see. "auto" was a setting before; it is frosted now.
+  readonly property string tone: cfg.tone === "auto" ? "milk" : cfg.tone
   readonly property real toneAmount: Math.max(0, Math.min(1, cfg.toneAmount))
   readonly property real smoke: tone === "smoke" ? toneAmount : 0
   readonly property real milk: tone === "milk" ? toneAmount : 0

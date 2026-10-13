@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.52.1 - 2026-10-13
+
+### Changed
+- **glass**: Glass is frosted by default, lighter than what is behind it as Vitreus's is, instead of a dark tint; the cards on it are faint veils, and secondary text is brighter so it still reads. The tone is Frosted, Clear or Smoked (Auto is gone and reads as Frosted)
+
 ## 0.52.0 - 2026-10-13
 
 ### Added

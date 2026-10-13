@@ -246,10 +246,10 @@ shadow are Caelestia's, and Colours only reads Transparency.
 |---|---|---|
 | Glass (master toggle) | `glass.enabled` | off |
 | Opacity (how much of the body covers what is behind) | `glass.opacity` | 0.36, pleamar's (30-100%) |
-| Tone: Clear / Auto / Smoked / Milky | `glass.tone` | clear, as Vitreus (auto: smoked on a dark scheme, milky on a light one) |
-| Smoke / Milk / Tone strength (the one row for the tone chosen) | `glass.toneAmount` | 0.5 |
+| Tone: Frosted / Clear / Smoked | `glass.tone` | `milk` = Frosted (§10); the old `auto` reads as frosted |
+| Frost / Smoke (the one row for the tone chosen) | `glass.toneAmount` | 0.35 |
 | Tune Hyprland's blur for glass | `glass.tuneBlur` | on (§9) |
-| Frost (Hyprland's blur size; passes follow) | `glass.frost` | 5 (1-12) |
+| Blur (Hyprland's blur size; passes follow) | `glass.frost` | 5 (1-12) |
 | Edge light | `glass.light` | 1x (0-2x) |
 | Light follows the pointer | `glass.pointer` | on |
 | *Planned:* Use HyprGlass when installed (shown only if detected) | `glass.hyprglass` | off |
@@ -363,6 +363,36 @@ The first build looked flat and dirty next to Vitreus. Most of that wasn't the s
 Verified live: off → on → `hyprctl reload` → frost change → off. Each left Hyprland
 with the expected values, and off restored `size 8, passes 3, noise 0.1,
 vibrancy 0.5` and removed the file.
+
+---
+
+## 10. Fourth pass: frosted, not clear
+
+With the blur fixed, the glass was clean but still read as dark tinted plastic, not as
+Vitreus's glass. I measured its screenshots, sampling the wallpaper just outside a
+drawer against the glass just inside, where nothing is drawn on it:
+
+| Screenshot | Outside | Inside | |
+|---|---|---|---|
+| `calendar.webp` | (41, 65, 87) | (64, 81, 100) | +20 levels, less saturated |
+| `launcher.webp` | (44, 71, 91) | (85, 107, 125) | +40 levels |
+
+**Vitreus's glass is lighter than what is behind it.** A dark tint at 36% (Iris's `bg`,
+which its own comments measure at `#263746`–`#434D4C` on glass) can only darken.
+The look is a lift towards white. Over a blur the shell never sees, that can only
+be a white veil: pleamar's `milk`, `over(white, 0.3·milk)`. Solving
+`0.85·(0.64·bg + 0.36·tint) + 0.15·255` against the calendar's numbers gives milk ≈ 0.5,
+and 0.35 matched best side by side on this screen. So:
+
+- **The default tone is Frosted** (`glass.tone = "milk"`, amount 0.35). Clear and Smoked
+  stay as choices; the old "auto" (smoke on a dark scheme) was the dark-plastic look
+  and is gone. A saved `auto` reads as frosted.
+- **Cards under glass are veils**: `Colours.trLayers` is 0.25 with glass on (Transparency's
+  default is 0.4), with Caelestia's lightening kept. At 0.4 they were blue-grey plates
+  on the glass; at 0.15 they disappeared.
+- **Secondary text keeps its contrast**: under glass, `m3onSurfaceVariant` is taken 40%
+  of the way to `m3onSurface`. Vitreus does the same job by holding every text colour
+  at 4.5:1 against a reference a little lighter than its glass (`iris_palette`).
 
 ---
 

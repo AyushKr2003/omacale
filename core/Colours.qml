@@ -36,7 +36,8 @@ QtObject {
   readonly property bool glass: Config.o.glass.enabled
   readonly property bool transparent: Config.o.appearance.transparency.enabled || glass
   readonly property real trBase: Math.max(0, Math.min(1, glass ? Config.o.glass.opacity : Config.o.appearance.transparency.base - (light ? 0.1 : 0)))
-  readonly property real trLayers: Math.max(0, Math.min(1, Config.o.appearance.transparency.layers))
+  // Under glass the cards are veils over it, as Vitreus's are, not plates.
+  readonly property real trLayers: glass ? 0.25 : Math.max(0, Math.min(1, Config.o.appearance.transparency.layers))
   readonly property real baseAlpha: transparent ? trBase : 1
   readonly property real layerAlpha: transparent ? trLayers : 1
   // Mean luminance of the wallpaper (Caelestia's ImageAnalyser), set by
@@ -301,7 +302,14 @@ QtObject {
   readonly property color m3surfaceContainerHighest: layer(palette.m3surfaceContainerHighest)
   readonly property color m3onSurface: role("onSurface", pN, 90, 10)
   readonly property color m3surfaceVariant: role("surfaceVariant", pNV, 30, 90)
-  readonly property color m3onSurfaceVariant: role("onSurfaceVariant", pNV, 80, 30)
+  // Under frosted glass secondary text is taken 40% of the way to the main
+  // text colour: the lifted glass behind it eats its contrast (Vitreus holds
+  // its text at 4.5:1 against the glass for the same reason).
+  readonly property color onSurfaceVariantRole: role("onSurfaceVariant", pNV, 80, 30)
+  readonly property color m3onSurfaceVariant: glass ? Qt.rgba(
+    onSurfaceVariantRole.r + (m3onSurface.r - onSurfaceVariantRole.r) * 0.4,
+    onSurfaceVariantRole.g + (m3onSurface.g - onSurfaceVariantRole.g) * 0.4,
+    onSurfaceVariantRole.b + (m3onSurface.b - onSurfaceVariantRole.b) * 0.4, 1) : onSurfaceVariantRole
   readonly property color m3outline: role("outline", pNV, 60, 50)
   readonly property color m3outlineVariant: role("outlineVariant", pNV, 30, 80)
   readonly property color m3inverseSurface: role("inverseSurface", pN, 90, 20)

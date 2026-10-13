@@ -123,18 +123,16 @@ var pages = [
       { type: "toggle", key: "glass.enabled", label: "Glass", subtext: "The frame and drawers turn to glass over Hyprland's blur, lit along their edge. Off, they are drawn as Caelestia's" },
       { type: "section", text: "Glass", when: GLASS_ON },
       { type: "slider", key: "glass.opacity", when: GLASS_ON, label: "Opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
-      { type: "select", key: "glass.tone", when: GLASS_ON, label: "Tone", icon: "contrast", subtext: "Smoked glass darkens what is behind, so light text reads over anything; milky glass lightens it, for dark text", options: [
+      { type: "select", key: "glass.tone", when: GLASS_ON, label: "Tone", icon: "contrast", subtext: "Frosted glass lifts what is behind towards white, as Vitreus's does; smoked glass darkens it", options: [
+        { value: "milk", label: "Frosted", icon: "ac_unit" },
         { value: "clear", label: "Clear", icon: "circle" },
-        { value: "auto", label: "Auto", icon: "brightness_auto" },
-        { value: "smoke", label: "Smoked", icon: "dark_mode" },
-        { value: "milk", label: "Milky", icon: "light_mode" }
+        { value: "smoke", label: "Smoked", icon: "dark_mode" }
       ] },
+      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "milk" }], hide: true, label: "Frost", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
       { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "smoke" }], hide: true, label: "Smoke", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
-      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "milk" }], hide: true, label: "Milk", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
-      { type: "slider", key: "glass.toneAmount", when: [GLASS_ON, { key: "glass.tone", value: "auto" }], hide: true, label: "Tone strength", icon: "gradient", from: 0, to: 1, step: 0.05, unit: "%" },
       { type: "section", text: "Blur", when: GLASS_ON },
       { type: "toggle", key: "glass.tuneBlur", when: GLASS_ON, label: "Tune Hyprland's blur for glass", subtext: "While glass is on: no grain, natural colour, the frost below. Your own blur settings come back when it is off" },
-      { type: "slider", key: "glass.frost", when: [GLASS_ON, { key: "glass.tuneBlur", value: true }], label: "Frost", icon: "blur_on", from: 1, to: 12, step: 1 },
+      { type: "slider", key: "glass.frost", when: [GLASS_ON, { key: "glass.tuneBlur", value: true }], label: "Blur", icon: "blur_on", from: 1, to: 12, step: 1 },
       { type: "section", text: "Light", when: GLASS_ON },
       { type: "slider", key: "glass.light", when: GLASS_ON, label: "Edge light", icon: "flare", from: 0, to: 2, step: 0.05, unit: "x" },
       { type: "toggle", key: "glass.pointer", when: GLASS_ON, label: "Light follows the pointer", subtext: "Over a drawer the light comes from the pointer instead of the top left" }

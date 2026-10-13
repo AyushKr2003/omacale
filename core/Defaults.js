@@ -131,8 +131,8 @@ var values = {
   glass: {
     enabled: false,
     opacity: 0.36,           // how much of the body covers what is behind (pleamar's glass: 36%)
-    tone: "clear",           // clear | auto (smoke on dark, milk on light) | smoke | milk
-    toneAmount: 0.5,
+    tone: "milk",            // milk (Frosted: lifted towards white, Vitreus's look) | clear | smoke
+    toneAmount: 0.35,
     light: 1.0,              // edge light
     pointer: true,           // the light follows the pointer
     tuneBlur: true,          // Hyprland's blur set for glass while it is on (services/GlassBlur.qml)
