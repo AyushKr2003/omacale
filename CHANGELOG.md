@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.2 - 2026-10-14
+
+### Fixed
+- **desktop**: The desktop visualiser no longer pins the GPU at 100% while its bars are showing; each bar's height is read straight from its uniform instead of from a per-pixel copy of all of them (#27)
+
 ## 0.53.1 - 2026-10-14
 
 ### Fixed
