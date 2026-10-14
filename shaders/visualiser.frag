@@ -53,6 +53,44 @@ layout(std140, binding = 0) uniform buf {
     vec4 v29;
 };
 
+float barValue(int idx) {
+    // Indexing a temporary copy of v0..v29 per fragment saturated the GPU
+    // while these bars were showing. Load the one vec4 this fragment needs.
+    // The heights stay separate uniforms; VisualiserBars binds each by name.
+    int k = idx >> 2;
+    vec4 v = v0;
+    if (k == 1) v = v1;
+    else if (k == 2) v = v2;
+    else if (k == 3) v = v3;
+    else if (k == 4) v = v4;
+    else if (k == 5) v = v5;
+    else if (k == 6) v = v6;
+    else if (k == 7) v = v7;
+    else if (k == 8) v = v8;
+    else if (k == 9) v = v9;
+    else if (k == 10) v = v10;
+    else if (k == 11) v = v11;
+    else if (k == 12) v = v12;
+    else if (k == 13) v = v13;
+    else if (k == 14) v = v14;
+    else if (k == 15) v = v15;
+    else if (k == 16) v = v16;
+    else if (k == 17) v = v17;
+    else if (k == 18) v = v18;
+    else if (k == 19) v = v19;
+    else if (k == 20) v = v20;
+    else if (k == 21) v = v21;
+    else if (k == 22) v = v22;
+    else if (k == 23) v = v23;
+    else if (k == 24) v = v24;
+    else if (k == 25) v = v25;
+    else if (k == 26) v = v26;
+    else if (k == 27) v = v27;
+    else if (k == 28) v = v28;
+    else if (k == 29) v = v29;
+    return clamp(v[idx & 3], 0.0, 1.0);
+}
+
 void main() {
     vec2 p = qt_TexCoord0 * res;
     float n = max(count, 1.0);
@@ -67,8 +105,7 @@ void main() {
     float x = sx - i * slotW;
     int idx = int(right ? i : n - 1.0 - i);
 
-    vec4 vals[30] = vec4[](v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29);
-    float value = clamp(vals[idx / 4][idx % 4], 0.0, 1.0);
+    float value = barValue(idx);
     float barH = value * res.y;
     if (barH <= 0.0) { fragColor = vec4(0.0); return; }
 
