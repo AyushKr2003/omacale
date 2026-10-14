@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.3 - 2026-10-14
+
+### Fixed
+- **tray**: The tray no longer leaves a double gap where it joins the plugin pill (or any neighbouring pill); the joined side drops its padding like the other entries (#26)
+
 ## 0.53.2 - 2026-10-14
 
 ### Fixed

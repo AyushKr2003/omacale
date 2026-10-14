@@ -26,7 +26,13 @@ Rectangle {
   property bool joinAfter: false
   readonly property bool joined: joinBefore || joinAfter
   readonly property bool bg: bar.cfg.tray.background || joined
-  readonly property int padding: bg ? Tk.padding.medium : Tk.padding.extraSmall
+  // Where the tray joins a neighbour the run's backdrop is the pill, so that
+  // side drops its own padding (as StatusRun/PluginsEntry/PowerEntry do).
+  readonly property int padSide: bg ? Tk.padding.medium : Tk.padding.extraSmall
+  property real padStart: joinBefore ? 0 : padSide
+  property real padEnd: joinAfter ? 0 : padSide
+  Behavior on padStart { Anim {} }
+  Behavior on padEnd { Anim {} }
   readonly property int spacingN: bg ? Tk.spacing.medium : Tk.spacing.extraSmall
   visible: shown
 
@@ -40,13 +46,13 @@ Rectangle {
   // hanging past it at the far end.
   readonly property real chevronLen: (bar.vertical ? expandTrayIcon.implicitHeight : expandTrayIcon.implicitWidth) - Tk.padding.small
   readonly property real listLen: bar.vertical ? trayCol.implicitHeight : trayCol.implicitWidth
-  readonly property real fullLen: listLen + padding * 2
-  readonly property real collapsedLen: Math.max(bg ? Tk.barInner : 0, chevronLen + (bg ? Tk.padding.extraSmall : 0) + padding)
+  readonly property real fullLen: listLen + padStart + padEnd
+  readonly property real collapsedLen: Math.max(bg ? Tk.barInner : 0, chevronLen + (bg ? Tk.padding.extraSmall : 0) + padStart)
   readonly property real sizeLen: {
     if (!visible) return 0
     if (!compact) return fullLen
     if (!expanded) return collapsedLen
-    return Math.max(collapsedLen, Math.min(chevronLen + listLen + spacingN + (bg ? Tk.padding.extraSmall : 0) + padding,
+    return Math.max(collapsedLen, Math.min(chevronLen + listLen + spacingN + (bg ? Tk.padding.extraSmall : 0) + padStart,
       bar.budget - bar.pluginLen))
   }
   implicitWidth: bar.vertical ? Tk.barInner : sizeLen
@@ -71,11 +77,11 @@ Rectangle {
   // Scrolls when an expanded tray is capped by the budget.
   MFlickable {
     id: trayFlick
-    x: bar.vertical ? 0 : entry.padding
-    y: bar.vertical ? entry.padding : 0
+    x: bar.vertical ? 0 : entry.padStart
+    y: bar.vertical ? entry.padStart : 0
     // What is left along the bar once the padding and the chevron have theirs.
-    readonly property real room: Math.max(0, (bar.vertical ? parent.height : parent.width) - entry.padding
-      - (entry.compact ? entry.chevronLen + entry.spacingN : entry.padding))
+    readonly property real room: Math.max(0, (bar.vertical ? parent.height : parent.width) - entry.padStart
+      - (entry.compact ? entry.chevronLen + entry.spacingN : entry.padEnd))
     width: bar.vertical ? parent.width : room
     height: bar.vertical ? room : parent.height
     contentWidth: bar.vertical ? width : trayCol.implicitWidth
