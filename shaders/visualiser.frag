@@ -54,9 +54,8 @@ layout(std140, binding = 0) uniform buf {
 };
 
 float barValue(int idx) {
-    // Load one uniform vec4. Indexing a temporary copy of all 30
-    // uniforms per fragment saturated a Radeon 680M while this layer
-    // was up and cava was running.
+    // Load one uniform vec4. Do not copy all 30 into a temporary
+    // array and index it per fragment.
     int k = idx >> 2;
     vec4 v = v0;
     if (k == 1) v = v1;
