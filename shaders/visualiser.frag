@@ -54,8 +54,9 @@ layout(std140, binding = 0) uniform buf {
 };
 
 float barValue(int idx) {
-    // Load one uniform vec4. Do not copy all 30 into a temporary
-    // array and index it per fragment.
+    // Indexing a temporary copy of v0..v29 per fragment saturated the GPU
+    // while these bars were showing. Load the one vec4 this fragment needs.
+    // The heights stay separate uniforms; VisualiserBars binds each by name.
     int k = idx >> 2;
     vec4 v = v0;
     if (k == 1) v = v1;
