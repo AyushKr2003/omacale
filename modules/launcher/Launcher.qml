@@ -558,9 +558,11 @@ Item {
 
     Loader {
       id: carousel
-      // Not merely !listMode: the launcher stays loaded after close, and a
-      // hidden carousel would preview the next wallpaper list onto the desktop.
-      active: root.active && !root.listMode
+      // Stay through the close slide. active drops on the first frame, while
+      // the drawer is still on screen (visible until lOff hits 1). Unloading
+      // then deletes the thumbnails and, with the width Behavior off, snaps
+      // the panel narrower. live is already false, so it still cannot preview.
+      active: (root.active || root.visible) && !root.listMode
       asynchronous: true
       anchors.top: parent.top
       anchors.bottom: parent.bottom

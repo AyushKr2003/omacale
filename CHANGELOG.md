@@ -5,7 +5,7 @@ What changed in each version of Omacale, newest first. Versions are the ones in 
 ## 0.53.4 - 2026-10-16
 
 ### Fixed
-- **launcher**: Super+A no longer builds the launcher on the same frames the slide starts. The list is built once after startup and kept, so the open is the animation instead of a hitch at the key. Closing it still drops the wallpaper carousel, so a hidden launcher cannot preview a background.
+- **launcher**: Super+A no longer builds the launcher on the same frames the slide starts. The list is built once after startup and kept, so the open is the animation instead of a hitch at the key. The wallpaper carousel stays through the close slide, then unloads; a hidden launcher cannot preview a background.
 
 ## 0.53.3 - 2026-10-14
 
