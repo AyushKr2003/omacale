@@ -18,7 +18,9 @@ PathView {
   property real screenWidth: 0
   property real sideMargin: 0
   signal picked()
-
+  // False once the launcher closes. A list that outlives the open must not
+  // preview, including a currentItem change while it is being destroyed.
+  property bool live: false
   readonly property int itemWidth: Tk.sizes.launcherWallpaperWidth * 0.8 + Tk.padding.medium * 2
   readonly property bool themes: kind === "themes"
   readonly property string current: themes ? Wallpapers.currentTheme : Wallpapers.currentWall
@@ -71,9 +73,10 @@ PathView {
   })
   Component.onCompleted: { Wallpapers.reload(); recentre() }
   Component.onDestruction: Wallpapers.stopPreview()
+  onLiveChanged: if (!live) Wallpapers.stopPreview()
 
   onThemesChanged: if (themes) Wallpapers.stopPreview()
-  onCurrentItemChanged: if (currentItem && !themes) Wallpapers.preview(currentItem.modelData.key)
+  onCurrentItemChanged: if (live && currentItem && !themes) Wallpapers.preview(currentItem.modelData.key)
 
   implicitWidth: Math.min(numItems, count) * itemWidth
   pathItemCount: numItems

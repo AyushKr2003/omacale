@@ -44,6 +44,9 @@ Scope {
 
   // ---------------------------------------------------------- state
   property bool launcher: false
+  // The launcher tree is built once, after startup, and kept. Opening it on
+  // Super+A used to instantiate the list on the same frames the slide starts.
+  property bool launchReady: false
   property bool dashboard: false
   property bool session: false
   property bool settings: false
@@ -1511,9 +1514,17 @@ Scope {
       }
 
       // ---- launcher
+      // Warm after the shell is up, and never tear it down on close: building
+      // it inside the open stalled the first frames of the slide.
+      Timer {
+        interval: 1200
+        running: !scope.launchReady
+        onTriggered: scope.launchReady = true
+      }
       Loader {
         id: launchLoader
-        active: scope.launcher || win.lVis
+        active: scope.launcher || win.lVis || scope.launchReady
+        onLoaded: scope.launchReady = true
         // A Loader is a focus scope: without `focus` on it, nothing inside can
         // hold the keyboard, and a drawer created on open has no earlier focus
         // to fall back on.

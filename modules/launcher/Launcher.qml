@@ -558,7 +558,9 @@ Item {
 
     Loader {
       id: carousel
-      active: !root.listMode
+      // Not merely !listMode: the launcher stays loaded after close, and a
+      // hidden carousel would preview the next wallpaper list onto the desktop.
+      active: root.active && !root.listMode
       asynchronous: true
       anchors.top: parent.top
       anchors.bottom: parent.bottom
@@ -568,6 +570,7 @@ Item {
         search: root.query
         screenWidth: root.screenWidth
         sideMargin: root.sideMargin
+        live: root.active
         onPicked: root.dismissed()
       }
     }

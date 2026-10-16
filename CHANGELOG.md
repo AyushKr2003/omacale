@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.53.4 - 2026-10-16
+
+### Fixed
+- **launcher**: Super+A no longer builds the launcher on the same frames the slide starts. The list is built once after startup and kept, so the open is the animation instead of a hitch at the key. Closing it still drops the wallpaper carousel, so a hidden launcher cannot preview a background.
+
 ## 0.53.3 - 2026-10-14
 
 ### Fixed
