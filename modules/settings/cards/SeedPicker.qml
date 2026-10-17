@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.Commons
+import qs.Commons as Commons
 import "../../.."
 
 // Seed colour: the Omarchy theme accent (default), any colour of the current
@@ -56,7 +57,7 @@ ConnectedRect {
     Flow {
       Layout.fillWidth: true
       spacing: Tk.spacing.medium
-      Swatch { colour: Color.accent; value: ""; label: "Theme"; icon: "auto_awesome" }
+      Swatch { colour: Commons.Color.accent; value: ""; label: "Theme"; icon: "auto_awesome" }
       Repeater {
         model: Colours.themeSwatches
         Swatch { required property var modelData; colour: modelData.color; value: modelData.color.toLowerCase(); label: modelData.name }

@@ -2,6 +2,14 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.54.0 - 2026-10-17
+
+### Added
+- **session**: Settings › Session › Buttons reorders the drawer's buttons and hides any of them, the animation included; Lock and Screensaver can be compact (two half-size buttons side by side) or full size like the others, and get their own icon settings
+
+### Fixed
+- **colours**: The colours follow the Omarchy theme again. Qt 6.12 added a `Color` type of its own that hid Omarchy's theme colours, so the Omarchy palette was never built and a theme switch changed nothing; the Settings "Theme" swatch showed the wrong colour too
+
 ## 0.53.3 - 2026-10-14
 
 ### Fixed

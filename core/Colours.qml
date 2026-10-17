@@ -3,6 +3,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+// Qualified: Qt 6.12's QtQuick has a Color type of its own that shadows
+// Omarchy's Color singleton when it is named bare.
+import qs.Commons as Commons
 import ".."
 import "ThemeMode.js" as ThemeMode
 
@@ -17,7 +20,7 @@ QtObject {
 
   // ------------------------------------------------------------- inputs
   readonly property string seedSetting: Config.o.appearance.seed
-  readonly property color seed: /^#[0-9a-fA-F]{6}$/.test(seedSetting) ? seedSetting : Color.accent
+  readonly property color seed: /^#[0-9a-fA-F]{6}$/.test(seedSetting) ? seedSetting : Commons.Color.accent
   // Light or dark as Omarchy decides it (ThemeMode.js: the theme's `mode`,
   // `theme_type`, a light.mode file, then its background), so the shell, GTK
   // and the templates always agree.
@@ -54,7 +57,7 @@ QtObject {
     onLoaded: {
       const want = ["accent", "red", "orange", "yellow", "green", "cyan", "blue", "magenta", "color1", "color2", "color3", "color4", "color5", "color6"]
       const seen = {}, out = [], raw = {}
-      seen[String(Color.accent).toLowerCase()] = true   // already offered as "Theme"
+      seen[String(Commons.Color.accent).toLowerCase()] = true   // already offered as "Theme"
       String(text()).split("\n").forEach(l => {
         const m = l.match(/^\s*([A-Za-z0-9_]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
         if (m) raw[m[1]] = m[2]
@@ -73,7 +76,7 @@ QtObject {
   }
   // Omarchy pushes theme switches over IPC; re-read colors.toml when the
   // theme's colours move (the seed alone misses it when a custom seed is set).
-  readonly property string themeKey: String(Color.accent) + String(Color.background) + String(Color.foreground)
+  readonly property string themeKey: String(Commons.Color.accent) + String(Commons.Color.background) + String(Commons.Color.foreground)
   onThemeKeyChanged: { themeColors.reload(); themeLightMode.reload() }
 
   // The active theme's name, for a custom seed picked under another theme:
@@ -192,8 +195,8 @@ QtObject {
     // [popups]: the theme's background and foreground unless the theme says
     // otherwise, as aether's do), so Omacale's match them. Alpha stays
     // Omacale's (Settings › Transparency).
-    const pb = Color.popups.background
-    const bg = Qt.rgba(pb.r, pb.g, pb.b, 1), fg = Color.popups.text
+    const pb = Commons.Color.popups.background
+    const bg = Qt.rgba(pb.r, pb.g, pb.b, 1), fg = Commons.Color.popups.text
     const raw = themeRaw
     const named = (keys, fallback) => { for (const k of keys) if (raw[k]) return hex(raw[k]); return fallback }
     // Text on a colour: whichever of background/foreground contrasts more.
@@ -206,11 +209,11 @@ QtObject {
       o[name + "Container"] = mix(bg, c, 0.3)
       o["on" + name[0].toUpperCase() + name.slice(1) + "Container"] = mix(c, fg, 0.4)
     }
-    role("primary", Color.accent)
-    role("secondary", mix(Color.accent, fg, 0.45))
-    role("tertiary", named(["magenta", "color5"], mix(Color.accent, fg, 0.7)))
-    role("error", Color.urgent)
-    role("success", named(["green", "color2"], mix(Color.accent, fg, 0.5)))
+    role("primary", Commons.Color.accent)
+    role("secondary", mix(Commons.Color.accent, fg, 0.45))
+    role("tertiary", named(["magenta", "color5"], mix(Commons.Color.accent, fg, 0.7)))
+    role("error", Commons.Color.urgent)
+    role("success", named(["green", "color2"], mix(Commons.Color.accent, fg, 0.5)))
     o.surface = bg
     o.surfaceDim = mix(bg, Qt.rgba(0, 0, 0, 1), 0.15)
     o.surfaceBright = s(0.2)
@@ -224,7 +227,7 @@ QtObject {
     o.onSurfaceVariant = s(0.78)
     o.outline = s(0.55)
     o.outlineVariant = s(0.25)
-    o.inversePrimary = mix(Color.accent, light ? fg : bg, 0.4)
+    o.inversePrimary = mix(Commons.Color.accent, light ? fg : bg, 0.4)
     o.inverseSurface = fg
     o.inverseOnSurface = bg
     return o
