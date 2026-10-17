@@ -50,7 +50,11 @@ Scope {
   property bool sidebar: false
   // Caelestia's NotifDock clears every popup as it opens, and Notifs shows
   // none while it stays open: the toasts are dismissed, not just hidden.
-  onSidebarChanged: if (sidebar && NotifService.popups.length) NotifService.dismissAllPopups()
+  onSidebarChanged: if (sidebar) {
+    // Release the previous popout (and its keyboard grab) to the sidebar.
+    popout = ""
+    if (NotifService.popups.length) NotifService.dismissAllPopups()
+  }
   Connections {
     target: NotifService
     function onPopupsChanged() { if (scope.sidebar && NotifService.popups.length) Qt.callLater(NotifService.dismissAllPopups) }
