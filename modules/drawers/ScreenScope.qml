@@ -47,10 +47,13 @@ Scope {
   property bool dashboard: false
   property bool session: false
   property bool settings: false
+  // The modal Settings drawer and the sidebar must not cover each other.
+  onSettingsChanged: if (settings) sidebar = false
   property bool sidebar: false
   // Caelestia's NotifDock clears every popup as it opens, and Notifs shows
   // none while it stays open: the toasts are dismissed, not just hidden.
   onSidebarChanged: if (sidebar) {
+    settings = false
     // Release the previous popout (and its keyboard grab) to the sidebar.
     popout = ""
     if (NotifService.popups.length) NotifService.dismissAllPopups()
