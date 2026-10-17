@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.54.1 - 2026-10-17
+
+### Fixed
+- **lock**: The lock screen hands over to Omacale again on Omarchy dev r7024 and later; its new lock service is verified, and the wrapper takes the service's new `fingerprintUnavailable` (passed on to Omarchy's own view only where it has it, so 4.0.4 still loads)
+- **osd**: The volume and brightness OSDs reach Omacale again on Omarchy dev r7024 and later, whose `show()` passes a number formatter for its translations; the patch matches both that and 4.0.x
+
 ## 0.54.0 - 2026-10-17
 
 ### Added
