@@ -47,10 +47,17 @@ Scope {
   property bool dashboard: false
   property bool session: false
   property bool settings: false
+  // The modal Settings drawer and the sidebar must not cover each other.
+  onSettingsChanged: if (settings) sidebar = false
   property bool sidebar: false
   // Caelestia's NotifDock clears every popup as it opens, and Notifs shows
   // none while it stays open: the toasts are dismissed, not just hidden.
-  onSidebarChanged: if (sidebar && NotifService.popups.length) NotifService.dismissAllPopups()
+  onSidebarChanged: if (sidebar) {
+    settings = false
+    // Release the previous popout (and its keyboard grab) to the sidebar.
+    popout = ""
+    if (NotifService.popups.length) NotifService.dismissAllPopups()
+  }
   Connections {
     target: NotifService
     function onPopupsChanged() { if (scope.sidebar && NotifService.popups.length) Qt.callLater(NotifService.dismissAllPopups) }
@@ -295,7 +302,11 @@ Scope {
           if (!scope.settings) win.handOffPopout()
           scope.popout = ""; scope.settings = true; nexus.go(arg)
         }
-        else scope.settings = !scope.settings
+        else {
+          // Settings suspends hover handling, so dismiss the popout before it can get stuck.
+          if (!scope.settings) scope.popout = ""
+          scope.settings = !scope.settings
+        }
       }
       // The session menu stays: it moves over to sit against the sidebar.
       else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) scope.sidebar = !scope.sidebar
