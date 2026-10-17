@@ -52,8 +52,13 @@ var values = {
     enabled: true, gif: true, vimKeybinds: false, dragThreshold: 30, sleepAction: "hibernate",
     menu: "omacale",        // what the session IPC opens: "omacale" (the drawer) or "omarchy" (its System menu)
     gifSpeed: 0.7, gifPath: "", extraButtons: true,
+    // Settings › Session › Buttons: Lock and Screensaver "compact" (half-size,
+    // side by side) or "full"; the drawer's items top to bottom; the ones left out.
+    extraStyle: "compact",
+    order: ["logout", "shutdown", "gif", "hibernate", "reboot", "lock", "screensaver"],
+    hidden: [],
     // Caelestia session.icons / session.commands; "" = Omarchy's (or the built-in) default.
-    icons: { logout: "", shutdown: "", hibernate: "", reboot: "" },
+    icons: { logout: "", shutdown: "", hibernate: "", reboot: "", lock: "", screensaver: "" },
     commands: { logout: "", shutdown: "", hibernate: "", reboot: "", lock: "", screensaver: "" }
   },
   sidebar: { enabled: true, width: 430 },

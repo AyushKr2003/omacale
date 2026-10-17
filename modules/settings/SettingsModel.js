@@ -547,8 +547,10 @@ var subpages = {
         { value: "omacale", label: "Omacale session", icon: "power_settings_new" },
         { value: "omarchy", label: "Omarchy menu", icon: "menu" }
       ] },
-      { type: "toggle", key: "session.extraButtons", label: "Lock & screensaver", subtext: "Two small buttons under the four, so the drawer offers everything Omarchy's System menu does" },
-      { type: "toggle", key: "session.gif", label: "Animation", subtext: "Show the spinning character between the buttons" },
+      { type: "select", key: "session.extraStyle", label: "Lock & screensaver style", subtext: "Lock and Screensaver offer everything Omarchy's System menu does: as two small buttons side by side, or full size like the others", options: [
+        { value: "compact", label: "Compact", icon: "view_column" },
+        { value: "full", label: "Full size", icon: "crop_square" }
+      ] },
       { type: "custom", comp: "sessionPicture", when: { key: "session.gif", value: true } },
       { type: "slider", key: "session.gifSpeed", when: { key: "session.gif", value: true }, label: "Animation speed", icon: "speed", from: 0.1, to: 2, step: 0.05, unit: "x", commit: "release" },
       { type: "toggle", key: "session.vimKeybinds", label: "Vim keybinds", subtext: "Move between buttons with Ctrl+J / Ctrl+K" },
@@ -558,10 +560,14 @@ var subpages = {
         { value: "suspend", label: "Suspend", icon: "bedtime" }
       ] },
       { type: "section", text: "Buttons" },
+      { type: "custom", comp: "sessionButtons" },
+      { type: "section", text: "Icons and commands" },
       { type: "text", key: "session.icons.logout", label: "Logout icon", subtext: "A Material Symbols name", placeholder: "logout" },
       { type: "text", key: "session.icons.shutdown", label: "Shutdown icon", placeholder: "power_settings_new" },
       { type: "text", key: "session.icons.hibernate", label: "Sleep icon", placeholder: "follows the third button" },
       { type: "text", key: "session.icons.reboot", label: "Reboot icon", placeholder: "cached" },
+      { type: "text", key: "session.icons.lock", label: "Lock icon", placeholder: "lock" },
+      { type: "text", key: "session.icons.screensaver", label: "Screensaver icon", placeholder: "slideshow" },
       { type: "text", key: "session.commands.logout", label: "Logout command", subtext: "Empty runs Omarchy's", placeholder: "omarchy system logout" },
       { type: "text", key: "session.commands.shutdown", label: "Shutdown command", placeholder: "omarchy system shutdown" },
       { type: "text", key: "session.commands.hibernate", label: "Sleep command", subtext: "Set, it always runs as it is", placeholder: "Omarchy's suspend / hibernate" },

@@ -1,13 +1,15 @@
 import QtQuick
 import Quickshell.Io
 import "../.."
+import "SessionItems.js" as Items
 
 // Caelestia session menu (modules/session/Content.qml): four big buttons
 // around the kurukuru gif, with Caelestia's session.icons / session.commands.
 // Empty settings mean Omarchy's own commands, as in its System menu
 // (default/omarchy/omarchy-menu.jsonc "system.*"), so the drawer can stand in
 // for that menu. Below them, Omarchy's Lock and Screensaver (no Caelestia
-// original; Settings › Session › Lock & screensaver).
+// original). Settings › Session › Buttons picks which items show, their
+// order, and whether Lock and Screensaver are a compact pair (issue #28).
 Column {
   id: root
 
@@ -54,78 +56,97 @@ Column {
 
   // Deferred: built on demand, it is still being created (not yet in the
   // window) when `active` first turns true.
-  onActiveChanged: if (active) { sleepProbe.running = true; Qt.callLater(() => logout.forceActiveFocus()) }
+  onActiveChanged: if (active) { sleepProbe.running = true; Qt.callLater(() => { const b = root.flat()[0]; if (b) b.forceActiveFocus() }) }
 
-  SessionButton {
-    id: logout
-    icon: root.icon("logout", "logout")
-    command: root.cmd("logout", "omarchy system logout")
-    KeyNavigation.down: shutdown
-  }
-  SessionButton {
-    id: shutdown
-    icon: root.icon("shutdown", "power_settings_new")
-    command: root.cmd("shutdown", "omarchy system shutdown")
-    KeyNavigation.up: logout
-    KeyNavigation.down: hibernate.shown ? hibernate : reboot
-  }
-  AnimatedImage {
-    visible: root.cfg.gif
-    width: Tk.sizes.sessionButton
-    height: Tk.sizes.sessionButton
-    // Caelestia paths.sessionGif: a picture of the user's own, else the bundled one.
-    source: root.cfg.gifPath ? "file://" + root.cfg.gifPath : Qt.resolvedUrl("../../assets/kurukuru.gif")
-    playing: root.active
-    speed: root.cfg.gifSpeed > 0 ? root.cfg.gifSpeed : 0.7
-    fillMode: AnimatedImage.PreserveAspectFit
-  }
-  SessionButton {
-    id: hibernate
-    // Folded away, not hidden, when neither sleep is available (Column skips
-    // a zero-size item).
-    readonly property bool shown: root.sleepKind !== ""
-    height: shown ? Tk.sizes.sessionButton : 0
-    opacity: shown ? 1 : 0
-    enabled: shown
-    icon: root.icon("hibernate", root.sleepKind === "suspend" ? "bedtime" : "downloading")
-    command: root.sleepKind === "custom" ? root.cfg.commands.hibernate
-      : root.sleepKind === "suspend" ? "systemctl suspend" : "systemctl hibernate"
-    KeyNavigation.up: shutdown
-    KeyNavigation.down: reboot
-  }
-  SessionButton {
-    id: reboot
-    icon: root.icon("reboot", "cached")
-    command: root.cmd("reboot", "omarchy system reboot")
-    KeyNavigation.up: hibernate.shown ? hibernate : shutdown
-    KeyNavigation.down: root.cfg.extraButtons ? lock : null
-  }
+  // Settings › Session › Buttons: which items, in what order, and whether
+  // Lock and Screensaver are the compact pair or full-size buttons.
+  readonly property var rows: Items.rows(cfg)
 
-  // Omarchy's Lock and Screensaver, half-height side by side, so the drawer
-  // offers everything Omarchy's System menu does.
-  Row {
-    visible: root.cfg.extraButtons
-    spacing: Tk.spacing.large
-    SessionButton {
-      id: lock
-      width: (Tk.sizes.sessionButton - Tk.spacing.large) / 2
-      height: width
-      iconSize: Tk.iconSize.large
-      icon: "lock"
-      command: root.cmd("lock", "omarchy-system-lock")
-      KeyNavigation.up: reboot
-      KeyNavigation.right: screensaver
-      KeyNavigation.down: screensaver
+  // The buttons by id, for the keys (registered by each button).
+  property var buttons: ({})
+  function btn(id) { const b = buttons[id]; return b && b.shown ? b : null }
+  // The buttons that take focus, row by row.
+  function grid() { return rows.map(r => r.map(btn).filter(b => b)).filter(r => r.length) }
+  function flat() { return [].concat.apply([], grid()) }
+  // Up and down go to the row above or below (the same column, or the
+  // nearest one), else to the previous or next button; left and right stay
+  // in the row.
+  function step(b, key) {
+    const g = grid()
+    const r = g.findIndex(row => row.indexOf(b) >= 0)
+    if (r < 0) return null
+    const c = g[r].indexOf(b)
+    if (key === "left") return g[r][c - 1] || null
+    if (key === "right") return g[r][c + 1] || null
+    const f = flat(), i = f.indexOf(b)
+    if (key === "next") return f[i + 1] || null
+    if (key === "prev") return f[i - 1] || null
+    const to = g[r + (key === "down" ? 1 : -1)]
+    if (to) return to[Math.min(c, to.length - 1)]
+    return key === "down" && c < g[r].length - 1 ? g[r][g[r].length - 1] : null
+  }
+  function go(b, key) { const t = step(b, key); if (t) t.forceActiveFocus(); return !!t }
+
+  Repeater {
+    model: root.rows
+    // One row, as wide as a button so a lone small one sits in the middle.
+    Item {
+      required property var modelData
+      width: Tk.sizes.sessionButton
+      height: line.height
+      Row {
+        id: line
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Tk.spacing.large
+        Repeater {
+          model: modelData
+          Loader {
+            required property string modelData
+            readonly property string itemId: modelData
+            sourceComponent: modelData === "gif" ? gifItem : button
+          }
+        }
+      }
     }
+  }
+
+  Component {
+    id: gifItem
+    AnimatedImage {
+      width: Tk.sizes.sessionButton
+      height: Tk.sizes.sessionButton
+      // Caelestia paths.sessionGif: a picture of the user's own, else the bundled one.
+      source: root.cfg.gifPath ? "file://" + root.cfg.gifPath : Qt.resolvedUrl("../../assets/kurukuru.gif")
+      playing: root.active
+      speed: root.cfg.gifSpeed > 0 ? root.cfg.gifSpeed : 0.7
+      fillMode: AnimatedImage.PreserveAspectFit
+    }
+  }
+
+  Component {
+    id: button
     SessionButton {
-      id: screensaver
-      width: lock.width
-      height: width
-      iconSize: Tk.iconSize.large
-      icon: "slideshow"
-      command: root.cmd("screensaver", "omarchy-launch-screensaver force")
-      KeyNavigation.up: lock
-      KeyNavigation.left: lock
+      id: sb
+      readonly property string itemId: parent ? parent.itemId : ""
+      // The sleep button is folded away, not hidden, when neither sleep is
+      // available (Column skips a zero-size row).
+      shown: itemId !== "hibernate" || root.sleepKind !== ""
+      small: Items.small(itemId, root.cfg)
+      icon: itemId === "logout" ? root.icon("logout", "logout")
+        : itemId === "shutdown" ? root.icon("shutdown", "power_settings_new")
+        : itemId === "hibernate" ? root.icon("hibernate", root.sleepKind === "suspend" ? "bedtime" : "downloading")
+        : itemId === "reboot" ? root.icon("reboot", "cached")
+        : itemId === "lock" ? root.icon("lock", "lock")
+        : root.icon("screensaver", "slideshow")
+      command: itemId === "logout" ? root.cmd("logout", "omarchy system logout")
+        : itemId === "shutdown" ? root.cmd("shutdown", "omarchy system shutdown")
+        : itemId === "hibernate" ? (root.sleepKind === "custom" ? root.cfg.commands.hibernate
+          : root.sleepKind === "suspend" ? "systemctl suspend" : "systemctl hibernate")
+        : itemId === "reboot" ? root.cmd("reboot", "omarchy system reboot")
+        : itemId === "lock" ? root.cmd("lock", "omarchy-system-lock")
+        : root.cmd("screensaver", "omarchy-launch-screensaver force")
+      Component.onCompleted: root.buttons[itemId] = sb
+      Component.onDestruction: if (root.buttons[itemId] === sb) delete root.buttons[itemId]
     }
   }
 
@@ -133,11 +154,15 @@ Column {
     id: b
     property string icon
     property string command
-    property real iconSize: Tk.iconSize.large * 1.3
+    property bool shown: true
+    // Half-size, two to a row: Lock and Screensaver in the compact style.
+    property bool small: false
     function exec() { Sys.run(command); root.dismissed() }
 
-    width: Tk.sizes.sessionButton
-    height: Tk.sizes.sessionButton
+    width: small ? (Tk.sizes.sessionButton - Tk.spacing.large) / 2 : Tk.sizes.sessionButton
+    height: shown ? width : 0
+    opacity: shown ? 1 : 0
+    enabled: shown
     radius: state.pressed ? Tk.rounding.medium : activeFocus ? Tk.rounding.extraLarge : Tk.rounding.largeIncreased
     color: activeFocus ? Colours.m3secondaryContainer : Colours.m3surfaceContainer
     Behavior on radius { Anim { type: "effects" } }
@@ -146,12 +171,16 @@ Column {
     Keys.onReturnPressed: exec()
     Keys.onEnterPressed: exec()
     Keys.onEscapePressed: root.dismissed()
-    Keys.onTabPressed: if (KeyNavigation.down) KeyNavigation.down.forceActiveFocus()
-    Keys.onBacktabPressed: if (KeyNavigation.up) KeyNavigation.up.forceActiveFocus()
+    Keys.onTabPressed: root.go(b, "next")
+    Keys.onBacktabPressed: root.go(b, "prev")
+    Keys.onUpPressed: root.go(b, "up")
+    Keys.onDownPressed: root.go(b, "down")
+    Keys.onLeftPressed: root.go(b, "left")
+    Keys.onRightPressed: root.go(b, "right")
     Keys.onPressed: e => {
       if (!root.cfg.vimKeybinds || !(e.modifiers & Qt.ControlModifier)) return
-      if ((e.key === Qt.Key_J || e.key === Qt.Key_N) && KeyNavigation.down) { KeyNavigation.down.forceActiveFocus(); e.accepted = true }
-      else if ((e.key === Qt.Key_K || e.key === Qt.Key_P) && KeyNavigation.up) { KeyNavigation.up.forceActiveFocus(); e.accepted = true }
+      if (e.key === Qt.Key_J || e.key === Qt.Key_N) { root.go(b, "down"); e.accepted = true }
+      else if (e.key === Qt.Key_K || e.key === Qt.Key_P) { root.go(b, "up"); e.accepted = true }
     }
 
     StateLayer {
@@ -163,7 +192,7 @@ Column {
       anchors.centerIn: parent
       anchors.verticalCenterOffset: 1
       text: b.icon
-      size: b.iconSize
+      size: b.small ? Tk.iconSize.large : Tk.iconSize.large * 1.3
       fill: 1
       color: b.activeFocus ? Colours.m3onSecondaryContainer : Colours.m3onSurface
     }

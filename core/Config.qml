@@ -256,11 +256,16 @@ QtObject {
         property real gifSpeed: 0.7
         property string gifPath: ""
         property bool extraButtons: true
+        property string extraStyle: "compact"
+        property list<string> order: ["logout", "shutdown", "gif", "hibernate", "reboot", "lock", "screensaver"]
+        property list<string> hidden: []
         property JsonObject icons: JsonObject {
           property string logout: ""
           property string shutdown: ""
           property string hibernate: ""
           property string reboot: ""
+          property string lock: ""
+          property string screensaver: ""
         }
         property JsonObject commands: JsonObject {
           property string logout: ""
