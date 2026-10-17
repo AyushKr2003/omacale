@@ -1,4 +1,4 @@
-// omacale:lock-view v5
+// omacale:lock-view v6
 //
 // Written into the clone of Omarchy's lock plugin by
 // scripts/lock-screen. Omarchy's own view is kept beside it as
@@ -22,6 +22,7 @@ Item {
   property string videoPosterPath: ""
   property int backgroundVersion: 0
   property bool fingerprintConfigured: false
+  property bool fingerprintUnavailable: false
   property bool authenticatingPassword: false
   property string failureMessage: ""
   property int failedAttempts: 0
@@ -85,12 +86,13 @@ Item {
   }
 
   // What Omarchy's view gained after v4.0.x: the blanking pair on
-  // 2026-09-09, the video poster with the OWE lock feed on 2026-09-20.
+  // 2026-09-09, the video poster with the OWE lock feed on 2026-09-20, the
+  // fingerprint-reader-unavailable notice by r6807.
   // Assigning one the installed view lacks is a load error, and a broken view
   // takes Service.qml -- and with it the lock IPC and the lock itself -- down,
   // so these are bound only where the view has them. Everything assigned
   // directly below is in every Omarchy 4 (lock-screen checks that too).
-  readonly property var stockOptional: ["displaysBlank", "powerSaverActive", "videoPosterPath"]
+  readonly property var stockOptional: ["displaysBlank", "fingerprintUnavailable", "powerSaverActive", "videoPosterPath"]
 
   Component {
     id: stock

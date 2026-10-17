@@ -52,6 +52,7 @@ Everything else -- the messages, the keyboard backlight, the layout, the
 import getpass
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -67,9 +68,16 @@ import handover  # noqa: E402
 MARKER = "omacale:osd-handover v4"
 # Any version: the clone is ours (a stale one is re-synced, never refused).
 MARKER_PREFIX = "omacale:osd-handover "
-# The stock Osd.qml this patch was last checked against. A different one that
-# the patch still applies to is synced, but `status` says `verified: no`.
-VERIFIED_AGAINST = "dc7dc42cddd9c254710f0dd3abc34ac75baf7f3dcd8776abe339f5abf2460876"
+# The stock Osd.qml files this patch was checked against. A different one
+# that the patch still applies to is synced, but `status` says `verified: no`.
+VERIFIED_AGAINST = {
+    # Omarchy 4.0.4 (stable)
+    "a139b64d45f89a6b55ebcbd1233347f75b541b020e24b4286d6e00a6d5f5c50c",
+    # Omarchy dev, 4.0.0.r6807 (902fd8a)
+    "dc7dc42cddd9c254710f0dd3abc34ac75baf7f3dcd8776abe339f5abf2460876",
+    # Omarchy dev, 4.0.0.r7024 (246f33a) - r7026 (51bfd1d)
+    "7ae5b2a17a3da502fb51d09a6113e77efbf3216d61d722969d9dd81367afb676",
+}
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -81,9 +89,12 @@ STOCK_DIR = os.path.join(
 )
 
 IMPORT_ANCHOR = "import Quickshell.Wayland\n"
-SHOW_ANCHOR = (
-    "  function show(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration) {\n"
-    "    var next = OsdModel.stateForShow(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration)\n"
+# show() and the line that builds its state, which the gate goes after. The
+# call's tail is matched loosely: dev Omarchy (r7024) passes the number
+# formatter for its translations, 4.0.x does not.
+SHOW_ANCHOR = re.compile(
+    r"  function show\(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration\) \{\n"
+    r"    var next = OsdModel\.stateForShow\(iconName, rawMessage, rawValue, rawMax, rawProgressText, rawDuration\b[^\n]*\n"
 )
 IPC_ANCHOR = '    function ping(): string { return "ok" }'
 CLOSE_ANCHOR = "  function close() { opened = false }\n"
@@ -267,7 +278,7 @@ def patch_text(text):
     """The gate patch applied to a stock Osd.qml."""
     if IMPORT_ANCHOR not in text:
         raise Refused("Omarchy's Osd.qml no longer imports Quickshell.Wayland; update scripts/osd-handover.")
-    if text.count(SHOW_ANCHOR) != 1:
+    if len(SHOW_ANCHOR.findall(text)) != 1:
         raise Refused(
             "Omarchy's Osd.qml no longer has the show() this patch hooks; its OSD has "
             "probably changed shape. Update scripts/osd-handover."
@@ -282,9 +293,8 @@ def patch_text(text):
             raise Refused("Omarchy's Osd.qml no longer imports %s" % needed.strip())
 
     patched = text.replace(IMPORT_ANCHOR, IMPORT_ANCHOR + "import Quickshell.Hyprland\n", 1)
-    patched = patched.replace(
-        SHOW_ANCHOR, GATE_BLOCK.format(marker=MARKER) + SHOW_ANCHOR + TAKE_LINE, 1
-    )
+    gate = GATE_BLOCK.format(marker=MARKER)
+    patched = SHOW_ANCHOR.sub(lambda m: gate + m.group(0) + TAKE_LINE, patched, count=1)
     patched = patched.replace(CLOSE_ANCHOR, CLOSE_LINE, 1)
     return patched.replace(IPC_ANCHOR, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR), 1)
 
@@ -396,7 +406,7 @@ def cmd_status(offline=False):
         print("stale:     %s" % ("yes" if stale else "no"))
         if stale:
             print("stale-files: %s" % ", ".join(stale))
-        print("verified:  %s" % ("yes" if handover.sha(stock) == VERIFIED_AGAINST else "no"))
+        print("verified:  %s" % ("yes" if handover.sha(stock) in VERIFIED_AGAINST else "no"))
         if enabled:
             # "stock" here means the shell compiled the clone before it was
             # patched (an older Omacale, or a clone of your own that was

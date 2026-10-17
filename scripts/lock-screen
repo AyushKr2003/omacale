@@ -58,7 +58,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:lock-view v5"
+MARKER = "omacale:lock-view v6"
 
 # The stock lock Service.qml files the wrapper has been verified against
 # (sha256). Anything else is refused and the lock stays Omarchy's own until an
@@ -69,6 +69,8 @@ VERIFIED_SERVICES = {
     "3f0a265a09f7957e8f5d74666595d3136ec64899c414426190460f9e2098e701",
     # Omarchy dev, 4.0.0.r6691 (8b4eae6)
     "92c37d5dc617ce53e4080ad420ae18613bc62f94923c150e0e69fea52534eecd",
+    # Omarchy dev, 4.0.0.r7024 (246f33a) - r7026 (51bfd1d)
+    "567e2214d56a8cf1208c9421c42abf3ec0d836419cc99db5d7d85502ff3852e6",
 }
 
 HOME = os.path.expanduser("~")
