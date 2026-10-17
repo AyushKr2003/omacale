@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.54.2 - 2026-10-17
+
+### Fixed
+- **drawers**: Settings and the notifications sidebar no longer draw over each other; opening either closes the other (the session menu still sits beside the sidebar)
+- **bar**: Opening Settings or the notifications sidebar dismisses an open status popout, including one held for the keyboard or left over from hovering a bar icon, so it no longer stays drawn over Settings or keeps the keys from the sidebar (thanks @lynxx007, #32)
+
 ## 0.54.1 - 2026-10-17
 
 ### Fixed
