@@ -295,7 +295,11 @@ Scope {
           if (!scope.settings) win.handOffPopout()
           scope.popout = ""; scope.settings = true; nexus.go(arg)
         }
-        else scope.settings = !scope.settings
+        else {
+          // Settings suspends hover handling, so dismiss the popout before it can get stuck.
+          if (!scope.settings) scope.popout = ""
+          scope.settings = !scope.settings
+        }
       }
       // The session menu stays: it moves over to sit against the sidebar.
       else if (name === "sidebar" && (!scope.cfg.sidebar || scope.cfg.sidebar.enabled)) scope.sidebar = !scope.sidebar

@@ -98,6 +98,8 @@ git pull
 | `SUPER + CTRL + W` / `B` / `P` / `A` | Network / Bluetooth / Power / Audio popout (Omarchy's own keys) |
 | `SUPER + CTRL + 1..9` | Third-party bar widgets, in bar order (Omarchy's own keys) |
 
+Opening Settings with its shortcut dismisses any active status popout, including one opened by hovering a bar icon.
+
 ### Keyboard navigation
 
 A focus ring appears only when you use the keys, so mouse use is unchanged.
