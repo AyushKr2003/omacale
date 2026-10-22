@@ -28,6 +28,8 @@ Rectangle {
     const s = String(value || "")
     if (!s) return ""
     if (s.indexOf("file://") === 0 || s.charAt(0) === "/") return s
+    // The deck's in-process pixels (a sender's image data), never fetched.
+    if (/^image:\/\/qsimage\/[0-9]+\/[0-9]+$/.test(s)) return s
     // Anything else with a scheme (http://...) would be fetched just by
     // being shown; only icon-theme names are left (see NotifGroup.fileUrl).
     return s.indexOf(":") === -1 ? IconFiles.source(s) : ""

@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.54.3 - 2026-10-22
+
+### Fixed
+- **notifications**: Omacale draws the toasts again on Omarchy rc, edge and dev, whose notification daemon was rewritten (live.json and history.json instead of one file per popup). The patch now fits both that daemon and stable 4.0.x's, so Omarchy's own toasts no longer show beside or instead of Omacale's; the sidebar reads the new history, Do Not Disturb comes from its quiet.json, and dismissing or clearing goes through the patched daemon (clearing used to delete every `*.json` there, which on the new layout would have taken the Do Not Disturb and snooze settings with it)
+- **notifications**: Switching away from Omacale removes its notification clone even when the patch had been refused on it, instead of leaving a second, unpatched daemon running beside the next bar's; install refuses before cloning rather than after
+
 ## 0.54.2 - 2026-10-17
 
 ### Fixed
