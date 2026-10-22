@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.1 - 2026-10-22
+
+### Fixed
+- **motion**: With Morph, opening a bar popout while Settings, the sidebar, the launcher or the dashboard is up turns that panel into the popout, as panel to panel does, instead of the panel staying open beside it; a panel let go just before (a hover-opened dashboard as the pointer reaches a bar icon) morphs too, from where it is
+
 ## 0.55.0 - 2026-10-22
 
 ### Added

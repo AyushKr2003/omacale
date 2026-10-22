@@ -70,12 +70,17 @@ Scope {
 
   // Morph motion's panel switch (core/Morph.qml, components/MorphSwitch.qml):
   // one panel at a time, as Serpantinum's single window, and opening one
-  // turns the panel that was up into it. A panel closed in the same turn as
-  // another opens (closeAll before the overview, the launcher handing over
-  // to Settings) counts as the one that was up; so does a popout. The
+  // turns the panel that was up into it. Bar popouts are panels too: one
+  // opening from closed takes over from the panel that was up, and a panel
+  // opening takes over from an open popout (popout to popout is
+  // PopoutContent's own switch). A panel closed shortly before another
+  // opens (closeAll before the overview, the launcher handing over to
+  // Settings, a hover-opened dashboard let go as the pointer reaches a bar
+  // icon) counts as the one that was up, from where it is by then. The
   // sidebar and the utilities it holds are one panel. Off, nothing here runs.
   readonly property var morphPanels: ["dashboard", "launcher", "session", "sidebar", "utilities", "settings", "overview"]
   property var morphLeft: null
+  Timer { id: morphLeftTimer; interval: 250; onTriggered: scope.morphLeft = null }
   function morphChanged(name, open) {
     if (!Morph.enabled) return
     if (!open) {
@@ -84,18 +89,19 @@ Scope {
       if (name === "utilities" && morphLeft && morphLeft.name === "sidebar") return
       const r = win.morphRectOf(name)
       if (!r) return
-      const left = { name: name, rect: r }
-      morphLeft = left
-      Qt.callLater(() => { if (scope.morphLeft === left) scope.morphLeft = null })
+      morphLeft = { name: name, rect: r }
+      morphLeftTimer.restart()
       return
     }
     if (name === "utilities" && sidebar) return
     for (const n of morphPanels)
       if (n !== name && scope[n] && !(name === "sidebar" && n === "utilities")) scope[n] = false
-    if (popout !== "" && !(name === "settings" && win.pHandoff)) popout = ""
+    if (name !== "popout" && popout !== "" && !(name === "settings" && win.pHandoff)) popout = ""
     const left = morphLeft
     morphLeft = null
-    if (left && left.name !== name) morphSw.start(left.rect, win.morphNames(left.name, false), win.morphNames(name, true))
+    morphLeftTimer.stop()
+    if (left && left.name !== name)
+      morphSw.start(win.morphRectOf(left.name) || left.rect, win.morphNames(left.name, false), win.morphNames(name, true))
   }
   Connections {
     target: NotifService
@@ -273,12 +279,16 @@ Scope {
   // on-demand) component would resolve `scope` to.
   readonly property var screenScope: scope
 
-  onPopoutChanged: if (popout === "") {
-    if (popoutKeys && !cfg.bar.persistent && !barFocus) barHover = false
-    popoutKeys = false
-    // A popout opened from the bar focus mode gives the keys back to it.
-    if (barFocus) Qt.callLater(() => bar.takeKeys())
-    morphChanged("popout", false)
+  property string popoutWas: ""
+  onPopoutChanged: {
+    if (popout === "") {
+      if (popoutKeys && !cfg.bar.persistent && !barFocus) barHover = false
+      popoutKeys = false
+      // A popout opened from the bar focus mode gives the keys back to it.
+      if (barFocus) Qt.callLater(() => bar.takeKeys())
+      morphChanged("popout", false)
+    } else if (popoutWas === "") morphChanged("popout", true)
+    popoutWas = popout
   }
 
   // Open a bar popout with the keyboard (Bar.summonBarWidget, IPC popout).
@@ -1166,7 +1176,7 @@ Scope {
     readonly property var dRect: dVis ? morphSw.rect("dashboard", dLiq.rect([dx, dy, dw, dh])) : null
     readonly property var lRect: lVis ? morphSw.rect("launcher", lLiq.rect([lx, ly, lw, lh])) : null
     readonly property var sRect: sVis ? morphSw.rect("session", sLiq.rect([sx, sy, sw, sh])) : null
-    readonly property var pRect: pVis && !pHandoff ? pLiq.rect([prx, pry, prw, prh]) : null
+    readonly property var pRect: pVis && !pHandoff ? morphSw.rect("popout", pLiq.rect([prx, pry, prw, prh])) : null
     readonly property var nRect: nVis ? morphSw.rect("settings", nLiq.rect([nx, ny, nw, nh])) : null
     readonly property var uRect: !uVis ? null : morphSw.rect("utilities", sbVis ? [ux, uy, uw, uh] : uLiq.rect([ux, uy, uw, uh]))
     // The sidebar's overshoot as width, out from its wall (utilities follow
@@ -1195,7 +1205,7 @@ Scope {
     // Where a panel's content sits, for MorphSwitch.shiftX/shiftY.
     function morphFinal(n) {
       return ({ dashboard: [dx, dy, dw, dh], launcher: [lx, ly, lw, lh], session: [sx, sy, sw, sh], settings: [nx, ny, nw, nh],
-        overview: [ox, oy, ow, oh], sidebar: [sbx, sby, sbw, sbh], utilities: [ux, uy, uw, uh] })[n]
+        overview: [ox, oy, ow, oh], sidebar: [sbx, sby, sbw, sbh], utilities: [ux, uy, uw, uh], popout: [prx, pry, prw, prh] })[n]
     }
 
     // What the glass's bevel bends (Glass.lens): the wallpaper and this
@@ -1557,7 +1567,7 @@ Scope {
           height: win.ph
           // Caelestia's popout Wrapper fades its content in and out (200ms)
           // while the popout slides.
-          opacity: win.pHandoff ? 0 : (pLiq.active ? pLiq.contentOpacity : (1 - win.pOff) * pMorph.fade) * win.pFade
+          opacity: win.pHandoff ? 0 : (pLiq.active ? pLiq.contentOpacity : (1 - win.pOff) * pMorph.fade * morphSw.gate("popout")) * win.pFade
           transform: [
             Matrix4x4 { matrix: popDeform.matrixAt(win.prx + win.prw / 2 - win.px, win.pry + win.prh / 2 - win.py) },
             // Liquid's drop style: the content grows out of the bar with its rect.
@@ -1568,7 +1578,7 @@ Scope {
               yScale: pLiq.contentScale[1]
             },
             Scale { origin.x: win.pw / 2; origin.y: win.ph / 2; xScale: pMorph.grow; yScale: pMorph.grow },
-            Translate { y: pMorph.rise }
+            Translate { x: morphSw.shiftX("popout", win.morphFinal("popout")); y: pMorph.rise + morphSw.shiftY("popout", win.morphFinal("popout")) }
           ]
           PopoutContent {
             id: pop
