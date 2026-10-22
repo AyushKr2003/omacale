@@ -34,11 +34,11 @@ Item {
       }
     }
 
-    Rectangle {
+    GlassCard {
       Layout.fillWidth: true
       implicitHeight: big.implicitHeight + Tk.padding.small
       radius: Tk.rounding.extraLarge * 2
-      color: Colours.m3surfaceContainer
+      fill: Colours.m3surfaceContainer
       RowLayout {
         id: big
         anchors.centerIn: parent
@@ -75,7 +75,7 @@ Item {
       spacing: Tk.spacing.medium
       Repeater {
         model: Sys.forecast
-        Rectangle {
+        GlassCard {
           id: day
           required property int index
           required property var modelData
@@ -83,7 +83,7 @@ Item {
           Layout.fillWidth: true
           implicitHeight: dayCol.implicitHeight + Tk.padding.medium * 2
           radius: Tk.rounding.large
-          color: Colours.m3surfaceContainer
+          fill: Colours.m3surfaceContainer
           ColumnLayout {
             id: dayCol
             anchors.centerIn: parent
@@ -98,7 +98,7 @@ Item {
     }
   }
 
-  component Detail: Rectangle {
+  component Detail: GlassCard {
     id: det
     property string icon
     property string label
@@ -107,7 +107,7 @@ Item {
     Layout.fillWidth: true
     Layout.preferredHeight: Tk.px(60)
     radius: Tk.rounding.medium
-    color: Colours.m3surfaceContainer
+    fill: Colours.m3surfaceContainer
     Row {
       anchors.centerIn: parent
       spacing: Tk.spacing.medium

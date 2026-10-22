@@ -76,7 +76,7 @@ Item {
   }
 
   // ======================================================== components
-  component HeroCard: Rectangle {
+  component HeroCard: GlassCard {
     id: hero
     property string icon
     property string label
@@ -84,7 +84,7 @@ Item {
     property color accent
     property real usage
     property real temperature
-    color: Colours.m3surfaceContainer
+    fill: Colours.m3surfaceContainer
     radius: Tk.rounding.extraLarge
     implicitWidth: Tk.px(400)
     implicitHeight: Math.max(tempProg.height + detailsCol.implicitHeight + Tk.spacing.large, usageShape.height + usageLabel.implicitHeight) + Tk.padding.large * 2
@@ -141,12 +141,12 @@ Item {
     }
   }
 
-  component StorageCard: Rectangle {
+  component StorageCard: GlassCard {
     id: storage
     readonly property color accent: Colours.m3secondary
     readonly property var disk: Sys.primaryDisk
     readonly property real perc: disk && disk.total ? disk.used / disk.total : 0
-    color: Colours.m3surfaceContainer
+    fill: Colours.m3surfaceContainer
     radius: Tk.rounding.extraExtraLarge
     implicitWidth: sl.implicitWidth + Tk.padding.extraLarge * 2
     implicitHeight: sl.implicitHeight + Tk.padding.large * 2
@@ -196,8 +196,8 @@ Item {
     }
   }
 
-  component NetworkCard: Rectangle {
-    color: Colours.m3surfaceContainer
+  component NetworkCard: GlassCard {
+    fill: Colours.m3surfaceContainer
     radius: Tk.rounding.extraLarge
     implicitWidth: Tk.px(390)
     implicitHeight: Tk.px(220)
@@ -250,9 +250,9 @@ Item {
     MText { text: parent.value; color: parent.colour; font.pointSize: Tk.body.medium; weight: Font.Medium }
   }
 
-  component MemoryCard: Rectangle {
+  component MemoryCard: GlassCard {
     readonly property color accent: Colours.m3tertiary
-    color: Colours.m3surfaceContainer
+    fill: Colours.m3surfaceContainer
     radius: Tk.rounding.medium
     implicitWidth: ml.implicitWidth + Tk.padding.extraLargeIncreased * 2
     implicitHeight: ml.implicitHeight + Tk.padding.large * 2

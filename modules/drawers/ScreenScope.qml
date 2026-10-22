@@ -47,16 +47,55 @@ Scope {
   property bool dashboard: false
   property bool session: false
   property bool settings: false
+  onLauncherChanged: morphChanged("launcher", launcher)
+  onDashboardChanged: morphChanged("dashboard", dashboard)
+  onSessionChanged: morphChanged("session", session)
   // The modal Settings drawer and the sidebar must not cover each other.
-  onSettingsChanged: if (settings) sidebar = false
+  onSettingsChanged: {
+    if (settings) sidebar = false
+    morphChanged("settings", settings)
+  }
   property bool sidebar: false
   // Caelestia's NotifDock clears every popup as it opens, and Notifs shows
   // none while it stays open: the toasts are dismissed, not just hidden.
-  onSidebarChanged: if (sidebar) {
-    settings = false
-    // Release the previous popout (and its keyboard grab) to the sidebar.
-    popout = ""
-    if (NotifService.popups.length) NotifService.dismissAllPopups()
+  onSidebarChanged: {
+    if (sidebar) {
+      settings = false
+      // Release the previous popout (and its keyboard grab) to the sidebar.
+      popout = ""
+      if (NotifService.popups.length) NotifService.dismissAllPopups()
+    }
+    morphChanged("sidebar", sidebar)
+  }
+
+  // Morph motion's panel switch (core/Morph.qml, components/MorphSwitch.qml):
+  // one panel at a time, as Serpantinum's single window, and opening one
+  // turns the panel that was up into it. A panel closed in the same turn as
+  // another opens (closeAll before the overview, the launcher handing over
+  // to Settings) counts as the one that was up; so does a popout. The
+  // sidebar and the utilities it holds are one panel. Off, nothing here runs.
+  readonly property var morphPanels: ["dashboard", "launcher", "session", "sidebar", "utilities", "settings", "overview"]
+  property var morphLeft: null
+  function morphChanged(name, open) {
+    if (!Morph.enabled) return
+    if (!open) {
+      if (morphSw.isTo(name)) morphSw.stop()
+      // Utilities going with the sidebar they were part of leave as it does.
+      if (name === "utilities" && morphLeft && morphLeft.name === "sidebar") return
+      const r = win.morphRectOf(name)
+      if (!r) return
+      const left = { name: name, rect: r }
+      morphLeft = left
+      Qt.callLater(() => { if (scope.morphLeft === left) scope.morphLeft = null })
+      return
+    }
+    if (name === "utilities" && sidebar) return
+    for (const n of morphPanels)
+      if (n !== name && scope[n] && !(name === "sidebar" && n === "utilities")) scope[n] = false
+    if (popout !== "" && !(name === "settings" && win.pHandoff)) popout = ""
+    const left = morphLeft
+    morphLeft = null
+    if (left && left.name !== name) morphSw.start(left.rect, win.morphNames(left.name, false), win.morphNames(name, true))
   }
   Connections {
     target: NotifService
@@ -64,6 +103,7 @@ Scope {
   }
   property bool utilities: false
   property bool overview: false
+  onOverviewChanged: morphChanged("overview", overview)
   // Caelestia's OSD (modules/osd/Wrapper.qml): out on a volume or brightness
   // change for hideDelay, or while the pointer is on it.
   property bool osd: false
@@ -238,6 +278,7 @@ Scope {
     popoutKeys = false
     // A popout opened from the bar focus mode gives the keys back to it.
     if (barFocus) Qt.callLater(() => bar.takeKeys())
+    morphChanged("popout", false)
   }
 
   // Open a bar popout with the keyboard (Bar.summonBarWidget, IPC popout).
@@ -271,7 +312,10 @@ Scope {
     launcher = false; session = false; dashboard = false; dashShortcut = false; popout = ""; settings = false; sidebar = false; utilities = false; overview = false
   }
 
-  onUtilitiesChanged: utilShortcut = utilities && !interactions.inBottomUtil(interactions.mouseX, interactions.mouseY)
+  onUtilitiesChanged: {
+    utilShortcut = utilities && !interactions.inBottomUtil(interactions.mouseX, interactions.mouseY)
+    morphChanged("utilities", utilities)
+  }
 
   Connections {
     target: scope.host
@@ -615,7 +659,9 @@ Scope {
     // -------------------------------------------------- drawer motion
     // Each drawer's 0 open / 1 away: on Caelestia's curves (the *OffC), or,
     // with liquid motion on for it (Settings › Motion), on its
-    // LiquidDrawer's spring (see "liquid" below).
+    // LiquidDrawer's spring (see "liquid" below). With Serpantinum motion
+    // the *OffC run on its curves instead (Morph.type), and the content
+    // comes in on its MorphDrawer (see "serpantinum" below).
     readonly property bool dOpen: scope.dashboard
     readonly property bool lOpen: scope.launcher
     readonly property bool sOpen: scope.session
@@ -641,31 +687,31 @@ Scope {
     property real cpOffC: cpOpen ? 0 : 1
     property real uOffC: uOpen ? 0 : 1
     property real osdOffC: osdOpen ? 0 : 1
-    Behavior on dOffC { enabled: !dLiq.active; Anim {} }
-    Behavior on lOffC { enabled: !lLiq.active; Anim {} }
-    Behavior on sOffC { enabled: !sLiq.active; Anim {} }
-    Behavior on pOffC { enabled: !pLiq.active; Anim {} }
+    Behavior on dOffC { id: dOffB; enabled: !dLiq.active; Anim { type: Morph.type(dOffB, "spatial") } }
+    Behavior on lOffC { id: lOffB; enabled: !lLiq.active; Anim { type: Morph.type(lOffB, "spatial") } }
+    Behavior on sOffC { id: sOffB; enabled: !sLiq.active; Anim { type: Morph.type(sOffB, "spatial") } }
+    Behavior on pOffC { id: pOffB; enabled: !pLiq.active; Anim { type: Morph.type(pOffB, "spatial") } }
     // Caelestia bar/popouts/Wrapper.qml: detach() moves on the slow spatial
     // curve, close() on the default one.
-    Behavior on nOffC { enabled: !nLiq.active; Anim { type: scope.settings ? "slowSpatial" : "spatial" } }
+    Behavior on nOffC { id: nOffB; enabled: !nLiq.active; Anim { type: Morph.type(nOffB, scope.settings ? "slowSpatial" : "spatial") } }
     // As Settings: out on the slow spatial curve, back on the default one.
     // Floating, Settings' curves (slow spatial out, default back); attached
     // to the top or bottom edge, the dashboard's and launcher's (default
     // spatial both ways).
-    Behavior on oOffC { enabled: !oLiq.active; Anim { type: scope.overview && !win.oAttached ? "slowSpatial" : "spatial" } }
-    Behavior on sbOffC { enabled: !sbLiq.active; Anim {} }
-    Behavior on cpOffC { enabled: !cpLiq.active; Anim {} }
-    Behavior on uOffC { enabled: !uLiq.active; Anim {} }
-    Behavior on osdOffC { enabled: !osdLiq.active; Anim {} }
-    readonly property real dOff: dLiq.active ? dLiq.off : dOffC
-    readonly property real lOff: lLiq.active ? lLiq.off : lOffC
-    readonly property real sOff: sLiq.active ? sLiq.off : sOffC
-    readonly property real pOff: pLiq.active ? pLiq.off : pOffC
-    readonly property real nOff: nLiq.active ? nLiq.off : nOffC
-    readonly property real oOff: oLiq.active ? oLiq.off : oOffC
-    readonly property real sbOff: sbLiq.active ? sbLiq.off : sbOffC
-    readonly property real cpOff: cpLiq.active ? cpLiq.off : cpOffC
-    readonly property real uOff: uLiq.active ? uLiq.off : uOffC
+    Behavior on oOffC { id: oOffB; enabled: !oLiq.active; Anim { type: Morph.type(oOffB, scope.overview && !win.oAttached ? "slowSpatial" : "spatial") } }
+    Behavior on sbOffC { id: sbOffB; enabled: !sbLiq.active; Anim { type: Morph.type(sbOffB, "spatial") } }
+    Behavior on cpOffC { id: cpOffB; enabled: !cpLiq.active; Anim { type: Morph.type(cpOffB, "spatial") } }
+    Behavior on uOffC { id: uOffB; enabled: !uLiq.active; Anim { type: Morph.type(uOffB, "spatial") } }
+    Behavior on osdOffC { id: osdOffB; enabled: !osdLiq.active; Anim { type: Morph.type(osdOffB, "spatial") } }
+    readonly property real dOff: morphSw.off("dashboard", dLiq.active ? dLiq.off : dOffC)
+    readonly property real lOff: morphSw.off("launcher", lLiq.active ? lLiq.off : lOffC)
+    readonly property real sOff: morphSw.off("session", sLiq.active ? sLiq.off : sOffC)
+    readonly property real pOff: morphSw.off("popout", pLiq.active ? pLiq.off : pOffC)
+    readonly property real nOff: morphSw.off("settings", nLiq.active ? nLiq.off : nOffC)
+    readonly property real oOff: morphSw.off("overview", oLiq.active ? oLiq.off : oOffC)
+    readonly property real sbOff: morphSw.off("sidebar", sbLiq.active ? sbLiq.off : sbOffC)
+    readonly property real cpOff: morphSw.off("clipboard", cpLiq.active ? cpLiq.off : cpOffC)
+    readonly property real uOff: morphSw.off("utilities", uLiq.active ? uLiq.off : uOffC)
     readonly property real osdOff: osdLiq.active ? osdLiq.off : osdOffC
     // How far each slides. Liquid, never past open: a spring overshoots far
     // more than Caelestia's curves, and LiquidDrawer.rect turns the
@@ -781,8 +827,10 @@ Scope {
     readonly property bool pAnimate: pOff < 1 && pSettled
     property real pFade: scope.popout !== "" ? 1 : 0
     Behavior on pFade { Anim { type: "effects" } }
-    Behavior on pw { enabled: win.pAnimate; Anim {} }
-    Behavior on ph { enabled: win.pAnimate; Anim {} }
+    // Morph motion: a switch reshapes the popout on Serpantinum's curve
+    // (Main.qml morphDurationSwitch, 300ms OutCubic) instead.
+    Behavior on pw { enabled: win.pAnimate; Anim { type: Morph.enabled ? "morphIn" : "spatial" } }
+    Behavior on ph { enabled: win.pAnimate; Anim { type: Morph.enabled ? "morphIn" : "spatial" } }
     // Along the bar: centred on its icon, kept inside the panel area.
     property real pa: {
       const size = scope.barVert ? phTarget : pwTarget
@@ -790,7 +838,7 @@ Scope {
       const span = scope.barVert ? ah : aw
       return Math.max(lo, Math.min(scope.popoutCenter - size / 2, lo + span - size))
     }
-    Behavior on pa { enabled: win.pAnimate; Anim {} }
+    Behavior on pa { enabled: win.pAnimate; Anim { type: Morph.enabled ? "morphIn" : "spatial" } }
     // Across the bar: out of its edge, sliding in from behind it. A popout
     // pressed against an end of the panel area squares its corner there by
     // itself (the blob's corner fill), as Caelestia's does.
@@ -1083,6 +1131,18 @@ Scope {
     LiquidDrawer { id: sbLiq; name: "sidebar"; open: win.sbOpen; edge: win.sideEdge }
     LiquidDrawer { id: uLiq; name: "utilities"; open: win.uOpen; edge: scope.flipV ? "top" : "bottom" }
     LiquidDrawer { id: osdLiq; name: "osd"; open: win.osdOpen; edge: win.sideEdge; canDrop: true }
+    // morph: each drawer's content intro (core/Morph.qml). Inactive,
+    // its fade and scale are 1 and its rise 0.
+    MorphDrawer { id: dMorph; open: win.dOpen }
+    MorphDrawer { id: lMorph; open: win.lOpen }
+    MorphDrawer { id: cpMorph; open: win.cpOpen }
+    MorphDrawer { id: sMorph; open: win.sOpen }
+    MorphDrawer { id: pMorph; open: win.pOpen }
+    MorphDrawer { id: nMorph; open: win.nOpen }
+    MorphDrawer { id: oMorph; open: win.oOpen }
+    MorphDrawer { id: sbMorph; open: win.sbOpen }
+    MorphDrawer { id: uMorph; open: win.uOpen }
+    MorphDrawer { id: osdMorph; open: win.osdOpen }
     // The neck break: the window info popout leaving the bar for the middle,
     // and Settings leaving the bar (or the popout it was opened from).
     LiquidDetach {
@@ -1103,19 +1163,40 @@ Scope {
       ey: scope.barVert ? from[1] + from[3] / 2 : (scope.barPos === "top" ? win.ay : win.ay + win.ah)
     }
     // The drawers' rects as drawn (r0..r9, see BlobSurface below).
-    readonly property var dRect: dVis ? dLiq.rect([dx, dy, dw, dh]) : null
-    readonly property var lRect: lVis ? lLiq.rect([lx, ly, lw, lh]) : null
-    readonly property var sRect: sVis ? sLiq.rect([sx, sy, sw, sh]) : null
+    readonly property var dRect: dVis ? morphSw.rect("dashboard", dLiq.rect([dx, dy, dw, dh])) : null
+    readonly property var lRect: lVis ? morphSw.rect("launcher", lLiq.rect([lx, ly, lw, lh])) : null
+    readonly property var sRect: sVis ? morphSw.rect("session", sLiq.rect([sx, sy, sw, sh])) : null
     readonly property var pRect: pVis && !pHandoff ? pLiq.rect([prx, pry, prw, prh]) : null
-    readonly property var nRect: nVis ? nLiq.rect([nx, ny, nw, nh]) : null
-    readonly property var uRect: !uVis ? null : sbVis ? [ux, uy, uw, uh] : uLiq.rect([ux, uy, uw, uh])
+    readonly property var nRect: nVis ? morphSw.rect("settings", nLiq.rect([nx, ny, nw, nh])) : null
+    readonly property var uRect: !uVis ? null : morphSw.rect("utilities", sbVis ? [ux, uy, uw, uh] : uLiq.rect([ux, uy, uw, uh]))
     // The sidebar's overshoot as width, out from its wall (utilities follow
     // it through uw).
     readonly property real sbOver: sbLiq.active ? sbw * Math.max(0, -sbOff) : 0
-    readonly property var sbRect: sbVis ? [scope.mirror ? sbx : sbx - sbOver, sbRectY, sbw + sbOver, sbRectH] : null
-    readonly property var oRect: oVis ? oLiq.rect([ox, oy, ow, oh]) : null
+    readonly property var sbRect: sbVis ? morphSw.rect("sidebar", [scope.mirror ? sbx : sbx - sbOver, sbRectY, sbw + sbOver, sbRectH]) : null
+    readonly property var oRect: oVis ? morphSw.rect("overview", oLiq.rect([ox, oy, ow, oh])) : null
     readonly property var cpRect: cpVis ? cpLiq.rect([cpx, cpy, cpw, cph]) : null
     readonly property var osdRect: osdVis ? osdLiq.rect([osdX, osdY, osdW, osdH]) : null
+
+    // Morph motion's panel switch (see morphChanged): the panel left, as it
+    // is drawn now, and the panels a name stands for.
+    MorphSwitch { id: morphSw }
+    function morphRectOf(n) {
+      if (n === "sidebar") {
+        if (!sbRect) return uRect
+        if (!uRect) return sbRect
+        const x = Math.min(sbRect[0], uRect[0]), y = Math.min(sbRect[1], uRect[1])
+        return [x, y, Math.max(sbRect[0] + sbRect[2], uRect[0] + uRect[2]) - x, Math.max(sbRect[1] + sbRect[3], uRect[1] + uRect[3]) - y]
+      }
+      return ({ dashboard: dRect, launcher: lRect, session: sRect, settings: nRect, overview: oRect, popout: pRect,
+        utilities: sbVis ? null : uRect })[n] || null
+    }
+    // The clipboard preview leaves with the launcher, but isn't opened with it.
+    function morphNames(n, opening) { return n === "sidebar" ? ["sidebar", "utilities"] : n === "launcher" && !opening ? ["launcher", "clipboard"] : [n] }
+    // Where a panel's content sits, for MorphSwitch.shiftX/shiftY.
+    function morphFinal(n) {
+      return ({ dashboard: [dx, dy, dw, dh], launcher: [lx, ly, lw, lh], session: [sx, sy, sw, sh], settings: [nx, ny, nw, nh],
+        overview: [ox, oy, ow, oh], sidebar: [sbx, sby, sbw, sbh], utilities: [ux, uy, uw, uh] })[n]
+    }
 
     // What the glass's bevel bends (Glass.lens): the wallpaper and this
     // screen's windows, rebuilt; live only while a drawer is open.
@@ -1131,20 +1212,35 @@ Scope {
       }
     }
 
+    // The frame and drawers as drawn, for the glass cards to bend
+    // (GlassCard, Glass.nested): the background below rendered once to a
+    // texture, which is then what the window shows.
+    property Item glassSurface: Glass.nested ? glassBody : null
+    // Each drawer's motion energy (Glass.motion), for the blob's lens.
+    GlassMotion {
+      id: drawerMotion
+      enabled: Glass.motion
+      rects: [win.dRect, win.lRect, win.sRect, win.pRect, win.nRect,
+              win.uRect, win.sbRect, win.oRect, win.cpRect, win.osdRect]
+    }
+
     // ---------------------------------------------------- background
     Item {
+      id: glassBody
       anchors.fill: parent
       // Caelestia draws the blob opaque and fades the whole layer (and so
       // its shadow) by the surface's alpha. Glass is translucent in the
       // shader, and draws its own shadow round the shape only (one under
       // the glass would show through it).
       opacity: Glass.enabled ? 1 : Colours.m3surface.a
-      // Only when there is a shadow to draw. The layer is a screen-sized
-      // texture that the frame shader renders into and MultiEffect then
-      // blurs; with shadows off that whole round trip produced the same
-      // pixels the shader can write straight to the window.
-      layer.enabled: scope.cfg.appearance.shadow && !Glass.enabled
-      layer.effect: MultiEffect {
+      // Only when there is a shadow to draw, or glass cards to bend it
+      // (glassSurface). The layer is a screen-sized texture that the frame
+      // shader renders into and MultiEffect then blurs; with shadows off
+      // that whole round trip produced the same pixels the shader can write
+      // straight to the window. Glass draws its own shadow: no effect then.
+      layer.enabled: (scope.cfg.appearance.shadow && !Glass.enabled) || Glass.nested
+      layer.effect: Glass.enabled ? null : shadowEffect
+      property Component shadowEffect: MultiEffect {
         shadowEnabled: true
         blurMax: 15
         shadowColor: Qt.alpha(Colours.m3shadow, 0.7 * Math.max(0, 1 - win.fs))
@@ -1160,6 +1256,7 @@ Scope {
         glassB: Glass.b
         glassC: glassBackdrop.item ? Glass.c : Qt.vector4d(0, Glass.c.y, Glass.c.z, Glass.c.w)
         glassD: Glass.d
+        motion: drawerMotion.values
         backdrop: glassBackdrop.item ? glassBackdrop.item.texture : noBackdrop
         frosted: glassBackdrop.item ? glassBackdrop.item.frosted : noBackdrop
         Image { id: noBackdrop; visible: false }
@@ -1460,7 +1557,7 @@ Scope {
           height: win.ph
           // Caelestia's popout Wrapper fades its content in and out (200ms)
           // while the popout slides.
-          opacity: win.pHandoff ? 0 : (pLiq.active ? pLiq.contentOpacity : 1 - win.pOff) * win.pFade
+          opacity: win.pHandoff ? 0 : (pLiq.active ? pLiq.contentOpacity : (1 - win.pOff) * pMorph.fade) * win.pFade
           transform: [
             Matrix4x4 { matrix: popDeform.matrixAt(win.prx + win.prw / 2 - win.px, win.pry + win.prh / 2 - win.py) },
             // Liquid's drop style: the content grows out of the bar with its rect.
@@ -1469,7 +1566,9 @@ Scope {
               origin.y: scope.barPos === "top" ? 0 : scope.barPos === "bottom" ? win.ph : win.ph / 2
               xScale: pLiq.contentScale[0]
               yScale: pLiq.contentScale[1]
-            }
+            },
+            Scale { origin.x: win.pw / 2; origin.y: win.ph / 2; xScale: pMorph.grow; yScale: pMorph.grow },
+            Translate { y: pMorph.rise }
           ]
           PopoutContent {
             id: pop
@@ -1508,10 +1607,12 @@ Scope {
           width: win.dw
           height: win.dh
           visible: win.dVis
-          opacity: dLiq.active ? dLiq.contentOpacity : 1 - win.dOff
+          opacity: dLiq.active ? dLiq.contentOpacity : (1 - win.dOff) * dMorph.fade * morphSw.gate("dashboard")
           transform: [
             Matrix4x4 { matrix: dashDeform.matrixAt(win.dw / 2, win.dh / 2) },
-            Scale { origin.x: win.dw / 2; origin.y: 0; xScale: dLiq.contentScale[0]; yScale: dLiq.contentScale[1] }
+            Scale { origin.x: win.dw / 2; origin.y: 0; xScale: dLiq.contentScale[0]; yScale: dLiq.contentScale[1] },
+            Scale { origin.x: win.dw / 2; origin.y: win.dh / 2; xScale: dMorph.grow; yScale: dMorph.grow },
+            Translate { x: morphSw.shiftX("dashboard", win.morphFinal("dashboard")); y: dMorph.rise + morphSw.shiftY("dashboard", win.morphFinal("dashboard")) }
           ]
           host: scope.host
           active: scope.dashboard
@@ -1535,10 +1636,12 @@ Scope {
           width: win.lw
           height: win.lh
           visible: win.lVis
-          opacity: lLiq.active ? lLiq.contentOpacity : 1 - win.lOff
+          opacity: lLiq.active ? lLiq.contentOpacity : (1 - win.lOff) * lMorph.fade * morphSw.gate("launcher")
           transform: [
             Matrix4x4 { matrix: launchDeform.matrixAt(win.lw / 2, win.lh / 2) },
-            Scale { origin.x: win.lw / 2; origin.y: win.lh; xScale: lLiq.contentScale[0]; yScale: lLiq.contentScale[1] }
+            Scale { origin.x: win.lw / 2; origin.y: win.lh; xScale: lLiq.contentScale[0]; yScale: lLiq.contentScale[1] },
+            Scale { origin.x: win.lw / 2; origin.y: win.lh / 2; xScale: lMorph.grow; yScale: lMorph.grow },
+            Translate { x: morphSw.shiftX("launcher", win.morphFinal("launcher")); y: lMorph.rise + morphSw.shiftY("launcher", win.morphFinal("launcher")) }
           ]
           active: scope.launcher
           screenWidth: win.width
@@ -1559,10 +1662,12 @@ Scope {
           y: win.cpy + Tk.padding.large
           width: win.cpw - win.cpPadH
           height: win.cph - win.cpPadV
-          opacity: cpLiq.active ? cpLiq.contentOpacity : 1 - win.cpOff
+          opacity: cpLiq.active ? cpLiq.contentOpacity : (1 - win.cpOff) * cpMorph.fade
           transform: [
             Matrix4x4 { matrix: cpDeform.matrixAt(win.cpw / 2 - Tk.padding.large, win.cph / 2 - Tk.padding.large) },
-            Scale { origin.x: win.cpw / 2 - Tk.padding.large; origin.y: win.cph - Tk.padding.large; xScale: cpLiq.contentScale[0]; yScale: cpLiq.contentScale[1] }
+            Scale { origin.x: win.cpw / 2 - Tk.padding.large; origin.y: win.cph - Tk.padding.large; xScale: cpLiq.contentScale[0]; yScale: cpLiq.contentScale[1] },
+            Scale { origin.x: win.cpw / 2 - Tk.padding.large; origin.y: win.cph / 2 - Tk.padding.large; xScale: cpMorph.grow; yScale: cpMorph.grow },
+            Translate { y: cpMorph.rise }
           ]
           row: win.cpRow
           maxW: win.cpMaxW
@@ -1589,10 +1694,12 @@ Scope {
             x: win.sx - win.sClipX
             y: win.sy
             visible: win.sVis
-            opacity: sLiq.active ? sLiq.contentOpacity : 1 - win.sOff
+            opacity: sLiq.active ? sLiq.contentOpacity : (1 - win.sOff) * sMorph.fade * morphSw.gate("session")
             transform: [
               Matrix4x4 { matrix: sessDeform.matrixAt(win.sw / 2, win.sh / 2) },
-              Scale { origin.x: scope.mirror ? 0 : win.sw; origin.y: win.sh / 2; xScale: sLiq.contentScale[0]; yScale: sLiq.contentScale[1] }
+              Scale { origin.x: scope.mirror ? 0 : win.sw; origin.y: win.sh / 2; xScale: sLiq.contentScale[0]; yScale: sLiq.contentScale[1] },
+              Scale { origin.x: win.sw / 2; origin.y: win.sh / 2; xScale: sMorph.grow; yScale: sMorph.grow },
+              Translate { x: morphSw.shiftX("session", win.morphFinal("session")); y: sMorph.rise + morphSw.shiftY("session", win.morphFinal("session")) }
             ]
             active: scope.session
             onDismissed: scope.session = false
@@ -1610,8 +1717,12 @@ Scope {
           width: win.sbw
           height: win.sbh
           visible: win.sbVis
-          opacity: sbLiq.active ? sbLiq.contentOpacity : 1 - win.sbOff
-          transform: Matrix4x4 { matrix: sbDeform.matrixAt(win.sbw / 2, win.sbRectY + win.sbRectH / 2 - win.sby) }
+          opacity: sbLiq.active ? sbLiq.contentOpacity : (1 - win.sbOff) * sbMorph.fade * morphSw.gate("sidebar")
+          transform: [
+            Matrix4x4 { matrix: sbDeform.matrixAt(win.sbw / 2, win.sbRectY + win.sbRectH / 2 - win.sby) },
+            Scale { origin.x: win.sbw / 2; origin.y: win.sbh / 2; xScale: sbMorph.grow; yScale: sbMorph.grow },
+            Translate { x: morphSw.shiftX("sidebar", win.morphFinal("sidebar")); y: sbMorph.rise + morphSw.shiftY("sidebar", win.morphFinal("sidebar")) }
+          ]
           host: screenScope.host
           scope: screenScope
           active: screenScope.sidebar
@@ -1627,8 +1738,12 @@ Scope {
           y: win.uy
           width: win.uw
           visible: win.uVis
-          opacity: uLiq.active ? uLiq.contentOpacity : 1 - win.uOff
-          transform: Matrix4x4 { matrix: utilDeform.matrixAt(win.uw / 2, win.uh / 2) }
+          opacity: uLiq.active ? uLiq.contentOpacity : (1 - win.uOff) * uMorph.fade * morphSw.gate("utilities")
+          transform: [
+            Matrix4x4 { matrix: utilDeform.matrixAt(win.uw / 2, win.uh / 2) },
+            Scale { origin.x: win.uw / 2; origin.y: win.uh / 2; xScale: uMorph.grow; yScale: uMorph.grow },
+            Translate { x: morphSw.shiftX("utilities", win.morphFinal("utilities")); y: uMorph.rise + morphSw.shiftY("utilities", win.morphFinal("utilities")) }
+          ]
           hStretch: utilDeform.m00
           host: screenScope.host
           scope: screenScope
@@ -1652,10 +1767,12 @@ Scope {
             x: win.osdX - (scope.mirror ? win.osdEdge : 0)
             y: win.osdY
             visible: win.osdVis
-            opacity: osdLiq.active ? osdLiq.contentOpacity : 1 - win.osdOff
+            opacity: osdLiq.active ? osdLiq.contentOpacity : (1 - win.osdOff) * osdMorph.fade
             transform: [
               Matrix4x4 { matrix: osdDeform.matrixAt(win.osdW / 2, win.osdH / 2) },
-              Scale { origin.x: scope.mirror ? 0 : win.osdW; origin.y: win.osdH / 2; xScale: osdLiq.contentScale[0]; yScale: osdLiq.contentScale[1] }
+              Scale { origin.x: scope.mirror ? 0 : win.osdW; origin.y: win.osdH / 2; xScale: osdLiq.contentScale[0]; yScale: osdLiq.contentScale[1] },
+              Scale { origin.x: win.osdW / 2; origin.y: win.osdH / 2; xScale: osdMorph.grow; yScale: osdMorph.grow },
+              Translate { y: osdMorph.rise }
             ]
             mirror: scope.mirror
             sessionOpen: scope.session
@@ -1696,8 +1813,12 @@ Scope {
           sourceComponent: Overview {
             width: implicitWidth
             height: implicitHeight
-            opacity: win.oOpacity
-            transform: Matrix4x4 { matrix: oDeform.matrixAt(width / 2, height / 2) }
+            opacity: win.oOpacity * oMorph.fade * morphSw.gate("overview")
+            transform: [
+              Matrix4x4 { matrix: oDeform.matrixAt(width / 2, height / 2) },
+              Scale { origin.x: width / 2; origin.y: height / 2; xScale: oMorph.grow; yScale: oMorph.grow },
+              Translate { x: morphSw.shiftX("overview", win.morphFinal("overview")); y: oMorph.rise + morphSw.shiftY("overview", win.morphFinal("overview")) }
+            ]
             active: scope.overview
             focus: scope.overview
             screen: scope.screen
@@ -1728,8 +1849,12 @@ Scope {
           sourceComponent: Settings {
             width: implicitWidth
             height: implicitHeight
-            opacity: win.nFade
-            transform: Matrix4x4 { matrix: nDeform.matrixAt(width / 2, height / 2) }
+            opacity: win.nFade * nMorph.fade * morphSw.gate("settings")
+            transform: [
+              Matrix4x4 { matrix: nDeform.matrixAt(width / 2, height / 2) },
+              Scale { origin.x: width / 2; origin.y: height / 2; xScale: nMorph.grow; yScale: nMorph.grow },
+              Translate { x: morphSw.shiftX("settings", win.morphFinal("settings")); y: nMorph.rise + morphSw.shiftY("settings", win.morphFinal("settings")) }
+            ]
             active: scope.settings
             screenWidth: scope.screen.width
             screenHeight: scope.screen.height

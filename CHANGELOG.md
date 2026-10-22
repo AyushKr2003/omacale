@@ -2,6 +2,17 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.0 - 2026-10-22
+
+### Added
+- **motion**: Settings › Motion › Style chooses between Caelestia's curves, Liquid and the new Morph. With Morph, panels open and close quickly and their content rises and fades in; only one panel is up at a time, and opening another (dashboard, launcher, session menu, sidebar, utilities, Settings, the overview) turns the open one into it, its shape travelling and resizing into the new panel. Switching between bar popouts reshapes the popout the same way, dropping the old page and bringing the new one in. Morph follows the motion of Serpantinum's panels
+- **glass**: Glass cards (Settings › Glass): the cards in the dashboard, utilities and the notification sidebar are clear glass of their own, bending the drawer's glass along their edge
+- **glass**: Liquid while moving (Settings › Glass): a drawer or card that moves bends and splits the light harder for a moment, and settles as it stops
+- **licensing**: THIRD_PARTY.md and LICENSES/ list the code ported from Serpantinum (AGPL-3.0-or-later), Vitreus (MIT) and pleamar (BSD-3-Clause), and those files carry their license and copyright; the manifest's license names all four
+
+### Fixed
+- **glass**: The glass lens is clearer by default (its own frost 0.3 instead of 0.5)
+
 ## 0.54.3 - 2026-10-22
 
 ### Fixed

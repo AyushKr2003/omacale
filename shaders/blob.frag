@@ -1,4 +1,9 @@
 #version 440
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 ilyamiro and the Serpantinum contributors (https://github.com/ilyamiro/serpantinum).
+// Glass lens ported from Serpantinum; the rest from Caelestia (GPL-3.0),
+// Vitreus (MIT) and pleamar (BSD-3-Clause).
+// See THIRD_PARTY.md.
 // Omacale frame + drawer background. A port of Caelestia's SDF "blob" shader
 // (plugin/src/Caelestia/Blobs/shaders/blob.frag): the screen frame (an
 // inverted rounded rect) and every open drawer are signed distance fields
@@ -22,12 +27,14 @@
 // Hyprland blurs behind, smoked or milky, with light on its edge and its
 // shadow only outside it. Off (glassA.x == 0), the output is the plain fill.
 //
-// Its edge is a bevel: lit by a gleam where its slope catches the light,
-// and, with a backdrop (modules/drawers/GlassBackdrop.qml: the wallpaper and
-// this screen's windows, rebuilt, with nothing of ours in it), bending what
-// is behind as pleamar's lens does -- Snell's law through the bevel's
-// profile, red, green and blue apart, the room round it mirrored on the
-// steep part -- and handing over to Hyprland's own blur where it flattens.
+// Its edge is a bevel, lit by a gleam where its slope catches the light.
+// With a backdrop (modules/drawers/GlassBackdrop.qml: the wallpaper and
+// this screen's windows, rebuilt, with nothing of ours in it) the whole body
+// is Serpantinum's liquid glass (src/assets/shaders/effects/liquid_glass.frag):
+// a squircle bevel bending what is behind by Snell's law and pulling it into
+// the rim, red and blue apart, lightly frosted and livened, tinted as a
+// filter, the outside mirrored on the steep part, lit by a hairline, a sheen
+// and a thin spectrum, swelling a little under the pointer.
 
 layout(location = 0) in vec2 qt_TexCoord0;
 layout(location = 0) out vec4 fragColor;
@@ -82,6 +89,9 @@ layout(std140, binding = 0) uniform buf {
     vec2 pointer;     // the pointer, in px
     vec4 glassC;      // lens on (> 0.5), bevel (px), refraction (thickness), dispersion
     vec4 glassD;      // lens: frost (0 clear .. 1), gleam, reflection, dome (magnification)
+    vec4 m0;          // each rect's motion energy (0..1): r0..r3
+    vec4 m1;          // r4..r7
+    vec4 m2;          // r8, r9
 };
 
 layout(binding = 1) uniform sampler2D backdrop;
@@ -173,6 +183,12 @@ float neckAt(int i) {
     return d9.w;
 }
 
+float motionAt(int i) {
+    if (i < 4) return i == 0 ? m0.x : i == 1 ? m0.y : i == 2 ? m0.z : m0.w;
+    if (i < 8) return i == 4 ? m1.x : i == 5 ? m1.y : i == 6 ? m1.z : m1.w;
+    return i == 8 ? m2.x : m2.y;
+}
+
 // An ellipse's distance, near enough at the edge for a blend.
 float sdEllipse(vec2 p, vec2 c, vec2 r) {
     return (length((p - c) / r) - 1.0) * min(r.x, r.y);
@@ -188,36 +204,11 @@ vec4 over(vec4 c, vec3 col, float a) {
     return vec4(col * a + c.rgb * (1.0 - a), a + c.a * (1.0 - a));
 }
 
-// pleamar's lens (shape.wgsl), after True Glass for Omarchy and HyprGlass:
-// the bevel's height from its edge (t = 0) to where the flat top begins
-// (t = 1), (1 - (1 - t)^3)^(1/3), and its slope.
-float rimHeight(float t) {
-    float s = 1.0 - t;
-    return pow(max(1.0 - s * s * s, 0.0), 1.0 / 3.0);
-}
+// The bevel's slope from its edge (t = 0) to where the flat top begins
+// (t = 1), for the gleam of the glass drawn without the lens.
 float rimSlope(float t) {
     float s = 1.0 - t;
     return s * s * pow(max(1.0 - s * s * s, 1e-4), -2.0 / 3.0);
-}
-// A colour's index (Cauchy, fitted at n = 1.5 to an Abbe number of
-// 10 / dispersion).
-float iorFor(float lambda2, float dispersion) {
-    if (dispersion <= 0.0) return 1.5;
-    float b = 0.5 / ((10.0 / dispersion) * 1.9105);
-    return 1.5 - b / 0.34527 + b / lambda2;
-}
-float tanhApprox(float x) { return 1.0 - 2.0 / (exp(2.0 * x) + 1.0); }
-// Where the ray seen here comes from: straight down into the bevel tilted
-// `slope` towards `outward`, bent by Snell's law, across the glass's height
-// z; eased into `cap` (half the bevel) so a corner never folds over.
-vec2 refractOffset(vec2 outward, float slope, float ior, float z, float cap) {
-    vec3 n = normalize(vec3(outward * slope, 1.0));
-    vec3 t = refract(vec3(0.0, 0.0, -1.0), n, 1.0 / ior);
-    if (t.z > -1e-3) return vec2(0.0);
-    vec2 o = t.xy * (z / -t.z);
-    float l = length(o);
-    if (l < 1e-4) return o;
-    return o * (cap * tanhApprox(l / max(cap, 1e-3)) / l);
 }
 // pleamar's glass_tone: smoked glass takes what is seen through down, the
 // brighter the more, keeping its colour; milky glass lifts it towards white,
@@ -392,9 +383,25 @@ void main() {
     // itself it would fan out into a cone); the frame keeps the top-left
     // light, and the fillet between a drawer and the frame turns from one to
     // the other.
-    vec2 g = vec2(dFdx(merged), dFdy(merged));
+    // The sidebar and utilities, joined, are one slab: the 2px they overlap
+    // by is no edge of the glass, so depth into it is measured from the
+    // outline of the two together (the top one's top corners, the bottom
+    // one's bottom ones).
+    float body = merged;
+    if (excl56 > 0.5 && d[5] < 1e9 && d[6] < 1e9) {
+        bool sbTop = r6.y < r5.y;
+        vec4 ra = sbTop ? r6 : r5;
+        vec4 rb = sbTop ? r5 : r6;
+        vec4 ca = sbTop ? c6 : c5;
+        vec4 cb = sbTop ? c5 : c6;
+        vec2 lo = vec2(min(ra.x, rb.x), ra.y);
+        vec2 hi = vec2(max(ra.x + ra.z, rb.x + rb.z), rb.y + rb.w);
+        float joint = sdRoundedBox4(pixel, (lo + hi) * 0.5, (hi - lo) * 0.5, vec4(ca.x, cb.y, cb.z, ca.w));
+        if (merged < 0.0 && joint < 0.0) body = min(merged, joint);
+    }
+    vec2 g = vec2(dFdx(body), dFdy(body));
     vec2 outward = g / max(length(g), 1e-6);
-    float inside = max(-merged, 0.0);
+    float inside = max(-body, 0.0);
     int near = -1;
     float dn = 1e10;
     for (int i = 0; i < 10; i++) if (d[i] < dn) { dn = d[i]; near = i; }
@@ -449,36 +456,95 @@ void main() {
     // the bevel; toned (smoke, milk) on its own colours, livened, tinted,
     // and tinted more where it is bright or busy so what is written on the
     // glass always reads; the steep bevel mirroring the room round it.
+    float lensW = 0.0;
     if (glassC.x > 0.5 && alpha > 0.0) {
-        float thick = 1.4 * bevel * glassC.z;
-        float slope = t < 1.0 ? min(thick * rimSlope(t) / bevel, 40.0) : 0.0;
-        float z = thick * rimHeight(t);
-        float cap = 0.5 * bevel;
-        vec2 base = pixel;
-        if (near >= 0 && glassD.w > 0.0) base += (ctrs[near] - pixel) * glassD.w * 0.06 * t * onDrawer;
-        vec2 q = base + refractOffset(outward, slope, iorFor(0.3014, glassC.w), z, cap);
-        // In the bevel what is bent looks fairly sharp; further in, frosted
-        // (any frost at all is the frosted backdrop, blurred as far as the
-        // setting says: a mix of sharp and blurred would be a ghost, not a frost).
-        float sharpness = smoothstep(0.0, 0.6, 1.0 - t) * 0.85;
-        vec4 sq = texture(backdrop, q / res);
-        vec4 fq = texture(frosted, q / res);
-        vec3 behind = mix(sq.rgb / max(sq.a, 1e-3), fq.rgb / max(fq.a, 1e-3),
-                          smoothstep(0.0, 0.15, glassD.x) * (1.0 - sharpness));
-        float known = smoothstep(0.6, 0.98, min(sq.a, fq.a));
-        if (glassC.w > 0.0 && slope > 0.01) {
-            vec2 qr = base + refractOffset(outward, slope, iorFor(0.3733, glassC.w), z, cap);
-            vec2 qb = base + refractOffset(outward, slope, iorFor(0.2153, glassC.w), z, cap);
-            vec4 sr = texture(backdrop, qr / res);
-            vec4 sb = texture(backdrop, qb / res);
-            vec3 fringe = vec3(sr.r / max(sr.a, 1e-3), behind.g, sb.b / max(sb.a, 1e-3));
-            behind = mix(behind, fringe, sharpness * step(0.5, min(sr.a, sb.a)));
+        // Serpantinum's liquid glass (liquid_glass.frag), on our merged
+        // shape. The bevel is a squircle, steep only in its outer quarter;
+        // the ray through it is bent by Snell's law across the glass's
+        // thickness, uncapped, and the edge is pulled inwards on top of that
+        // (with a slight sideways ripple), so what is behind is drawn into
+        // the rim and squeezed there, as a thick slab does.
+        float bz = max(min(glassC.y * 1.45, edgeRoom * 0.85), 1.0);
+        float u = clamp(inside / bz, 0.0, 1.0);
+        float om = 1.0 - u;
+        float om4 = om * om * om * om;
+        float slope = min((om * om * om) / pow(max(1.0 - om4, 1e-3), 0.75), 7.0);
+
+        // The pointer over a drawer: the light leans towards it, and the
+        // glass swells a little under it.
+        vec2 toCursor = pointer - pixel;
+        float cd = length(toCursor);
+        float hover = 0.0;
+        vec2 hsN = near >= 0 ? halves[near] : res * 0.5;
+        if (glassB.w > 0.5 && near >= 0) {
+            float dp = sdRoundedBox4(pointer, ctrs[near], rectAt(near).zw * 0.5, radiiAt(near));
+            hover = (1.0 - smoothstep(0.0, 24.0, dp)) * onDrawer;
         }
-        float frost = glassD.x;
+        float reach = max(40.0, min(hsN.x, hsN.y) * 1.2);
+        float nearC = hover * exp(-cd * cd / (2.0 * reach * reach));
+        float sigma = reach * 0.5;
+        // A drawer on the move (Liquid while moving): thicker, bending and
+        // splitting the light harder, magnifying more, for a moment.
+        float motion = near >= 0 ? motionAt(near) * onDrawer : 0.0;
+        float thick = bevel * 1.15 * glassC.z;
+        float bulgeH = hover * exp(-cd * cd / (2.0 * sigma * sigma)) * 0.35 * thick;
+        vec3 normal = normalize(vec3(outward * slope - bulgeH * toCursor / (sigma * sigma), 1.0));
+        float th = thick * 1.35 * (1.0 + 0.12 * nearC + 0.64 * motion);
+        vec3 ray = refract(vec3(0.0, 0.0, -1.0), normal, 1.0 / 1.5);
+        vec2 dG = ray.xy / max(-ray.z, 0.2) * th;
+        float edgeFall = om * om;
+        float wobble = sin(dot(pixel, vec2(0.11, 0.09)) + inside * 0.35) * 0.5 + 0.5;
+        dG += (-outward * edgeFall * bz * (0.294 + 0.11 * wobble)
+            + vec2(-outward.y, outward.x) * edgeFall * bz * 0.092 * (wobble - 0.5)) * (1.0 + 0.644 * motion);
+        // Red and blue bent a little further and a little less.
+        float spread = glassC.w * 0.3 * (0.35 + 1.2 * edgeFall) * (1.0 + 2.2 * motion);
+
+        // A small drawer magnifies its middle a little (Magnify); a big one
+        // barely, as the lens of a large slab is flat.
+        vec2 ps = pixel;
+        if (near >= 0 && (glassD.w > 0.0 || motion > 0.0)) {
+            vec2 rel = pixel - ctrs[near];
+            vec2 hs = max(hsN, vec2(1.0));
+            float zr = clamp(length(rel / hs), 0.0, 1.0);
+            float lensK = 1.0 - 0.75 * smoothstep(180.0, 420.0, max(hs.x, hs.y));
+            ps -= rel * (0.13 * glassD.w + 0.064 * motion) * (1.0 - zr * zr) * lensK * onDrawer;
+        }
+
+        // What is behind, frosted as lightly as Frost says (GlassBackdrop);
+        // only one picture is sampled, as a mix of sharp and blurred is a
+        // ghost, not a frost.
+        vec4 sq = texture(frosted, clamp((ps + dG) / res, 0.0, 1.0));
+        vec3 behind = sq.rgb / max(sq.a, 1e-3);
+        float known = smoothstep(0.6, 0.98, sq.a);
+        if (spread > 0.0 && dot(dG, dG) > 0.25) {
+            vec4 sr = texture(frosted, clamp((ps + dG * (1.0 + spread)) / res, 0.0, 1.0));
+            vec4 sb = texture(frosted, clamp((ps + dG * (1.0 - spread)) / res, 0.0, 1.0));
+            if (sr.a > 0.05) behind.r = sr.r / sr.a;
+            if (sb.a > 0.05) behind.b = sb.b / sb.a;
+        }
         float rawGray = dot(behind, vec3(0.299, 0.587, 0.114));
-        behind = glassTone(behind, glassA.z, glassA.w, frost);
-        float gray = dot(behind, vec3(0.299, 0.587, 0.114));
-        vec3 vivid = clamp(mix(vec3(gray), behind, 1.18), 0.0, 1.0);
+        behind = mix(vec3(dot(behind, vec3(0.2126, 0.7152, 0.0722))), behind, 1.25);
+
+        // The rim's shading: its lower edge and the bevel a touch darker,
+        // what lies just outside the glass mirrored on the steep part
+        // (Fresnel), and the side turned from the light in its own shadow.
+        behind *= 1.0 - 0.06 * exp(-inside / 6.0) * clamp(outward.y, 0.0, 1.0);
+        behind *= 1.0 - 0.025 * exp(-inside / (bz * 0.45));
+        vec2 L = normalize(vec2(-0.55, -0.83));
+        if (cd > 0.001) L = normalize(mix(L, toCursor / cd, hover * 0.4) + vec2(1e-5));
+        float facing = dot(outward, L);
+        float spec = pow(max(facing, 0.0), 1.6) + 0.55 * pow(max(-facing, 0.0), 2.2);
+        float fres = pow(1.0 - normal.z, 1.5);
+        if (fres > 0.001) {
+            vec4 e = texture(frosted, clamp((pixel + outward * (inside + bz * 1.4)) / res, 0.0, 1.0));
+            vec3 env = (e.a > 1e-3 ? e.rgb / e.a : behind) * 1.12 + 0.03;
+            behind = mix(behind, env, clamp(fres * 0.55 * (0.4 + 0.6 * max(facing, 0.0)), 0.0, 0.6) * glassD.z);
+        }
+        behind *= 1.0 - 0.16 * exp(-inside / (bz * 0.55)) * max(-facing, 0.0);
+
+        float frost = glassD.x;
+        behind = glassTone(clamp(behind, 0.0, 1.0), glassA.z, glassA.w, frost);
+        vec3 vivid = behind;
         // Busy (text, a window's lines, leaves): the fine detail frosting
         // takes away, the sharp backdrop against the frosted one, averaged
         // over a 4 x 4 grid across the whole drawer -- one value per drawer,
@@ -502,24 +568,44 @@ void main() {
         // The tint: pleamar's 22% at its default 36% body, following the
         // Opacity setting; more over bright or busy, the more so the clearer
         // the glass (a frosted one already softens what is behind).
-        float tint = clamp(glassA.y * 0.6, 0.0, 1.0);
-        vec3 glassCol = mix(vivid, tone, tint);
+        // The tint is a filter, Serpantinum's: what is behind multiplied
+        // towards the surface colour, the more where it is bright.
+        float tint = clamp(glassA.y * 0.6 * (0.7 + 0.6 * rawGray), 0.0, 1.0);
+        vec3 glassCol = vivid * mix(vec3(1.0), tone, tint);
         glassCol = mix(glassCol, tone, max(bright * 0.45, detail * 0.6) * (1.0 - 0.45 * frost));
-        // The bevel, tilted away from the eye, mirrors the room round the
-        // glass (Schlick, F0 = 0.04): most where it turns over at the edge.
-        if (slope > 0.01) {
-            float cv = 1.0 / sqrt(1.0 + slope * slope);
-            float m1 = 1.0 - cv;
-            float fr = 0.04 + 0.96 * m1 * m1 * m1 * m1 * m1;
-            float fw = clamp(fr * 0.9, 0.0, 0.85) * smoothstep(0.0, 2.0, inside) * glassD.z;
-            if (fw > 0.002) {
-                vec4 env = texture(frosted, (pixel + outward * 20.0) / res);
-                if (env.a > 0.5) glassCol = mix(glassCol, glassTone(env.rgb / env.a, glassA.z, glassA.w, frost), fw);
-            }
+
+        // The light on it: a hairline right on the edge and a wider glow,
+        // strong where they face the light; a broad sheen down the lit
+        // bevel; a faint band where the bevel meets the flat; and, under it,
+        // a thin spectrum where the glass splits the light (Colour fringes).
+        float rimK = 0.45 * glassB.x * (1.0 + 0.5 * nearC);
+        float hair = exp(-inside / 1.1);
+        float wide = exp(-inside / 5.0);
+        float edgeHi = (hair * (0.18 + 0.78 * spec) + wide * 0.10 * (0.30 + spec)) * rimK;
+        float broad = exp(-inside / (bz * 0.45)) * pow(max(facing, 0.0), 2.0) * 0.2 * rimK;
+        float mx = (inside - bz * 0.5) / (bz * 0.2 + 1.0);
+        float men = exp(-mx * mx) * 0.07 * (0.35 + spec) * rimK;
+        vec3 fringe = vec3(0.0);
+        if (inside < bz * 2.5 && glassC.w > 0.0) {
+            float fb = (inside - bz * 0.42) / (bz * 0.22 + 1.0);
+            float phase = dot(outward, vec2(0.7, 0.45)) * 0.9 + inside / (bz * 1.6) + 0.15 * dot(pixel, vec2(0.004, 0.003));
+            vec3 spectrum = 0.5 + 0.5 * cos(6.2831853 * (phase + vec3(0.0, 0.33, 0.67)));
+            fringe = (spectrum - 0.5) * exp(-fb * fb) * (0.04 + 0.08 * spec) * rimK * min(glassC.w / 0.35, 1.5) * (1.0 + 3.0 * motion);
         }
+        glassCol += vec3(edgeHi + broad + men) + fringe;
+        // A grain finer than a pixel's step keeps the gradients from banding.
+        vec2 fc = gl_FragCoord.xy;
+        vec3 h3 = fract(vec3(fc.xyx) * 0.1031);
+        h3 += dot(h3, h3.yzx + 33.33);
+        vec3 h4 = fract(vec3((fc * 1.7 + 17.0).xyx) * 0.1031);
+        h4 += dot(h4, h4.yzx + 33.33);
+        glassCol += vec3(fract((h3.x + h3.y) * h3.z) + fract((h4.x + h4.y) * h4.z) - 1.0) * 0.004;
+
+        lensW = known;
         float w = known * alpha;
-        c = c * (1.0 - w) + vec4(glassCol, 1.0) * w;
+        c = c * (1.0 - w) + vec4(clamp(glassCol, 0.0, 1.0), 1.0) * w;
     }
-    c = over(c, vec3(1.0), clamp(shine + gleam, 0.0, 1.0) * alpha);
+    // The drawn glass's own light, where the lens doesn't draw.
+    c = over(c, vec3(1.0), clamp(shine + gleam, 0.0, 1.0) * alpha * (1.0 - lensW));
     fragColor = c * qt_Opacity;
 }

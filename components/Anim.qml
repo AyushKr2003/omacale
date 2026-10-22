@@ -4,6 +4,7 @@ import ".."
 // Caelestia's Anim: expressive spatial by default.
 // type: fastSpatial | spatial | slowSpatial | fastEffects | effects | slowEffects
 //       | standardSmall | standard | standardLarge | standardExtraLarge | emphasized | emphasizedLarge
+//       | morphIn | morphOut (Morph motion's drawers and popout switches, core/Morph.qml)
 NumberAnimation {
   property string type: "spatial"
   readonly property var _spec: ({
@@ -18,7 +19,9 @@ NumberAnimation {
     standardLarge: [Tk.durations.large, Tk.curves.standard],
     standardExtraLarge: [Tk.durations.extraLarge, Tk.curves.standard],
     emphasized: [Tk.durations.normal, Tk.curves.emphasized],
-    emphasizedLarge: [Tk.durations.large, Tk.curves.emphasized]
+    emphasizedLarge: [Tk.durations.large, Tk.curves.emphasized],
+    morphIn: [Morph.slideIn, Morph.curveIn],
+    morphOut: [Morph.slideOut, Morph.curveOut]
   })[type] || [Tk.durations.defaultSpatial, Tk.curves.defaultSpatial]
   duration: _spec[0]
   easing.type: Easing.BezierSpline

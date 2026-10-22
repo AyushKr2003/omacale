@@ -496,6 +496,62 @@ Hyprland's blur rows now only concern the toasts and the glass without the lens.
 Measured with the sidebar open over a playing 1080p video: 18% shell CPU, 7% Hyprland
 (drawers closed: 0% and 4%).
 
+## 13. Seventh pass: Serpantinum's lens
+
+Serpantinum (`shell/serpantinum`, a Quickshell shell) has the better liquid glass: its
+`assets/shaders/effects/liquid_glass.frag`, fed a mipmapped picture of the wallpaper
+(`reusables/display/WallpaperBlur.qml`) and, for cards, of the glass under them
+(`GlassFill.qml`). Side by side, what ours lacked was all in the shader:
+
+- **The edge actually bends.** pleamar's `refract_offset` eased the shift into half the
+  bevel (`tanh` cap), so at 18 px the rim moved what is behind by at most 9 px and read as a
+  sheet. Serpantinum's bevel is a squircle, `slope = (1-u)^3 / (1-(1-u)^4)^0.75` capped at
+  7 over `1.45 × bevel`, steep only in its outer quarter; the refracted ray is
+  `r.xy / max(-r.z, 0.2) × thickness` with no cap (≈ 24 px at the edge here), and an
+  explicit inward pull (`edgeFall × bevel × ~0.3`, a slight sideways ripple) on top.
+  What is behind is drawn into the rim and squeezed there.
+- **Nearly clear.** Its frost is a few px, with 1.25× saturation. Frost now maps
+  `1 + 31 × f²` px (default 0.3 → ~4 px; the old 0.5 → ~9 px), and the 8 px floor
+  `GlassBackdrop` kept for the busy measure is gone (text still differs from a 4 px blur).
+- **The tint is a filter** (`behind × mix(1, tone, a)`), stronger over bright.
+- **Light in layers:** a hairline (`exp(-t/1.1)`), a wider glow (`exp(-t/5)`), a broad
+  sheen down the lit bevel, a meniscus band where the bevel meets the flat, and a thin
+  spectrum under it (scaled by Colour fringes). The old shine and gleam are only drawn
+  where the lens isn't.
+- **Shading:** a Fresnel mirror of what lies just outside the edge (`pow(1-n.z, 1.5)`),
+  the counter-lit side in its own shadow, the lower edge a touch darker; grain against
+  banding.
+- **The pointer:** over a drawer the light leans 40% towards it and the glass swells under
+  it (a Gaussian in the normal, a little more thickness).
+- **Magnify** is Serpantinum's lens zoom (`0.13 × dome`, 4.5% at the default), fading on
+  big drawers as its `lensK` does (kept at a quarter there, not none).
+
+Not ported: Serpantinum's per-tap disk blur over mip levels (mips read back sharp here,
+§12), and its `energy` (a press or pulse; nothing in Omacale presses a glass surface).
+
+Ported after, as Settings › Glass toggles (both on by default with the lens):
+
+- **Liquid while moving (`glass.motion`).** Serpantinum's `motion`: a surface's movement
+  since the last frame (centre, plus half its change in size), capped at 60 px, adds
+  `d / 36` to its energy, which decays by 0.91 per 16 ms. While it is up, the glass is
+  thicker (`+64%`), its edge warp stronger (`+64%`), red and blue further apart (`×3.2`),
+  the middle more magnified (`+6.4%`) and the spectrum brighter (`×4`). `GlassMotion`
+  tracks the drawers' ten rects for the blob (uniforms `m0..m2`) and each card's own.
+- **Glass cards (`glass.nested`).** Serpantinum's `GlassFill` at nest level 1, clear: its
+  flat is only the card's tint (the drawer's glass shows through as it is), its rim bends
+  that glass (`shaders/glasscard.frag`: the same squircle, Snell, warp, Fresnel, counter
+  shadow and light, at the nested strengths). What it samples is the frame and drawers as
+  drawn: ScreenScope renders its background into a layer once while cards are glass,
+  and the window shows that texture, so the blob isn't drawn twice and the cards (outside
+  it) are never in what they bend. A card places itself on the surface on the window's
+  `afterAnimating`: a FrameAnimation there kept an open drawer redrawing at the refresh
+  rate. Measured with the dashboard open (its animated cat and clock redraw it anyway):
+  29% shell CPU with glass cards, 27% without.
+
+One thing the port exposed: the joined sidebar and utilities overlap by 2 px and are
+excluded from blending, so the merged distance there is ~1 px: an edge, to a lens. The
+shader measures depth into the pair from their joint outline instead.
+
 ---
 
 ## Sources

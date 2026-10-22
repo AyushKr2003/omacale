@@ -42,6 +42,8 @@ ShaderEffect {
   // the sampler gets an empty image (null logs a warning on every surface).
   property vector4d glassC: Qt.vector4d(0, 0, 0, 0)
   property vector4d glassD: Qt.vector4d(0, 0, 0, 0)
+  // Per rect, its motion energy (GlassMotion, Glass.motion); missing is still.
+  property var motion: []
   property var backdrop: noBackdrop
   property var frosted: noBackdrop
   Image { id: noBackdrop; visible: false }
@@ -63,6 +65,7 @@ ShaderEffect {
     return b ? Qt.vector4d(b[0], b[1], b[2], b[3]) : Qt.vector4d(0, 0, 0, 0)
   }
   function bumpBlend(i) { const b = bumps[i]; return b ? b[4] : 0 }
+  function motionAt(i) { return motion[i] || 0 }
   function excludes(i, j) { return excluded.some(p => (p[0] === i && p[1] === j) || (p[0] === j && p[1] === i)) }
 
   fragmentShader: Qt.resolvedUrl("../../shaders/blob.frag.qsb")
@@ -105,5 +108,8 @@ ShaderEffect {
   property vector4d b1: bumpAt(1)
   property vector4d b2: bumpAt(2)
   property vector4d b3: bumpAt(3)
+  property vector4d m0: Qt.vector4d(motionAt(0), motionAt(1), motionAt(2), motionAt(3))
+  property vector4d m1: Qt.vector4d(motionAt(4), motionAt(5), motionAt(6), motionAt(7))
+  property vector4d m2: Qt.vector4d(motionAt(8), motionAt(9), 0, 0)
   property vector4d bk: Qt.vector4d(bumpBlend(0), bumpBlend(1), bumpBlend(2), bumpBlend(3))
 }

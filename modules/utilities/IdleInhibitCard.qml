@@ -3,14 +3,14 @@ import QtQuick.Layouts
 import "../.."
 
 // Keep awake card (Caelestia utilities/cards/IdleInhibit.qml).
-Rectangle {
+GlassCard {
   id: root
 
   readonly property real nonAnimHeight: layout.implicitHeight + (IdleService.enabled ? chip.implicitHeight + chip.anchors.topMargin : 0) + Tk.padding.extraLargeIncreased
 
   implicitHeight: nonAnimHeight
   radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
+  fill: Colours.m3surfaceContainer
   clip: true
 
   RowLayout {

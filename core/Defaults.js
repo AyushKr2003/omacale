@@ -130,6 +130,10 @@ var values = {
     sag: 220, wobble: 260,
     detach: { neckBreak: true, ripples: true, stray: true }
   },
+  // Morph motion (Settings › Motion › Style, core/Morph.qml): drawers come
+  // and go, and popouts morph into each other, as Serpantinum's panels do.
+  // Never on with liquid motion.
+  morph: { enabled: false },
   // Glass (Settings › Glass): Vitreus's glass on the frame and drawers --
   // translucent over Hyprland's blur, smoked or milky, lit on the edge.
   // Off, they are drawn as Caelestia's (or with Transparency, as that).
@@ -144,10 +148,12 @@ var values = {
     frost: 5,                // that blur's size
     bevel: 18,               // how wide the glass's rounded edge is (px)
     lens: true,              // the bevel bends what is behind (modules/drawers/GlassBackdrop.qml)
-    lensFrost: 0.5,          // the lens's own frost (0 is clear glass)
+    lensFrost: 0.3,          // the lens's own frost (0 is clear glass; 0.3 is Serpantinum's light soften)
     dome: 0.35,              // what is behind, a little magnified towards a drawer's middle
     refraction: 1.0,         // how thick the glass is: how much it bends
-    dispersion: 0.35         // colour fringes where it bends hard
+    dispersion: 0.35,        // colour fringes where it bends hard
+    motion: true,            // a moving drawer or card bends harder for a moment (Serpantinum's)
+    nested: true             // the cards are glass of their own over the drawer's (components/GlassCard.qml)
   }
 }
 

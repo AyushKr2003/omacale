@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "omacale.bar",
   "name": "Omacale",
-  "version": "0.54.3",
+  "version": "0.55.0",
   "author": "AyushKr2003",
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-only AND AGPL-3.0-or-later AND MIT AND BSD-3-Clause",
   "description": "A Caelestia-style shell for Omarchy: screen frame, slim vertical bar, and slide-out drawers.",
   "kinds": ["bar"],
   "entryPoints": {

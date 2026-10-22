@@ -134,9 +134,11 @@ test("every liquid setting is on the Motion page, and every key there exists", (
   const page = S.pageById("liquid")
   assert.ok(page, "page")
   const keys = page.rows.filter(r => r.key).map(r => r.key)
-  for (const key of leaves(D.values.liquid, "liquid.")) if (key !== "liquid.preset") assert.ok(keys.includes(key), key + " has no row")
+  // liquid.enabled is the Style row's (motionStyle), with morph.enabled.
+  for (const key of leaves(D.values.liquid, "liquid.")) if (key !== "liquid.preset" && key !== "liquid.enabled") assert.ok(keys.includes(key), key + " has no row")
   for (const k of keys) assert.notStrictEqual(D.get(D.values, k), undefined, k)
   assert.ok(page.rows.some(r => r.comp === "liquidPreset"), "the preset row")
+  assert.ok(page.rows.some(r => r.comp === "motionStyle"), "the style row")
   assert.ok(all.some(x => x.r.type === "nav" && x.r.page === "liquid" && x.page === "frame"), "Frame & motion links to it")
 })
 test("liquid motion is off by default, and the rest of the page waits for it", () => {
@@ -146,6 +148,9 @@ test("liquid motion is off by default, and the rest of the page waits for it", (
     const off = S.whenHolds(r.when, k => k === "liquid.enabled" ? false : D.get(D.values, k))
     assert.strictEqual(off, false, r.key + " is live with liquid motion off")
   }
+})
+test("morph motion is off by default", () => {
+  assert.strictEqual(D.values.morph.enabled, false)
 })
 test("a list of when conditions must all hold", () => {
   const get = k => ({ a: 1, b: 2 })[k]

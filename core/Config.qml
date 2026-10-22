@@ -435,6 +435,9 @@ QtObject {
           property bool stray: true
         }
       }
+      property JsonObject morph: JsonObject {
+        property bool enabled: false
+      }
       property JsonObject glass: JsonObject {
         property bool enabled: false
         property real opacity: 0.36
@@ -446,10 +449,12 @@ QtObject {
         property int frost: 5
         property real bevel: 18
         property bool lens: true
-        property real lensFrost: 0.5
+        property real lensFrost: 0.3
         property real dome: 0.35
         property real refraction: 1.0
         property real dispersion: 0.35
+        property bool motion: true
+        property bool nested: true
       }
     }
   }

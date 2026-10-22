@@ -13,13 +13,18 @@ singleton AppService 1.0 services/AppService.qml
 singleton Colours 1.0 core/Colours.qml
 singleton Config 1.0 core/Config.qml
 singleton Liquid 1.0 core/Liquid.qml
+singleton Morph 1.0 core/Morph.qml
 singleton Glass 1.0 core/Glass.qml
 BlobDeform 1.0 components/shapes/BlobDeform.qml
 LiquidDetach 1.0 components/shapes/LiquidDetach.qml
 LiquidDrawer 1.0 components/shapes/LiquidDrawer.qml
 Spring 1.0 components/Spring.qml
+MorphDrawer 1.0 components/MorphDrawer.qml
+MorphSwitch 1.0 components/MorphSwitch.qml
 BlobPopup 1.0 components/controls/BlobPopup.qml
 BlobSurface 1.0 components/shapes/BlobSurface.qml
+GlassCard 1.0 components/GlassCard.qml
+GlassMotion 1.0 components/GlassMotion.qml
 ConnectedRect 1.0 components/shapes/ConnectedRect.qml
 CoverArt 1.0 components/CoverArt.qml
 Dashboard 1.0 modules/dashboard/Dashboard.qml

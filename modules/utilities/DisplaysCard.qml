@@ -7,7 +7,7 @@ import "../.."
 // utilities cards). Only with more than one screen, so a laptop on its own
 // keeps Caelestia's drawer. Each slider is Omarchy's brightness for that
 // display (backlight or DDC/CI); a display that reports none has no slider.
-Rectangle {
+GlassCard {
   id: root
 
   Component.onCompleted: DisplayService.hold()
@@ -19,7 +19,7 @@ Rectangle {
 
   implicitHeight: visible ? col.implicitHeight + Tk.padding.large * 2 : 0
   radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
+  fill: Colours.m3surfaceContainer
 
   ColumnLayout {
     id: col

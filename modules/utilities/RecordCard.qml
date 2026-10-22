@@ -5,7 +5,7 @@ import "../.."
 // Screen recorder card (Caelestia utilities/cards/Record.qml): a badge, title
 // and a split Record button whose menu picks the mode; below it the recordings
 // list, or, while recording, a REC pill, the elapsed time and a stop button.
-Rectangle {
+GlassCard {
   id: root
 
   property var host
@@ -15,7 +15,7 @@ Rectangle {
 
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
   radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
+  fill: Colours.m3surfaceContainer
 
   Component.onCompleted: RecordService.reloadRecordings()
 
