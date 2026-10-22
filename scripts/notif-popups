@@ -2,8 +2,8 @@
 """Hand the notification toasts over to Omacale (and give them back).
 
 Omarchy's notification daemon (`omarchy.notifications`) owns
-org.freedesktop.Notifications, DND, history and the per-popup state files --
-and it also draws the toast itself, in one Overlay PanelWindow per output.
+org.freedesktop.Notifications, DND, history and the notification state files
+-- and it also draws the toast itself, in one Overlay PanelWindow per output.
 Two D-Bus notification servers are not allowed to run side by side, and
 Hyprland has no layer rule that can hide a layer surface, so the only way for
 Omacale to draw the toast is to take that one window out of the daemon.
@@ -21,10 +21,17 @@ to a *fresh* copy of stock `Service.qml` -- never on top of the last one:
     that failed to load, another bar, a removed Omacale, "Show popups" off;
   * while gated, a lifetime manager stands in for the expiry timer that
     lives inside the toast delegate, so popups still expire;
-  * each live popup file gains a `deadline`, so Omacale can draw the timeout
-    ring off the same clock the daemon expires on;
+  * each popup on screen carries a `deadline`, so Omacale can draw the
+    timeout ring off the same clock the daemon expires on;
   * IPC is added for what a drawn-elsewhere stack needs: pause/resume for
     hover, and dismiss/invoke addressed by popup rather than by index.
+
+There are two daemons to patch. Stable Omarchy (4.0.x) keeps one file per
+popup (NotificationLogic.js); rc, edge and dev ship the deck rewrite
+(Store.js, live.json + history.json), which keeps no popup
+files, so its patch writes the cards on screen to the runtime directory
+(`omacale-notifs-popups.json`) for Omacale, and adds `forgetKeys` /
+`forgetAll`, as its history is one file the daemon rewrites from memory.
 
 Everything else -- the server, DND, history, persistence, and the existing
 `dismissAll` / `invokeLast` / `dismiss` IPC -- stays upstream code.
@@ -57,14 +64,19 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:headless-popups v2"
+MARKER = "omacale:headless-popups v3"
 # Every version of the patch carries this; `remove` and `ours()` know a clone
 # Omacale patched by it, whichever version patched it.
 MARKER_PREFIX = "omacale:headless-popups v"
-# The stock Service.qml this patch was last tested against. A different one
-# that the patch still applies to is synced, but `status` says `verified: no`
-# so we know to re-test the toasts after that Omarchy update.
-VERIFIED_AGAINST = "11665542e70df80ccd3c785a6143dee2daefd2082e4f75c740adc2c9947cf7c2"
+# The stock Service.qml files this patch was last tested against: stable
+# (v4.0.4-v4.0.6) and the deck (v4.5.0-rc1, edge and dev as of quattro
+# be54892f). A different one that the patch still applies to is synced, but
+# `status` says `verified: no` so we know to re-test the toasts after that
+# Omarchy update.
+VERIFIED_AGAINST = {
+    "11665542e70df80ccd3c785a6143dee2daefd2082e4f75c740adc2c9947cf7c2",
+    "0270dae590b71b941204e40fa7b45f9c8891c23becb0970bbdc893beb598ce40",
+}
 
 HOME = os.path.expanduser("~")
 PLUGINS_DIR = os.path.join(HOME, ".config", "omarchy", "plugins")
@@ -74,6 +86,8 @@ STOCK_DIR = os.path.join(
     "shell", "plugins", "notifications",
 )
 
+# ------------------------------------------------------------------ stable
+#
 # The upstream popup UI starts at this line and runs to the end of the file.
 POPUP_UI_ANCHOR = "  // -------------------------------------------------------------- popup UI"
 # Fingerprints of the block we expect to be gating. If upstream reshapes the
@@ -322,6 +336,285 @@ IPC_BLOCK = '''    // ---------------------------------------------------- Omaca
 {anchor}
 '''
 
+# -------------------------------------------------------------------- deck
+#
+# rc, edge and dev: the deck rewrite. Its Service.qml imports Store.js, and
+# draws its cards (Toast.qml, each with its own lifetime timer) on one
+# surface per output, in the section that starts here and runs to the end.
+DECK_IMPORT = 'import "Store.js" as Store\n'
+DECK_UI_ANCHOR = "  // ------------------------------------------------------------- surface\n"
+DECK_UI_FINGERPRINTS = ('WlrLayershell.namespace: "omarchy-notifications"', "Variants {", "Toast {",
+                        "model: toasts", 'onExpired: service.closeToast(model.key, "expired")')
+DECK_SCREENS = "  Variants {\n    id: surfaceVariants\n    model: Quickshell.screens\n"
+DECK_SCREENS_GATED = "  Variants {\n    id: surfaceVariants\n    model: service.omacaleDraws ? [] : Quickshell.screens\n"
+# What the patch calls on the stock service; refused if any of it is gone.
+DECK_USES = ("ListModel {\n    id: toasts\n", "property var leaving: ({})", "function closeToast(key, reason)",
+             "function activate(key)", "function rowIndexFor(key)", "function storeDrop(key)",
+             "function clearAll(reason)", "property var historyEntries: []", "function saveSoon(file)",
+             "function refreshHeld()", "function refreshHistory()", "property var liveKeys")
+
+DECK_HEADLESS_BLOCK = '''  // ---------------------------------------------------------- Omacale
+  //
+  // {marker} -- patched by Omacale (scripts/notif-popups).
+  //
+  // Omacale draws the cards as Caelestia's toasts, on its own overlay layer,
+  // from the rows below, which this service writes to the runtime directory
+  // (omacale-notifs-popups.json) while Omacale draws them. It does so only
+  // while its bar is running in this very shell process (its claim in the
+  // runtime directory names this process) with "Show popups" on, and only
+  // then does the stock surface below get no screens to draw on. With any of
+  // that gone -- a bar that failed to load, another bar, Omacale removed
+  // without its uninstaller, a claim a crashed shell left behind, "Show
+  // popups" off -- this draws its own cards again within a second, without
+  // a restart. `omarchy plugin remove` puts the stock plugin back.
+  //
+  // Each card owns its lifetime timer (Toast.qml). While the surface is gated
+  // off the timer lives here instead, as a single sweep over the toasts.
+
+  // The claim is read on a timer rather than watched: a watch on a file that
+  // doesn't exist yet (a fresh runtime directory after a reboot) never sees it
+  // appear. It is a few bytes. No runtime directory, no claim: no /tmp
+  // fallback another user could plant one in.
+  readonly property string omacaleRuntime: Quickshell.env("XDG_RUNTIME_DIR") || ""
+  property bool omacaleDraws: false
+
+  function omacaleCheckClaim() {
+    var draws = false
+    if (omacaleClaim.path !== "") {
+      try {
+        omacaleClaim.reload()
+        omacaleClaim.waitForJob()
+        var claim = JSON.parse(omacaleClaim.text())
+        draws = !!claim && claim.pid === Quickshell.processId && claim.popups === true
+      } catch (e) {
+        draws = false
+      }
+    }
+    if (draws === service.omacaleDraws) return
+    // A stack paused by Omacale's hover would never be resumed once Omacale
+    // has stopped drawing it.
+    if (!draws) service.setPopupsPaused(false)
+    service.omacaleDraws = draws
+    service.omacaleWritePopups()
+  }
+
+  Timer {
+    interval: 1000
+    repeat: true
+    running: true
+    triggeredOnStart: true
+    onTriggered: service.omacaleCheckClaim()
+  }
+
+  // Written by Omacale's bar as it loads ({ pid, popups }), released as it
+  // unloads (services/NotifService.qml claimPopups()).
+  FileView {
+    id: omacaleClaim
+    path: service.omacaleRuntime === "" ? "" : service.omacaleRuntime + "/omacale-notifs-claim.json"
+    blockLoading: true
+    printErrors: false
+  }
+
+  // Hover-pause. Omacale stops the countdown while the pointer is over the
+  // toast column, as Caelestia's notifications do.
+  property bool popupsPaused: false
+  property real popupPausedAt: 0
+
+  // Deadline per card, keyed by its key. A card restarts its countdown when
+  // its arrival (ts and duration) changes, as Toast.qml does.
+  property var popupClocks: ({})
+
+  function popupDeadline(row, key) {
+    var arrival = String(row.ts) + ":" + String(row.duration)
+    var clock = service.popupClocks[key]
+    if (clock && clock.arrival === arrival) return clock.deadline
+    var duration = Number(row.duration || 0)
+    // One that arrives mid-pause starts counting when the pause ends.
+    var start = service.popupsPaused ? service.popupPausedAt : Date.now()
+    var deadline = duration > 0 ? start + duration : 0
+    service.popupClocks[key] = { arrival: arrival, deadline: deadline }
+    return deadline
+  }
+
+  function setPopupsPaused(paused) {
+    var want = !!paused
+    if (want === service.popupsPaused) return
+    if (want) {
+      service.popupsPaused = true
+      service.popupPausedAt = Date.now()
+      return
+    }
+
+    // Give back exactly the time the stack spent paused, and write the new
+    // deadlines out so Omacale's rings pick the same moment back up.
+    var elapsed = Math.max(0, Date.now() - service.popupPausedAt)
+    service.popupsPaused = false
+    for (var key in service.popupClocks)
+      if (service.popupClocks[key].deadline > 0) service.popupClocks[key].deadline += elapsed
+    service.omacaleWritePopups()
+  }
+
+  // The cards on screen, newest first, in the record Omacale reads
+  // (scripts/notifs.py): its key, a millisecond timestamp, and the deadline.
+  // A leaving card is already gone as far as Omacale is concerned.
+  function omacalePopupRows() {
+    var out = [], seen = {}
+    for (var i = 0; i < toasts.count; i++) {
+      var row = toasts.get(i)
+      var key = String(row.key || "")
+      if (!key || service.leaving[key]) continue
+      seen[key] = true
+      out.push({
+        _key: key, id: row.originalId, originalId: row.originalId,
+        app: row.app, appIcon: row.appIcon, summary: row.summary, body: row.body,
+        image: row.image, glyph: row.glyph, execArgv: row.execArgv,
+        urgency: row.urgency, expireTimeout: row.expireTimeout,
+        timestamp: Math.round(Number(row.ts || 0) * 1000),
+        deadline: service.popupDeadline(row, key)
+      })
+    }
+    // Clocks of cards that left the screen by any route.
+    for (var k in service.popupClocks) if (!seen[k]) delete service.popupClocks[k]
+    return out
+  }
+
+  // Written only when it changes; [] whenever Omacale isn't drawing.
+  property string omacaleWritten: ""
+  function omacaleWritePopups() {
+    if (omacalePopupsFile.path === "") return
+    var text = JSON.stringify(service.omacaleDraws ? service.omacalePopupRows() : [])
+    if (text === service.omacaleWritten) return
+    service.omacaleWritten = text
+    omacalePopupsFile.setText(text + "\\n")
+  }
+
+  FileView {
+    id: omacalePopupsFile
+    path: service.omacaleRuntime === "" ? "" : service.omacaleRuntime + "/omacale-notifs-popups.json"
+    atomicWrites: true
+    printErrors: false
+  }
+
+  function sweepPopupLifetimes() {
+    var now = Date.now(), expired = []
+    for (var i = 0; i < toasts.count; i++) {
+      var row = toasts.get(i)
+      var key = String(row.key || "")
+      if (!key || service.leaving[key]) continue
+      var deadline = service.popupDeadline(row, key)
+      if (deadline > 0 && now >= deadline) expired.push(key)
+    }
+    for (var j = 0; j < expired.length; j++) {
+      delete service.popupClocks[expired[j]]
+      service.closeToast(expired[j], "expired")
+    }
+    service.omacaleWritePopups()
+  }
+
+  Timer {
+    interval: 200
+    repeat: true
+    running: service.omacaleDraws && (toasts.count > 0 || service.omacaleWritten !== "[]")
+    triggeredOnStart: true
+    onTriggered: service.popupsPaused ? service.omacaleWritePopups() : service.sweepPopupLifetimes()
+  }
+
+  // A paused stack is paused by something outside this process. If Omacale
+  // goes away mid-hover -- a crash, a shell restart, an unplugged monitor --
+  // nothing would ever resume it and the toasts would sit there forever.
+  Timer {
+    interval: 60000
+    running: service.popupsPaused
+    onTriggered: service.setPopupsPaused(false)
+  }
+
+  // Forget notifications for good: off the screen if they are on it, and out
+  // of history. Dropped from the store first, so closing a card records
+  // nothing. History is one file this service rewrites from memory, so
+  // Omacale's sidebar can only delete from it through here.
+  function omacaleForget(keys) {
+    var gone = {}
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i]
+      gone[key] = true
+      service.storeDrop(key)
+      if (service.liveKeys[key]) service.closeToast(key, "dismissed")
+    }
+    service.historyEntries = service.historyEntries.filter(function(entry) { return !gone[entry.key] })
+    service.saveSoon("history")
+    service.refreshHeld()
+    service.refreshHistory()
+  }
+'''
+
+DECK_IPC_BLOCK = '''    // ---------------------------------------------------- Omacale
+    //
+    // {marker}
+    //
+    // While Omacale draws the stack (see the Omacale section above the
+    // surface) it needs to address a single card rather than "the newest
+    // one". The key is the card's own key, as in live.json and history.json.
+
+    // Whether the stock surface is gated off right now (Omacale's claim).
+    function popupsHidden(): string {
+      return service.omacaleDraws ? "yes" : "no"
+    }
+
+    // The patch, for the health check and for Omacale, which only draws
+    // toasts for a daemon that answers this: an unpatched one keeps its own,
+    // and the two can never both be on screen.
+    function omacalePopups(): string {
+      return "{marker}"
+    }
+
+    function pause(): string {
+      service.setPopupsPaused(true)
+      return "ok"
+    }
+
+    function resume(): string {
+      service.setPopupsPaused(false)
+      return "ok"
+    }
+
+    function dismissKey(key: string): string {
+      var k = String(key || "")
+      if (service.rowIndexFor(k) < 0 || service.leaving[k]) return "none"
+      service.closeToast(k, "dismissed")
+      return "ok"
+    }
+
+    // The card's click: its --exec command, the sender's default action, or
+    // focusing the source -- then it closes.
+    function invokeKey(key: string): string {
+      var k = String(key || "")
+      if (service.rowIndexFor(k) < 0 || service.leaving[k]) return "none"
+      service.activate(k)
+      return "ok"
+    }
+
+    // Space-separated keys, off the screen and out of history.
+    function forgetKeys(keys: string): string {
+      var list = String(keys || "").split(/\\s+/).filter(function(k) { return /^[A-Za-z0-9_-]{1,120}$/.test(k) })
+      if (!list.length) return "none"
+      service.omacaleForget(list)
+      return "ok"
+    }
+
+    // Everything: the cards on screen and all of history.
+    function forgetAll(): string {
+      service.omacaleForget(Object.keys(service.liveKeys))
+      service.clearAll("dismissed")
+      service.historyEntries = []
+      service.saveSoon("history")
+      service.refreshHeld()
+      service.refreshHistory()
+      return "ok"
+    }
+
+{anchor}
+'''
+
 
 def fail(msg):
     print("notif-popups: " + msg, file=sys.stderr)
@@ -368,8 +661,28 @@ class Refused(Exception):
     """Stock Service.qml is not the file this patch was written for."""
 
 
-def patch_text(text):
-    """The gate patch applied to a stock Service.qml."""
+def is_deck(text):
+    """rc, edge and dev's daemon rather than stable's."""
+    return DECK_IMPORT in text
+
+
+def common_checks(text, ui):
+    if ui.rstrip().rsplit("\n", 1)[-1].strip() != "}":
+        raise Refused("unexpected end of Omarchy's notification Service.qml")
+    for needed in ("import Quickshell\n", "import Quickshell.Io\n"):
+        if needed not in text:
+            raise Refused("Omarchy's notification Service.qml no longer imports %s" % needed.strip())
+
+
+def add_ipc(patched, block):
+    """`block` is the IPC section, its marker and anchor filled in."""
+    if IPC_ANCHOR not in patched:
+        raise Refused("no IpcHandler anchor in Omarchy's notification Service.qml")
+    return patched.replace(IPC_ANCHOR, block.rstrip("\n"), 1)
+
+
+def patch_stable(text):
+    """The gate patch for stable's Service.qml (one file per popup)."""
     index = text.find(POPUP_UI_ANCHOR)
     if index == -1:
         raise Refused(
@@ -391,20 +704,46 @@ def patch_text(text):
             "the toast window in Omarchy's notification daemon no longer takes its "
             "screens from `model: Quickshell.screens`. Update scripts/notif-popups."
         )
-    if popup_ui.rstrip().rsplit("\n", 1)[-1].strip() != "}":
-        raise Refused("unexpected end of Omarchy's notification Service.qml")
-    for needed in ("import Quickshell\n", "import Quickshell.Io\n"):
-        if needed not in text:
-            raise Refused("Omarchy's notification Service.qml no longer imports %s" % needed.strip())
+    common_checks(text, popup_ui)
 
     patched = (text[:index] + HEADLESS_BLOCK.format(marker=MARKER) + "\n"
                + popup_ui.replace(POPUP_SCREENS, POPUP_SCREENS_GATED, 1))
+    return add_ipc(patched, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR))
 
-    if IPC_ANCHOR not in patched:
-        raise Refused("no IpcHandler anchor in Omarchy's notification Service.qml")
-    return patched.replace(
-        IPC_ANCHOR, IPC_BLOCK.format(marker=MARKER, anchor=IPC_ANCHOR).rstrip("\n"), 1
-    )
+
+def patch_deck(text):
+    """The gate patch for the deck's Service.qml (rc, edge, dev)."""
+    if text.count(DECK_UI_ANCHOR) != 1:
+        raise Refused(
+            "Omarchy's notification daemon no longer has the one surface section this "
+            "patch gates; its cards have probably changed shape. Update "
+            "scripts/notif-popups."
+        )
+    index = text.find(DECK_UI_ANCHOR)
+    surface = text[index:]
+    missing = [f for f in DECK_UI_FINGERPRINTS if f not in surface]
+    missing += [f.strip().split("\n")[0] for f in DECK_USES if f not in text[:index]]
+    if missing:
+        raise Refused(
+            "the cards in Omarchy's notification daemon are not the ones this "
+            "patch gates (missing: %s). Update scripts/notif-popups."
+            % ", ".join(missing)
+        )
+    if surface.count(DECK_SCREENS) != 1:
+        raise Refused(
+            "the card surface in Omarchy's notification daemon no longer takes its "
+            "screens from `model: Quickshell.screens`. Update scripts/notif-popups."
+        )
+    common_checks(text, surface)
+
+    patched = (text[:index] + DECK_HEADLESS_BLOCK.replace("{marker}", MARKER) + "\n"
+               + surface.replace(DECK_SCREENS, DECK_SCREENS_GATED, 1))
+    return add_ipc(patched, DECK_IPC_BLOCK.replace("{marker}", MARKER).replace("{anchor}", IPC_ANCHOR))
+
+
+def patch_text(text):
+    """The gate patch applied to a stock Service.qml, whichever daemon it is."""
+    return patch_deck(text) if is_deck(text) else patch_stable(text)
 
 
 def patch_service(path):
@@ -510,7 +849,7 @@ def cmd_status(offline=False):
         print("stale:     %s" % ("yes" if stale else "no"))
         if stale:
             print("stale-files: %s" % ", ".join(stale))
-        print("verified:  %s" % ("yes" if handover.sha(stock) == VERIFIED_AGAINST else "no"))
+        print("verified:  %s" % ("yes" if handover.sha(stock) in VERIFIED_AGAINST else "no"))
     print("expects:   %s" % MARKER)
     if not offline:
         if not patched_running():
@@ -592,9 +931,16 @@ def cmd_install(restart=True):
     directory = clone_dir()
     service = os.path.join(directory, "Service.qml")
 
-    if not os.path.isdir(directory):
+    fresh = not os.path.isdir(directory)
+    if fresh:
         if not os.path.isdir(STOCK_DIR):
             fail("Omarchy's notification plugin is not installed at %s" % STOCK_DIR)
+        # Refuse before cloning: a clone the patch can't apply to would be a
+        # second, unpatched daemon beside whatever comes next.
+        try:
+            plan(directory)
+        except Refused as e:
+            fail(str(e))
         print("==> Cloning %s" % SOURCE_ID)
         run(["omarchy", "plugin", "clone", SOURCE_ID])
     else:
@@ -629,10 +975,11 @@ def cmd_remove(restart=True):
         print("No notification clone to remove; the stock daemon is already in use.")
         return 0
 
-    service = os.path.join(directory, "Service.qml")
-    if os.path.isfile(service) and MARKER_PREFIX not in read(service):
+    # Ours patched, or still exactly stock: a clone the patch was refused on
+    # is a daemon Omacale left behind, and has to go with the rest.
+    if not ours(directory):
         fail(
-            "%s exists but was not patched by Omacale -- it is your own clone.\n"
+            "%s exists but is not an Omacale clone -- it is your own.\n"
             "Remove it yourself with: omarchy plugin remove %s" % (directory, clone_id())
         )
 

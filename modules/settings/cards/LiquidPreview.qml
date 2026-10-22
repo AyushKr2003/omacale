@@ -9,8 +9,9 @@ import "../../../core/LiquidMath.js" as M
 // by the same LiquidDrawer as the real ones, so every setting on the page
 // shows here as it is changed; then, with the neck break on, a panel pulled
 // off its left edge into the middle and back (LiquidDetach, as the window
-// info panel and Settings leave the bar). With liquid motion off it moves on
-// Caelestia's curves, for comparison. It replays by itself after a change.
+// info panel and Settings leave the bar). With morph motion it moves on
+// that (core/Morph.qml), and with neither on Caelestia's curves, for
+// comparison. It replays by itself after a change.
 ColumnLayout {
   id: root
   property var row
@@ -54,6 +55,10 @@ ColumnLayout {
     function onWobbleChanged() { replay.restart() }
   }
   Connections {
+    target: Config.o.morph
+    function onEnabledChanged() { replay.restart() }
+  }
+  Connections {
     target: Config.o.liquid.detach
     function onNeckBreakChanged() { replay.restart() }
     function onRipplesChanged() { replay.restart() }
@@ -85,8 +90,9 @@ ColumnLayout {
       canDrop: true
       unit: card.u
     }
+    MorphDrawer { id: mDrawer; open: card.open }
     property real offC: open ? 0 : 1
-    Behavior on offC { enabled: !liq.active; Anim {} }
+    Behavior on offC { id: offB; enabled: !liq.active; Anim { type: Morph.type(offB, "spatial") } }
     readonly property real off: liq.active ? liq.off : offC
     // How far it slides (ScreenScope.slid).
     readonly property real slide: liq.drop ? 0 : liq.active ? Math.max(0, off) : off
@@ -167,10 +173,12 @@ ColumnLayout {
         width: card.dw - Tk.padding.large * card.u * 2
         spacing: Math.max(2, Tk.spacing.small * card.u)
         visible: card.off < 1
-        opacity: liq.active ? liq.contentOpacity : 1 - card.off
+        opacity: liq.active ? liq.contentOpacity : (1 - card.off) * mDrawer.fade
         transform: [
           Matrix4x4 { matrix: deform.matrixAt(card.dw / 2 - Tk.padding.large * card.u, card.dh / 2 - Tk.padding.large * card.u) },
-          Scale { origin.x: card.dw / 2 - Tk.padding.large * card.u; origin.y: -Tk.padding.large * card.u; xScale: liq.contentScale[0]; yScale: liq.contentScale[1] }
+          Scale { origin.x: card.dw / 2 - Tk.padding.large * card.u; origin.y: -Tk.padding.large * card.u; xScale: liq.contentScale[0]; yScale: liq.contentScale[1] },
+          Scale { origin.x: card.dw / 2 - Tk.padding.large * card.u; origin.y: card.dh / 2 - Tk.padding.large * card.u; xScale: mDrawer.grow; yScale: mDrawer.grow },
+          Translate { y: mDrawer.rise * card.u }
         ]
         Repeater {
           model: [1, 0.7, 0.85]
@@ -196,7 +204,8 @@ ColumnLayout {
       color: Colours.m3onSurfaceVariant
       elide: Text.ElideRight
       // Settle time of an underdamped unit-mass spring: ~4 / (zeta * omega) = 8 / c.
-      text: !Liquid.enabled ? "Off: drawers move on Caelestia's curves"
+      text: Morph.enabled ? "Morph: out in " + (Morph.slideIn / 1000).toFixed(2) + " s, the content rising in · away in " + (Morph.slideOut / 1000).toFixed(2) + " s"
+        : !Liquid.enabled ? "Caelestia: drawers move on its curves"
         : "Overshoot " + Math.round(M.overshoot(Liquid.stiffness, Liquid.damping) * 100) + "% · settles in "
           + (8 / Math.max(0.1, Liquid.damping)).toFixed(2) + " s · " + (Liquid.drop ? "drops" : "slides")
     }

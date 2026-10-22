@@ -201,7 +201,7 @@ Item {
     }
   }
 
-  component Card: Rectangle { color: Colours.m3surfaceContainer; radius: Tk.rounding.extraLarge }
+  component Card: GlassCard { radius: Tk.rounding.extraLarge }
 
   // ============================================================ Dashboard
   component Dash: GridLayout {

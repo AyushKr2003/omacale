@@ -48,12 +48,19 @@ Item {
   implicitWidth: activeLoader ? activeLoader.implicitWidth : 0
   implicitHeight: activeLoader ? activeLoader.implicitHeight : 0
   function showPage(n) {
-    if (activeLoader.page === n) { activeLoader.show(n); return }
+    if (activeLoader.page === n) { activeLoader.show(n, false); return }
+    const morph = Morph.enabled && settledOpen
     const next = activeLoader === loaderA ? loaderB : loaderA
-    activeLoader.hide()
-    next.show(n)
+    activeLoader.hide(morph)
+    next.show(n, morph)
     activeLoader = next
   }
+  // Morph motion (core/Morph.qml): a switch while the popout is open drops
+  // the old page at once and the new one rises in, as Serpantinum's
+  // executeSwitch (StackView.Immediate, then the page's introAnim), while
+  // ScreenScope reshapes the popout on Morph's curve. True a turn after
+  // opening, so the page the popout opens on isn't taken for a switch.
+  property bool settledOpen: false
   onNameChanged: showPage(name)
   Component.onCompleted: { showPage(name); syncScan() }
 
@@ -147,7 +154,10 @@ Item {
   }
   onKeyModeChanged: resetCursor()
   onCurrentChanged: resetCursor()
-  onOpenChanged: if (!open) setCursor(null)
+  onOpenChanged: {
+    if (!open) { setCursor(null); settledOpen = false }
+    else Qt.callLater(() => root.settledOpen = root.open)
+  }
 
   KeyNav {
     id: keyNav
@@ -181,16 +191,46 @@ Item {
     anchors.centerIn: parent
     sourceComponent: root.pages[page] || null
     opacity: 0
-    function show(n) {
+    // Morph's page intro: 0 coming in, 1 settled (identity).
+    property real intro: 1
+    transform: [
+      Scale {
+        origin.x: pl.width / 2
+        origin.y: pl.height / 2
+        xScale: Morph.scaleFrom + (1 - Morph.scaleFrom) * pl.intro
+        yScale: Morph.scaleFrom + (1 - Morph.scaleFrom) * pl.intro
+      },
+      Translate { y: Morph.rise * (1 - pl.intro) }
+    ]
+    function show(n, morph) {
       fadeOut.stop()
       page = n
-      fadeIn.restart()
+      if (morph) {
+        fadeIn.stop()
+        intro = 0
+        opacity = 0
+        introAnim.restart()
+      } else {
+        if (!introAnim.running) intro = 1
+        fadeIn.restart()
+      }
     }
-    function hide() {
+    function hide(morph) {
       fadeIn.stop()
-      fadeOut.restart()
+      if (morph) {
+        introAnim.stop()
+        fadeOut.stop()
+        opacity = 0
+        intro = 1
+        page = ""
+      } else fadeOut.restart()
     }
     Anim { id: fadeIn; target: pl; property: "opacity"; to: 1; type: "slowEffects" }
+    ParallelAnimation {
+      id: introAnim
+      NumberAnimation { target: pl; property: "intro"; to: 1; duration: Morph.introIn; easing.type: Easing.OutExpo }
+      NumberAnimation { target: pl; property: "opacity"; to: 1; duration: Morph.introIn; easing.type: Easing.OutExpo }
+    }
     SequentialAnimation {
       id: fadeOut
       Anim { target: pl; property: "opacity"; to: 0; type: "effects" }

@@ -10,7 +10,7 @@ import "../.."
 // bulge when pressed. Which buttons show comes from Settings › Utilities, like
 // Caelestia's `utilities.quickToggles`; more than six wrap onto a second row.
 // Caelestia's VPN toggle is left out: Omarchy has no VPN provider for it.
-Rectangle {
+GlassCard {
   id: root
 
   property var host
@@ -77,7 +77,7 @@ Rectangle {
 
   implicitHeight: layout.implicitHeight + Tk.padding.extraLargeIncreased
   radius: Tk.rounding.large
-  color: Colours.m3surfaceContainer
+  fill: Colours.m3surfaceContainer
 
   ColumnLayout {
     id: layout

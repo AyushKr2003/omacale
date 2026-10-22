@@ -1,4 +1,5 @@
 pragma Singleton
+// Portions from Vitreus (MIT, Copyright (c) 2026 natepayn3) and pleamar (BSD-3-Clause, Copyright (c) 2026, Abel); see THIRD_PARTY.md.
 import QtQuick
 import ".."
 
@@ -46,10 +47,20 @@ QtObject {
   // and Hyprland's blur is off behind it. Without, Hyprland's blur frosts.
   readonly property real lensFrost: Math.max(0, Math.min(1, cfg.lensFrost))
   readonly property real dome: Math.max(0, Math.min(1, cfg.dome))
-  // The frosted backdrop's blur: 8 to 32 px; 0 frost draws the sharp one.
-  readonly property real frostPx: Tk.px(8 + 24 * lensFrost)
+  // The frosted backdrop's blur: 1 to 32 px, slow at first, so the low end
+  // is Serpantinum's nearly clear glass (a few px of soften) and the top
+  // Vitreus's frost.
+  readonly property real frostPx: Tk.px(1 + 31 * lensFrost * lensFrost)
   readonly property real refraction: Math.max(0, Math.min(2, cfg.refraction))
   readonly property real dispersion: Math.max(0, Math.min(1, cfg.dispersion))
+  // Serpantinum's motion energy: a drawer or card that moves gets thicker,
+  // bends and splits the light more, and settles as it stops
+  // (components/GlassMotion.qml).
+  readonly property bool motion: lens && cfg.motion
+  // Serpantinum's nested glass: the cards in a drawer are clear glass of
+  // their own, bending the drawer's glass at their rim
+  // (components/GlassCard.qml).
+  readonly property bool nested: lens && cfg.nested
   readonly property vector4d a: enabled ? Qt.vector4d(1, opacity, smoke, milk) : Qt.vector4d(0, 0, 0, 0)
   readonly property vector4d b: enabled ? Qt.vector4d(light, shadow, Tk.px(18), pointer ? 1 : 0) : Qt.vector4d(0, 0, 0, 0)
   // The lens's on (x) is the backdrop's to say: ScreenScope sets it only

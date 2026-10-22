@@ -197,4 +197,4 @@ What changed in each version is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License
 
-[GPL-3.0](LICENSE)
+[GPL-3.0](LICENSE). Some files are ported from other projects and keep their own licenses -- the glass lens and glass cards from [Serpantinum](https://github.com/ilyamiro/serpantinum) (AGPL-3.0-or-later), liquid motion and the glass look from [Vitreus](https://github.com/natepayn3/Vitreus) (MIT) and [pleamar](https://github.com/k4ditano/pleamar) (BSD-3-Clause). See [THIRD_PARTY.md](THIRD_PARTY.md).

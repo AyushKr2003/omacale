@@ -8,7 +8,7 @@ import "../.."
 // count/expand pill, then the notifications (the newest few, or all when
 // expanded). Group gestures (right-click, vertical drag, swipe) live on the
 // dock's delegate; each notification swipes or middle-clicks away on its own.
-Rectangle {
+GlassCard {
   id: root
 
   property var groupData // { app, appIcon, image, items: [...] }
@@ -69,7 +69,7 @@ Rectangle {
   FocusRing { target: root; inset: true; innerRadius: root.radius; shown: root.cardRing && root.focusedRow !== null; z: 10 }
 
   radius: Tk.rounding.large
-  color: Colours.layer(Colours.palette.m3surfaceContainer, 2)
+  fill: Colours.layer(Colours.palette.m3surfaceContainer, 2)
   clip: true
   implicitHeight: nonAnimHeight
   Behavior on implicitHeight { Anim {} }

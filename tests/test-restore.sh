@@ -171,6 +171,15 @@ echo "P. the notification daemon patch"
 # do exactly one thing to a file it recognises, nothing at all to one it does
 # not, and nothing a second time.
 stock="${OMARCHY_PATH:-/usr/share/omarchy}/shell/plugins/notifications/Service.qml"
+# Stable's daemon (one file per popup) or rc/edge/dev's deck (Store.js): the
+# patch has a shape for each. Run with OMARCHY_PATH at the other to test it.
+if grep -q 'import "Store.js" as Store' "$stock" 2>/dev/null; then
+  card='Toast {'; sweep='running: service.omacaleDraws && (toasts.count'; logic=Store.js
+  ui_anchor='// ------------------------------------------------------------- surface'
+else
+  card='NotificationCard {'; sweep='running: service.omacaleDraws && popupModel.count'; logic=NotificationLogic.js
+  ui_anchor='// -------------------------------------------------------------- popup UI'
+fi
 patch_copy() { python3 -c "
 from importlib.machinery import SourceFileLoader
 SourceFileLoader('np', '$here/../scripts/notif-popups').load_module().patch_service('$1')"; }
@@ -179,12 +188,12 @@ if [[ -f $stock ]]; then
   patch_copy "$work/Service.qml" >/dev/null 2>&1
   # The toast window stays, gated: no screens while Omacale's claim names
   # this process, Omarchy's own toasts again the moment it doesn't.
-  check "popup window kept"        grep -q 'NotificationCard {' "$work/Service.qml"
+  check "popup window kept"        grep -qF "$card" "$work/Service.qml"
   check "popup window gated"       grep -q 'model: service.omacaleDraws ? \[\] : Quickshell.screens' "$work/Service.qml"
   check "  by Omacale's claim"     grep -q 'omacale-notifs-claim.json' "$work/Service.qml"
   check "  for this process only"  grep -q 'claim.pid === Quickshell.processId' "$work/Service.qml"
   check "lifetime timer kept"      grep -q 'sweepPopupLifetimes' "$work/Service.qml"
-  check "  only while gated"       grep -q 'running: service.omacaleDraws && popupModel.count' "$work/Service.qml"
+  check "  only while gated"       grep -qF "$sweep" "$work/Service.qml"
   check "IPC added"                grep -q 'function invokeKey' "$work/Service.qml"
   check "daemon left intact"       grep -q 'NotificationServer' "$work/Service.qml"
   check "original backed up"       test -f "$work/Service.qml.omacale-orig"
@@ -301,20 +310,20 @@ print(','.join(m.stale_files('$lclone')))"; }
 
   # A newer Omarchy: the daemon changes but the patch still applies.
   sed -i 's|function ping(): string { return "ok" }|function ping(): string { return "ok" }\n    function newer(): string { return "yes" }|' "$fake/shell/plugins/notifications/Service.qml"
-  echo "// newer" >> "$fake/shell/plugins/notifications/NotificationLogic.js"
+  echo "// newer" >> "$fake/shell/plugins/notifications/$logic"
   check "a newer daemon makes the clone stale"   grep -qx 'stale:     yes' <<<"$(nstatus)"
   check "and is not the verified one"            grep -qx 'verified:  no' <<<"$(nstatus)"
   hv python3 "$scripts/notif-popups" sync >/dev/null
   check "sync rebuilds from the newer stock"     grep -q 'function newer' "$nclone/Service.qml"
   check "the patch is re-applied"                grep -q 'omacale:headless-popups' "$nclone/Service.qml"
   check "the patch is applied once"              test "$(grep -c 'function popupsHidden' "$nclone/Service.qml")" = 1
-  check "other files follow stock"               cmp -s "$fake/shell/plugins/notifications/NotificationLogic.js" "$nclone/NotificationLogic.js"
+  check "other files follow stock"               cmp -s "$fake/shell/plugins/notifications/$logic" "$nclone/$logic"
   check "the pristine copy is the new stock"     cmp -s "$fake/shell/plugins/notifications/Service.qml" "$nclone/Service.qml.omacale-orig"
   check "clean after the sync"                   grep -qx 'stale:     no' <<<"$(nstatus)"
 
   # Stock reshaped so the patch no longer applies: the old clone stays.
   before_clone="$(sha256sum "$nclone/Service.qml")"
-  sed -i 's|// -------------------------------------------------------------- popup UI|// popups, redone|' "$fake/shell/plugins/notifications/Service.qml"
+  sed -i "s|$ui_anchor|// popups, redone|" "$fake/shell/plugins/notifications/Service.qml"
   check "a reshaped daemon is refused"           grep -qx 'patch:     refused' <<<"$(nstatus)"
   check "and reported stale"                     grep -qx 'stale:     yes' <<<"$(nstatus)"
   sync_refused() { ! hv python3 "$scripts/notif-popups" sync >/dev/null 2>&1; }
@@ -335,11 +344,19 @@ print(','.join(m.stale_files('$lclone')))"; }
   cp "$real_omarchy/shell/plugins/notifications/Service.qml" "$fake/shell/plugins/notifications/Service.qml"
   cp -r "$fake/shell/plugins/notifications" "$nclone"
   jq '.id = "tester.notifications" | .omarchy.clonedFrom = "omarchy.notifications"' "$fake/shell/plugins/notifications/manifest.json" > "$nclone/manifest.json"
-  echo "// my own edit" >> "$nclone/NotificationLogic.js"
+  echo "// my own edit" >> "$nclone/$logic"
   check "an edited clone is not ours to sync"    sync_refused
-  check "  (the edit is kept)"                   grep -q 'my own edit' "$nclone/NotificationLogic.js"
+  check "  (the edit is kept)"                   grep -q 'my own edit' "$nclone/$logic"
   check "  (and it is not patched)"              bash -c "! grep -q 'omacale:headless-popups' '$nclone/Service.qml'"
+  check "  (nor removed)"                        bash -c "! env HOME='$H' USER=tester OMARCHY_PATH='$fake' PATH='$H/bin:$PATH' python3 '$scripts/notif-popups' remove --no-restart >/dev/null 2>&1"
   rm -rf "$nclone"
+
+  # A clone still exactly stock -- one the patch was refused on -- is a
+  # second daemon Omacale left behind, and remove takes it back out.
+  cp -r "$fake/shell/plugins/notifications" "$nclone"
+  jq '.id = "tester.notifications" | .omarchy.clonedFrom = "omarchy.notifications"' "$fake/shell/plugins/notifications/manifest.json" > "$nclone/manifest.json"
+  hv python3 "$scripts/notif-popups" remove --no-restart >/dev/null 2>&1
+  check "an unpatched stock clone is removed"    test ! -e "$nclone"
 
   # The lock: a new file upstream reaches the clone, a removed one leaves it,
   # and a manifest capability change is carried over.
@@ -444,13 +461,31 @@ echo '{"id": 2, "app": "b", "summary": "late", "timestamp": "not a number", "shi
 echo '{"id": 3, "app": "c", "headline": "no summary", "timestamp": 300}' > "$nd/history/300-3.json"
 echo '[1, 2, 3]' > "$nd/history/400-4.json"
 echo '{broken' > "$nd/history/500-5.json"
-out="$(HOME="$H" python3 "$here/../scripts/notifs.py" 2>"$H/err")"
+# Stable's layout: an OMARCHY_PATH whose daemon has no Store.js.
+mkdir -p "$H/stable/shell/plugins/notifications"
+out="$(HOME="$H" OMARCHY_PATH="$H/stable" python3 "$here/../scripts/notifs.py" 2>"$H/err")"
 check "good records survive bad neighbours"    test "$(jq length <<<"$out")" = 3
 check "newest first"                           test "$(jq -r '.[0].app' <<<"$out")" = c
 check "a bad timestamp becomes 0"              test "$(jq -r '.[] | select(.app == "b") | .timestamp' <<<"$out")" = 0
 check "unknown fields pass through"            test "$(jq -r '.[] | select(.app == "b") | .shiny' <<<"$out")" = true
 check "a missing summary is filled"            test "$(jq -r '.[] | select(.app == "c") | .summary' <<<"$out")" = ""
 check "the format change is logged once"       test "$(grep -c 'notifs.py:' "$H/err")" = 1
+
+# The deck's layout (rc, edge, dev): live.json + history.json, keyed rows
+# with the time in seconds; the cards on screen come from the patched
+# daemon's file in the runtime directory, already in Omacale's record.
+mkdir -p "$H/deck/shell/plugins/notifications" "$H/run"; touch "$H/deck/shell/plugins/notifications/Store.js"
+echo '[{"key": "nlive1", "originalId": 7, "app": "a", "summary": "on screen", "ts": 300.5}]' > "$nd/live.json"
+echo '[{"key": "nold2", "originalId": 8, "app": "b", "summary": "closed", "ts": 200, "closed_reason": "expired"},
+       {"key": "nlive1", "originalId": 7, "app": "a", "summary": "dupe", "ts": 300.5}, {"no": "key"}, 5]' > "$nd/history.json"
+echo '[{"_key": "nlive1", "id": 7, "app": "a", "summary": "on screen", "timestamp": 300500, "deadline": 308500}]' > "$H/run/omacale-notifs-popups.json"
+deck() { HOME="$H" OMARCHY_PATH="$H/deck" XDG_RUNTIME_DIR="$H/run" python3 "$here/../scripts/notifs.py" "$@" 2>/dev/null; }
+out="$(deck)"
+check "deck: live and history, keyed, deduped"  test "$(jq -c '[.[]._key]' <<<"$out")" = '["nlive1","nold2"]'
+check "deck: seconds become milliseconds"       test "$(jq -r '.[0].timestamp' <<<"$out")" = 300500
+check "deck: the sender's id is the id"         test "$(jq -r '.[1].id' <<<"$out")" = 8
+check "deck: popups come from the runtime file" test "$(deck live | jq -r '.[0].deadline')" = 308500
+check "deck: no runtime file, no popups"        test "$(HOME="$H" OMARCHY_PATH="$H/deck" XDG_RUNTIME_DIR="$H/none" python3 "$here/../scripts/notifs.py" live)" = '[]'
 
 echo "U. the OSD handover"
 # scripts/osd-handover puts its clone in place already patched: the host keeps

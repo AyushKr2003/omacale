@@ -8,6 +8,8 @@ import ".."
 // Synchronizes with Omarchy's notification server by reading the state and history
 // JSON records in ~/.local/state/omarchy/notifications/. This ensures 100% data fidelity
 // with Omarchy's native notification daemon without DBus protocol conflicts.
+// Stable Omarchy keeps one file per notification there; rc, edge and dev (`deck`)
+// keep live.json, history.json and quiet.json (scripts/notifs.py reads both).
 QtObject {
   id: root
 
@@ -50,27 +52,43 @@ QtObject {
   // sender-chosen URL as soon as the body is shown (open tracking, requests
   // into the local network). So bodies are drawn as Omarchy's own toasts draw
   // them -- StyledText of NotificationLogic.styledBody(), which drops every
-  // image tag in whole tags (see its comments) -- and with Omarchy's logic
+  // image tag in whole tags (see its comments), or on the deck Markup.render(),
+  // which keeps only b/i/u/s/em/strong and links -- and with Omarchy's logic
   // loaded in place, never copied, as MenuService loads MenuModel.js. An
-  // Omarchy without styledBody (before 4.0.4) gets plain text: nothing rich,
+  // Omarchy with neither (before 4.0.4) gets plain text: nothing rich,
   // nothing fetched.
   readonly property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
+  // rc, edge and dev's daemon: live.json/history.json/quiet.json, keyed rows.
+  // Known once the probe below has answered, which is also when the body
+  // renderer is loaded: the two daemons have different ones.
+  property bool deck: false
+  property FileView deckProbe: FileView {
+    path: root.omarchyPath + "/shell/plugins/notifications/Store.js"
+    printErrors: false
+    onLoaded: { root.deck = true; root.loadBodyLogic() }
+    onLoadFailed: { root.deck = false; root.loadBodyLogic() }
+  }
   property var bodyLogic: null
   readonly property bool richBodies: bodyLogic !== null
   function loadBodyLogic() {
-    const src = 'import QtQuick\nimport "NotificationLogic.js" as L\nQtObject {\n'
-      + '  readonly property bool ok: typeof L.styledBody === "function"\n'
-      + '  function styled(b, a, i) { return L.styledBody(b, a, i) }\n'
-      + '}'
+    if (bodyLogic) return
+    const src = root.deck
+      ? 'import QtQuick\nimport "Markup.js" as L\nQtObject {\n'
+        + '  readonly property bool ok: typeof L.render === "function"\n'
+        + '  function styled(b, a, i) { return L.render(b) }\n'
+        + '}'
+      : 'import QtQuick\nimport "NotificationLogic.js" as L\nQtObject {\n'
+        + '  readonly property bool ok: typeof L.styledBody === "function"\n'
+        + '  function styled(b, a, i) { return L.styledBody(b, a, i) }\n'
+        + '}'
     try {
       const o = Qt.createQmlObject(src, root, "file://" + omarchyPath + "/shell/plugins/notifications/OmacaleBodyLogic.qml")
       if (o.ok) bodyLogic = o
-      else { o.destroy(); console.warn("Omacale: this Omarchy has no NotificationLogic.styledBody; notification bodies are plain text") }
+      else { o.destroy(); console.warn("Omacale: this Omarchy's notification logic has no body renderer; notification bodies are plain text") }
     } catch (e) {
       console.warn("Omacale: Omarchy's notification logic could not be loaded; notification bodies are plain text:", e)
     }
   }
-  Component.onCompleted: loadBodyLogic()
   readonly property int bodyFormat: richBodies ? Text.StyledText : Text.PlainText
   // The body as `bodyFormat` text.
   function bodyMarkup(n) {
@@ -339,14 +357,23 @@ QtObject {
     dndSettle.restart()
   }
 
+  // The deck's history is one file its daemon rewrites from memory, so a row
+  // is deleted through the patched daemon's IPC (scripts/notif-popups), keyed.
+  // Without the patch ("Show popups" off) there is no way to delete one row,
+  // and it only leaves the sidebar until the next read.
+  function forget(keys) {
+    if (keys.length) exec(["omarchy-shell", "-q", "notifications", "forgetKeys", keys.join(" ")])
+  }
+
   function dismiss(item) {
     if (!item) return
-    if (item._file) exec(["rm", "-f", "--", String(item._file)])
-    if (item.summary) exec(["omarchy-shell", "-q", "notifications", "dismiss", String(item.summary)])
+    if (deck) forget(item._key ? [String(item._key)] : [])
+    else if (item._file) exec(["rm", "-f", "--", String(item._file)])
+    if (!deck && item.summary) exec(["omarchy-shell", "-q", "notifications", "dismiss", String(item.summary)])
     // Optimistic local update
     const next = []
     for (let i = 0; i < notifications.length; i++) {
-      if (notifications[i]._file !== item._file) next.push(notifications[i])
+      if (notifications[i] !== item) next.push(notifications[i])
     }
     notifications = next
     rebuildGroups()
@@ -355,21 +382,28 @@ QtObject {
   function dismissGroup(appName) {
     if (!appName) return
     const toDelete = []
+    const keys = []
     const next = []
     for (let i = 0; i < notifications.length; i++) {
       if ((notifications[i].app || "System") === appName) {
         if (notifications[i]._file) toDelete.push(String(notifications[i]._file))
+        if (notifications[i]._key) keys.push(String(notifications[i]._key))
       } else {
         next.push(notifications[i])
       }
     }
-    if (toDelete.length) exec(["rm", "-f", "--"].concat(toDelete))
+    if (deck) forget(keys)
+    else if (toDelete.length) exec(["rm", "-f", "--"].concat(toDelete))
     notifications = next
     rebuildGroups()
   }
 
   function clearAll() {
-    run("rm -f $HOME/.local/state/omarchy/notifications/*.json $HOME/.local/state/omarchy/notifications/history/*.json && omarchy-shell notifications clear 2>/dev/null || true")
+    // Never rm on the deck: its *.json there are live, history and quiet.json
+    // (Do Not Disturb and the snoozes). Unpatched, its cards on screen go to
+    // history as they close, after `clear` has run.
+    if (deck) run("omarchy-shell -q notifications forgetAll >/dev/null 2>&1 || { omarchy-shell -q notifications dismissAll; omarchy-shell -q notifications clear; } >/dev/null 2>&1 || true")
+    else run("rm -f $HOME/.local/state/omarchy/notifications/*.json $HOME/.local/state/omarchy/notifications/history/*.json && omarchy-shell notifications clear 2>/dev/null || true")
     notifications = []
     groups = []
   }
@@ -478,14 +512,21 @@ QtObject {
   // DND state, parsed from the file the watcher already holds. It used to be
   // a `bash -c` running `jq` for this one boolean, which is a process pair
   // (~4ms) for something QML can read straight out of the FileView.
-  // Omarchy's notifications.json is `{ version: 3, dnd }` (its
+  // Stable Omarchy's notifications.json is `{ version: 3, dnd }` (its
   // NotificationLogic.parseSettings). A newer shape still reads as "DND off"
   // rather than breaking anything, but says so once in the log.
+  // The deck keeps it in notifications/quiet.json (`{ snoozes, dnd, ... }`,
+  // Store.parseQuiet); until that is first written, an empty file, the old
+  // notifications.json still holds (Store.legacyDnd).
   property bool dndFormatWarned: false
   function readDnd(t) {
+    if (deck && String(t || "").trim() !== "") {
+      try { root.dnd = JSON.parse(t).dnd === true } catch (e) { root.dnd = false }
+      return
+    }
     try {
       const parsed = JSON.parse(t)
-      if (!dndFormatWarned && (parsed.version !== 3 || typeof parsed.dnd !== "boolean")) {
+      if (!deck && !dndFormatWarned && (parsed.version !== 3 || typeof parsed.dnd !== "boolean")) {
         dndFormatWarned = true
         console.warn("Omacale: notifications.json is version " + parsed.version + ", expected 3; reading dnd as " + !!parsed.dnd)
       }
@@ -496,11 +537,24 @@ QtObject {
   }
 
   property FileView dndWatcher: FileView {
-    path: Quickshell.env("HOME") + "/.local/state/omarchy/notifications.json"
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/" + (root.deck ? "notifications/quiet.json" : "notifications.json")
     watchChanges: true
     printErrors: false
     onFileChanged: reload()
-    onLoaded: root.readDnd(text())
+    onLoaded: {
+      root.dndLegacy = root.deck && String(text()).trim() === ""
+      if (root.dndLegacy) root.legacyDnd.reload()
+      else root.readDnd(text())
+    }
+    onLoadFailed: root.dnd = false
+  }
+
+  // The deck before its first quiet.json write.
+  property bool dndLegacy: false
+  property FileView legacyDnd: FileView {
+    path: root.dndLegacy ? Quickshell.env("HOME") + "/.local/state/omarchy/notifications.json" : ""
+    printErrors: false
+    onLoaded: { try { root.dnd = JSON.parse(text()).dnd === true } catch (e) { root.dnd = false } }
     onLoadFailed: root.dnd = false
   }
 

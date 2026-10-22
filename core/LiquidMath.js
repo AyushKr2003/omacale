@@ -1,4 +1,5 @@
 .pragma library
+// Portions from Vitreus (MIT, Copyright (c) 2026 natepayn3); see THIRD_PARTY.md.
 
 // Liquid motion's arithmetic: no Caelestia original. A port of Vitreus
 // (shell/Vitreus/vitreus.plm, pages/bar_shapes.plm), where every drawer is a

@@ -28,8 +28,7 @@ Item {
 
   required property ShellScreen screen
   property bool live: false
-  // How far `frosted` is blurred (px): the lens's frost, never under 8 so
-  // the shader can tell busy from calm by it even on clear glass.
+  // How far `frosted` is blurred (px): the lens's frost.
   property real frost: 12
 
   readonly property var monitor: Hyprland.monitorFor(screen)
@@ -199,7 +198,7 @@ Item {
     autoPaddingEnabled: false
     blurEnabled: true
     blur: 1
-    blurMax: Math.max(8, Math.round(root.frost))
+    blurMax: Math.max(1, Math.round(root.frost))
     blurMultiplier: 0
   }
   ShaderEffectSource {

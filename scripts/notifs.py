@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Omarchy's notification records as JSON, newest first.
 
-Omarchy's notification daemon keeps one file per notification: while a toast
-is on screen its file sits in ~/.local/state/omarchy/notifications/, and when
-the toast goes it moves down into history/. There is no IPC that hands the
-whole set over, so we read the files.
+Stable Omarchy's notification daemon keeps one file per notification: while a
+toast is on screen its file sits in ~/.local/state/omarchy/notifications/, and
+when the toast goes it moves down into history/. rc, edge and dev's (the deck,
+with Store.js) keep two files there instead: live.json, the cards on screen,
+oldest first, and history.json, newest first; the cards on screen, with their
+deadlines, are written for Omacale by the patched daemon to
+$XDG_RUNTIME_DIR/omacale-notifs-popups.json (scripts/notif-popups). There is
+no IPC that hands the whole set over, so we read the files.
 
   (no argument)   live popups + history, deduped -- the sidebar's centre.
   live            only the popups currently on screen.
@@ -17,6 +21,10 @@ import glob, json, os, sys, time
 
 state_dir = os.path.expanduser("~/.local/state/omarchy/notifications")
 hist_dir = os.path.join(state_dir, "history")
+omarchy = os.environ.get("OMARCHY_PATH") or "/usr/share/omarchy"
+deck = os.path.isfile(os.path.join(omarchy, "shell", "plugins", "notifications", "Store.js"))
+runtime = os.environ.get("XDG_RUNTIME_DIR") or ""
+popups_file = os.path.join(runtime, "omacale-notifs-popups.json") if runtime else ""
 
 # The record Omarchy's daemon writes (NotificationLogic.js historyEntry /
 # popupEntry), with the defaults it fills in itself. A record from a newer
@@ -73,7 +81,54 @@ def normalize(d):
     return d
 
 
+def read_json(path):
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fp:
+            return json.load(fp)
+    except (OSError, ValueError):
+        return None
+
+
+def from_deck(entry):
+    """A live.json / history.json row in the per-file record's terms: its
+    key, the sender's id, and the time in milliseconds rather than seconds."""
+    if not isinstance(entry, dict) or not entry.get("key"):
+        raise ValueError("not a notification row")
+    d = dict(entry)
+    d["_key"] = str(d.pop("key"))
+    d["id"] = d.get("originalId") or 0
+    d["timestamp"] = number(d.pop("ts", 0), 0) * 1000
+    return d
+
+
+def collect_deck(live_only):
+    if live_only:
+        rows = read_json(popups_file) if popups_file else None
+        sources = [(rows, False)]
+    else:
+        sources = [(read_json(os.path.join(state_dir, "live.json")), True),
+                   (read_json(os.path.join(state_dir, "history.json")), True)]
+    seen = set()
+    notifs = []
+    for rows, stored in sources:
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            try:
+                d = normalize(from_deck(row) if stored else dict(row))
+            except Exception:
+                continue
+            if not d.get("_key") or d["_key"] in seen:
+                continue
+            seen.add(d["_key"])
+            notifs.append(d)
+    notifs.sort(key=lambda x: x["timestamp"], reverse=True)
+    return notifs
+
+
 def collect(live_only):
+    if deck:
+        return collect_deck(live_only)
     files = glob.glob(os.path.join(state_dir, "*.json"))
     if not live_only:
         files += glob.glob(os.path.join(hist_dir, "*.json"))
@@ -104,8 +159,15 @@ def signature():
     """Cheap fingerprint of the live directory: names, sizes and mtimes.
 
     Size and mtime both matter -- the daemon writes a popup's file twice, once
-    when the toast appears and again to stamp its expiry deadline on it.
+    when the toast appears and again to stamp its expiry deadline on it. The
+    deck's is one file, rewritten whole on every change.
     """
+    if deck:
+        try:
+            st = os.stat(popups_file)
+            return (st.st_ino, st.st_size, st.st_mtime_ns)
+        except OSError:
+            return ()
     try:
         with os.scandir(state_dir) as entries:
             out = []

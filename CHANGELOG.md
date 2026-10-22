@@ -2,6 +2,34 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.1 - 2026-10-22
+
+### Fixed
+- **motion**: With Morph, opening a bar popout while Settings, the sidebar, the launcher or the dashboard is up turns that panel into the popout, as panel to panel does, instead of the panel staying open beside it; a panel let go just before (a hover-opened dashboard as the pointer reaches a bar icon) morphs too, from where it is
+
+## 0.55.0 - 2026-10-22
+
+### Added
+- **motion**: Settings › Motion › Style chooses between Caelestia's curves, Liquid and the new Morph. With Morph, panels open and close quickly and their content rises and fades in; only one panel is up at a time, and opening another (dashboard, launcher, session menu, sidebar, utilities, Settings, the overview) turns the open one into it, its shape travelling and resizing into the new panel. Switching between bar popouts reshapes the popout the same way, dropping the old page and bringing the new one in. Morph follows the motion of Serpantinum's panels
+- **glass**: Glass cards (Settings › Glass): the cards in the dashboard, utilities and the notification sidebar are clear glass of their own, bending the drawer's glass along their edge
+- **glass**: Liquid while moving (Settings › Glass): a drawer or card that moves bends and splits the light harder for a moment, and settles as it stops
+- **licensing**: THIRD_PARTY.md and LICENSES/ list the code ported from Serpantinum (AGPL-3.0-or-later), Vitreus (MIT) and pleamar (BSD-3-Clause), and those files carry their license and copyright; the manifest's license names all four
+
+### Fixed
+- **glass**: The glass lens is clearer by default (its own frost 0.3 instead of 0.5)
+
+## 0.54.3 - 2026-10-22
+
+### Fixed
+- **notifications**: Omacale draws the toasts again on Omarchy rc, edge and dev, whose notification daemon was rewritten (live.json and history.json instead of one file per popup). The patch now fits both that daemon and stable 4.0.x's, so Omarchy's own toasts no longer show beside or instead of Omacale's; the sidebar reads the new history, Do Not Disturb comes from its quiet.json, and dismissing or clearing goes through the patched daemon (clearing used to delete every `*.json` there, which on the new layout would have taken the Do Not Disturb and snooze settings with it)
+- **notifications**: Switching away from Omacale removes its notification clone even when the patch had been refused on it, instead of leaving a second, unpatched daemon running beside the next bar's; install refuses before cloning rather than after
+
+## 0.54.2 - 2026-10-17
+
+### Fixed
+- **drawers**: Settings and the notifications sidebar no longer draw over each other; opening either closes the other (the session menu still sits beside the sidebar)
+- **bar**: Opening Settings or the notifications sidebar dismisses an open status popout, including one held for the keyboard or left over from hovering a bar icon, so it no longer stays drawn over Settings or keeps the keys from the sidebar (thanks @lynxx007, #32)
+
 ## 0.54.1 - 2026-10-17
 
 ### Fixed

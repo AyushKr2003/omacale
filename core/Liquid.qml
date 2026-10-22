@@ -1,4 +1,5 @@
 pragma Singleton
+// Portions from Vitreus (MIT, Copyright (c) 2026 natepayn3); see THIRD_PARTY.md.
 import QtQuick
 import "LiquidMath.js" as M
 import ".."

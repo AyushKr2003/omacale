@@ -12,6 +12,7 @@ ConnectedRect {
     // "fn:<id>": a live line from DisplayService (Settings › Display's rows).
     if (String(row.status || "").startsWith("fn:")) return DisplayService.navStatus(row.status.slice(3))
     if (row.status === "bar") return Config.o.bar.persistent ? "Always visible" : Config.o.bar.showOnHover ? "Reveal on hover" : "Hidden until toggled"
+    if (row.status === "motion") return Liquid.enabled ? "Liquid" : Morph.enabled ? "Morph" : "Caelestia"
     if (row.status) return Config.get(row.status) ? "Enabled" : "Disabled"
     return ""
   }

@@ -1,3 +1,4 @@
+// Portions from pleamar (BSD-3-Clause, Copyright (c) 2026, Abel); see THIRD_PARTY.md.
 import QtQuick
 import "../core/LiquidMath.js" as M
 import ".."
