@@ -47,8 +47,16 @@ TestCase {
   Component { id: settingsFactory; TaskbarAppsPage { width: 700; height: implicitHeight; settings: navigator } }
   Component { id: appInfoFactory; AppInfo { width: 700; height: implicitHeight; settings: navigator } }
   Component { id: pickerFactory; TaskbarAppPicker { width: 700; height: implicitHeight; settings: navigator } }
+  Component { id: folderPickerFactory; FileDialog { selectFolder: true; cwd: Quickshell.env("OMACALE_TEST_FOLDER").split("/") } }
   Component { id: groupFactory; AppsGroup { groupId: "group:work"; host: fakeHost; width: 320; height: implicitHeight } }
-  QtObject { id: navigator; property var selectedApp: null; property string taskbarGroup: ""; function push(page) {} }
+  QtObject {
+    id: navigator
+    property var selectedApp: null
+    property string taskbarGroup: ""
+    property var folderPick: null
+    function push(page) {}
+    function folderRequested(title, pick) { folderPick = pick }
+  }
   function initTestCase() { failOnWarning(/.*/) }
   function init() {
     failOnWarning(/.*/)
@@ -64,6 +72,7 @@ TestCase {
     Sys.activeToplevel=null
     Sys.calls=[]
     test.launched=[]
+    navigator.folderPick = null
     fakeHost.shell = ({ appLibrary: { launch: (id,name) => { test.launched=test.launched.concat([id]) } } })
   }
   function test_full_bar_budget_and_default_off() {
@@ -248,6 +257,73 @@ TestCase {
     verify(createTemporaryObject(settingsFactory,test))
     verify(createTemporaryObject(pickerFactory,test))
     verify(createTemporaryObject(groupFactory,test))
+  }
+  function test_folder_button_pins_only_after_selection() {
+    const page = createTemporaryObject(settingsFactory, test)
+    const before = JSON.stringify(TaskbarApps.pins)
+    findChild(page, "taskbarAddFolder").clicked()
+    verify(typeof navigator.folderPick === "function")
+    compare(JSON.stringify(TaskbarApps.pins), before)
+    navigator.folderPick("/home/test/Folder #?")
+    const folder = TaskbarApps.pins[TaskbarApps.pins.length - 1]
+    compare(folder.type, "folder")
+    compare(folder.name, "Folder #?")
+    compare(folder.path, "/home/test/Folder #?")
+  }
+  function test_folder_picker_navigation_empty_selection_and_cancel() {
+    const picker = createTemporaryObject(folderPickerFactory, test)
+    const accepted = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "accepted" }', test)
+    const rejected = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "rejected" }', test)
+    accepted.target = picker
+    rejected.target = picker
+    picker.open()
+    tryVerify(() => !!picker.item)
+    let contents = findChild(picker.item, "fileDialogContents")
+    tryCompare(contents, "count", 1) // Files are excluded from folder mode.
+    tryVerify(() => picker.item.selectionValid)
+    compare(picker.item.selectedPath, Quickshell.env("OMACALE_TEST_FOLDER"))
+    contents.currentIndex = 0
+    tryVerify(() => !!contents.currentItem)
+    compare(picker.item.selectedPath, Quickshell.env("OMACALE_TEST_FOLDER") + "/Empty")
+    contents.forceActiveFocus()
+    keyClick(Qt.Key_Return)
+    tryCompare(contents, "count", 0)
+    tryVerify(() => picker.item.selectionValid)
+    compare(picker.item.selectedPath, Quickshell.env("OMACALE_TEST_FOLDER") + "/Empty")
+    const select = findChild(picker.item, "fileDialogSelect")
+    mouseClick(select, select.width / 2, select.height / 2)
+    compare(accepted.count, 1)
+    compare(accepted.signalArguments[0][0], Quickshell.env("OMACALE_TEST_FOLDER") + "/Empty")
+    picker.open()
+    tryVerify(() => !!picker.item)
+    const cancel = findChild(picker.item, "fileDialogCancel")
+    mouseClick(cancel, cancel.width / 2, cancel.height / 2)
+    compare(rejected.count, 1)
+    compare(accepted.count, 1)
+    accepted.destroy()
+    rejected.destroy()
+  }
+  function test_file_picker_retains_image_filter() {
+    const picker = createTemporaryObject(folderPickerFactory, test, {selectFolder:false, filters:["svg"]})
+    const accepted = Qt.createQmlObject('import QtTest; SignalSpy { signalName: "accepted" }', test)
+    accepted.target = picker
+    picker.open()
+    tryVerify(() => !!picker.item)
+    const contents = findChild(picker.item, "fileDialogContents")
+    tryCompare(contents, "count", 3)
+    contents.currentIndex = 0 // Directory.
+    tryVerify(() => !!contents.currentItem)
+    verify(!picker.item.selectionValid)
+    contents.currentIndex = 1 // Text file.
+    tryVerify(() => !!contents.currentItem && contents.currentItem.file.suffix === "txt")
+    verify(!picker.item.selectionValid)
+    contents.currentIndex = 2 // Image.
+    tryVerify(() => picker.item.selectionValid)
+    const select = findChild(picker.item, "fileDialogSelect")
+    mouseClick(select, select.width / 2, select.height / 2)
+    compare(accepted.count, 1)
+    compare(accepted.signalArguments[0][0], Quickshell.env("OMACALE_TEST_FOLDER") + "/picture.svg")
+    accepted.destroy()
   }
   function test_webapp_browser_change_keeps_window_identity() {
     DesktopEntries.applications.values = [{id:"YouTube",name:"YouTube",icon:"",startupClass:"chrome-youtube.com__-Default",command:[]}]

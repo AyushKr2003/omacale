@@ -12,8 +12,9 @@ reconfigures nor disables Omarchy's separate dock.
   list are independent.
 - **Add a group** creates a named container; **Choose apps** edits its members.
   The bar shows up to four small app icons. Click it for a scrollable app list.
-- **Add a folder** pins an absolute directory path, or one starting with `~/`.
-  Its name is optional. It opens in the default file manager. This is a directory
+- **Add folder** opens the existing Omacale picker in directory mode. Choose a
+  folder and confirm **Select folder**; its name is used automatically and can
+  be edited afterwards. It opens in the default file manager. This is a directory
   shortcut, separate from the app containers above.
 - Move pinned items up/down, rename groups and directory shortcuts, or remove
   them on the same page. Move the entire Apps section using Taskbar › Bar, like
@@ -224,10 +225,14 @@ argued from ownership and regression tests, not from a finite number of starts.
 
 ### Regression coverage and existing failures
 
-The three focused JS suites pass. Qt UI has **15 passing cases** using actual
+The three focused JS suites pass. Qt UI has **18 passing cases** using actual
 components and mocked host services, including bare native addresses, a bar host
 without the menu AppLibrary capability, cross-browser web-app classes, folded
-space allocation and the scrolled shared cursor. Preview has **28 passing tests**,
+space allocation and the scrolled shared cursor. The real FolderListModel and
+picker controls cover directory-only listings, empty-folder selection, navigation,
+cancel, automatic pin names, and unchanged image-file filtering. A Qt
+FolderListModel double-decoding quirk is handled locally so literal `#`, `?` and
+`%` in directory names survive listing. Preview has **28 passing tests**,
 including empty inventory, failed post-quit verification, supervisor retry backoff,
 failed publication, settings without a prior Apps dictionary, later installed
 edits, diagnostics-write failures and cleanup failures after publication.
@@ -265,7 +270,7 @@ the shell/supervisor before publication and rollback. Recovery preserves later
 settings/installed edits and retains the original error even if diagnostics fail.
 The Quickshell scanner repair is maintained as a separate package change.
 
-Validation: taskbar-apps/layout/settings JS suites, 15 actual-component Qt cases,
+Validation: taskbar-apps/layout/settings JS suites, 18 actual-component Qt cases,
 28 preview regressions, native C++ build/stress/module tests, and the real desktop
 checks above. Existing facade/notification-restore failures reproduce on the
 baseline. Multi-monitor acceptance remains unverified because one display was

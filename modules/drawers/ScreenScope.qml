@@ -543,11 +543,12 @@ Scope {
   // comes back on the same page; the Settings window just stays.
   property var filePick: null
   property bool fileReopen: false
-  function requestFile(title, filters, pick, fromDrawer) {
+  function requestFile(title, filters, pick, fromDrawer, selectFolder = false) {
     filePick = pick
     fileReopen = fromDrawer
     filePicker.title = title
     filePicker.filters = filters
+    filePicker.selectFolder = selectFolder
     if (fromDrawer) settings = false
     filePicker.open()
   }
@@ -613,6 +614,7 @@ Scope {
         version: scope.host.version
         onCloseRequested: scope.settingsWindow = false
         onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, false)
+        onFolderRequested: (title, pick) => scope.requestFile(title, [], pick, false, true)
         onPickerRequested: kind => scope.openPicker(kind, false)
       }
     }
@@ -1881,6 +1883,7 @@ Scope {
             onCloseRequested: scope.settings = false
             onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
             onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, true)
+            onFolderRequested: (title, pick) => scope.requestFile(title, [], pick, true, true)
             onPickerRequested: kind => scope.openPicker(kind, true)
             keyHook: e => screenScope.drawerKey(e)
             pageId: scope.nexusPage

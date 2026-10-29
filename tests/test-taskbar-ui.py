@@ -26,6 +26,9 @@ modules/bar/AppsGroup.qml modules/bar/entries/AppsEntry.qml
 modules/bar/BarContent.qml core/BarLayout.js components/KeyNav.qml
 modules/settings/pages/TaskbarAppsPage.qml modules/settings/pages/TaskbarAppPicker.qml
 modules/settings/pages/AppInfo.qml modules/settings/rows/RowToggle.qml
+components/filedialog/FileDialog.qml components/filedialog/FileDialogButtons.qml
+components/filedialog/FileDialogCurrent.qml components/filedialog/FileDialogHeader.qml
+components/filedialog/FileDialogSidebar.qml components/filedialog/FolderContents.qml
 components/StateLayer.qml components/FocusRing.qml components/MText.qml
 components/MIcon.qml components/Anim.qml components/CAnim.qml
 components/controls/IconButton.qml components/controls/IconTextButton.qml
@@ -127,12 +130,42 @@ QtObject {
 """)
 
 write("imports/Quickshell/qmldir", "module Quickshell\nsingleton Quickshell 1.0 Quickshell.qml\nsingleton DesktopEntries 1.0 DesktopEntries.qml\n")
+fixture_folder = STAGE / "Folder #? %"
+(fixture_folder / "Empty").mkdir(parents=True)
+(fixture_folder / "ignored.txt").touch()
+(fixture_folder / "picture.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>')
 write("imports/Quickshell/Quickshell.qml", """pragma Singleton
 import QtQuick
 QtObject {
   property var commands: []
-  function env(key) { return "/home/test" }
+  function iconPath(name, fallback) { return "" }
+  function env(key) { return key === "OMACALE_TEST_FOLDER" ? """ + json.dumps(str(fixture_folder)) + """ : "/home/test" }
   function execDetached(args) { commands=commands.concat([args]) }
+}
+""")
+# Keep the actual picker/listing/controls; only its Quickshell window and
+# lazy-loading container are hosted inside QtTest's offscreen window.
+with (STAGE / "imports/Quickshell/qmldir").open("a") as registry:
+    registry.write("LazyLoader 1.0 LazyLoader.qml\nFloatingWindow 1.0 FloatingWindow.qml\nTestWindowFormat 1.0 TestWindowFormat.qml\n")
+write("imports/Quickshell/TestWindowFormat.qml", "import QtQuick\nQtObject { property bool opaque: false }\n")
+write("imports/Quickshell/LazyLoader.qml", """import QtQuick
+Loader {
+  id: loader
+  default property alias content: loader.sourceComponent
+  property bool activeAsync: false
+  active: activeAsync
+}
+""")
+write("imports/Quickshell/FloatingWindow.qml", """import QtQuick
+Window {
+  visible: true
+  property real implicitWidth: 0
+  property real implicitHeight: 0
+  width: implicitWidth
+  height: implicitHeight
+  property size minimumSize: Qt.size(0,0)
+  property size maximumSize: Qt.size(0,0)
+  property TestWindowFormat surfaceFormat: TestWindowFormat {}
 }
 """)
 write("imports/Quickshell/DesktopEntries.qml", """pragma Singleton

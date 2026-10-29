@@ -14,7 +14,6 @@ ColumnLayout {
   property var settings
   property bool first
   property bool last
-  property string error: ""
   spacing: Tk.spacing.extraSmall / 2
   function choose(group) { settings.taskbarGroup = group; settings.push("taskbarAppPicker") }
 
@@ -119,23 +118,13 @@ ColumnLayout {
     }
   }
 
-  SectionHeader { row: ({ text: "Add a folder" }) }
-  MText { Layout.fillWidth: true; text: "Opens a directory in your default file manager."; color: Colours.m3onSurfaceVariant; wrapMode: Text.WordWrap }
-  OutlinedField { id: folderName; Layout.fillWidth: true; placeholderText: "Name (optional)" }
-  RowLayout {
-    Layout.fillWidth: true
-    OutlinedField { id: folderPath; Layout.fillWidth: true; placeholderText: "Absolute path or ~/Documents"; onAccepted: addFolder.clicked() }
-    IconTextButton {
-      id: addFolder
-      icon: "add"
-      text: "Add folder"
-      type: "tonal"
-      disabled: !folderPath.text.trim()
-      onClicked: {
-        if (TaskbarApps.newFolder(folderName.text, folderPath.text)) { folderName.text = ""; folderPath.text = ""; root.error = "" }
-        else root.error = "Enter an absolute directory path or a path beginning with ~/."
-      }
-    }
+  RowButton {
+    objectName: "taskbarAddFolder"
+    first: true
+    last: true
+    icon: "folder_open"
+    text: "Add folder"
+    subtext: "Choose a directory to pin"
+    onClicked: root.settings.folderRequested("Choose a folder", p => TaskbarApps.newFolder("", p))
   }
-  MText { Layout.fillWidth: true; visible: root.error !== ""; text: root.error; color: Colours.m3error; wrapMode: Text.WordWrap }
 }
