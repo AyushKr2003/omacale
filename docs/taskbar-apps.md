@@ -38,78 +38,80 @@ and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
 
-## Development preview: disabled
+## Controlled development preview
 
-**The live `start` command is blocked after two failed desktop trials. Do not
-use the commands below until native desktop validation has been completed.**
-If the shell is stopped, recover with Omarchy's existing command:
+The CLI was re-enabled only after repairing the reload transaction, adding its
+failure regressions, building the native runtime correction separately, and
+verifying the corrected runtime with the existing Omacale bar and notification
+service. The runtime correction is not part of this plugin or a hidden feature
+dependency; see the incident analysis below. Do not deploy bulk file changes
+into a plugin while the shell is watching it.
 
-```bash
-omarchy-restart-shell
-```
-
-A second trial exposed Quickshell's non-JSON `No running instances.` response
-after the old shell had exited. Parsing it as JSON raised an exception before
-the helper had marked the shell as stopped, so its failure path skipped the
-restart. The parser now accepts that exact empty-inventory response, and the
-stop verifier attempts to restart the current version if a later query fails.
-Regression tests cover the actual response and an error after the quit request.
-The CLI remains disabled; these fixes have not been re-tested on the desktop.
-
-The following describes the staged workflow for development and tests only.
-
-Run from a normal desktop terminal, with an existing Omacale installation:
+From a clean, committed checkout with Omacale already selected:
 
 ```bash
-python3 /path/to/feature-checkout/scripts/taskbar-preview.py start
+python3 scripts/taskbar-preview.py start
+python3 scripts/taskbar-preview.py restore
 ```
 
-Optionally import/fast-forward the feature branch into a separate clean checkout:
+The helper backs up the installed plugin and changed settings. It prepares the
+complete new version **outside the recursive plugin watch tree**, on the same
+filesystem. Hidden folders inside the plugin tree are still watched by
+inotify, even though the host filters their reload signals.
 
-```bash
-python3 /path/to/feature-checkout/scripts/taskbar-preview.py start --checkout /path/to/omacale
-```
+It gracefully stops the existing shell, waits for its Omarchy supervisor too,
+and checks absence again immediately before directory renames. It uses
+Omarchy's existing restart command and waits for `taskbarAppsStatus` to identify
+an actual Apps entry in the loaded Omacale bar. A core ping alone is insufficient.
+Install and rollback follow the same stop-before-publish rule. An empty
+`quickshell list -a -j` may be the literal `No running instances.`; the parser
+accepts it. All commands have deadlines and a transaction lock prevents overlap.
 
-The helper prepares the complete plugin in a hidden staging directory, checks
-that the desktop is unlocked, gracefully stops the existing Omarchy shell and
-confirms that its instances have exited. Only then does it replace the plugin
-by directory renames and update settings. It starts the shell through Omarchy's
-existing restart command and waits for `taskbarAppsStatus` to report an actual
-instantiated app entry on a screen, rather than accepting the core's early ping.
-The settings page then opens. If available, `grim` captures the desktop.
+On failure, the original error is printed and saved before recovery. A failed
+publish restarts the original shell; a successful publish followed by a failed
+probe restores the backup. Recovery errors do not replace the original error.
+Restore refuses to overwrite later edits to the installed plugin. Settings use
+a three-way rollback: only preview-written leaves that still match are reverted,
+while later or unrelated edits are kept. Backups, logs and screenshots are in
+`$XDG_STATE_HOME/omacale/taskbar-preview` (normally
+`~/.local/state/omacale/taskbar-preview`). An optional `--checkout` imports a
+branch with Git and only fast-forwards; normal source selection should be done
+before deployment.
 
-A native crash reported during startup aborts the preview. Failures are printed
-before recovery and saved to `failure.json`; recovery also stops the shell
-before replacing any files. No notification, lock or OSD handovers are changed.
-A locked or unknown lock state prevents stopping the shell.
+### Incident analysis
 
-To restore the previous plugin, app settings and bar layout:
+Three separate concerns must not be conflated:
 
-```bash
-python3 /path/to/feature-checkout/scripts/taskbar-preview.py restore
-```
+1. **Native race.** Official Quickshell `0.3.2.r7.g2b4501a-5` still contains
+   Omarchy's scanner call from the URL interceptor. `-5` was a dependency rebuild,
+   not a race fix. [Omarchy issue #16167](https://github.com/omacom/omarchy/issues/16167)
+   remains open. The local package repair is maintained separately in
+   `omarchy-pkgs`: interception only routes URLs; each network manager owns its
+   late scanner, four mutable scanner collections and pragma QJSEngine. Initial
+   generation intercepts are read-only. The built package and actual interceptor/
+   scanner tests cover explicit and implicit local modules, conditionals,
+   singletons and concurrent loading. A first pure-rewrite candidate broke
+   implicit QML types on the desktop and was immediately rolled back. The
+   corrected `5.2` package loads the original bar and notification service.
+   Successful starts support this finding; the ownership change is the source
+   argument for removing this specific race.
+2. **Reload storm.** The first preview copied into the active plugin. The journal
+   records 314 reload messages around 13:50 on 2026-10-29, immediately before a
+   native import-loading crash. The host has one recursive plugin watcher and
+   emits a signal per file event; its reload timer coalesces the later work, not
+   those messages. The installed Omacale copy matched all 290 baseline files;
+   no runtime bytecode/writer was found there. Staging outside the watch tree
+   and publishing only after shell/supervisor exit removes this deployment cause.
+3. **Recovery bug.** The next trial successfully stopped the shell, then parsed
+   its non-JSON empty inventory as JSON and skipped restart. Regressions now cover
+   that exact response, a query failure after quit, simultaneous recovery failure,
+   supervisor backoff, publication failure and rollback ownership.
 
-Unrelated settings changes are kept; a modified checkout is left on its current
-branch to protect edits. Backups and diagnostics are under
-`$XDG_STATE_HOME/omacale/taskbar-preview` (normally `~/.local/state/omacale/taskbar-preview`).
-
-### Incident and validation limits
-
-The first helper copied into the **running** plugin and restarted immediately.
-The real log records 314 local-plugin reload requests in about 20 ms. The repo
-already documents that killing the shell mid-reload has caused segmentation
-faults. The preview produced a native crash in QML import loading on Quickshell
-0.3.2 / Qt 6.12.0 (`comparesEqual(QDir const&, QDir const&)`, then
-`QQmlImports::resolveType`). The recorded recovery completed, installed files
-matched the backup and the checkout returned to `main`.
-
-The revised stop-before-publish transaction removes that demonstrated unsafe
-sequence. Regression tests enforce the ordering on install **and** rollback,
-exercise a failed rename/copy, preserve local edits, wait for late bar startup
-and abort on a new crash report. They use temporary repositories and fake
-desktop commands. The revised live transaction has not yet been executed in
-the restricted development session, and the exact native trigger is not proven.
-Do not treat these tests as proof that the native crash cannot recur.
+The startup crash at 14:49 has the same `comparesEqual(QDir, QDir)` / import-loader
+stack in the original coredump/report. This is consistent with the confirmed
+native race; it is not evidence of a separate Apps QML crash. No OOM was recorded.
+The live feature acceptance results below are recorded independently from both
+the mocked tests and native package tests.
 
 ## Settings and ownership
 
@@ -150,7 +152,7 @@ window-selection rules. `services/TaskbarApps.qml` supplies shared reactive data
 and actions. It does not poll. Its window list is empty without subscribing to
 Hyprland windows while the feature is disabled. Launches use Omarchy's injected
 AppLibrary; existing Sys helpers perform window actions. Paths never become
-shell commands: `xdg-open` receives one percent-encoded file URL.
+shell commands: Qt opens one percent-encoded file URL with the default handler.
 
 `AppsEntry` keeps a keyed ListModel, so window updates and reorders preserve
 slots and in-progress pointer presses. The usual bar entry registration,
@@ -173,7 +175,7 @@ The Qt 6 test runner loads the actual new components, tokens and controls in an
 offscreen window with mock Config, desktop-entry, Hyprland and host services.
 Warnings fail the test. It checks loading and switching edges, capped lengths,
 slot identity across window changes, group opening/closing/removal, launch and
-window-cycle actions, minimized/TUI windows and safe folder argv. It does not
+window-cycle actions, minimized/TUI windows. Pure JS tests cover encoded directory URLs. It does not
 start another Quickshell process or change the user's desktop/configuration.
 It does **not** verify real JsonAdapter disk persistence, compositor IPC, icon
 lookup, or the running shell's pointer/focus integration. The BarContent budget
