@@ -223,6 +223,14 @@ TestCase {
     verify(createTemporaryObject(pickerFactory,test))
     verify(createTemporaryObject(groupFactory,test))
   }
+  function test_webapp_browser_change_keeps_window_identity() {
+    DesktopEntries.applications.values = [{id:"YouTube",name:"YouTube",icon:"",startupClass:"chrome-youtube.com__-Default",command:[]}]
+    const window = {address:"abc",workspace:{id:1,name:"1"},wayland:{appId:"brave-youtube.com__-Default",parent:null}}
+    Hyprland.toplevels.values = [window]
+    TaskbarApps.activate({type:"app",app:"YouTube"},fakeHost,false)
+    compare(Sys.calls[0],"focus:0xabc")
+    compare(launched.length,0)
+  }
   function test_terminal_without_menu_capability_uses_omarchy() {
     DesktopEntries.applications.values = [{id:"nvim",name:"Neovim",icon:"",runInTerminal:true,command:["/usr/bin/nvim","%F"]}]
     fakeHost.shell = ({ appLibrary: null })

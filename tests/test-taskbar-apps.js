@@ -94,6 +94,11 @@ test("folder URLs preserve spaces, fragments, queries and literal shell syntax",
   assert.strictEqual(url, 'file:///tmp/a%20b/%23%3F%25/%24(touch%20nope)%3B%22%C3%A9%22')
   assert.strictEqual(decodeURIComponent(url.slice(7)), dir)
 })
+test("web-app classes retain paths across supported browser prefixes", () => {
+  assert.strictEqual(M.webappClass("brave-youtube.com__-Default"), M.webappClass("chrome-youtube.com__-Default"))
+  assert.notStrictEqual(M.webappClass("brave-site.test__one-Default"), M.webappClass("chrome-site.test__two-Default"))
+  assert.strictEqual(M.webappClass("brave-browser"), "")
+})
 test("native bare window addresses become canonical Lua selectors", () => {
   assert.strictEqual(M.windowAddress("56436d702310"), "0x56436d702310")
   assert.strictEqual(M.windowAddress("0xABC"), "0xabc")

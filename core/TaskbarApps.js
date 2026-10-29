@@ -14,6 +14,12 @@ function windowAddress(value) {
   const address = text(value).replace(/^0x/i, "")
   return /^[0-9a-f]+$/i.test(address) ? "0x" + address.toLowerCase() : ""
 }
+// Omarchy's web-app entries keep Chrome's class when the browser changes.
+// Retain the full host/path/profile suffix, so apps on one site stay distinct.
+function webappClass(value) {
+  const match = text(value).match(/^(?:chrome|brave|msedge|vivaldi|opera|helium)-(.+__.*)$/i)
+  return match ? match[1].toLowerCase() : ""
+}
 function folderPath(v, home) {
   const p = text(v)
   const full = p === "~" ? home : p.startsWith("~/") ? (home ? home + p.slice(1) : "") : p

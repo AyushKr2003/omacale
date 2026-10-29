@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Widgets
 import "../../.."
@@ -135,19 +134,6 @@ Rectangle {
             color: slot.active ? Colours.m3onSecondaryContainer : Colours.m3primary
             x: bar.edge === "right" ? Tk.px(2) : bar.vertical ? parent.width - width - Tk.px(2) : (parent.width - width) / 2
             y: bar.edge === "bottom" ? Tk.px(2) : bar.vertical ? (parent.height - height) / 2 : parent.height - height - Tk.px(2)
-          }
-          HoverHandler { id: hover }
-          ToolTip {
-            id: tooltip
-            parent: slot
-            visible: hover.hovered && entry.bar.scope.popout === ""
-            delay: 500
-            text: TaskbarApps.label(slot.appItem)
-            x: entry.bar.edge === "left" ? slot.width + Tk.spacing.small : entry.bar.edge === "right" ? -implicitWidth - Tk.spacing.small : (slot.width - implicitWidth) / 2
-            y: entry.bar.edge === "top" ? slot.height + Tk.spacing.small : entry.bar.edge === "bottom" ? -implicitHeight - Tk.spacing.small : (slot.height - implicitHeight) / 2
-            padding: Tk.padding.small
-            contentItem: MText { text: tooltip.text; color: Colours.m3onSurface }
-            background: Rectangle { color: Colours.m3surfaceContainerHigh; radius: Tk.rounding.small }
           }
           Accessible.role: Accessible.Button
           Accessible.name: TaskbarApps.label(appItem)

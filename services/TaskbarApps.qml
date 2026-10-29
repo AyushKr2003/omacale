@@ -54,6 +54,9 @@ QtObject {
   function claimingEntry(appId) {
     const exact = DesktopEntries.heuristicLookup(appId)
     if (exact && entry(exact.id)) return Model.appId(exact.id)
+    const webClass = Model.webappClass(appId)
+    if (webClass) for (const e of available)
+      if (Model.webappClass(e.startupClass) === webClass) return Model.appId(e.id)
     // Omarchy's TUI launcher names terminal windows after the command, and
     // terminal wrappers can give them an explicit --app-id instead.
     for (const e of available) {
