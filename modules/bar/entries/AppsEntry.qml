@@ -100,7 +100,7 @@ Rectangle {
           }
           IconImage {
             anchors.centerIn: parent
-            implicitSize: entry.cell - Tk.padding.small * 2
+            implicitSize: entry.cell
             source: TaskbarApps.icon(slot.appItem)
             visible: !!slot.appItem && slot.appItem.type === "app"
           }
@@ -109,11 +109,11 @@ Rectangle {
             visible: !!slot.appItem && (slot.appItem.type === "folder" || (slot.appItem.type === "group" && preview.count === 0))
             text: slot.appItem && slot.appItem.type === "group" ? "apps" : "folder"
             color: Colours.m3primary
-            size: Tk.iconSize.medium
+            size: entry.cell * 0.75
           }
           Grid {
             anchors.centerIn: parent
-            columns: 2
+            columns: preview.count === 1 ? 1 : 2
             spacing: Tk.px(2)
             visible: preview.count > 0
             Repeater {
@@ -121,7 +121,7 @@ Rectangle {
               model: slot.appItem && slot.appItem.type === "group" ? slot.appItem.apps.filter(id => TaskbarApps.entry(id)).slice(0, 4) : []
               IconImage {
                 required property string modelData
-                implicitSize: (entry.cell - Tk.padding.small * 2 - Tk.px(2)) / 2
+                implicitSize: preview.count === 1 ? entry.cell : (entry.cell - Tk.px(2)) / 2
                 source: TaskbarApps.icon({ type: "app", app: modelData })
               }
             }
