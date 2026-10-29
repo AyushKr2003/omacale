@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import qs.Commons
 import "../core/TaskbarApps.js" as Model
 import ".."
 
@@ -88,7 +89,13 @@ QtObject {
     const e = entry(app)
     if (!e) return
     if (host && host.shell && host.shell.appLibrary) host.shell.appLibrary.launch(e.id, e.name)
-    else e.execute() // Older Omarchy without AppLibrary, like the launcher.
+    else if (e.runInTerminal) {
+      // Current Omarchy exposes AppLibrary only to menu plugins. Keep its
+      // terminal launch path for bars too; DesktopEntry.execute() runs the
+      // raw command and does not allocate a terminal or assign its app id.
+      const command = Array.from(e.command || []).filter(word => !/^%[fFuUdDnNickvm]$/.test(word))
+      if (command.length) Util.execArgv([(Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy") + "/bin/omarchy-launch-tui"].concat(command))
+    } else e.execute()
   }
   function activate(item, host, newInstance) {
     if (!item) return

@@ -64,6 +64,7 @@ TestCase {
     Sys.activeToplevel=null
     Sys.calls=[]
     test.launched=[]
+    fakeHost.shell = ({ appLibrary: { launch: (id,name) => { test.launched=test.launched.concat([id]) } } })
   }
   function test_full_bar_budget_and_default_off() {
     const item = createTemporaryObject(fullBarFactory, test)
@@ -221,6 +222,15 @@ TestCase {
     verify(createTemporaryObject(settingsFactory,test))
     verify(createTemporaryObject(pickerFactory,test))
     verify(createTemporaryObject(groupFactory,test))
+  }
+  function test_terminal_without_menu_capability_uses_omarchy() {
+    DesktopEntries.applications.values = [{id:"nvim",name:"Neovim",icon:"",runInTerminal:true,command:["/usr/bin/nvim","%F"]}]
+    fakeHost.shell = ({ appLibrary: null })
+    Quickshell.commands = []
+    TaskbarApps.activate({type:"app",app:"nvim"},fakeHost,false)
+    compare(Quickshell.commands.length,1)
+    compare(Quickshell.commands[0], ["/home/test/bin/omarchy-launch-tui","/usr/bin/nvim"])
+    compare(launched.length,0)
   }
   function test_launch_and_cycle() {
     TaskbarApps.activate({type:"app",app:"editor"},fakeHost,false)

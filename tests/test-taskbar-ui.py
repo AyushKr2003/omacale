@@ -160,7 +160,12 @@ Item {
   implicitHeight: implicitSize
 }
 """)
-write("imports/qs/Commons/qmldir", "module qs.Commons\nsingleton Style 1.0 Style.qml\n")
+write("imports/qs/Commons/qmldir", "module qs.Commons\nsingleton Style 1.0 Style.qml\nsingleton Util 1.0 Util.qml\n")
+write("imports/qs/Commons/Util.qml", """pragma Singleton
+import QtQuick
+import Quickshell
+QtObject { function execArgv(argv) { Quickshell.execDetached(argv) } }
+""")
 write("imports/qs/Commons/Style.qml", """pragma Singleton
 import QtQuick
 QtObject { property real fontScale: 1; property real spacingScale: 1 }
