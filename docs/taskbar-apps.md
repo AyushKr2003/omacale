@@ -151,7 +151,10 @@ ignored. Missing apps remain saved. An empty group remains editable.
 window-selection rules. `services/TaskbarApps.qml` supplies shared reactive data
 and actions. It does not poll. Its window list is empty without subscribing to
 Hyprland windows while the feature is disabled. Launches use Omarchy's injected
-AppLibrary; existing Sys helpers perform window actions. Paths never become
+AppLibrary when exposed. Bar capability proxies have no AppLibrary, so terminal
+entries use Omarchy's TUI launcher through `Util.execArgv`; other entries use the
+existing launcher's desktop-entry execution. Existing Sys helpers perform window
+actions, with native bare hexadecimal addresses normalized to Lua selectors. Paths never become
 shell commands: Qt opens one percent-encoded file URL with the default handler.
 
 `AppsEntry` keeps a keyed ListModel, so window updates and reorders preserve
@@ -182,35 +185,90 @@ lookup, or the running shell's pointer/focus integration. The BarContent budget
 and entry loader are exercised with the real AppsEntry and deterministic
 stand-ins for the other built-ins, including 20 pins and keyboard scrolling.
 
-## Desktop acceptance before marking the PR ready
+## Desktop verification — 2026-10-29
 
-Install from this branch using the repo's normal development workflow and
-restart the existing Omarchy shell. Never run a second Quickshell process.
-Back up settings first and restore the original state after checking.
+The feature was imported with Git into the requested checkout and installed as a
+regular copy in the already-running Omarchy shell. The original feature and
+recovery commits retain their authorship. No release version/changelog was changed.
 
-- [ ] With no saved `bar.apps` keys, compare the bar with the previous version:
-      no extra pill or gap, on each edge and with glass/motion on and off.
-- [ ] Enable Apps; pin two apps, import favourites, create a group and directory
-      shortcut (including spaces, `#` and `?`); exercise the real actions.
-- [ ] Reorder and rename items; restart the shell and verify the saved array,
-      membership, order and enabled state survive; reset the page/configuration.
-- [ ] Launch a new app, focus and cycle multiple windows, middle-click, and
-      restore a window minimized by Omarchy. Check TUI and web-app identities.
-- [ ] Exercise mouse and keyboard groups, Escape/outside-click, pointer travel,
-      per-screen edge changes, auto-hidden bars, removing an open group and
-      disabling the section while it is open. Ensure keyboard focus is released.
-- [ ] Fill the section, use a short screen and larger UI scale, move it between
-      start/center/end and behind the chevron. Scroll with the wheel/keys and
-      check that tray, plugin controls and power remain reachable.
-- [ ] Inspect screenshots and shell logs for each edge, plus glass and both
-      motion modes. Confirm no binding/polish loops, missing icons or stuck
-      popouts. Exercise two monitors with different edges.
+Environment: one real eDP-1 display, 2560×1600 at compositor scale 1.6; Omacale UI
+scales 0.85 and 1.2; Qt 6.12.0; locally built, package-managed Quickshell
+`0.3.2.r7.g2b4501a-5.2`. The previous official package and configuration are saved
+outside the plugin tree. The local runtime patch belongs to omarchy-pkgs, not this
+contributor change.
 
-The restricted implementation session could not reach the Hyprland socket or
-write to the installed plugin, so these live checks remain pending.
+| Check | Observed result |
+| --- | --- |
+| Default/off | No Apps entry or gap; real screenshots and status checked on left, right, top and bottom. |
+| Pins/settings | Pinned Foot and Omacalc through the picker; reordered, removed, created/renamed a group and edited its members through the UI. |
+| Directory shortcut | Added a path containing spaces, `#` and `?`; Strata, the configured directory handler, opened the exact directory. |
+| Launch/windows | Foot launched, middle-click created another window, subsequent clicks focused/cycled the real windows. A real window moved to `special:minimized` was restored to the current workspace and focused. |
+| Terminal apps | Neovim launched in Ghostty as `org.omarchy.nvim`; refocusing retained one window. The previous raw-command fallback had started orphan commands; those test processes were cleaned up. |
+| Web apps | YouTube launched in Brave. Matching the Chrome desktop class to Brave's class fixed duplicate launches; later clicks focused/cycled the two existing test windows without adding another. |
+| Group input | Pointer and bar-keyboard opening, keyboard activation, Escape, outside click, removal while open and disabling while open checked on the compositor. Screenshots confirm closing/focus release. |
+| Group scrolling | A long list of installed apps scrolled inside the existing popout. |
+| Edges/style | Group popouts viewed on all four real edges; glass, Morph and Liquid viewed on the left edge. |
+| Crowding/scale | 23–24 saved items, 25 visible app items at 120% UI scale on the real display; section capped and scrolled while power/clock remained reachable. |
+| Keyboard scrolling | Found and fixed a stale shared focus-ring rectangle. The Qt regression fails without the explicit Flickable offset dependency (768 versus 305); the corrected desktop screenshot puts the ring on the revealed tune button. |
+| Wheel scrolling | Real wheel input scrolled the constrained Apps section in both directions. |
+| Persistence | A controlled shell restart preserved the captured five-item configuration, membership, order, enabled state and slot cap exactly. |
+| Successful rollback | Repeated real restore/start cycles restored the exact prior plugin and kept unrelated settings. |
+| Failed-preview recovery | An injected readiness failure after real publication restarted and restored the prior plugin; its digest matched, the original error was saved, and exactly one Omacale shell answered afterwards. |
+| Runtime evidence | No new Quickshell crash reports during the corrected runtime/feature trials; no bulk deployment reload storm. Relevant feature logs checked alongside screenshots. |
 
-The pre-existing `tests/test-restore.sh` failure at the notification-daemon
-patch and `tests/test-facade.sh` failure also reproduce on the unmodified base
-checkout against the installed Omarchy. The facade lacks `notePopoutCard`,
-`popoutCardFor`, `traySectionDragActive` and `traySectionPopoutOpen`. Those host
-compatibility issues are outside this app-section change.
+Later pins added during acceptance were preserved. Temporary test groups/folders,
+UI scale and edge changes were removed/restored. Private desktop captures remain
+local under the preview state directory; they are not contributor-PR attachments.
+Multiple monitors were unavailable and were not simulated. Native race freedom is
+argued from ownership and regression tests, not from a finite number of starts.
+
+### Regression coverage and existing failures
+
+The three focused JS suites pass. Qt UI has **15 passing cases** using actual
+components and mocked host services, including bare native addresses, a bar host
+without the menu AppLibrary capability, cross-browser web-app classes, folded
+space allocation and the scrolled shared cursor. Preview has **28 passing tests**,
+including empty inventory, failed post-quit verification, supervisor retry backoff,
+failed publication, settings without a prior Apps dictionary, later installed
+edits, diagnostics-write failures and cleanup failures after publication.
+
+The source build and native regression compile actual patched C++ and moc code,
+exercise 400,000 concurrent interceptions, four private scanner threads, explicit
+and implicit late modules, singletons and preprocessor directives. This is
+separate from Qt UI's mocked host integration.
+
+Repository bind, theme-mode, shell-toml and screen tests also passed. On both this
+feature and an untouched `aacad54` archive, facade checking lacks
+`notePopoutCard`, `popoutCardFor`, `traySectionDragActive`, and
+`traySectionPopoutOpen`; restore testing stops at the notification-daemon patch.
+Upstream checking also encounters the baseline non-executable facade test.
+Those existing host compatibility failures have not been relabeled as Apps bugs.
+
+Sol-loop used one harness-selected native `gpt-6.1-sol` route, five rounds (the
+last two for newly found UI-state/recovery defects), with all findings resolved.
+The harness accepted that explicit model route; the child did not independently
+expose provider/model metadata or usage. No usage figures are inferred.
+
+## Contributor PR draft
+
+**Title:** feat: add optional taskbar apps, groups and directory shortcuts
+
+**Description:**
+
+Adds an opt-in Apps entry to the existing taskbar, with ordered app pins, named
+app groups and directory shortcuts. It uses the existing layout, settings,
+controls and keyboard popout, works on every edge, recognizes running windows,
+cycles/restores them and launches terminal entries through Omarchy.
+
+A controlled development preview stages outside watched directories and stops
+the shell/supervisor before publication and rollback. Recovery preserves later
+settings/installed edits and retains the original error even if diagnostics fail.
+The Quickshell scanner repair is maintained as a separate package change.
+
+Validation: taskbar-apps/layout/settings JS suites, 15 actual-component Qt cases,
+28 preview regressions, native C++ build/stress/module tests, and the real desktop
+checks above. Existing facade/notification-restore failures reproduce on the
+baseline. Multi-monitor acceptance remains unverified because one display was
+available. Release versioning remains with the maintainer.
+
+No branch has been pushed and no public PR has been opened.
