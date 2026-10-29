@@ -65,6 +65,13 @@ class PreviewTest(unittest.TestCase):
             return "ok"
         return self.real_run(*args, cwd=cwd)
 
+    def test_live_start_is_blocked_before_touching_the_desktop(self):
+        with patch.object(sys, "argv", ["taskbar-preview.py", "start"]):
+            self.assertEqual(PREVIEW.main(), 1)
+        self.assertEqual(self.desktop_calls, [])
+        self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
+        self.assertFalse((self.state / "active.json").exists())
+
     def test_install_and_restore_preserve_other_settings(self):
         PREVIEW.start(self.source, self.config, self.state, self.checkout)
         self.assertEqual(self.git("branch", "--show-current", cwd=self.checkout), "feat/taskbar-apps")

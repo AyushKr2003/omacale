@@ -155,6 +155,12 @@ def main():
     parser.add_argument("action", choices=("start", "restore"))
     parser.add_argument("--checkout", type=Path, help="Import the feature branch into this clean checkout first")
     args = parser.parse_args()
+    # A native QML-import crash was observed on the real desktop. Keep the
+    # recovery action available, but never repeat the live preview implicitly.
+    if args.action == "start":
+        print("Taskbar preview is disabled after a Quickshell segmentation fault. "
+              "The live workflow has not been validated; restore remains available.", file=sys.stderr)
+        return 1
     source = Path(__file__).resolve().parent.parent
     config = Path.home() / ".config"
     state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omacale/taskbar-preview"

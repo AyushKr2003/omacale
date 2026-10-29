@@ -38,36 +38,31 @@ and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
 
-## Try it in the running desktop
+## Live preview is currently blocked
 
-For an existing Omacale installation, run this from a normal desktop terminal:
+The first desktop preview produced a native Quickshell segmentation fault
+(Quickshell 0.3.2 / Qt 6.12.0). The recorded stack includes
+`comparesEqual(QDir const&, QDir const&)` and `QQmlImports::resolveType` while
+QML imports are being loaded. This does not identify the exact trigger or
+establish whether the app component, deployment timing, or a runtime defect is
+responsible. The feature must not be marked ready on the basis of the mock tests.
 
-```bash
-python3 /path/to/feature-checkout/scripts/taskbar-preview.py start
-```
-
-To import the feature branch into a different clean project checkout first:
-
-```bash
-python3 /path/to/feature-checkout/scripts/taskbar-preview.py start --checkout /path/to/omacale
-```
-
-The helper backs up the installed plugin, enables Apps and places it in the
-bar, restarts the existing Omarchy shell, verifies the new `taskbarAppsStatus`
-IPC and opens Settings › Taskbar › Apps. If `grim` is available it also captures
-the resulting desktop. It does not run the installer or modify notification,
-lock-screen or OSD handovers. On failure it restores the previous plugin and
-app settings. To undo a successful preview:
+The helper's `start` command is disabled before any desktop action. Recovery
+remains available:
 
 ```bash
 python3 /path/to/feature-checkout/scripts/taskbar-preview.py restore
 ```
 
-Restore keeps unrelated settings edits and leaves a changed project checkout
-on its branch to protect your work. Backups and any screenshot are under
-`$XDG_STATE_HOME/omacale/taskbar-preview` (normally `~/.local/state/omacale/taskbar-preview`).
-Only one preview can be active. Source and destination checkouts must be clean;
-a destination branch with different commits is never overwritten.
+After the failed preview, the recorded recovery completed and the installed
+plugin files matched the backup. The project checkout returned to `main`.
+The crash report used for diagnosis is `epa39c6ont/report.txt` in the user's
+Quickshell crash directory; no crash report or private logs are committed here.
+
+The helper's deployment and rollback operations are covered with temporary
+repositories and mock desktop commands. Those checks cannot reproduce or rule
+out this native crash. A live reproduction requires a controlled development
+session; do not retry the old start command on the user's desktop.
 
 ## Settings and ownership
 
