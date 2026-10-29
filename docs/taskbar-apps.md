@@ -38,31 +38,60 @@ and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
 
-## Live preview is currently blocked
+## Development preview
 
-The first desktop preview produced a native Quickshell segmentation fault
-(Quickshell 0.3.2 / Qt 6.12.0). The recorded stack includes
-`comparesEqual(QDir const&, QDir const&)` and `QQmlImports::resolveType` while
-QML imports are being loaded. This does not identify the exact trigger or
-establish whether the app component, deployment timing, or a runtime defect is
-responsible. The feature must not be marked ready on the basis of the mock tests.
+Run from a normal desktop terminal, with an existing Omacale installation:
 
-The helper's `start` command is disabled before any desktop action. Recovery
-remains available:
+```bash
+python3 /path/to/feature-checkout/scripts/taskbar-preview.py start
+```
+
+Optionally import/fast-forward the feature branch into a separate clean checkout:
+
+```bash
+python3 /path/to/feature-checkout/scripts/taskbar-preview.py start --checkout /path/to/omacale
+```
+
+The helper prepares the complete plugin in a hidden staging directory, checks
+that the desktop is unlocked, gracefully stops the existing Omarchy shell and
+confirms that its instances have exited. Only then does it replace the plugin
+by directory renames and update settings. It starts the shell through Omarchy's
+existing restart command and waits for `taskbarAppsStatus` to report an actual
+instantiated app entry on a screen, rather than accepting the core's early ping.
+The settings page then opens. If available, `grim` captures the desktop.
+
+A native crash reported during startup aborts the preview. Failures are printed
+before recovery and saved to `failure.json`; recovery also stops the shell
+before replacing any files. No notification, lock or OSD handovers are changed.
+A locked or unknown lock state prevents stopping the shell.
+
+To restore the previous plugin, app settings and bar layout:
 
 ```bash
 python3 /path/to/feature-checkout/scripts/taskbar-preview.py restore
 ```
 
-After the failed preview, the recorded recovery completed and the installed
-plugin files matched the backup. The project checkout returned to `main`.
-The crash report used for diagnosis is `epa39c6ont/report.txt` in the user's
-Quickshell crash directory; no crash report or private logs are committed here.
+Unrelated settings changes are kept; a modified checkout is left on its current
+branch to protect edits. Backups and diagnostics are under
+`$XDG_STATE_HOME/omacale/taskbar-preview` (normally `~/.local/state/omacale/taskbar-preview`).
 
-The helper's deployment and rollback operations are covered with temporary
-repositories and mock desktop commands. Those checks cannot reproduce or rule
-out this native crash. A live reproduction requires a controlled development
-session; do not retry the old start command on the user's desktop.
+### Incident and validation limits
+
+The first helper copied into the **running** plugin and restarted immediately.
+The real log records 314 local-plugin reload requests in about 20 ms. The repo
+already documents that killing the shell mid-reload has caused segmentation
+faults. The preview produced a native crash in QML import loading on Quickshell
+0.3.2 / Qt 6.12.0 (`comparesEqual(QDir const&, QDir const&)`, then
+`QQmlImports::resolveType`). The recorded recovery completed, installed files
+matched the backup and the checkout returned to `main`.
+
+The revised stop-before-publish transaction removes that demonstrated unsafe
+sequence. Regression tests enforce the ordering on install **and** rollback,
+exercise a failed rename/copy, preserve local edits, wait for late bar startup
+and abort on a new crash report. They use temporary repositories and fake
+desktop commands. The revised live transaction has not yet been executed in
+the restricted development session, and the exact native trigger is not proven.
+Do not treat these tests as proof that the native crash cannot recur.
 
 ## Settings and ownership
 
@@ -129,8 +158,9 @@ slot identity across window changes, group opening/closing/removal, launch and
 window-cycle actions, minimized/TUI windows and safe folder argv. It does not
 start another Quickshell process or change the user's desktop/configuration.
 It does **not** verify real JsonAdapter disk persistence, compositor IPC, icon
-lookup, the full BarContent space budget, or the running shell's pointer/focus
-integration.
+lookup, or the running shell's pointer/focus integration. The BarContent budget
+and entry loader are exercised with the real AppsEntry and deterministic
+stand-ins for the other built-ins, including 20 pins and keyboard scrolling.
 
 ## Desktop acceptance before marking the PR ready
 

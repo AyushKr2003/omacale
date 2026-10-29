@@ -303,6 +303,11 @@ Scope {
     if (!cfg.bar.persistent) barHover = true
     win.primeFocus()
   }
+  function taskbarAppsState() {
+    const entry = bar.entryFor("apps")
+    return { screen: screen.name, edge: barPos,
+      ready: !!entry && entry.shown && entry.width > 0 && entry.height > 0 }
+  }
   // The status group's popouts that have an icon on the bar, in bar order.
   function statusPopouts() { return bar.statusPopouts() }
   // Tab in a keyboard popout: the next status popout down the bar, wrapping

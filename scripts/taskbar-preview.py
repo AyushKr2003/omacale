@@ -10,10 +10,11 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 
-def run(*args, cwd=None):
-    result = subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=180)
+def run(*args, cwd=None, timeout=10):
+    result = subprocess.run(args, cwd=cwd, text=True, capture_output=True, timeout=timeout)
     if result.returncode:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Command failed: " + args[0])
     return result.stdout.strip()
@@ -36,6 +37,96 @@ def write_json(path, value):
             os.unlink(name)
 
 
+def shell_config():
+    # Match omarchy-restart-shell: the user manager owns the desktop's path.
+    result = subprocess.run(["systemctl", "--user", "show-environment"],
+                            capture_output=True, text=True, timeout=5)
+    path = next((line.partition("=")[2] for line in result.stdout.splitlines()
+                 if line.startswith("OMARCHY_PATH=")), os.environ.get("OMARCHY_PATH", ""))
+    config = Path(path) / "shell" if path else None
+    if not config or not (config / "shell.qml").is_file():
+        raise RuntimeError("Cannot identify the running Omarchy shell configuration")
+    return config.resolve()
+
+
+def shell_instances(config):
+    rows = json.loads(run("quickshell", "list", "-a", "-j"))
+    return [row for row in rows
+            if Path(row.get("config_path", "")).resolve() == config / "shell.qml"]
+
+
+def ensure_unlocked():
+    probe = subprocess.run(["omarchy-hyprland-session-locked"], capture_output=True, timeout=5)
+    if probe.returncode != 1:
+        raise RuntimeError("Desktop is locked or its lock state is unknown; shell left running")
+
+
+def stop_shell():
+    ensure_unlocked()
+    config = shell_config()
+    deadline = time.monotonic() + 30
+    while shell_instances(config):
+        if time.monotonic() >= deadline:
+            raise RuntimeError("Existing shell did not stop; installed plugin left untouched")
+        run("quickshell", "kill", "-p", str(config), "--any-display", timeout=30)
+        time.sleep(0.05)
+    return config
+
+
+def stage_plugin(source, plugin, development=False):
+    # The registry ignores hidden entries. It must never see a half-written
+    # module, including during recovery or a failed copy.
+    stage = Path(tempfile.mkdtemp(prefix=".omacale-taskbar-stage-", dir=plugin.parent))
+    try:
+        ignored = [".git", "__pycache__"] + (["tests"] if development else [])
+        shutil.copytree(source, stage, dirs_exist_ok=True, symlinks=True,
+                        ignore=shutil.ignore_patterns(*ignored))
+        return stage
+    except BaseException:
+        shutil.rmtree(stage)
+        raise
+
+
+def publish_plugin(stage, plugin):
+    # Called only after confirming that the existing shell has exited.
+    retired = plugin.parent / (".omacale-taskbar-old-" + uuid.uuid4().hex)
+    plugin.rename(retired)
+    try:
+        stage.rename(plugin)
+    except BaseException:
+        retired.rename(plugin)
+        raise
+    shutil.rmtree(retired)
+
+
+def crash_reports():
+    root = Path.home() / ".cache/quickshell/crashes"
+    return {str(p) for p in root.glob("*/report.txt")}
+
+
+def wait_ready(args, validate, crashes=None, timeout=30):
+    deadline = time.monotonic() + timeout
+    last = "Plugin is not ready yet"
+    while time.monotonic() < deadline:
+        if crashes is not None and (new := crash_reports() - crashes):
+            raise RuntimeError("Quickshell crashed during startup: " + ", ".join(sorted(new)))
+        try:
+            reply = run(*args, timeout=2)
+            if validate(reply):
+                return reply
+            last = "Plugin replied but its taskbar entry is not ready"
+        except (RuntimeError, ValueError, subprocess.TimeoutExpired) as error:
+            last = str(error)
+        time.sleep(0.1)
+    raise RuntimeError("Timed out waiting for Omacale: " + last)
+
+
+def apps_ready(reply):
+    status = json.loads(reply)
+    return (status.get("enabled") is True
+            and any(screen.get("ready") is True for screen in status.get("screens", [])))
+
+
 def restore(state_dir, restart=True):
     record_path = state_dir / "active.json"
     if not record_path.exists():
@@ -46,30 +137,36 @@ def restore(state_dir, restart=True):
         raise RuntimeError("The saved plugin backup is missing; installed files were left untouched")
     if plugin.is_symlink():
         raise RuntimeError("The installed plugin became a symlink; refusing to replace its target")
-    if plugin.exists():
-        shutil.rmtree(plugin)
-    shutil.copytree(state_dir / "plugin-before", plugin, symlinks=True)
-    settings = Path(record["settings"])
-    current = read_json(settings)
-    bar = current.setdefault("bar", {})
-    for key, before in record["barBefore"].items():
-        if before["present"]:
-            bar[key] = before["value"]
-        else:
-            bar.pop(key, None)
-    write_json(settings, current)
-    checkout = record.get("checkout")
-    if checkout:
-        checkout = Path(checkout)
-        if (not run("git", "status", "--porcelain", cwd=checkout)
-                and run("git", "rev-parse", "HEAD", cwd=checkout) == record["previewHead"]):
-            run("git", "switch", record["previousBranch"], cwd=checkout)
-        else:
-            print("Checkout has changed; left its branch and files untouched.")
-    if restart:
-        run("omarchy-restart-shell")
-    record_path.rename(state_dir / "restored.json")
-    print("Previous plugin, app settings and bar layout restored. Other settings were kept.")
+    stage = stage_plugin(state_dir / "plugin-before", plugin)
+    try:
+        print("Stopping the existing shell before restoring files...", flush=True)
+        stop_shell()
+        publish_plugin(stage, plugin)
+        settings = Path(record["settings"])
+        current = read_json(settings)
+        bar = current.setdefault("bar", {})
+        for key, before in record["barBefore"].items():
+            if before["present"]:
+                bar[key] = before["value"]
+            else:
+                bar.pop(key, None)
+        write_json(settings, current)
+        checkout = record.get("checkout")
+        if checkout:
+            checkout = Path(checkout)
+            if (not run("git", "status", "--porcelain", cwd=checkout)
+                    and run("git", "rev-parse", "HEAD", cwd=checkout) == record["previewHead"]):
+                run("git", "switch", record["previousBranch"], cwd=checkout)
+            else:
+                print("Checkout has changed; left its branch and files untouched.")
+        if restart:
+            run("omarchy-restart-shell", timeout=180)
+            wait_ready(("omarchy-shell", "omacale", "scale", ""), bool)
+        record_path.rename(state_dir / "restored.json")
+        print("Previous plugin, app settings and bar layout restored. Other settings were kept.")
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
 
 
 def start(source, config, state_dir, checkout=None):
@@ -81,6 +178,7 @@ def start(source, config, state_dir, checkout=None):
         raise RuntimeError("This helper needs an existing regular Omacale plugin directory")
     if read_json(config / "omarchy/shell.json").get("bar", {}).get("id") != "omacale.bar":
         raise RuntimeError("Omacale must already be the selected bar")
+    ensure_unlocked()
     run("hyprctl", "monitors", "-j")
     run("omarchy-shell", "shell", "ping")
     head = run("git", "rev-parse", "HEAD", cwd=source)
@@ -99,7 +197,10 @@ def start(source, config, state_dir, checkout=None):
         existing = subprocess.run(["git", "rev-parse", "--verify", "refs/heads/" + branch], cwd=checkout,
                                   capture_output=True, text=True)
         if existing.returncode == 0 and existing.stdout.strip() != head:
-            raise RuntimeError("Destination branch already differs; refusing to overwrite it")
+            ancestry = subprocess.run(["git", "merge-base", "--is-ancestor", existing.stdout.strip(), head],
+                                      cwd=checkout, capture_output=True)
+            if ancestry.returncode != 0:
+                raise RuntimeError("Destination branch has diverged; refusing to overwrite it")
     else:
         checkout = None
     state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -115,11 +216,30 @@ def start(source, config, state_dir, checkout=None):
         "checkout": str(checkout) if checkout else None,
         "previousBranch": previous, "previewHead": head,
     })
+    stage = None
+    stopped = False
+    deployed = False
+    crashes = crash_reports()
     try:
         if checkout:
-            run("git", "switch", branch, cwd=checkout) if existing.returncode == 0 else run("git", "switch", "-c", branch, "FETCH_HEAD", cwd=checkout)
-        shutil.copytree(checkout or source, plugin, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns(".git", "__pycache__"))
+            if existing.returncode == 0:
+                run("git", "switch", branch, cwd=checkout)
+                run("git", "merge", "--ff-only", "FETCH_HEAD", cwd=checkout)
+            else:
+                run("git", "switch", "-c", branch, "FETCH_HEAD", cwd=checkout)
+        print("Preparing a complete plugin version...", flush=True)
+        stage = stage_plugin(checkout or source, plugin, development=True)
+        print("Stopping the existing shell before installing files...", flush=True)
+        stop_shell()
+        stopped = True
+        # Capture settings only after the shell has stopped writing them.
+        current = read_json(settings)
+        bar = current.setdefault("bar", {})
+        record = read_json(state_dir / "active.json")
+        record["barBefore"] = {key: {"present": key in bar, "value": bar.get(key)} for key in ("apps", "layout")}
+        write_json(state_dir / "active.json", record)
+        publish_plugin(stage, plugin)
+        deployed = True
         bar.setdefault("apps", {})["enabled"] = True
         layout = bar.setdefault("layout", {})
         for key in ("removed", "drawer"):
@@ -128,10 +248,10 @@ def start(source, config, state_dir, checkout=None):
         if not any("apps" in layout.get(key, []) for key in ("start", "center", "end")):
             layout["start"] = layout.get("start", []) + ["apps"]
         write_json(settings, current)
-        run("omarchy-restart-shell")
-        status = json.loads(run("omarchy-shell", "omacale", "taskbarAppsStatus"))
-        if status.get("enabled") is not True:
-            raise RuntimeError("The new taskbar section did not become enabled")
+        print("Starting the shell and waiting for the taskbar entry...", flush=True)
+        run("omarchy-restart-shell", timeout=180)
+        reply = wait_ready(("omarchy-shell", "omacale", "taskbarAppsStatus"), apps_ready, crashes)
+        status = json.loads(reply)
         run("omarchy-shell", "omacale", "settingsPage", "taskbarApps")
         print("Taskbar apps are live; Settings > Taskbar > Apps is open.")
         print("Status: " + json.dumps(status))
@@ -144,10 +264,24 @@ def start(source, config, state_dir, checkout=None):
             except (OSError, RuntimeError, subprocess.SubprocessError) as error:
                 print("Screenshot unavailable: " + str(error), file=sys.stderr)
         print("Restore: python3 " + str(source / "scripts/taskbar-preview.py") + " restore")
-    except BaseException:
-        print("Preview failed; restoring the previous plugin and settings.", file=sys.stderr)
-        restore(state_dir)
+    except BaseException as error:
+        # Report the original failure before any recovery work, not afterwards.
+        print("Preview failed: " + str(error), file=sys.stderr, flush=True)
+        write_json(state_dir / "failure.json", {"error": str(error), "deployed": deployed,
+                                                 "newCrashReports": sorted(crash_reports() - crashes)})
+        if stopped or deployed:
+            print("Restoring the previous plugin and settings...", file=sys.stderr, flush=True)
+            restore(state_dir)
+        else:
+            # No installed file has changed. Do not stop a locked/busy desktop
+            # merely to undo a checkout selection or a preparation error.
+            if checkout and not run("git", "status", "--porcelain", cwd=checkout):
+                run("git", "switch", previous, cwd=checkout)
+            (state_dir / "active.json").unlink()
         raise
+    finally:
+        if stage and stage.exists():
+            shutil.rmtree(stage)
 
 
 def main():
@@ -155,12 +289,6 @@ def main():
     parser.add_argument("action", choices=("start", "restore"))
     parser.add_argument("--checkout", type=Path, help="Import the feature branch into this clean checkout first")
     args = parser.parse_args()
-    # A native QML-import crash was observed on the real desktop. Keep the
-    # recovery action available, but never repeat the live preview implicitly.
-    if args.action == "start":
-        print("Taskbar preview is disabled after a Quickshell segmentation fault. "
-              "The live workflow has not been validated; restore remains available.", file=sys.stderr)
-        return 1
     source = Path(__file__).resolve().parent.parent
     config = Path.home() / ".config"
     state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omacale/taskbar-preview"

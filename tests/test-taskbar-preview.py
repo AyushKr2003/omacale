@@ -44,6 +44,22 @@ class PreviewTest(unittest.TestCase):
         self.settings = self.config / "omacale/settings.json"
         self.before = {"bar": {"apps": {"enabled": False}, "layout": {"removed": ["apps"]}}, "general": {"clock24": False}}
         PREVIEW.write_json(self.settings, self.before)
+        self.stopped = False
+        self.events = []
+        self.real_stop = PREVIEW.stop_shell
+        self.real_publish = PREVIEW.publish_plugin
+        self.stop_patcher = patch.object(PREVIEW, "stop_shell", side_effect=self.stop_shell)
+        self.stop_patcher.start()
+        self.addCleanup(self.stop_patcher.stop)
+        self.unlock_patcher = patch.object(PREVIEW, "ensure_unlocked")
+        self.unlock_patcher.start()
+        self.addCleanup(self.unlock_patcher.stop)
+        self.publish_patcher = patch.object(PREVIEW, "publish_plugin", side_effect=self.publish_plugin)
+        self.publish_patcher.start()
+        self.addCleanup(self.publish_patcher.stop)
+        self.crash_patcher = patch.object(PREVIEW, "crash_reports", return_value=set())
+        self.crash_patcher.start()
+        self.addCleanup(self.crash_patcher.stop)
         self.real_run = PREVIEW.run
         self.fail_status = False
         self.desktop_calls = []
@@ -57,20 +73,35 @@ class PreviewTest(unittest.TestCase):
     def git(self, *args, cwd=None):
         return subprocess.check_output(["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL).strip()
 
-    def dispatch(self, *args, cwd=None):
+    def stop_shell(self):
+        self.events.append("stop:" + (self.plugin / "Bar.qml").read_text())
+        self.stopped = True
+        return self.root / "shell"
+
+    def publish_plugin(self, stage, plugin):
+        self.assertTrue(self.stopped, "Publishing while the shell is running")
+        self.assertTrue(stage.name.startswith(".omacale-taskbar-stage-"))
+        self.events.append("publish:" + (stage / "Bar.qml").read_text())
+        self.real_publish(stage, plugin)
+
+    def dispatch(self, *args, cwd=None, timeout=10):
         if args[0] in ("hyprctl", "omarchy-shell", "omarchy-restart-shell", "grim"):
             self.desktop_calls.append(args)
+            if args[0] == "omarchy-restart-shell":
+                self.events.append("restart:" + (self.plugin / "Bar.qml").read_text())
+                self.stopped = False
             if args[-1] == "taskbarAppsStatus":
-                return "bad JSON" if self.fail_status else '{"enabled": true, "items": 2, "pinned": 0}'
+                return "bad JSON" if self.fail_status else '{"enabled": true, "items": 2, "pinned": 0, "screens": [{"ready": true}]}'
             return "ok"
-        return self.real_run(*args, cwd=cwd)
+        return self.real_run(*args, cwd=cwd, timeout=timeout)
 
-    def test_live_start_is_blocked_before_touching_the_desktop(self):
-        with patch.object(sys, "argv", ["taskbar-preview.py", "start"]):
-            self.assertEqual(PREVIEW.main(), 1)
+    def test_cli_start_uses_the_guarded_workflow(self):
+        with patch.object(sys, "argv", ["taskbar-preview.py", "start"]), \
+             patch.object(PREVIEW, "start") as workflow, \
+             patch.dict(PREVIEW.os.environ, {"XDG_STATE_HOME": str(self.root / "cli-state")}):
+            self.assertEqual(PREVIEW.main(), 0)
+        workflow.assert_called_once()
         self.assertEqual(self.desktop_calls, [])
-        self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
-        self.assertFalse((self.state / "active.json").exists())
 
     def test_install_and_restore_preserve_other_settings(self):
         PREVIEW.start(self.source, self.config, self.state, self.checkout)
@@ -91,14 +122,18 @@ class PreviewTest(unittest.TestCase):
         self.assertTrue(restored["general"]["clock24"])
         self.assertEqual(self.git("branch", "--show-current", cwd=self.checkout), "main")
         self.assertFalse((self.state / "active.json").exists())
+        self.assertEqual(self.events, [
+            "stop:installed before", "publish:preview source", "restart:preview source",
+            "stop:preview source", "publish:installed before", "restart:installed before"])
 
     def test_failed_runtime_probe_rolls_back(self):
-        self.fail_status = True
-        with self.assertRaises(ValueError):
-            PREVIEW.start(self.source, self.config, self.state, self.checkout)
+        with patch.object(PREVIEW, "wait_ready", side_effect=[RuntimeError("probe failed"), "1"]):
+            with self.assertRaisesRegex(RuntimeError, "probe failed"):
+                PREVIEW.start(self.source, self.config, self.state, self.checkout)
         self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
         self.assertEqual(PREVIEW.read_json(self.settings), self.before)
         self.assertEqual(self.git("branch", "--show-current", cwd=self.checkout), "main")
+        self.assertEqual(PREVIEW.read_json(self.state / "failure.json")["error"], "probe failed")
 
     def test_dirty_checkout_is_rejected_before_deployment(self):
         (self.checkout / "mine.txt").write_text("keep me")
@@ -106,6 +141,77 @@ class PreviewTest(unittest.TestCase):
             PREVIEW.start(self.source, self.config, self.state, self.checkout)
         self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
         self.assertFalse((self.state / "active.json").exists())
+
+    def test_copy_failure_never_changes_the_installed_module(self):
+        with patch.object(PREVIEW, "stage_plugin", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(OSError, "disk full"):
+                PREVIEW.start(self.source, self.config, self.state, self.checkout)
+        self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
+        self.assertEqual(self.events, [])
+        self.assertEqual(self.git("branch", "--show-current", cwd=self.checkout), "main")
+
+    def test_readiness_waits_for_the_entry_not_only_core_ping(self):
+        replies = [RuntimeError("no such target"), '{"enabled":true,"screens":[]}',
+                   '{"enabled":true,"screens":[{"ready":false}]}',
+                   '{"enabled":true,"screens":[{"ready":true}]}']
+        with patch.object(PREVIEW, "run", side_effect=replies) as probe:
+            reply = PREVIEW.wait_ready(("status",), PREVIEW.apps_ready)
+        self.assertTrue(PREVIEW.apps_ready(reply))
+        self.assertEqual(probe.call_count, 4)
+
+    def test_new_native_crash_aborts_before_another_probe(self):
+        with patch.object(PREVIEW, "crash_reports", return_value={"new/report.txt"}):
+            with self.assertRaisesRegex(RuntimeError, "Quickshell crashed"):
+                PREVIEW.wait_ready(("status",), PREVIEW.apps_ready, crashes=set())
+
+    def test_existing_feature_branch_is_only_fast_forwarded(self):
+        self.git("branch", "feat/taskbar-apps", "main", cwd=self.checkout)
+        PREVIEW.start(self.source, self.config, self.state, self.checkout)
+        self.assertEqual(self.git("rev-parse", "HEAD", cwd=self.checkout),
+                         self.git("rev-parse", "HEAD", cwd=self.source))
+
+    def test_diverged_feature_branch_is_rejected_without_installing(self):
+        self.git("switch", "-c", "feat/taskbar-apps", cwd=self.checkout)
+        self.git("config", "user.name", "Test", cwd=self.checkout)
+        self.git("config", "user.email", "test@example.invalid", cwd=self.checkout)
+        (self.checkout / "mine.txt").write_text("my work")
+        self.git("add", ".", cwd=self.checkout)
+        self.git("commit", "-m", "my work", cwd=self.checkout)
+        self.git("switch", "main", cwd=self.checkout)
+        with self.assertRaisesRegex(RuntimeError, "diverged"):
+            PREVIEW.start(self.source, self.config, self.state, self.checkout)
+        self.assertEqual(self.events, [])
+        self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
+
+    def test_failed_atomic_publish_puts_the_old_directory_back(self):
+        stage = PREVIEW.stage_plugin(self.source, self.plugin)
+        original = Path.rename
+        def rename(path, destination):
+            if path == stage:
+                raise OSError("rename failed")
+            return original(path, destination)
+        with patch.object(Path, "rename", rename):
+            with self.assertRaisesRegex(OSError, "rename failed"):
+                self.real_publish(stage, self.plugin)
+        self.assertEqual((self.plugin / "Bar.qml").read_text(), "installed before")
+        self.assertFalse((self.plugin / "new.qml").exists())
+
+    def test_stop_waits_for_all_instances_before_returning(self):
+        config = self.root / "shell"
+        with patch.object(PREVIEW, "shell_config", return_value=config), \
+             patch.object(PREVIEW, "shell_instances", side_effect=[[{"id":"first"}], [{"id":"last"}], []]), \
+             patch.object(PREVIEW, "run") as commands:
+            self.assertEqual(self.real_stop(), config)
+        self.assertEqual(commands.call_count, 2)
+        for command in commands.call_args_list:
+            self.assertEqual(command.args[:3], ("quickshell", "kill", "-p"))
+
+    def test_stop_rejects_locked_or_unknown_state_before_killing(self):
+        with patch.object(PREVIEW, "ensure_unlocked", side_effect=RuntimeError("locked")), \
+             patch.object(PREVIEW, "run") as commands:
+            with self.assertRaisesRegex(RuntimeError, "locked"):
+                self.real_stop()
+        commands.assert_not_called()
 
     def test_restore_leaves_user_edits_on_feature_branch(self):
         PREVIEW.start(self.source, self.config, self.state, self.checkout)

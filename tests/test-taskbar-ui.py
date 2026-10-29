@@ -23,6 +23,7 @@ if not Path(RUNNER).is_file():
 FILES = """
 core/Tk.qml core/Defaults.js core/TaskbarApps.js services/TaskbarApps.qml
 modules/bar/AppsGroup.qml modules/bar/entries/AppsEntry.qml
+modules/bar/BarContent.qml core/BarLayout.js components/KeyNav.qml
 modules/settings/pages/TaskbarAppsPage.qml modules/settings/pages/TaskbarAppPicker.qml
 modules/settings/pages/AppInfo.qml modules/settings/rows/RowToggle.qml
 components/StateLayer.qml components/FocusRing.qml components/MText.qml
@@ -164,6 +165,72 @@ write("imports/qs/Commons/Style.qml", """pragma Singleton
 import QtQuick
 QtObject { property real fontScale: 1; property real spacingScale: 1 }
 """)
+# Exercise the real BarContent and AppsEntry together. Other built-ins keep
+# their entry contract but use small deterministic stand-ins; no system service
+# or compositor is started by this test.
+with (STAGE / "qmldir").open("a") as registry:
+    registry.write("FakeBarEntry 1.0 FakeBarEntry.qml\nsingleton PluginService 1.0 PluginService.qml\n")
+write("PluginService.qml", "pragma Singleton\nimport QtQuick\nQtObject { function statusOn(id) { return false } }\n")
+write("FakeBarEntry.qml", """import QtQuick
+import QtQuick.Layouts
+import "."
+Item {
+  id: entry
+  required property var bar
+  property string entryId: ""
+  property bool shown: true
+  property bool joinable: false
+  property real length: Tk.barInner
+  property real bareSize: length
+  property real iconsSize: 0
+  property real calendarLen: 0
+  property bool expanded: false
+  property real fullLen: length
+  property real collapsedLen: length
+  property string pluginId: ""
+  property var ids: []
+  property QtObject pill: QtObject {
+    property real minLen: 0; property real collapsedLen: 0
+    property real width: 0; property real height: 0
+    property real implicitWidth: 0; property real implicitHeight: 0
+  }
+  visible: shown
+  Layout.alignment: bar.crossAlign
+  implicitWidth: bar.vertical ? Tk.barInner : length
+  implicitHeight: bar.vertical ? length : Tk.barInner
+  Component.onCompleted: bar.registerEntry(entry)
+  Component.onDestruction: bar.unregisterEntry(entry)
+  function navStops() { return [] }
+}
+""")
+entries = {
+    "LogoEntry": 'entryId: "logo"; shown: bar.cfg.logo',
+    "WorkspacesEntry": 'entryId: "workspaces"',
+    "ActiveWindowEntry": 'entryId: "activeWindow"; shown: bar.cfg.activeWindow.enabled; length: 0; Layout.fillWidth: true; Layout.fillHeight: true',
+    "TrayEntry": 'entryId: "tray"; shown: false',
+    "PluginsEntry": 'entryId: "plugins"; shown: false',
+    "ClockEntry": 'entryId: "clock"; shown: bar.cfg.clock.enabled',
+    "StatusRun": 'entryId: "status:" + ids.join(","); shown: false',
+    "PowerEntry": 'entryId: "power"; shown: bar.cfg.power',
+    "SinglePluginEntry": 'entryId: "plugin:" + pluginId; shown: false',
+    "OverflowEntry": 'entryId: "overflow"; shown: false',
+}
+for name, properties in entries.items():
+    write(name + ".qml", 'import QtQuick.Layouts\nimport "."\nFakeBarEntry { ' + properties + ' }\n')
+    with (STAGE / "qmldir").open("a") as registry:
+        registry.write(name + " 1.0 " + name + ".qml\n")
+for name in ("Io", "Bluetooth", "Services/UPower"):
+    write("imports/Quickshell/" + name + "/qmldir", "module Quickshell." + name.replace("/", ".") + "\nStub 1.0 Stub.qml\n")
+    write("imports/Quickshell/" + name + "/Stub.qml", "import QtQuick\nQtObject {}\n")
+write("imports/Quickshell/SystemClock.qml", "import QtQuick\nQtObject { enum Precision { Seconds, Minutes } property int precision: 0 }\n")
+with (STAGE / "imports/Quickshell/qmldir").open("a") as registry:
+    registry.write("SystemClock 1.0 SystemClock.qml\n")
+write("imports/Quickshell/Services/SystemTray/qmldir", "module Quickshell.Services.SystemTray\nsingleton SystemTray 1.0 SystemTray.qml\nsingleton Status 1.0 Status.qml\n")
+write("imports/Quickshell/Services/SystemTray/SystemTray.qml", "pragma Singleton\nimport QtQuick\nQtObject { property QtObject items: QtObject { property var values: [] } }\n")
+write("imports/Quickshell/Services/SystemTray/Status.qml", "pragma Singleton\nimport QtQuick\nQtObject { readonly property int passive: 0 }\n")
+write("imports/Quickshell/Services/Pipewire/qmldir", "module Quickshell.Services.Pipewire\nsingleton Pipewire 1.0 Pipewire.qml\nPwObjectTracker 1.0 PwObjectTracker.qml\n")
+write("imports/Quickshell/Services/Pipewire/Pipewire.qml", "pragma Singleton\nimport QtQuick\nQtObject { property var defaultAudioSink: null; property var defaultAudioSource: null }\n")
+write("imports/Quickshell/Services/Pipewire/PwObjectTracker.qml", "import QtQuick\nQtObject { property var objects: [] }\n")
 write("tests/tst_apps.qml", (ROOT / "tests/fixtures/taskbar/tst_apps.qml").read_text())
 env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_QPA_PLATFORMTHEME="",
            QT_QUICK_CONTROLS_STYLE="Basic", QT_FORCE_STDERR_LOGGING="1")

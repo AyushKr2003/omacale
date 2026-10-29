@@ -12,6 +12,9 @@ TestCase {
   property var launched: []
   QtObject {
     id: fakeHost
+    property var widgetIds: []
+    property var thirdPartyPlugins: []
+    function entryId(e) { return e.id }
     property var shell: ({ appLibrary: { launch: (id,name) => { test.launched=test.launched.concat([id]) } } })
     function toggle(name,page) {}
   }
@@ -39,6 +42,7 @@ TestCase {
     function alen(e) { return vertical ? e.height : e.width }
     function scrollList(f,a,dy) { return false }
   }
+  Component { id: fullBarFactory; BarContent { host: fakeHost; scope: fakeScope; screen: ({name:"test"}); width: vertical ? Tk.barWidth : 600; height: vertical ? 600 : Tk.barWidth } }
   Component { id: entryFactory; AppsEntry { bar: fakeBar; width: implicitWidth; height: implicitHeight } }
   Component { id: settingsFactory; TaskbarAppsPage { width: 700; height: implicitHeight; settings: navigator } }
   Component { id: appInfoFactory; AppInfo { width: 700; height: implicitHeight; settings: navigator } }
@@ -47,10 +51,12 @@ TestCase {
   QtObject { id: navigator; property var selectedApp: null; property string taskbarGroup: ""; function push(page) {} }
   function initTestCase() { failOnWarning(/.*/) }
   function init() {
+    failOnWarning(/.*/)
     fakeBar.vertical = true
     fakeBar.edge = "left"
     fakeBar.appsExtra = 200
     fakeScope.popout = ""
+    Config.set("bar.apps.maxShown", 8)
     Config.set("bar.apps.enabled", true)
     Config.set("bar.apps.items", [{type:"app",app:"editor"}, {id:"group:work",type:"group",name:"Work",apps:["browser"]}])
     DesktopEntries.applications.values=[{id:"editor",name:"Editor",icon:"",command:[]},{id:"browser",name:"Browser",icon:"",command:[]}]
@@ -58,6 +64,53 @@ TestCase {
     Sys.activeToplevel=null
     Sys.calls=[]
     test.launched=[]
+  }
+  function test_full_bar_budget_and_default_off() {
+    const item = createTemporaryObject(fullBarFactory, test)
+    verify(item)
+    tryVerify(() => !!item.entryFor("apps"))
+    for (const edge of ["left", "right", "top", "bottom"]) {
+      item.edge = edge
+      item.vertical = edge === "left" || edge === "right"
+      wait(50)
+      verify(isFinite(item.budget))
+      verify(isFinite(item.appsExtra))
+      const apps = item.entryFor("apps")
+      verify(apps.sizeLen <= apps.fullLen)
+      verify(apps.sizeLen >= apps.minLen)
+      verify(item.centreOf(apps) >= 0)
+      verify(item.centreOf(apps) <= 600)
+    }
+    Config.set("bar.apps.enabled", false)
+    tryVerify(() => !item.entryFor("apps"))
+    compare(item.appsExtra, 0)
+    compare(item.budget, item.flexibleBudget)
+  }
+  function test_full_bar_caps_many_apps_and_scrolls_with_keys() {
+    const entries = []
+    const pins = []
+    for (let i = 0; i < 20; i++) {
+      const id = "app" + i
+      entries.push({id:id,name:"App " + i,icon:"",command:[]})
+      pins.push({type:"app",app:id})
+    }
+    DesktopEntries.applications.values = entries
+    Config.set("bar.apps.items", pins)
+    Config.set("bar.apps.maxShown", 24)
+    const item = createTemporaryObject(fullBarFactory, test)
+    verify(item)
+    tryVerify(() => !!item.entryFor("apps"))
+    const apps = item.entryFor("apps")
+    tryVerify(() => apps.fullLen > apps.sizeLen)
+    wait(500)
+    const stops = apps.navStops()
+    compare(stops.length, 21)
+    apps.cursorMoved(stops[20])
+    wait(20)
+    const button = stops[20].item
+    const position = button.mapToItem(apps, 0, 0)
+    verify(position.y >= 0)
+    verify(position.y + button.height <= apps.height + 0.5, JSON.stringify({y:position.y,button:button.height,height:apps.height,target:apps.sizeLen}))
   }
   function test_entry_loads_and_turns() {
     const item=createTemporaryObject(entryFactory,test)
