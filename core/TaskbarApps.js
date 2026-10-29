@@ -18,7 +18,8 @@ function windowAddress(value) {
 // Retain the full host/path/profile suffix, so apps on one site stay distinct.
 function webappClass(value) {
   const match = text(value).match(/^(?:chrome|brave|msedge|vivaldi|opera|helium)-(.+__.*)$/i)
-  return match ? match[1].toLowerCase() : ""
+  const suffix = match ? match[1] : "", hostEnd = suffix.indexOf("__")
+  return hostEnd < 0 ? "" : suffix.slice(0, hostEnd).toLowerCase() + suffix.slice(hostEnd)
 }
 function folderPath(v, home) {
   const p = text(v)
