@@ -139,6 +139,7 @@ omarchy-shell omacale <wallpapers|themes|menu|clipboard|windowInfo|barFocus>
 omarchy-shell omacale dashboardTab <dashboard|media|performance|weather>
 omarchy-shell omacale settingsPage <page>
 omarchy-shell omacale popout <network|bluetooth|audio|battery|kblayout|lockstatus|update|activewindow>
+omarchy-shell omacale taskbarAppsStatus                              # enabled state and app/pin counts
 omarchy-shell omacale scale <omarchy|0.5-2|50%-200%>                  # empty prints the current scale
 omarchy-shell omacale toast <info|success|warning|error> <title> <message> <icon>
 ```

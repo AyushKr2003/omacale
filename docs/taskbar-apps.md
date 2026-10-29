@@ -38,6 +38,37 @@ and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
 
+## Try it in the running desktop
+
+For an existing Omacale installation, run this from a normal desktop terminal:
+
+```bash
+python3 /path/to/feature-checkout/scripts/taskbar-preview.py start
+```
+
+To import the feature branch into a different clean project checkout first:
+
+```bash
+python3 /path/to/feature-checkout/scripts/taskbar-preview.py start --checkout /path/to/omacale
+```
+
+The helper backs up the installed plugin, enables Apps and places it in the
+bar, restarts the existing Omarchy shell, verifies the new `taskbarAppsStatus`
+IPC and opens Settings › Taskbar › Apps. If `grim` is available it also captures
+the resulting desktop. It does not run the installer or modify notification,
+lock-screen or OSD handovers. On failure it restores the previous plugin and
+app settings. To undo a successful preview:
+
+```bash
+python3 /path/to/feature-checkout/scripts/taskbar-preview.py restore
+```
+
+Restore keeps unrelated settings edits and leaves a changed project checkout
+on its branch to protect your work. Backups and any screenshot are under
+`$XDG_STATE_HOME/omacale/taskbar-preview` (normally `~/.local/state/omacale/taskbar-preview`).
+Only one preview can be active. Source and destination checkouts must be clean;
+a destination branch with different commits is never overwritten.
+
 ## Settings and ownership
 
 `bar.apps` defaults to:
@@ -93,6 +124,7 @@ node tests/test-taskbar-apps.js
 node tests/test-layout.js
 node tests/test-settings.js
 python3 tests/test-taskbar-ui.py
+python3 tests/test-taskbar-preview.py
 ```
 
 The Qt 6 test runner loads the actual new components, tokens and controls in an
