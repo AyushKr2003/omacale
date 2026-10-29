@@ -86,6 +86,23 @@ TestCase {
     compare(item.appsExtra, 0)
     compare(item.budget, item.flexibleBudget)
   }
+  function test_folded_apps_release_the_shared_budget() {
+    Config.set("bar.layout.start", ["logo", "workspaces"])
+    Config.set("bar.layout.drawer", ["apps"])
+    const item = createTemporaryObject(fullBarFactory, test)
+    verify(item)
+    tryVerify(() => !!item.entryFor("apps"))
+    compare(item.entries().indexOf(item.entryFor("apps")), -1)
+    compare(item.appsExtra, 0)
+    compare(item.budget, item.flexibleBudget)
+    item.drawerOpen = true
+    tryVerify(() => item.entries().indexOf(item.entryFor("apps")) >= 0)
+    verify(item.appsExtra > 0)
+    item.drawerOpen = false
+    tryCompare(item, "appsExtra", 0)
+    Config.set("bar.layout.drawer", [])
+    Config.set("bar.layout.start", ["logo", "workspaces", "apps"])
+  }
   function test_full_bar_caps_many_apps_and_scrolls_with_keys() {
     const entries = []
     const pins = []
@@ -173,14 +190,6 @@ TestCase {
     TaskbarApps.activate({type:"app",app:"editor"}, fakeHost, false)
     compare(Sys.calls[0], "move:0xc:1")
     compare(Sys.calls[1], "focus:0xc")
-  }
-  function test_directory_is_one_encoded_argument() {
-    Quickshell.commands = []
-    TaskbarApps.activate({type:"folder",path:"/tmp/a b/#?$(echo no)"}, fakeHost, false)
-    compare(Quickshell.commands.length, 1)
-    compare(Quickshell.commands[0][0], "xdg-open")
-    compare(Quickshell.commands[0].length, 2)
-    compare(Quickshell.commands[0][1], "file:///tmp/a%20b/%23%3F%24(echo%20no)")
   }
   function test_member_activation_emits_dismissal() {
     const item = createTemporaryObject(groupFactory, test)

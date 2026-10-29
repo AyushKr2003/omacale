@@ -92,7 +92,7 @@ QtObject {
   function activate(item, host, newInstance) {
     if (!item) return
     if (item.type === "folder") {
-      Quickshell.execDetached(["xdg-open", Model.fileUrl(item.path)])
+      Qt.openUrlExternally(Model.fileUrl(item.path))
       return
     }
     if (item.type !== "app") return

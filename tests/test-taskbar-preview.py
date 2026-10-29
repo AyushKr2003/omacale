@@ -46,6 +46,12 @@ class PreviewTest(unittest.TestCase):
         PREVIEW.write_json(self.settings, self.before)
         self.stopped = False
         self.events = []
+        self.supervisor_patcher = patch.object(PREVIEW, "shell_launchers", return_value=[])
+        self.supervisor_patcher.start()
+        self.addCleanup(self.supervisor_patcher.stop)
+        self.inventory_patcher = patch.object(PREVIEW, "assert_stopped")
+        self.inventory_patcher.start()
+        self.addCleanup(self.inventory_patcher.stop)
         self.real_stop = PREVIEW.stop_shell
         self.real_publish = PREVIEW.publish_plugin
         self.stop_patcher = patch.object(PREVIEW, "stop_shell", side_effect=self.stop_shell)
@@ -95,11 +101,14 @@ class PreviewTest(unittest.TestCase):
             return "ok"
         return self.real_run(*args, cwd=cwd, timeout=timeout)
 
-    def test_live_start_is_blocked_before_touching_the_desktop(self):
+    def test_cli_start_dispatches_through_the_transaction_lock(self):
         with patch.object(sys, "argv", ["taskbar-preview.py", "start"]), \
+             patch.object(Path, "home", return_value=self.root), \
+             patch.dict(PREVIEW.os.environ, {"XDG_STATE_HOME":str(self.root)}), \
              patch.object(PREVIEW, "start") as workflow:
-            self.assertEqual(PREVIEW.main(), 1)
-        workflow.assert_not_called()
+            self.assertEqual(PREVIEW.main(), 0)
+        workflow.assert_called_once()
+        self.assertTrue((self.root/"omacale/taskbar-preview/lock").exists())
         self.assertEqual(self.desktop_calls, [])
 
     def test_quickshell_no_instances_text_is_a_valid_empty_inventory(self):
@@ -120,6 +129,27 @@ class PreviewTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "bad inventory"):
                 self.real_stop()
         self.assertEqual(commands.call_args_list[-1].args, ("omarchy-restart-shell",))
+
+    def test_stop_preserves_inventory_error_when_recovery_also_fails(self):
+        with patch.object(PREVIEW, "shell_config", return_value=self.root / "shell"), \
+             patch.object(PREVIEW, "shell_instances", side_effect=[[{"id":"first"}], ValueError("bad inventory")]), \
+             patch.object(PREVIEW, "run", side_effect=["", RuntimeError("restart failed")]):
+            with self.assertRaisesRegex(ValueError, "bad inventory"):
+                self.real_stop()
+
+    def test_staging_and_retired_directories_are_outside_the_watch_tree(self):
+        stage = PREVIEW.stage_plugin(self.source, self.plugin)
+        self.assertFalse(stage.is_relative_to(self.plugin.parent))
+        self.assertEqual(stage.stat().st_dev, self.plugin.stat().st_dev)
+        self.real_publish(stage, self.plugin)
+        self.assertEqual(list(self.plugin.parent.iterdir()), [self.plugin])
+
+    def test_original_failure_survives_failed_restore(self):
+        with patch.object(PREVIEW, "wait_ready", side_effect=RuntimeError("original probe")), \
+             patch.object(PREVIEW, "restore", side_effect=RuntimeError("recovery failed")):
+            with self.assertRaisesRegex(RuntimeError, "original probe"):
+                PREVIEW.start(self.source, self.config, self.state)
+        self.assertEqual(PREVIEW.read_json(self.state / "failure.json")["error"], "original probe")
 
     def test_real_no_instances_response_finishes_stop_without_parse_error(self):
         config = self.root / "shell"
@@ -160,6 +190,41 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(PREVIEW.read_json(self.settings), self.before)
         self.assertEqual(self.git("branch", "--show-current", cwd=self.checkout), "main")
         self.assertEqual(PREVIEW.read_json(self.state / "failure.json")["error"], "probe failed")
+
+    def test_new_app_settings_roll_back_only_the_preview_enable_leaf(self):
+        before = {"bar":{"layout":{"start":["logo"]}}}
+        applied = {"bar":{"layout":{"start":["logo","apps"]},"apps":{"enabled":True}}}
+        current = {"bar":{"layout":{"start":["logo","apps"]},"apps":{"enabled":True,"maxShown":3}}}
+        self.assertEqual(PREVIEW.undo_settings(current,before,applied),
+                         {"bar":{"layout":{"start":["logo"]},"apps":{"maxShown":3}}})
+        self.assertEqual(PREVIEW.undo_settings(applied,before,applied),before)
+
+    def test_failed_publish_restarts_the_original_shell(self):
+        with patch.object(PREVIEW, "publish_plugin", side_effect=OSError("publish failed")):
+            with self.assertRaisesRegex(OSError,"publish failed"):
+                PREVIEW.start(self.source,self.config,self.state)
+        self.assertEqual(self.events,["stop:installed before","restart:installed before"])
+        self.assertFalse(self.stopped)
+        self.assertEqual((self.plugin/"Bar.qml").read_text(),"installed before")
+        self.assertFalse((self.state/"active.json").exists())
+
+    def test_restore_preserves_later_edits_inside_app_settings(self):
+        PREVIEW.start(self.source, self.config, self.state)
+        current = PREVIEW.read_json(self.settings)
+        current["bar"]["apps"]["maxShown"] = 3
+        PREVIEW.write_json(self.settings, current)
+        PREVIEW.restore(self.state)
+        self.assertEqual(PREVIEW.read_json(self.settings)["bar"]["apps"], {"enabled":False,"maxShown":3})
+
+    def test_restore_refuses_to_overwrite_installed_plugin_edits(self):
+        PREVIEW.start(self.source, self.config, self.state)
+        (self.plugin / "Bar.qml").write_text("user changed it")
+        calls = len(self.events)
+        with self.assertRaisesRegex(RuntimeError, "changed since preview"):
+            PREVIEW.restore(self.state)
+        self.assertEqual(len(self.events), calls)
+        self.assertEqual((self.plugin / "Bar.qml").read_text(), "user changed it")
+        self.assertFalse(self.stopped)
 
     def test_dirty_checkout_is_rejected_before_deployment(self):
         (self.checkout / "mine.txt").write_text("keep me")
@@ -231,6 +296,16 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual(commands.call_count, 2)
         for command in commands.call_args_list:
             self.assertEqual(command.args[:3], ("quickshell", "kill", "-p"))
+
+    def test_stop_waits_out_supervisor_backoff_and_stops_its_replacement(self):
+        config = self.root / "shell"
+        with patch.object(PREVIEW, "shell_config", return_value=config), \
+             patch.object(PREVIEW, "shell_instances", side_effect=[[], [{"id":"replacement"}], []]), \
+             patch.object(PREVIEW, "shell_launchers", side_effect=[[42], [42], []]), \
+             patch.object(PREVIEW, "run") as commands:
+            self.assertEqual(self.real_stop(), config)
+        self.assertEqual(commands.call_count, 1)
+        self.assertEqual(commands.call_args.args[:2], ("quickshell", "kill"))
 
     def test_stop_rejects_locked_or_unknown_state_before_killing(self):
         with patch.object(PREVIEW, "ensure_unlocked", side_effect=RuntimeError("locked")), \

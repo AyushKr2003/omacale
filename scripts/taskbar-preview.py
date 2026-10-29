@@ -3,6 +3,7 @@
 import argparse
 import fcntl
 import json
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -55,10 +56,32 @@ def shell_instances(config):
     if output == "No running instances.":
         return []
     rows = json.loads(output)
-    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+    if not isinstance(rows, list) or any(not isinstance(row, dict) or not row.get("config_path") for row in rows):
         raise RuntimeError("Unexpected Quickshell instance-list response")
     return [row for row in rows
             if Path(row.get("config_path", "")).resolve() == config / "shell.qml"]
+
+
+def shell_launchers(config):
+    # Omarchy's launcher retries an abnormal exit. Wait for that supervisor as
+    # well as its child before publishing, including during its retry backoff.
+    launchers = []
+    expected = str(config.parent / "bin/omarchy-launch-shell")
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit():
+            continue
+        try:
+            argv = (proc / "cmdline").read_bytes().decode().split("\0")
+            if expected in argv:
+                launchers.append(int(proc.name))
+        except (OSError, UnicodeError):
+            continue
+    return launchers
+
+
+def assert_stopped(config):
+    if shell_instances(config) or shell_launchers(config):
+        raise RuntimeError("The shell or its supervisor returned; refusing to publish plugin files")
 
 
 def ensure_unlocked():
@@ -73,26 +96,34 @@ def stop_shell():
     deadline = time.monotonic() + 30
     stop_attempted = False
     try:
-        while shell_instances(config):
+        while True:
+            instances = shell_instances(config)
+            supervisors = shell_launchers(config)
+            if not instances and not supervisors:
+                break
             if time.monotonic() >= deadline:
                 raise RuntimeError("Existing shell did not stop; installed plugin left untouched")
             stop_attempted = True
-            run("quickshell", "kill", "-p", str(config), "--any-display", timeout=30)
+            if instances:
+                run("quickshell", "kill", "-p", str(config), "--any-display", timeout=30)
             time.sleep(0.05)
     except BaseException:
         # A failed inventory query can happen after quit was delivered. Never
         # leave the desktop stopped just because this function did not return.
         if stop_attempted:
             print("Shell stop verification failed; restarting the existing version...", file=sys.stderr, flush=True)
-            run("omarchy-restart-shell", timeout=180)
+            try:
+                run("omarchy-restart-shell", timeout=180)
+            except BaseException as recovery:
+                print("Shell recovery also failed: " + str(recovery), file=sys.stderr, flush=True)
         raise
     return config
 
 
 def stage_plugin(source, plugin, development=False):
-    # The registry ignores hidden entries. It must never see a half-written
-    # module, including during recovery or a failed copy.
-    stage = Path(tempfile.mkdtemp(prefix=".omacale-taskbar-stage-", dir=plugin.parent))
+    # inotify recursively watches hidden directories too. Stage beside the
+    # plugins directory (same filesystem for rename), never anywhere inside it.
+    stage = Path(tempfile.mkdtemp(prefix=".omacale-taskbar-stage-", dir=plugin.parent.parent))
     try:
         ignored = [".git", "__pycache__"] + (["tests"] if development else [])
         shutil.copytree(source, stage, dirs_exist_ok=True, symlinks=True,
@@ -105,7 +136,7 @@ def stage_plugin(source, plugin, development=False):
 
 def publish_plugin(stage, plugin):
     # Called only after confirming that the existing shell has exited.
-    retired = plugin.parent / (".omacale-taskbar-old-" + uuid.uuid4().hex)
+    retired = plugin.parent.parent / (".omacale-taskbar-old-" + uuid.uuid4().hex)
     plugin.rename(retired)
     try:
         stage.rename(plugin)
@@ -113,6 +144,41 @@ def publish_plugin(stage, plugin):
         retired.rename(plugin)
         raise
     shutil.rmtree(retired)
+
+
+def plugin_digest(plugin):
+    digest = hashlib.sha256()
+    for path in sorted(plugin.rglob("*")):
+        digest.update(str(path.relative_to(plugin)).encode())
+        if path.is_symlink():
+            digest.update(b"link:" + os.readlink(path).encode())
+        elif path.is_file():
+            digest.update(b"file:" + path.read_bytes())
+        else:
+            digest.update(b"dir:")
+    return digest.hexdigest()
+
+
+def undo_settings(current, before, applied):
+    # Revert only values the preview wrote and nobody subsequently changed.
+    # Dict recursion keeps unrelated edits, even inside bar.apps/bar.layout.
+    result = dict(current)
+    for key in before.keys() | applied.keys():
+        if before.get(key) == applied.get(key) and (key in before) == (key in applied):
+            continue
+        if (isinstance(applied.get(key), dict) and isinstance(current.get(key), dict)
+                and (key not in before or isinstance(before[key], dict))):
+            merged = undo_settings(current[key], before.get(key, {}), applied[key])
+            if merged or key in before:
+                result[key] = merged
+            else:
+                result.pop(key, None)
+        elif (key in current) == (key in applied) and current.get(key) == applied.get(key):
+            if key in before:
+                result[key] = before[key]
+            else:
+                result.pop(key, None)
+    return result
 
 
 def crash_reports():
@@ -153,21 +219,27 @@ def restore(state_dir, restart=True):
         raise RuntimeError("The saved plugin backup is missing; installed files were left untouched")
     if plugin.is_symlink():
         raise RuntimeError("The installed plugin became a symlink; refusing to replace its target")
+    if record.get("pluginDigest") and plugin_digest(plugin) != record["pluginDigest"]:
+        raise RuntimeError("Installed plugin changed since preview; refusing to overwrite those edits")
     stage = stage_plugin(state_dir / "plugin-before", plugin)
     shell_stopped = False
     try:
         print("Stopping the existing shell before restoring files...", flush=True)
-        stop_shell()
+        stopped_config = stop_shell()
         shell_stopped = True
+        assert_stopped(stopped_config)
         publish_plugin(stage, plugin)
         settings = Path(record["settings"])
         current = read_json(settings)
-        bar = current.setdefault("bar", {})
-        for key, before in record["barBefore"].items():
-            if before["present"]:
-                bar[key] = before["value"]
-            else:
-                bar.pop(key, None)
+        if "settingsApplied" in record:
+            current = undo_settings(current, record["settingsBefore"], record["settingsApplied"])
+        else:
+            bar = current.setdefault("bar", {})
+            for key, before in record["barBefore"].items():
+                if before["present"]:
+                    bar[key] = before["value"]
+                else:
+                    bar.pop(key, None)
         write_json(settings, current)
         checkout = record.get("checkout")
         if checkout:
@@ -185,7 +257,10 @@ def restore(state_dir, restart=True):
         print("Previous plugin, app settings and bar layout restored. Other settings were kept.")
     finally:
         if shell_stopped and restart:
-            run("omarchy-restart-shell", timeout=180)
+            try:
+                run("omarchy-restart-shell", timeout=180)
+            except BaseException as recovery:
+                print("Shell recovery also failed: " + str(recovery), file=sys.stderr, flush=True)
         if stage.exists():
             shutil.rmtree(stage)
 
@@ -251,14 +326,17 @@ def start(source, config, state_dir, checkout=None):
         print("Preparing a complete plugin version...", flush=True)
         stage = stage_plugin(checkout or source, plugin, development=True)
         print("Stopping the existing shell before installing files...", flush=True)
-        stop_shell()
+        stopped_config = stop_shell()
         stopped = True
         # Capture settings only after the shell has stopped writing them.
         current = read_json(settings)
         bar = current.setdefault("bar", {})
         record = read_json(state_dir / "active.json")
         record["barBefore"] = {key: {"present": key in bar, "value": bar.get(key)} for key in ("apps", "layout")}
+        record["settingsBefore"] = json.loads(json.dumps(current))
+        record["pluginDigest"] = plugin_digest(stage)
         write_json(state_dir / "active.json", record)
+        assert_stopped(stopped_config)
         publish_plugin(stage, plugin)
         deployed = True
         bar.setdefault("apps", {})["enabled"] = True
@@ -268,6 +346,8 @@ def start(source, config, state_dir, checkout=None):
                 layout[key] = [item for item in layout[key] if item != "apps"]
         if not any("apps" in layout.get(key, []) for key in ("start", "center", "end")):
             layout["start"] = layout.get("start", []) + ["apps"]
+        record["settingsApplied"] = current
+        write_json(state_dir / "active.json", record)
         write_json(settings, current)
         print("Starting the shell and waiting for the taskbar entry...", flush=True)
         run("omarchy-restart-shell", timeout=180)
@@ -290,10 +370,19 @@ def start(source, config, state_dir, checkout=None):
         print("Preview failed: " + str(error), file=sys.stderr, flush=True)
         write_json(state_dir / "failure.json", {"error": str(error), "deployed": deployed,
                                                  "newCrashReports": sorted(crash_reports() - crashes)})
-        if stopped or deployed:
+        if deployed:
             print("Restoring the previous plugin and settings...", file=sys.stderr, flush=True)
-            restore(state_dir)
+            try:
+                restore(state_dir)
+            except BaseException as recovery:
+                print("Preview recovery also failed: " + str(recovery), file=sys.stderr, flush=True)
         else:
+            if stopped:
+                try:
+                    run("omarchy-restart-shell", timeout=180)
+                    wait_ready(("omarchy-shell", "omacale", "scale", ""), bool)
+                except BaseException as recovery:
+                    print("Shell recovery also failed: " + str(recovery), file=sys.stderr, flush=True)
             # No installed file has changed. Do not stop a locked/busy desktop
             # merely to undo a checkout selection or a preparation error.
             if checkout and not run("git", "status", "--porcelain", cwd=checkout):
@@ -310,17 +399,13 @@ def main():
     parser.add_argument("action", choices=("start", "restore"))
     parser.add_argument("--checkout", type=Path, help="Import the feature branch into this clean checkout first")
     args = parser.parse_args()
-    if args.action == "start":
-        print("Live preview is blocked after two failed desktop trials. "
-              "Do not retry it; use omarchy-restart-shell to recover a stopped shell.", file=sys.stderr)
-        return 1
     source = Path(__file__).resolve().parent.parent
     config = Path.home() / ".config"
     state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omacale/taskbar-preview"
     try:
         state.mkdir(parents=True, exist_ok=True, mode=0o700)
         with (state / "lock").open("w") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             if args.action == "start":
                 start(source, config, state, args.checkout)
             else:
