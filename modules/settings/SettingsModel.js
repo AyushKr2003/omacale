@@ -351,6 +351,7 @@ var subpages = {
   wallpapers: { title: "Wallpapers", rows: [ { type: "custom", comp: "wallpapers" } ] },
   themes: { title: "Themes", rows: [ { type: "custom", comp: "wallpapers", themes: true } ] },
   allApps: { title: "All apps", rows: [ { type: "custom", comp: "allApps" } ] },
+  taskbarAppPicker: { title: "Choose apps", rows: [ { type: "custom", comp: "taskbarAppPicker" } ] },
   appInfo: { title: "App info", rows: [ { type: "custom", comp: "appInfo" } ] },
   pluginInfo: { title: "Plugin", rows: [ { type: "custom", comp: "pluginInfo" } ] },
   notifications: {
@@ -395,12 +396,22 @@ var subpages = {
       // Everything in the bar, in one list per section: Omacale's items,
       // Omarchy's widgets and plugins alike (pages/LayoutPage.qml). Each row's
       // gear opens its own page below.
+      { type: "nav", icon: "apps", label: "Apps", subtext: "Optional dock: pinned apps, groups and folders", page: "taskbarApps", status: "bar.apps.enabled" },
       { type: "section", text: "Bar" },
       { type: "custom", comp: "barLayout" },
       { type: "section", text: "Scroll actions" },
       { type: "toggle", key: "bar.scroll.workspaces", label: "Workspaces", subtext: "Scroll over the workspace indicator to switch workspaces" },
       { type: "toggle", key: "bar.scroll.volume", label: "Volume", subtext: "Scroll on the top half of the bar to adjust volume" },
       { type: "nav", icon: "brightness_6", label: "Brightness", subtext: "Scrolling on the bottom half, and its step: in Display › Brightness", page: "displayBrightness" }
+    ]
+  },
+  taskbarApps: {
+    title: "Taskbar apps",
+    rows: [
+      { type: "toggle", key: "bar.apps.enabled", label: "Show apps in the taskbar", subtext: "Off by default. A dock inside the bar, on any screen edge" },
+      { type: "toggle", key: "bar.apps.showRunning", label: "Show running apps", subtext: "Include unpinned apps. Click to focus or cycle windows; middle-click opens a new instance", when: { key: "bar.apps.enabled", value: true } },
+      { type: "stepper", key: "bar.apps.maxShown", label: "Visible slots", subtext: "Scroll for more; shrinks further on a crowded bar", from: 1, to: 24, step: 1, when: { key: "bar.apps.enabled", value: true } },
+      { type: "custom", comp: "taskbarApps" }
     ]
   },
   workspaces: {

@@ -62,6 +62,7 @@ Item {
     if (BarLayout.STATUS.indexOf(id) >= 0) return statusOn(id)
     // From the data, never from the entries: they are rebuilt from what
     // this decides, and asking one that is being torn down fails.
+    if (id === "apps") return cfg.apps.enabled
     if (id === "tray") return cfg.tray.enabled && SystemTray.items.values.some(i => i.status !== Status.Passive
       && cfg.tray.hiddenIcons.indexOf(i.id) < 0)
     if (id === "plugins") return cfg.plugins.enabled !== false && (host.thirdPartyPlugins || []).some(e =>
@@ -123,6 +124,7 @@ Item {
   }
   readonly property var wsE: entryFor("workspaces")
   readonly property var titleE: entryFor("activeWindow")
+  readonly property var appsE: entryFor("apps")
   readonly property var trayE: entryFor("tray")
   readonly property var pluginsE: entryFor("plugins")
   readonly property var clockE: entryFor("clock")
@@ -167,6 +169,7 @@ Item {
       n++
       if (e === wsE) len += e.bareSize
       else if (e === clockE) len += along(e) - (calIconShown ? calendarLen : 0)
+      else if (e === appsE) len += e.minLen
       else if (e !== titleE && e !== trayE && e !== pluginsE) len += along(e)
     }
     // Gaps between the entries of a section, and between the sections.
@@ -189,7 +192,11 @@ Item {
   onCalendarLenChanged: Qt.callLater(refitCalendar)
   onWsIconsSizeChanged: Qt.callLater(refitCalendar)
   readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= wsIconsSize
-  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
+  readonly property real flexibleBudget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
+  // Apps take only space left after the tray and plugin pill's minima; their
+  // minimum was already counted in fixedLen, so this has no size feedback.
+  readonly property real appsExtra: appsE && appsE.shown ? Math.min(Math.max(0, appsE.fullLen - appsE.minLen), Math.max(0, flexibleBudget - flexMin)) : 0
+  readonly property real budget: Math.max(0, flexibleBudget - appsExtra)
   readonly property bool trayOverBudget: !!trayE && trayE.visible && trayE.fullLen + (pluginsE ? pluginsE.pill.collapsedLen : 0) > budget
   // The plugin pill's length along the bar, for the tray's expanded cap.
   readonly property real pluginLen: pluginsE ? along(pluginsE.pill) : 0
@@ -602,11 +609,13 @@ Item {
     }
   }
   function entryComponent(seg) {
+    if (seg.id === "apps") return cfg.apps.enabled ? cApps : null
     if (seg.kind === "status") return cStatus
     if (seg.kind === "plugin") return cSinglePlugin
     return ({ logo: cLogo, workspaces: cWorkspaces, activeWindow: cActiveWindow, plugins: cPlugins,
       tray: cTray, clock: cClock, power: cPower, overflow: cOverflow })[seg.id] || null
   }
+  Component { id: cApps; AppsEntry { bar: root } }
   Component { id: cLogo; LogoEntry { bar: root } }
   Component { id: cWorkspaces; WorkspacesEntry { bar: root } }
   Component { id: cActiveWindow; ActiveWindowEntry { bar: root } }

@@ -16,11 +16,11 @@ const eq = (a, b) => assert.deepStrictEqual(plain(a), plain(b))
 const DEF_END = ["overflow", "plugins", "tray", "clock", "keepAwake", "update", "recording", "notifications", "lockStatus",
   "audio", "microphone", "kbLayout", "network", "bluetooth", "battery", "power"]
 
-test("defaults are today's order", () => eq(B.defaults(), { start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END, removed: [], drawer: [] }))
+test("defaults are today's order", () => eq(B.defaults(), { start: ["logo", "workspaces", "apps"], center: ["activeWindow"], end: DEF_END, removed: [], drawer: [] }))
 test("nothing saved resolves to defaults", () => eq(B.resolve(undefined, []), B.defaults()))
 test("empty lists resolve to defaults", () => eq(B.resolve({ start: [], center: [], end: [] }, []), B.defaults()))
 test("a saved order is kept", () => {
-  const saved = { start: ["logo", "workspaces", "network", "bluetooth"], center: ["clock"], end: ["overflow", "activeWindow", "plugins", "tray",
+  const saved = { start: ["logo", "workspaces", "apps", "network", "bluetooth"], center: ["clock"], end: ["overflow", "activeWindow", "plugins", "tray",
     "keepAwake", "update", "recording", "notifications", "lockStatus", "audio", "microphone", "kbLayout", "battery", "power"], removed: [], drawer: [] }
   eq(B.resolve(saved, []), saved)
 })
@@ -29,23 +29,23 @@ test("unknown ids and junk are dropped", () => {
   eq(r, B.defaults())
 })
 test("duplicates keep the first place", () => {
-  const r = B.resolve({ start: ["clock", "logo", "workspaces"], center: ["activeWindow"], end: DEF_END }, [])
-  eq(r.start, ["clock", "logo", "workspaces"])
+  const r = B.resolve({ start: ["clock", "logo", "workspaces", "apps"], center: ["activeWindow"], end: DEF_END }, [])
+  eq(r.start, ["clock", "logo", "workspaces", "apps"])
   assert.ok(r.end.indexOf("clock") < 0)
 })
 test("a missing built-in returns after its default predecessor", () => {
   const end = DEF_END.filter(i => i !== "network")
-  const r = B.resolve({ start: ["logo", "workspaces"], center: ["activeWindow"], end }, [])
+  const r = B.resolve({ start: ["logo", "workspaces", "apps"], center: ["activeWindow"], end }, [])
   eq(r.end, DEF_END)
 })
 test("a missing built-in with no predecessor present goes first", () => {
   const r = B.resolve({ start: ["workspaces"], center: ["activeWindow"], end: DEF_END }, [])
-  eq(r.start, ["logo", "workspaces"])
+  eq(r.start, ["logo", "workspaces", "apps"])
 })
 test("plugin entries are kept only for enabled widgets", () => {
-  const saved = { start: ["logo", "workspaces", "plugin:a.b"], center: ["activeWindow"], end: DEF_END.concat(["plugin:gone"]) }
+  const saved = { start: ["logo", "workspaces", "apps", "plugin:a.b"], center: ["activeWindow"], end: DEF_END.concat(["plugin:gone"]) }
   const r = B.resolve(saved, ["a.b", "c.d"])
-  eq(r.start, ["logo", "workspaces", "plugin:a.b"])
+  eq(r.start, ["logo", "workspaces", "apps", "plugin:a.b"])
   eq(r.end, DEF_END)
 })
 test("segments group adjacent status icons", () => {
@@ -85,7 +85,7 @@ test("a hidden window title takes no space, so the center is centred", () => {
   assert.strictEqual(B.flexSection(B.defaults(), false), "")
 })
 
-test("place moves within a section", () => eq(B.place(B.defaults(), "workspaces", "start", 0).start, ["workspaces", "logo"]))
+test("place moves within a section", () => eq(B.place(B.defaults(), "workspaces", "start", 0).start, ["workspaces", "logo", "apps"]))
 test("place moves into another section at an index", () => {
   const l = B.place(B.defaults(), "clock", "center", 0)
   eq(l.center, ["clock", "activeWindow"]); assert.ok(l.end.indexOf("clock") < 0)
@@ -97,7 +97,7 @@ test("place into removed takes the item off the bar", () => {
 })
 test("place out of removed adds it back", () => {
   const l = B.place(B.place(B.defaults(), "battery", "removed", 0), "battery", "start", 1)
-  eq(l.start, ["logo", "battery", "workspaces"]); eq(l.removed, [])
+  eq(l.start, ["logo", "battery", "workspaces", "apps"]); eq(l.removed, [])
 })
 test("a plugin entry placed into removed goes back to its group", () => {
   const l = B.place(B.takeOut(B.defaults(), "x.y"), "plugin:x.y", "removed", 0)
@@ -105,11 +105,11 @@ test("a plugin entry placed into removed goes back to its group", () => {
 })
 test("place does not mutate its input", () => { const d = B.defaults(); B.place(d, "logo", "end", 0); eq(d, B.defaults()) })
 test("removed items stay off the bar when the layout is repaired", () => {
-  const r = B.resolve({ start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END.filter(i => i !== "battery"), removed: ["battery"] }, [])
+  const r = B.resolve({ start: ["logo", "workspaces", "apps"], center: ["activeWindow"], end: DEF_END.filter(i => i !== "battery"), removed: ["battery"] }, [])
   assert.ok(r.end.indexOf("battery") < 0); eq(r.removed, ["battery"])
 })
 test("removed keeps known built-ins and enabled widgets not also on the bar", () => {
-  const r = B.resolve({ start: ["logo", "workspaces"], center: ["activeWindow"], end: DEF_END, removed: ["clock", "nope", "plugin:a.b", "plugin:gone", 5, "battery"] }, ["a.b"])
+  const r = B.resolve({ start: ["logo", "workspaces", "apps"], center: ["activeWindow"], end: DEF_END, removed: ["clock", "nope", "plugin:a.b", "plugin:gone", 5, "battery"] }, ["a.b"])
   eq(r.removed, ["plugin:a.b"]); eq(r.end, DEF_END)
 })
 test("a removed widget is kept while the widget list is unknown", () => {
@@ -175,8 +175,8 @@ test("removing the window title leaves no flexible section", () => {
 })
 
 test("plugin entries are all kept while the widget list is unknown", () => {
-  const saved = { start: ["logo", "workspaces", "plugin:a.b"], center: ["activeWindow"], end: DEF_END, removed: [] }
-  eq(B.resolve(saved, null).start, ["logo", "workspaces", "plugin:a.b"])
+  const saved = { start: ["logo", "workspaces", "apps", "plugin:a.b"], center: ["activeWindow"], end: DEF_END, removed: [] }
+  eq(B.resolve(saved, null).start, ["logo", "workspaces", "apps", "plugin:a.b"])
 })
 
 // ---- behind the chevron
@@ -198,7 +198,7 @@ test("render puts the drawer next to the chevron, before it in the end section",
   const l = B.place(B.place(B.defaults(), "battery", "drawer", 0), "keepAwake", "drawer", 1)
   const r = B.render(l, 0, null)
   eq(ids(r.end).slice(0, 4), ["battery*", "keepAwake*", "overflow", "plugins"])
-  eq(ids(r.start), ["logo", "workspaces"])
+  eq(ids(r.start), ["logo", "workspaces", "apps"])
   const st = B.render(B.place(l, "overflow", "start", 0), 0, null)
   eq(ids(st.start).slice(0, 3), ["overflow", "battery*", "keepAwake*"])
 })

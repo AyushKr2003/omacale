@@ -16,6 +16,7 @@ var STATUS = ["keepAwake", "update", "recording", "notifications", "lockStatus",
 var ITEMS = {
   logo:          { section: "start",  label: "Logo",            icon: "change_history",   key: "bar.logo",                  sub: "Opens the launcher" },
   workspaces:    { section: "start",  label: "Workspaces",      icon: "workspaces",       key: "",                          sub: "Always shown" },
+  apps:          { section: "start",  label: "Apps",            icon: "apps",             key: "bar.apps.enabled",          sub: "Pinned apps, groups and folders" },
   activeWindow:  { section: "center", label: "Window title",    icon: "web_asset",        key: "bar.activeWindow.enabled",  sub: "Takes the free space" },
   overflow:      { section: "end",    label: "Chevron",         icon: "more_horiz",      key: "",                          sub: "Opens the items behind it" },
   plugins:       { section: "end",    label: "Plugin group",    icon: "extension",        key: "bar.plugins.enabled",       sub: "Third-party widgets" },
@@ -37,7 +38,7 @@ var ITEMS = {
 
 // The Settings page each built-in's gear opens ("" = none: its eye is all).
 var PAGES = {
-  logo: "barButtons", workspaces: "workspaces", activeWindow: "activeWindow", tray: "tray", clock: "clock",
+  apps: "taskbarApps", logo: "barButtons", workspaces: "workspaces", activeWindow: "activeWindow", tray: "tray", clock: "clock",
   keepAwake: "status", update: "status", recording: "", notifications: "status", lockStatus: "status",
   audio: "status", microphone: "status", kbLayout: "status", network: "status", bluetooth: "status",
   battery: "status", plugins: "", power: "barButtons", overflow: ""
@@ -58,7 +59,7 @@ function categoryIcon(category) {
 }
 
 var ORDER = {
-  start: ["logo", "workspaces"],
+  start: ["logo", "workspaces", "apps"],
   center: ["activeWindow"],
   end: ["overflow", "plugins", "tray", "clock"].concat(STATUS).concat(["power"])
 }

@@ -26,6 +26,7 @@ Item {
   // ------------------------------------------------------------- state
   property string pageId: "style"
   property var stack: []
+  property string taskbarGroup: "" // Empty = individual pins; otherwise the group to edit.
   property var selectedApp: null   // Apps › All apps › <app>
   property string selectedPlugin: ""  // Plugins › <plugin id>
   property string search: ""
