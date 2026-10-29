@@ -130,6 +130,32 @@ TestCase {
     verify(position.y >= 0)
     verify(position.y + button.height <= apps.height + 0.5, JSON.stringify({y:position.y,button:button.height,height:apps.height,target:apps.sizeLen}))
   }
+  function test_bar_cursor_tracks_scrolled_app_cells() {
+    const entries = [], pins = []
+    for (let i = 0; i < 20; i++) {
+      entries.push({id:"app"+i,name:"App "+i,icon:"",command:[]})
+      pins.push({type:"app",app:"app"+i})
+    }
+    DesktopEntries.applications.values = entries
+    Config.set("bar.apps.items",pins)
+    Config.set("bar.apps.maxShown",24)
+    const item = createTemporaryObject(fullBarFactory,test)
+    verify(item)
+    tryVerify(() => !!item.entryFor("apps"))
+    item.keyMode = true
+    wait(400)
+    const apps = item.entryFor("apps"), stops = apps.navStops(), last = stops.length-1
+    const cursor = findChild(item,"barCursor")
+    verify(cursor)
+    item.cursorStop = stops[last]
+    const previous = cursor.r.y // Materialize the rect before the content moves.
+    apps.cursorMoved(stops[last])
+    wait(100)
+    const position = stops[last].item.mapToItem(item,0,0)
+    verify(previous !== position.y)
+    fuzzyCompare(cursor.r.y,position.y,0.5)
+    fuzzyCompare(cursor.r.x,position.x,0.5)
+  }
   function test_entry_loads_and_turns() {
     const item=createTemporaryObject(entryFactory,test)
     verify(item)

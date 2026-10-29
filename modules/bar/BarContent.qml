@@ -319,6 +319,7 @@ Item {
   // them. It hugs its item: a short pill on an icon, a tall one on the clock.
   Rectangle {
     id: barCursor
+    objectName: "barCursor"
 
     readonly property Item target: root.cursorStop ? root.cursorStop.item : null
     readonly property real pad: Tk.padding.small / 2 + 2
@@ -326,6 +327,10 @@ Item {
     property real end: 0
     // Where the target is now; re-read when anything above it moves.
     readonly property rect r: {
+      // mapToItem() does not register the Flickable content offset as a
+      // binding dependency. Entries expose it on their navigation stops.
+      const flick = root.cursorStop && root.cursorStop.flick
+      if (flick) void (flick.contentX + flick.contentY)
       void (root.layoutGen + col.y + col.x + startBox.x + startBox.y + startBox.width + startBox.height
         + centerBox.x + centerBox.y + centerBox.width + centerBox.height + endBox.x + endBox.y + endBox.width + endBox.height
         + (root.pluginsE ? root.pluginsE.pill.width + root.pluginsE.pill.height : 0)

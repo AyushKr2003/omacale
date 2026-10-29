@@ -159,9 +159,9 @@ Rectangle {
     const out = []
     for (let i = 0; i < rep.count; i++) {
       const it = rep.itemAt(i)
-      if (it) out.push({ item: it, kind: "taskbarApp", act: () => entry.openItem(it.appItem, it, false) })
+      if (it) out.push({ item: it, kind: "taskbarApp", flick: flick, act: () => entry.openItem(it.appItem, it, false) })
     }
-    out.push({ item: settingsButton, kind: "taskbarApp", act: () => entry.configure() })
+    out.push({ item: settingsButton, kind: "taskbarApp", flick: flick, act: () => entry.configure() })
     return out
   }
   function cursorMoved(stop) {
