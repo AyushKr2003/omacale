@@ -226,6 +226,31 @@ class PreviewTest(unittest.TestCase):
         self.assertEqual((self.plugin / "Bar.qml").read_text(), "user changed it")
         self.assertFalse(self.stopped)
 
+    def test_failed_diagnostic_write_cannot_skip_shell_recovery(self):
+        write_json = PREVIEW.write_json
+        def write(path,value):
+            if path.name == "failure.json":raise OSError("diagnostic disk full")
+            return write_json(path,value)
+        with patch.object(PREVIEW,"write_json",side_effect=write), \
+             patch.object(PREVIEW,"wait_ready",side_effect=[RuntimeError("original probe failure"),"1"]):
+            with self.assertRaisesRegex(RuntimeError,"original probe failure"):
+                PREVIEW.start(self.source,self.config,self.state)
+        self.assertFalse(self.stopped)
+        self.assertEqual((self.plugin/"Bar.qml").read_text(),"installed before")
+
+    def test_cleanup_failure_after_publish_keeps_the_committed_phase(self):
+        stage = PREVIEW.stage_plugin(self.source,self.plugin)
+        with patch.object(PREVIEW.shutil,"rmtree",side_effect=OSError("cleanup denied")):
+            self.real_publish(stage,self.plugin)
+        self.assertEqual((self.plugin/"Bar.qml").read_text(),"preview source")
+        self.assertFalse(stage.exists())
+
+    def test_failed_copy_keeps_original_error_when_cleanup_also_fails(self):
+        with patch.object(PREVIEW.shutil,"copytree",side_effect=OSError("original copy failure")), \
+             patch.object(PREVIEW.shutil,"rmtree",side_effect=OSError("cleanup denied")):
+            with self.assertRaisesRegex(OSError,"original copy failure"):
+                PREVIEW.stage_plugin(self.source,self.plugin)
+
     def test_dirty_checkout_is_rejected_before_deployment(self):
         (self.checkout / "mine.txt").write_text("keep me")
         with self.assertRaisesRegex(RuntimeError, "uncommitted"):

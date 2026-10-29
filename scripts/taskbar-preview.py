@@ -120,6 +120,13 @@ def stop_shell():
     return config
 
 
+def remove_temporary(path):
+    try:
+        shutil.rmtree(path)
+    except OSError as error:
+        print("Could not remove temporary plugin directory " + str(path) + ": " + str(error), file=sys.stderr)
+
+
 def stage_plugin(source, plugin, development=False):
     # inotify recursively watches hidden directories too. Stage beside the
     # plugins directory (same filesystem for rename), never anywhere inside it.
@@ -130,7 +137,7 @@ def stage_plugin(source, plugin, development=False):
                         ignore=shutil.ignore_patterns(*ignored))
         return stage
     except BaseException:
-        shutil.rmtree(stage)
+        remove_temporary(stage)
         raise
 
 
@@ -143,7 +150,9 @@ def publish_plugin(stage, plugin):
     except BaseException:
         retired.rename(plugin)
         raise
-    shutil.rmtree(retired)
+    # Publication has committed. Cleanup cannot turn it into an uncommitted
+    # failure and make the caller restart the wrong version.
+    remove_temporary(retired)
 
 
 def plugin_digest(plugin):
@@ -262,7 +271,7 @@ def restore(state_dir, restart=True):
             except BaseException as recovery:
                 print("Shell recovery also failed: " + str(recovery), file=sys.stderr, flush=True)
         if stage.exists():
-            shutil.rmtree(stage)
+            remove_temporary(stage)
 
 
 def start(source, config, state_dir, checkout=None):
@@ -368,8 +377,11 @@ def start(source, config, state_dir, checkout=None):
     except BaseException as error:
         # Report the original failure before any recovery work, not afterwards.
         print("Preview failed: " + str(error), file=sys.stderr, flush=True)
-        write_json(state_dir / "failure.json", {"error": str(error), "deployed": deployed,
-                                                 "newCrashReports": sorted(crash_reports() - crashes)})
+        try:
+            write_json(state_dir / "failure.json", {"error": str(error), "deployed": deployed,
+                                                     "newCrashReports": sorted(crash_reports() - crashes)})
+        except OSError as diagnostics:
+            print("Could not save preview diagnostics: " + str(diagnostics), file=sys.stderr)
         if deployed:
             print("Restoring the previous plugin and settings...", file=sys.stderr, flush=True)
             try:
@@ -391,7 +403,7 @@ def start(source, config, state_dir, checkout=None):
         raise
     finally:
         if stage and stage.exists():
-            shutil.rmtree(stage)
+            remove_temporary(stage)
 
 
 def main():
