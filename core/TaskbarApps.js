@@ -9,6 +9,11 @@ function list(v) {
 function text(v) { return typeof v === "string" ? v.trim() : "" }
 function appId(v) { return text(v).replace(/\.desktop$/, "") }
 function ids(v) { return list(v).map(appId).filter((id, i, a) => id && a.indexOf(id) === i) }
+// HyprlandToplevel.address is bare hex; Sys's Lua window selectors use 0x.
+function windowAddress(value) {
+  const address = text(value).replace(/^0x/i, "")
+  return /^[0-9a-f]+$/i.test(address) ? "0x" + address.toLowerCase() : ""
+}
 function folderPath(v, home) {
   const p = text(v)
   const full = p === "~" ? home : p.startsWith("~/") ? (home ? home + p.slice(1) : "") : p

@@ -147,7 +147,7 @@ TestCase {
     verify(item)
     wait(10)
     const editorSlot = item.navStops()[0].item
-    Hyprland.toplevels.values = [{address:"0xa",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:null}}]
+    Hyprland.toplevels.values = [{address:"a",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:null}}]
     wait(10)
     compare(item.navStops()[0].item, editorSlot)
     fakeBar.appsExtra = 0
@@ -183,9 +183,9 @@ TestCase {
     compare(TaskbarApps.claimingEntry("org.omarchy.nvim"), "neovim")
     compare(TaskbarApps.claimingEntry("custom"), "wrapper")
     Hyprland.toplevels.values = [
-      {address:"0xa",workspace:{id:-1,name:"special:scratch"},wayland:{appId:"editor",parent:null}},
-      {address:"0xb",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:{}}},
-      {address:"0xc",workspace:{id:-2,name:"special:minimized"},wayland:{appId:"editor",parent:null}}]
+      {address:"a",workspace:{id:-1,name:"special:scratch"},wayland:{appId:"editor",parent:null}},
+      {address:"b",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:{}}},
+      {address:"c",workspace:{id:-2,name:"special:minimized"},wayland:{appId:"editor",parent:null}}]
     compare(TaskbarApps.windows.length, 1)
     TaskbarApps.activate({type:"app",app:"editor"}, fakeHost, false)
     compare(Sys.calls[0], "move:0xc:1")
@@ -225,8 +225,8 @@ TestCase {
   function test_launch_and_cycle() {
     TaskbarApps.activate({type:"app",app:"editor"},fakeHost,false)
     compare(launched.length,1)
-    const first={address:"0xa",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:null}}
-    const second={address:"0xb",workspace:{id:2,name:"2"},wayland:{appId:"editor",parent:null}}
+    const first={address:"a",workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:null}}
+    const second={address:"b",workspace:{id:2,name:"2"},wayland:{appId:"editor",parent:null}}
     Hyprland.toplevels.values=[first,second]
     Sys.activeToplevel=first
     TaskbarApps.activate({type:"app",app:"editor"},fakeHost,false)

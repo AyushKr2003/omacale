@@ -71,7 +71,8 @@ QtObject {
       const w = t.wayland, ws = t.workspace
       if (!w || !w.appId || w.parent || !ws || (ws.id < 1 && ws.name !== "special:minimized")) continue
       const id = claimingEntry(w.appId)
-      if (id) out.push({ app: id, address: t.address, workspaceId: ws.id, workspaceName: ws.name, toplevel: t })
+      const address = Model.windowAddress(t.address)
+      if (id && address) out.push({ app: id, address: address, workspaceId: ws.id, workspaceName: ws.name, toplevel: t })
     }
     return out
   }
@@ -100,7 +101,7 @@ QtObject {
     if (newInstance || !wins.length) { launch(item.app, host); return }
     const active = Sys.activeToplevel
     const workspace = Hyprland.focusedWorkspace
-    const w = wins[Model.pickWindow(wins, active ? active.address : "", workspace ? workspace.id : -1)]
+    const w = wins[Model.pickWindow(wins, active ? Model.windowAddress(active.address) : "", workspace ? workspace.id : -1)]
     if (w.workspaceName === "special:minimized" && workspace) Sys.moveWindow(w.address, String(workspace.id))
     Sys.focusWindow(w.address)
   }

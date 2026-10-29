@@ -94,6 +94,11 @@ test("folder URLs preserve spaces, fragments, queries and literal shell syntax",
   assert.strictEqual(url, 'file:///tmp/a%20b/%23%3F%25/%24(touch%20nope)%3B%22%C3%A9%22')
   assert.strictEqual(decodeURIComponent(url.slice(7)), dir)
 })
+test("native bare window addresses become canonical Lua selectors", () => {
+  assert.strictEqual(M.windowAddress("56436d702310"), "0x56436d702310")
+  assert.strictEqual(M.windowAddress("0xABC"), "0xabc")
+  for (const value of ["", "address:123", "12;foo", null]) assert.strictEqual(M.windowAddress(value), "")
+})
 test("click cycles the app's windows and prefers the current workspace", () => {
   const wins = [{ address: "a", workspaceId: 1 }, { address: "b", workspaceId: 2 }, { address: "c", workspaceId: 2 }]
   assert.strictEqual(M.pickWindow(wins, "a", 1), 1)
