@@ -38,7 +38,25 @@ and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
 
-## Development preview
+## Development preview: disabled
+
+**The live `start` command is blocked after two failed desktop trials. Do not
+use the commands below until native desktop validation has been completed.**
+If the shell is stopped, recover with Omarchy's existing command:
+
+```bash
+omarchy-restart-shell
+```
+
+A second trial exposed Quickshell's non-JSON `No running instances.` response
+after the old shell had exited. Parsing it as JSON raised an exception before
+the helper had marked the shell as stopped, so its failure path skipped the
+restart. The parser now accepts that exact empty-inventory response, and the
+stop verifier attempts to restart the current version if a later query fails.
+Regression tests cover the actual response and an error after the quit request.
+The CLI remains disabled; these fixes have not been re-tested on the desktop.
+
+The following describes the staged workflow for development and tests only.
 
 Run from a normal desktop terminal, with an existing Omacale installation:
 

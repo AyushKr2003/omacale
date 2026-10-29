@@ -95,13 +95,39 @@ class PreviewTest(unittest.TestCase):
             return "ok"
         return self.real_run(*args, cwd=cwd, timeout=timeout)
 
-    def test_cli_start_uses_the_guarded_workflow(self):
+    def test_live_start_is_blocked_before_touching_the_desktop(self):
         with patch.object(sys, "argv", ["taskbar-preview.py", "start"]), \
-             patch.object(PREVIEW, "start") as workflow, \
-             patch.dict(PREVIEW.os.environ, {"XDG_STATE_HOME": str(self.root / "cli-state")}):
-            self.assertEqual(PREVIEW.main(), 0)
-        workflow.assert_called_once()
+             patch.object(PREVIEW, "start") as workflow:
+            self.assertEqual(PREVIEW.main(), 1)
+        workflow.assert_not_called()
         self.assertEqual(self.desktop_calls, [])
+
+    def test_quickshell_no_instances_text_is_a_valid_empty_inventory(self):
+        with patch.object(PREVIEW, "run", return_value="No running instances."):
+            self.assertEqual(PREVIEW.shell_instances(self.root / "shell"), [])
+
+    def test_inventory_filters_actual_json_for_this_shell(self):
+        config = self.root / "shell"
+        output = json.dumps([{"config_path":str(config / "shell.qml")},
+                             {"config_path":str(self.root / "other/shell.qml")}])
+        with patch.object(PREVIEW, "run", return_value=output):
+            self.assertEqual(len(PREVIEW.shell_instances(config)), 1)
+
+    def test_bad_inventory_after_quit_restarts_before_propagating_error(self):
+        with patch.object(PREVIEW, "shell_config", return_value=self.root / "shell"), \
+             patch.object(PREVIEW, "shell_instances", side_effect=[[{"id":"first"}], ValueError("bad inventory")]), \
+             patch.object(PREVIEW, "run") as commands:
+            with self.assertRaisesRegex(ValueError, "bad inventory"):
+                self.real_stop()
+        self.assertEqual(commands.call_args_list[-1].args, ("omarchy-restart-shell",))
+
+    def test_real_no_instances_response_finishes_stop_without_parse_error(self):
+        config = self.root / "shell"
+        responses = [json.dumps([{"config_path":str(config / "shell.qml")}]), "", "No running instances."]
+        with patch.object(PREVIEW, "shell_config", return_value=config), \
+             patch.object(PREVIEW, "run", side_effect=responses) as commands:
+            self.assertEqual(self.real_stop(), config)
+        self.assertEqual(commands.call_args_list[1].args[:2], ("quickshell", "kill"))
 
     def test_install_and_restore_preserve_other_settings(self):
         PREVIEW.start(self.source, self.config, self.state, self.checkout)

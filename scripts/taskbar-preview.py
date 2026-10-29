@@ -50,7 +50,13 @@ def shell_config():
 
 
 def shell_instances(config):
-    rows = json.loads(run("quickshell", "list", "-a", "-j"))
+    output = run("quickshell", "list", "-a", "-j")
+    # Quickshell prints this success message even when JSON was requested.
+    if output == "No running instances.":
+        return []
+    rows = json.loads(output)
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise RuntimeError("Unexpected Quickshell instance-list response")
     return [row for row in rows
             if Path(row.get("config_path", "")).resolve() == config / "shell.qml"]
 
@@ -65,11 +71,21 @@ def stop_shell():
     ensure_unlocked()
     config = shell_config()
     deadline = time.monotonic() + 30
-    while shell_instances(config):
-        if time.monotonic() >= deadline:
-            raise RuntimeError("Existing shell did not stop; installed plugin left untouched")
-        run("quickshell", "kill", "-p", str(config), "--any-display", timeout=30)
-        time.sleep(0.05)
+    stop_attempted = False
+    try:
+        while shell_instances(config):
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Existing shell did not stop; installed plugin left untouched")
+            stop_attempted = True
+            run("quickshell", "kill", "-p", str(config), "--any-display", timeout=30)
+            time.sleep(0.05)
+    except BaseException:
+        # A failed inventory query can happen after quit was delivered. Never
+        # leave the desktop stopped just because this function did not return.
+        if stop_attempted:
+            print("Shell stop verification failed; restarting the existing version...", file=sys.stderr, flush=True)
+            run("omarchy-restart-shell", timeout=180)
+        raise
     return config
 
 
@@ -138,9 +154,11 @@ def restore(state_dir, restart=True):
     if plugin.is_symlink():
         raise RuntimeError("The installed plugin became a symlink; refusing to replace its target")
     stage = stage_plugin(state_dir / "plugin-before", plugin)
+    shell_stopped = False
     try:
         print("Stopping the existing shell before restoring files...", flush=True)
         stop_shell()
+        shell_stopped = True
         publish_plugin(stage, plugin)
         settings = Path(record["settings"])
         current = read_json(settings)
@@ -161,10 +179,13 @@ def restore(state_dir, restart=True):
                 print("Checkout has changed; left its branch and files untouched.")
         if restart:
             run("omarchy-restart-shell", timeout=180)
+            shell_stopped = False
             wait_ready(("omarchy-shell", "omacale", "scale", ""), bool)
         record_path.rename(state_dir / "restored.json")
         print("Previous plugin, app settings and bar layout restored. Other settings were kept.")
     finally:
+        if shell_stopped and restart:
+            run("omarchy-restart-shell", timeout=180)
         if stage.exists():
             shutil.rmtree(stage)
 
@@ -289,6 +310,10 @@ def main():
     parser.add_argument("action", choices=("start", "restore"))
     parser.add_argument("--checkout", type=Path, help="Import the feature branch into this clean checkout first")
     args = parser.parse_args()
+    if args.action == "start":
+        print("Live preview is blocked after two failed desktop trials. "
+              "Do not retry it; use omarchy-restart-shell to recover a stopped shell.", file=sys.stderr)
+        return 1
     source = Path(__file__).resolve().parent.parent
     config = Path.home() / ".config"
     state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "omacale/taskbar-preview"
