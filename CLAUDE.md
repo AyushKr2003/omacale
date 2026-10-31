@@ -74,6 +74,7 @@ Before building or changing any UI, read the Caelestia original and port its str
 | `core/Liquid.qml`, `core/LiquidMath.js`, `components/Spring.qml`, `components/shapes/LiquidDrawer.qml`, `LiquidDetach.qml`, `modules/settings/cards/LiquidPreview.qml`, `LiquidPreset.qml` (Settings › Motion) | no Caelestia original: Vitreus (`shell/Vitreus/vitreus.plm` `spring drip`/`hang`/`splash`, `*.bell`, `dk`/`dc` drawers, `dj.*` drip; `pages/bar_shapes.plm` `box drawer`). See "Liquid motion" below |
 | `core/Morph.qml`, `components/MorphDrawer.qml`, `components/MorphSwitch.qml`, `modules/settings/cards/MotionStyle.qml`, the morph switch in `PopoutContent.qml` (Settings › Motion › Style: Morph) | no Caelestia original: Serpantinum's panels (`shell/serpantinum/src/quickshell/Main.qml` `animContainer`, `switchWidget`/`executeSwitch`, `volume/VolumePopup.qml` `introAnim`/`exitAnim`). See "Morph motion" below |
 | `core/Glass.qml` + the glass path in `shaders/blob.frag` (Settings › Glass) | no Caelestia original: Vitreus's default glass, pleamar `src/shape.wgsl` without its lens. See "Glass" below and `docs/liquid-glass-research.md` |
+| `BootMenu.qml`, `BootPreview.qml`, `BootWallpaper.qml`, `BootActions.qml`, `RowColour.qml`, `scripts/limine-style` (Settings › Boot menu) | no Caelestia original: the look of Omarchy's Limine boot menu (see "The boot menu" below) |
 | `omacale.lua` | caelestia-dots `hypr/variables.lua`, `hypr/hyprland/animations.lua`, `decoration.lua`, `general.lua`, `rules.lua` (a separate repo, not in `caelestia_shell/`) |
 
 Conventions that keep the port faithful:
@@ -383,6 +384,16 @@ Omarchy's `omarchy.lock` service owns the session lock, PAM, the stranded-lock r
 - **A video background is its poster only**, as in the stock view: the shell's `BackgroundMedia` draws stills only, so `LockUi` gives it `view.videoPosterPath` and nothing plays behind the lock. Omarchy dropped OWE's live feed (`LockFeedSurface.qml`, wrapper v7 no longer names it), and Omacale's loader and darkening for it went with it.
 - The install and the removal both apply live — the shell enables the clone and reloads plugin files itself — so neither restarts the shell. `LockService` runs them and is what Settings › Panels › Lock screen drives; `Config.o.lock.enabled` alone decides which view draws, so turning Omacale off never tears anything down mid-lock.
 - Uninstall runs `lock-screen remove` **before** `restore_shell_json`, for the same reason as the notification clone: `omarchy plugin remove` writes `shell.json` too.
+
+## The boot menu (Limine)
+
+Settings › Boot menu edits `boot.*` in Omacale's settings and previews them (`BootPreview`, a drawing of Limine's menu); nothing reaches `/boot` until **Apply**, which `BootMenu` runs as `pkexec /usr/bin/python3 -I scripts/limine-style apply '<json>'` (Omarchy's `omarchy.polkit` agent asks the password; 126/127 from pkexec = not given, nothing ran). `limine-style` is the only code that runs as root, and it holds these rules -- keep them, `bash tests/test-limine-style.sh` checks every one on a scratch ESP (`LIMINE_STYLE_ROOT`, ignored as root):
+
+- **Header only, whitelist only.** It touches only the `LOOK` keys in the lines before the first entry (a line starting with `/`), with lines built from validated values (RRGGBB, TTRRGGBB, enums, `timeout` 1-30 or `no` -- never 0, which skips the menu and with it the snapshots -- `term_margin` 0-240, `term_margin_gradient` 0-64, `term_font_scale` 1x1-4x4, and a printable title; null removes a key, giving it back to Limine). The entries must come out byte for byte the same or nothing is written; a file without entries is refused.
+- **Enroll every time.** With `ENABLE_ENROLL_LIMINE_CONFIG=yes` a limine.conf that isn't enrolled does not boot, so `limine-enroll-config` runs after every write (it only enrolls when that is on, and re-signs for Secure Boot); if it fails the old file goes back and is enrolled again.
+- **Lock, backup, atomic.** `flock` on `/run/lock/boot-partition.lock` as Limine's own tools (`/usr/lib/limine/limine-mutex`); a backup in `<ESP>/omacale/backups` (last five; `undo` walks them back); a temp file renamed into place.
+- **The wallpaper** is copied to `<ESP>/omacale/wallpaper.<ext>` (Limine reads only the ESP) only if it is a regular file the caller owns or anyone can read, at most 16 MB, with PNG/JPEG/BMP/QOI magic bytes, from outside the ESP. A see-through text background (`term_background` TT) is what lets it show; picking one starts that at 50 %.
+- `restore-default` sets the `LOOK` keys back to Omarchy's template (`default/limine/limine.conf`) and removes the wallpaper; `status` also says whether a fallback Limine (`EFI/BOOT/BOOTX64.EFI`) exists and whether config enrollment is on. Uninstall never touches `/boot`; it prints the restore command.
 
 ## Scope: what Omacale changes, and what it doesn't
 
