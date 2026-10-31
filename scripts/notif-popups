@@ -64,7 +64,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:headless-popups v3"
+MARKER = "omacale:headless-popups v4"
 # Every version of the patch carries this; `remove` and `ours()` know a clone
 # Omacale patched by it, whichever version patched it.
 MARKER_PREFIX = "omacale:headless-popups v"
@@ -76,6 +76,8 @@ MARKER_PREFIX = "omacale:headless-popups v"
 VERIFIED_AGAINST = {
     "11665542e70df80ccd3c785a6143dee2daefd2082e4f75c740adc2c9947cf7c2",
     "0270dae590b71b941204e40fa7b45f9c8891c23becb0970bbdc893beb598ce40",
+    # dev, 4.0.0.r7438 (717175d): the deck with instant closes, Delivery.js
+    "eaa7b0af56dc238ac9d04dd10bfeacfd6bf8bed01533e9476bf8f2a2a25b6325",
 }
 
 HOME = os.path.expanduser("~")
@@ -348,10 +350,10 @@ DECK_UI_FINGERPRINTS = ('WlrLayershell.namespace: "omarchy-notifications"', "Var
 DECK_SCREENS = "  Variants {\n    id: surfaceVariants\n    model: Quickshell.screens\n"
 DECK_SCREENS_GATED = "  Variants {\n    id: surfaceVariants\n    model: service.omacaleDraws ? [] : Quickshell.screens\n"
 # What the patch calls on the stock service; refused if any of it is gone.
-DECK_USES = ("ListModel {\n    id: toasts\n", "property var leaving: ({})", "function closeToast(key, reason)",
-             "function activate(key)", "function rowIndexFor(key)", "function storeDrop(key)",
-             "function clearAll(reason)", "property var historyEntries: []", "function saveSoon(file)",
-             "function refreshHeld()", "function refreshHistory()", "property var liveKeys")
+DECK_USES = ("ListModel {\n    id: toasts\n", "property var leaving: ({})", "function closeToast(key, reason, instant)",
+             "function activate(key, instant)", "function rowIndexFor(key)", "function storeDrop(key)",
+             "function clearAll(reason, instant)", "property var historyEntries: []", "function saveSoon(file)",
+             "property var liveKeys")
 
 DECK_HEADLESS_BLOCK = '''  // ---------------------------------------------------------- Omacale
   //
@@ -506,7 +508,7 @@ DECK_HEADLESS_BLOCK = '''  // --------------------------------------------------
     }
     for (var j = 0; j < expired.length; j++) {
       delete service.popupClocks[expired[j]]
-      service.closeToast(expired[j], "expired")
+      service.closeToast(expired[j], "expired", true)
     }
     service.omacaleWritePopups()
   }
@@ -538,12 +540,10 @@ DECK_HEADLESS_BLOCK = '''  // --------------------------------------------------
       var key = keys[i]
       gone[key] = true
       service.storeDrop(key)
-      if (service.liveKeys[key]) service.closeToast(key, "dismissed")
+      if (service.liveKeys[key]) service.closeToast(key, "dismissed", true)
     }
     service.historyEntries = service.historyEntries.filter(function(entry) { return !gone[entry.key] })
     service.saveSoon("history")
-    service.refreshHeld()
-    service.refreshHistory()
   }
 '''
 
@@ -580,7 +580,7 @@ DECK_IPC_BLOCK = '''    // ---------------------------------------------------- 
     function dismissKey(key: string): string {
       var k = String(key || "")
       if (service.rowIndexFor(k) < 0 || service.leaving[k]) return "none"
-      service.closeToast(k, "dismissed")
+      service.closeToast(k, "dismissed", true)
       return "ok"
     }
 
@@ -589,7 +589,7 @@ DECK_IPC_BLOCK = '''    // ---------------------------------------------------- 
     function invokeKey(key: string): string {
       var k = String(key || "")
       if (service.rowIndexFor(k) < 0 || service.leaving[k]) return "none"
-      service.activate(k)
+      service.activate(k, true)
       return "ok"
     }
 
@@ -604,11 +604,9 @@ DECK_IPC_BLOCK = '''    // ---------------------------------------------------- 
     // Everything: the cards on screen and all of history.
     function forgetAll(): string {
       service.omacaleForget(Object.keys(service.liveKeys))
-      service.clearAll("dismissed")
+      service.clearAll("dismissed", true)
       service.historyEntries = []
       service.saveSoon("history")
-      service.refreshHeld()
-      service.refreshHistory()
       return "ok"
     }
 
