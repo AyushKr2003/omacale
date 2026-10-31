@@ -249,6 +249,52 @@ local under the preview state directory; they are not contributor-PR attachments
 Multiple monitors were unavailable and were not simulated. Native race freedom is
 argued from ownership and regression tests, not from a finite number of starts.
 
+## Interaction acceptance — 2026-10-31
+
+The follow-up was installed with the same controlled restore/start transaction.
+The settings shortcut is hidden by default; the user's eight existing pins,
+order, 16-slot saved cap, bottom edge and 0.85 UI scale were preserved.
+
+Real compositor checks, separate from the mocked-host Qt tests:
+
+- Right-click showed the app-specific menu. The Menu key opened the same menu;
+  pin and unpin actions were exercised and persisted through the actual adapter.
+- Native pointer drags pinned a running test app at the front, then moved that
+  pin to the end. Unpinning restored the original eight-item array exactly.
+- A compiled Qt fixture opened two windows but deliberately kept its process
+  alive after both closed. Selecting **Quit application** through the real menu
+  closed both and terminated that background owner with SIGTERM (exit `-15`).
+  The other applications' processes stayed alive. This exercised the actual
+  Run supervisor, helper, compositor socket and pidfds, not a mocked process.
+- The separator was visible between the eight pins and the running fixture;
+  it disappeared when there was no separate running section. Qt checks cover
+  the dimmed/active/hovered icon states.
+- Menu captures were viewed on left, right, top and bottom after layout settled.
+  A real three-slot limit and available-space mode were captured and compared.
+- Exactly one shell remained, no new Quickshell crash report appeared, and the
+  feature/Run logs contained no new warnings. Temporary launcher entries and
+  test windows were removed. Private captures remain outside the repository.
+
+The early input attempts were not acceptance passes: the virtual pointer needed
+time to deliver its press before the test warped the cursor. After correcting
+that test driver, the complete menu/pin/drag/quit trial passed in 18 seconds.
+Multiple monitors were unavailable and were not simulated.
+
+The interaction Sol loop used the configured native `gpt-6.1-sol` route for two
+rounds, ending APPROVE on the behavioral candidate `7c8565f`. S1 (native terminal
+`--app-id` mistaken for a web app), S2 (a drop among running apps unintentionally
+pinning it), and S3 (menu-close state cleanup before committing an action) were
+resolved with focused regressions. No findings were declined. The reviewed diff
+grew from 22 files / 1,616 insertions / 84 deletions to 22 / 1,684 / 87, mainly
+regressions and the small corrections. Independent model/provider metadata and
+usage were not returned; no usage figures are inferred.
+
+Omakit reports the Run 0.2.1 block unmodified. Its local baseline has no findings
+and requires human review for existing capabilities; the offline submission
+preflight is ready. `omakit weigh` refused `plugin-is-bar`: replacing a whole
+bar is outside that measurement's contract. No weight or marketplace approval
+is claimed.
+
 ### Regression coverage and existing failures
 
 The three focused JS suites pass. Qt UI has **31 passing cases** using actual
@@ -298,13 +344,20 @@ app groups and directory shortcuts. It uses the existing layout, settings,
 controls and keyboard popout, works on every edge, recognizes running windows,
 cycles/restores them and launches terminal entries through Omarchy.
 
+App-specific menus add pin/unpin, close-all and quit actions. Pins can be
+dragged into order, running apps dragged into the pin section, and a divider
+and dimming distinguish those sections. Available-space sizing respects the
+other widget pills; a manual slot limit and an optional, default-hidden settings
+shortcut remain available.
+
 A controlled development preview stages outside watched directories and stops
 the shell/supervisor before publication and rollback. Recovery preserves later
 settings/installed edits and retains the original error even if diagnostics fail.
 The Quickshell scanner repair is maintained as a separate package change.
 
 Validation: taskbar-apps/layout/settings JS suites, 31 actual-component Qt cases,
-28 preview regressions, native C++ build/stress/module tests, and the real desktop
+28 preview regressions, 8 disposable-process quit tests, native C++
+build/stress/module tests, and the real desktop
 checks above. Existing facade/notification-restore failures reproduce on the
 baseline. Multi-monitor acceptance remains unverified because one display was
 available. Release versioning remains with the maintainer.
