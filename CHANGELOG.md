@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.2 - 2026-10-31
+
+### Fixed
+- **notifications**: The toast handover applies to Omarchy's reworked notification daemon again (instant closes; `refreshHeld` and `refreshHistory` are gone), so Omacale's toasts return instead of Omarchy's own
+- **lock**: Follows Omarchy's new lock service. A video background is its poster only, as Omarchy dropped the live feed
+
 ## 0.55.1 - 2026-10-22
 
 ### Fixed
