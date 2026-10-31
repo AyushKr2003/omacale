@@ -97,16 +97,13 @@ Item {
 
   // ------------------------------------------------------------ background
   // Mirrors Omarchy's own LockView: the shell draws stills only, so a video
-  // background is its cached poster (`videoPosterPath`) with OWE's live lock
-  // feed over it. Both components are Omarchy's and loaded by URL, so this
-  // file keeps no import of the shell's internals.
+  // background is its cached poster (`videoPosterPath`), nothing plays behind
+  // the lock.
   //
   // Same test as Omarchy's Util.isVideoPath, restated so the lock UI doesn't
   // import qs.Commons.
   readonly property alias card: card
   readonly property bool video: /\.(mp4|m4v|mov|webm|mkv|avi)$/i.test(view ? String(view.backgroundPath || "") : "")
-  // Omarchy's `feedActive`: a blanked display shows nothing, so a video must
-  // not keep decoding through it.
   // The ShellScreen this surface is on, for the screen capture. The wrapper
   // doesn't pass Omarchy's `lockSurface.screen` down, so it is found by the
   // name of the screen the window sits on.
@@ -119,16 +116,13 @@ Item {
   }
   readonly property bool captured: capture.item !== null && capture.item.hasContent
 
-  readonly property bool feedActive: video && !!view && view.loadBackground && !view.displaysBlank && !view.powerSaverActive
-
   Item {
     id: background
 
     anchors.fill: parent
     opacity: 0
 
-    // The still (or poster) only. Omarchy doesn't blur the feed either: it
-    // "cannot be sampled by MultiEffect on every renderer".
+    // The still (or poster).
     Item {
       anchors.fill: parent
 
@@ -185,25 +179,6 @@ Item {
       value: root.view ? root.view.backgroundVersion : 0
       when: media.item !== null
       restoreMode: Binding.RestoreNone
-    }
-
-    // The wrapper names the feed (it lives in the lock clone), so a wrapper
-    // too old to know it, or a system without Owe.LockFeed, just keeps the
-    // poster: a Loader error stays inside the Loader.
-    Loader {
-      id: feed
-
-      anchors.fill: parent
-      active: root.feedActive && !!root.view.feedSurfaceUrl && !root.captured
-      source: active ? root.view.feedSurfaceUrl : ""
-      visible: status === Loader.Ready
-    }
-
-    // Omarchy's darkening over video, for legibility.
-    Rectangle {
-      anchors.fill: parent
-      visible: root.video && !root.captured
-      color: "#22000000"
     }
 
     // Caelestia's default background (LockSurface.qml `screencopyBackground`):
