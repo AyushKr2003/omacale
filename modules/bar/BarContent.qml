@@ -296,9 +296,10 @@ Item {
     onTabRequested: d => root.stepStop(d)
   }
   Keys.onPressed: e => {
-    // Menu or Shift+F10: the tray item's own menu.
+    // Menu or Shift+F10: the focused item's own menu.
     if (e.key === Qt.Key_Menu || (e.key === Qt.Key_F10 && (e.modifiers & Qt.ShiftModifier))) {
       if (root.cursorStop && root.cursorStop.kind === "tray") root.openTrayMenu(root.cursorStop)
+      else if (root.cursorStop && typeof root.cursorStop.menu === "function") root.cursorStop.menu()
       e.accepted = true
       return
     }

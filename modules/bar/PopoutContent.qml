@@ -21,6 +21,7 @@ Item {
   property string name: ""
   property var trayItem: null
   property string appGroup: ""
+  property var appMenuItem: null
   property var screen: null
   // Whether the popout is showing (it keeps its last page loaded after).
   property bool open: false
@@ -39,9 +40,19 @@ Item {
   // (DefaultEffects) and unloads it, and fades the new one in (SlowEffects),
   // while the popout resizes around them.
   readonly property var pages: ({
-    appgroup: appgroup, network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
+    appgroup: appgroup, appmenu: appmenu, network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
     kblayout: kblayout, lockstatus: lockstatus, update: update, traymenu: traymenu, activewindow: activewindow, winfo: winfo
   })
+  Component {
+    id: appmenu
+    AppsMenu {
+      appItem: root.appMenuItem
+      host: root.host
+      onCloseRequested: root.closeRequested()
+      onAppActivated: root.appActivated()
+      onGroupRequested: id => root.switchRequested("appgroup", id)
+    }
+  }
   Component {
     id: appgroup
     AppsGroup {

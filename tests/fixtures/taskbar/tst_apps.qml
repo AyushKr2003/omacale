@@ -8,20 +8,23 @@ TestCase {
   name: "TaskbarAppsUI"
   width: 1000
   height: 900
+  visible: true
   when: windowShown
   property var launched: []
+  property var toggled: []
   QtObject {
     id: fakeHost
     property var widgetIds: []
     property var thirdPartyPlugins: []
     function entryId(e) { return e.id }
     property var shell: ({ appLibrary: { launch: (id,name) => { test.launched=test.launched.concat([id]) } } })
-    function toggle(name,page) {}
+    function toggle(name,page) { test.toggled=test.toggled.concat([name+":"+page]) }
   }
   QtObject {
     id: fakeScope
     property bool barFocus: false
     property string appGroup: ""
+    property var appMenuItem: null
     property real popoutCenter: 0
     property string popout: ""
     function openPopoutKeys(name) { popout=name }
@@ -49,6 +52,7 @@ TestCase {
   Component { id: pickerFactory; TaskbarAppPicker { width: 700; height: implicitHeight; settings: navigator } }
   Component { id: folderPickerFactory; FileDialog { selectFolder: true; cwd: Quickshell.env("OMACALE_TEST_FOLDER").split("/") } }
   Component { id: groupFactory; AppsGroup { groupId: "group:work"; host: fakeHost; width: 320; height: implicitHeight } }
+  Component { id: menuFactory; AppsMenu { host: fakeHost; width: implicitWidth; height: implicitHeight } }
   QtObject {
     id: navigator
     property var selectedApp: null
@@ -65,6 +69,8 @@ TestCase {
     fakeBar.appsExtra = 200
     fakeScope.popout = ""
     Config.set("bar.apps.maxShown", 8)
+    Config.set("bar.apps.useAvailableSpace", true)
+    Config.set("bar.apps.showSettings", false)
     Config.set("bar.apps.enabled", true)
     Config.set("bar.apps.items", [{type:"app",app:"editor"}, {id:"group:work",type:"group",name:"Work",apps:["browser"]}])
     DesktopEntries.applications.values=[{id:"editor",name:"Editor",icon:"",command:[]},{id:"browser",name:"Browser",icon:"",command:[]}]
@@ -72,6 +78,9 @@ TestCase {
     Sys.activeToplevel=null
     Sys.calls=[]
     test.launched=[]
+    test.toggled=[]
+    TaskbarApps.quitRun.running=false
+    Toaster.messages=[]
     navigator.folderPick = null
     fakeHost.shell = ({ appLibrary: { launch: (id,name) => { test.launched=test.launched.concat([id]) } } })
   }
@@ -114,6 +123,7 @@ TestCase {
     Config.set("bar.layout.start", ["logo", "workspaces", "apps"])
   }
   function test_full_bar_caps_many_apps_and_scrolls_with_keys() {
+    Config.set("bar.apps.showSettings", true)
     const entries = []
     const pins = []
     for (let i = 0; i < 20; i++) {
@@ -140,6 +150,7 @@ TestCase {
     verify(position.y + button.height <= apps.height + 0.5, JSON.stringify({y:position.y,button:button.height,height:apps.height,target:apps.sizeLen}))
   }
   function test_bar_cursor_tracks_scrolled_app_cells() {
+    Config.set("bar.apps.showSettings", true)
     const entries = [], pins = []
     for (let i = 0; i < 20; i++) {
       entries.push({id:"app"+i,name:"App "+i,icon:"",command:[]})
@@ -169,7 +180,7 @@ TestCase {
     const item=createTemporaryObject(entryFactory,test)
     verify(item)
     wait(20)
-    compare(item.navStops().length,3)
+    compare(item.navStops().length,2)
     for (const edge of ["left","right","top","bottom"]) {
       fakeBar.edge=edge; fakeBar.vertical=edge==="left"||edge==="right";wait(10)
       verify(item.width>0);verify(item.height>0)
@@ -177,6 +188,136 @@ TestCase {
     Config.set("bar.apps.enabled",false)
     compare(item.shown,false)
     compare(TaskbarApps.windows.length,0)
+  }
+  function test_settings_button_optional_and_empty_bar_has_no_gap() {
+    const item=createTemporaryObject(entryFactory,test)
+    wait(20)
+    compare(item.navStops().length,2)
+    const shortLength=item.naturalLen
+    Config.set("bar.apps.showSettings",true)
+    compare(item.navStops().length,3)
+    verify(item.naturalLen>shortLength)
+    Config.set("bar.apps.showSettings",false)
+    Config.set("bar.apps.items",[])
+    tryCompare(item,"empty",true)
+    compare(item.shown,false)
+    compare(item.fullLen,0)
+  }
+  function test_available_space_and_manual_slot_limit() {
+    const entries=[],pins=[]
+    for(let i=0;i<40;i++) { entries.push({id:"app"+i,name:"App "+i,icon:"",command:[]});pins.push({type:"app",app:"app"+i}) }
+    DesktopEntries.applications.values=entries
+    Config.set("bar.apps.items",pins)
+    const item=createTemporaryObject(entryFactory,test)
+    wait(20)
+    compare(item.fullLen,item.naturalLen)
+    verify(item.sizeLen<=item.minLen+fakeBar.appsExtra)
+    Config.set("bar.apps.useAvailableSpace",false)
+    verify(item.fullLen<item.naturalLen)
+    const capped=item.fullLen
+    Config.set("bar.apps.maxShown",40)
+    verify(item.fullLen>capped)
+  }
+  function test_running_section_divider_and_emphasis() {
+    Config.set("bar.apps.items",[{type:"app",app:"editor"}])
+    const win={address:"a",workspace:{id:1,name:"1"},wayland:{appId:"browser",parent:null}}
+    Hyprland.toplevels.values=[win]
+    const item=createTemporaryObject(entryFactory,test)
+    wait(20)
+    mouseMove(test,900,800)
+    compare(item.pinnedCount,1)
+    compare(item.divided,true)
+    const stops=item.navStops()
+    compare(stops[0].item.saved,true)
+    compare(stops[1].item.saved,false)
+    compare(stops[1].item.iconOpacity,0.65)
+    Sys.activeToplevel=win
+    compare(stops[1].item.iconOpacity,1)
+    TaskbarApps.pin("browser",true)
+    compare(item.divided,false)
+    TaskbarApps.pin("editor",false)
+    TaskbarApps.pin("browser",false)
+    compare(item.pinnedCount,0)
+    compare(item.divided,false)
+  }
+  function test_right_click_and_keyboard_open_app_menu() {
+    const item=createTemporaryObject(entryFactory,test)
+    tryVerify(()=>Math.abs(item.height-item.sizeLen)<0.5)
+    const slot=item.navStops()[0].item
+    mouseClick(slot,slot.width/2,slot.height/2,Qt.RightButton)
+    compare(fakeScope.popout,"appmenu")
+    compare(fakeScope.appMenuItem.app,"editor")
+    compare(test.toggled.length,0)
+    fakeScope.popout=""
+    item.navStops()[0].menu()
+    compare(fakeScope.popout,"appmenu")
+  }
+  function test_menu_pin_unpin_close_all_and_quit() {
+    let closed=0
+    const wins=["a","b"].map(a=>({address:a,lastIpcObject:{pid:12345},workspace:{id:1,name:"1"},wayland:{appId:"editor",parent:null,close:()=>closed++}}))
+    Hyprland.toplevels.values=wins
+    const menu=createTemporaryObject(menuFactory,test,{appItem:TaskbarApps.items[0]})
+    verify(menu.actions.some(a=>a.id==="quit"))
+    menu.invoke("pin")
+    verify(!TaskbarApps.isPinned("editor"))
+    menu.invoke("pin")
+    verify(TaskbarApps.isPinned("editor"))
+    menu.invoke("close")
+    compare(closed,2)
+    menu.invoke("quit")
+    verify(TaskbarApps.quitting)
+    const command=TaskbarApps.quitRun.command
+    compare(command[0],"/usr/bin/python3")
+    const selection=JSON.parse(command[command.length-1])
+    compare(selection.windows.length,2)
+    compare(selection.windows[0].address,"0xa")
+    compare(selection.terminate,true)
+    TaskbarApps.quitRun.running=false
+    TaskbarApps.quitRun.finished({state:"ok",stdout:JSON.stringify({state:"windows-open"})})
+    compare(Toaster.messages.length,1)
+  }
+  function test_quit_webapp_preserves_browser_process() {
+    DesktopEntries.applications.values=[{id:"YouTube",name:"YouTube",startupClass:"chrome-youtube.com__-Default",icon:"",command:[]}]
+    Hyprland.toplevels.values=[{address:"a",lastIpcObject:{pid:12345},workspace:{id:1,name:"1"},wayland:{appId:"brave-youtube.com__-Default",parent:null}}]
+    TaskbarApps.quit({type:"app",app:"YouTube"})
+    const command=TaskbarApps.quitRun.command
+    compare(JSON.parse(command[command.length-1]).terminate,false)
+  }
+  function check_pointer_reorder(vertical) {
+    fakeBar.vertical=vertical
+    Config.set("bar.apps.items",[{type:"app",app:"editor"},{type:"app",app:"browser"}])
+    const item=createTemporaryObject(entryFactory,test)
+    tryVerify(()=>Math.abs((vertical?item.height:item.width)-item.sizeLen)<0.5)
+    const first=item.navStops()[0].item,last=item.navStops()[1].item
+    const target=last.mapToItem(first,last.width-2,last.height-2)
+    mousePress(first,first.width/2,first.height/2)
+    mouseMove(first,target.x,target.y,30)
+    verify(item.dragging)
+    mouseRelease(first,target.x,target.y)
+    compare(TaskbarApps.pins[0].app,"browser")
+    compare(TaskbarApps.pins[1].app,"editor")
+    compare(test.launched.length,0)
+    wait(20)
+    const stops=item.navStops(),p0=stops[0].item.mapToItem(item,0,0),p1=stops[1].item.mapToItem(item,0,0)
+    verify(vertical?p0.y<p1.y:p0.x<p1.x)
+  }
+  function test_pointer_reorder_vertical() { check_pointer_reorder(true) }
+  function test_pointer_reorder_horizontal() { check_pointer_reorder(false) }
+  function test_drag_running_app_to_pin_section_and_cancel_outside() {
+    Config.set("bar.apps.items",[{type:"app",app:"editor"}])
+    Hyprland.toplevels.values=[{address:"a",workspace:{id:1,name:"1"},wayland:{appId:"browser",parent:null}}]
+    const item=createTemporaryObject(entryFactory,test)
+    wait(50)
+    const running=item.navStops()[1].item
+    item.beginPress(running.appItem,running.mapToItem(item,0,0))
+    item.moveDrag(Qt.point(item.width/2,item.pad+1))
+    item.finishDrag()
+    compare(TaskbarApps.pins[0].app,"browser")
+    const before=JSON.stringify(TaskbarApps.pins)
+    item.beginPress(TaskbarApps.items[0],Qt.point(0,0))
+    item.moveDrag(Qt.point(-50,-50))
+    item.finishDrag()
+    compare(JSON.stringify(TaskbarApps.pins),before)
   }
   function test_slots_survive_window_changes_and_scroll() {
     const item = createTemporaryObject(entryFactory, test)

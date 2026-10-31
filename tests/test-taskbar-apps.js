@@ -17,7 +17,7 @@ function test(name, fn) {
 }
 
 test("disabled by default, with no saved items", () => {
-  eq(D.values.bar.apps, { enabled: false, showRunning: true, maxShown: 8, items: [] })
+  eq(D.values.bar.apps, { enabled: false, showRunning: true, useAvailableSpace: true, showSettings: false, maxShown: 8, items: [] })
   assert.strictEqual(L.ITEMS.apps.key, "bar.apps.enabled")
   assert.strictEqual(L.PAGES.apps, "taskbarApps")
 })
@@ -81,6 +81,16 @@ test("reorder clamps at either end and preserves membership", () => {
   eq(M.move(pins, "missing", 1), pins)
   eq(M.remove(pins, group.id), [folder, app("music")])
   eq(pins, [folder, group, app("music")])
+})
+test("drag places pins by stable ids without losing hidden pins or group edits", () => {
+  const pins = [app("hidden"), folder, group, app("music")]
+  eq(M.place(pins, app("music"), folder.id), [app("hidden"), app("music"), folder, group])
+  eq(M.place(pins, app("chat"), folder.id), [app("hidden"), app("chat"), folder, group, app("music")])
+  eq(M.place(pins, app("music"), ""), pins)
+  eq(M.place(pins, group, group.id), pins)
+  eq(M.place(pins, Object.assign({}, group, {name:"stale",apps:[]}), ""), [app("hidden"), folder, app("music"), group])
+  eq(M.place(pins, {id:"folder:gone",type:"folder",path:"/tmp",name:"Gone"}, ""), pins)
+  eq(pins, [app("hidden"), folder, group, app("music")])
 })
 test("directory shortcuts expand home but reject relative paths and controls", () => {
   assert.strictEqual(M.folderPath("~/My Documents", "/home/test"), "/home/test/My Documents")

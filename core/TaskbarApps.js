@@ -60,6 +60,17 @@ function move(raw, id, delta) {
   return out
 }
 function remove(raw, id) { return normalize(raw).filter(i => i.id !== id) }
+// The target is a saved id, not a visible index: hidden/unavailable pins
+// retain their place. A running app dragged here becomes a pin.
+function place(raw, item, beforeId) {
+  const pins = normalize(raw), next = normalize([item])[0]
+  if (!next || (next.type !== "app" && !pins.some(p => p.id === next.id))) return pins
+  if (next.id === beforeId) return pins
+  const out = pins.filter(p => p.id !== next.id)
+  const at = out.findIndex(p => p.id === beforeId)
+  out.splice(at < 0 ? out.length : at, 0, pins.find(p => p.id === next.id) || next)
+  return out
+}
 function members(raw, groupId, app, on) {
   const id = appId(app)
   if (!id) return normalize(raw)

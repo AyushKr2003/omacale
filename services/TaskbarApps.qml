@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import qs.Commons
+import "../omakit"
 import "../core/TaskbarApps.js" as Model
 import ".."
 
@@ -20,6 +21,41 @@ QtObject {
   function entry(id) { return byId[Model.appId(id)] || null }
   function save(items) { Config.set("bar.apps.items", Model.normalize(items)) }
   function isPinned(app) { return pins.some(i => i.type === "app" && i.app === Model.appId(app)) }
+  function isSaved(item) { return !!item && pins.some(p => p.id === item.id) }
+  function remove(id) { save(Model.remove(pins, id)) }
+  function place(item, beforeId) { save(Model.place(pins, item, beforeId)) }
+  function closeWindows(item) {
+    for (const w of windowsFor(item).slice()) w.toplevel.wayland.close()
+  }
+  readonly property bool quitting: quitRun.running
+  function quit(item) {
+    if (quitting || !item || item.type !== "app") return
+    const targets = Hyprland.toplevels.values.filter(t => t.wayland && claimingEntry(t.wayland.appId) === item.app)
+      .map(t => ({address:Model.windowAddress(t.address), pid:t.lastIpcObject ? t.lastIpcObject.pid : 0, class:t.wayland.appId}))
+    if (!targets.length) return
+    const app = entry(item.app)
+    const webApp = !!Model.webappClass(app ? app.startupClass : "")
+      || !!app && (app.command || []).some(arg => /^--app(?:-id)?(?:=|$)/.test(arg))
+    quitRun.command = ["/usr/bin/python3", "-I", "-S", "-B",
+      decodeURIComponent(Qt.resolvedUrl("../scripts/taskbar-quit.py").toString().replace(/^(file|qs):\/\//, "")), JSON.stringify({windows:targets, terminate:!webApp})]
+    quitRun.start()
+  }
+  property Run quitRun: Run {
+    deadlineMs: 8000
+    maxBytes: 16384
+    maxLines: 50
+    keepBytes: 8192
+    environment: ({HYPRLAND_INSTANCE_SIGNATURE:Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE"), OMACALE_SHELL_PID:String(Quickshell.processId)})
+    onFinished: result => {
+      let reply = {}
+      try { reply = JSON.parse(result.stdout) } catch (error) {}
+      if (result.state === "ok" && (reply.state === "closed" || reply.state === "gone")) return
+      const message = reply.state === "windows-open" ? "The app still has an open window. Check for an unsaved document or a confirmation."
+        : reply.state === "still-running" ? "The app did not finish quitting. Its process was not forcibly killed."
+        : "Could not quit the application. " + (reply.reason || result.reason || result.state)
+      Toaster.toast("Application still open", message, "error", Toaster.error, 6000, "taskbar-quit")
+    }
+  }
   function pin(app, on) {
     const id = Model.appId(app), key = "app:" + id
     if (!id) return

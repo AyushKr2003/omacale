@@ -4,6 +4,13 @@ Omacale is GPL-3.0-only ([LICENSE](LICENSE)). Some of it is ported from
 other projects and stays under their licenses; the full texts are in
 [LICENSES/](LICENSES).
 
+## Omakit Run — MIT
+
+<https://github.com/mtolhuys/omakit>, Copyright (c) 2026 Maarten Tolhuijs.
+The unmodified Run block in `omakit/` supervises the taskbar's on-demand
+application quit helper. Its version, source commit and body hashes are in
+`omakit/NOTICE`; the license is [LICENSES/MIT-omakit.txt](LICENSES/MIT-omakit.txt).
+
 ## Serpantinum — AGPL-3.0-or-later
 
 <https://github.com/ilyamiro/serpantinum>, Copyright (C) 2026 ilyamiro and

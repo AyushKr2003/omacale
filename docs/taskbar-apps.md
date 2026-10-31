@@ -25,10 +25,21 @@ reconfigures nor disables Omarchy's separate dock.
 - Click an app to launch it, focus its window or cycle its windows. Without an
   active window of that app, prefer the current workspace. Middle-click opens
   another instance. A dot marks running apps; a filled surface marks the active
-  one. Right-click a slot, or use the tune button, to open its settings.
-- **Visible slots** caps the section's length, including its tune button. It
-  shrinks further according to the bar's shared budget and scrolls on its own
-  axis. The tray and plugin pill keep their minimum space.
+  one. Right-click opens that item's action menu, including pin/unpin, new
+  window, close all windows and quit application. Menu or Shift+F10 opens the
+  same menu from the bar's keyboard cursor.
+- Saved pins come first, followed by a divider and the remaining running apps.
+  Unpinned running apps are dimmed until hovered or active. The divider is
+  absent when either section is empty.
+- Drag pins to reorder them; drag a running app into the pin section to pin it.
+  An insertion line previews the drop; releasing outside cancels it. Hidden or
+  unavailable pins keep their saved position. Near a clipped edge, moving the
+  pointer scrolls the list to reveal more targets.
+- **Use available space** lets the section grow with its contents up to the
+  bar's shared space budget. Turn it off to choose **Visible slots** (1–100).
+  The tray and plugin pill keep their minimum space and overflow scrolls on the
+  bar's own axis. **Show settings button** is off by default; Settings › Taskbar
+  › Apps always remains available.
 - Super+Ctrl+0 reaches the section through the existing bar focus cursor. Moving
   through it scrolls hidden slots into view. Enter on a group opens the existing
   keyboard-driven popout; Escape returns to the bar. Outside-click closes it.
@@ -38,6 +49,19 @@ They reappear when the app is available again. Other special-workspace windows
 and child/transient windows stay out; Omarchy's `special:minimized` windows can
 be restored. App identification uses desktop-entry lookup and the explicit
 terminal app IDs used by Omarchy's TUI launcher.
+
+**Close all windows** asks each matched window to close normally. **Quit
+application** additionally stops an otherwise lingering window-owner process
+after all of its windows close. An open window or a new save dialog prevents
+termination. Shared browser processes are retained, and web-app shortcuts never
+terminate the browser process. Quit is available while the app has windows to
+identify it; it does not search for background processes by name.
+
+The quit helper runs only on explicit selection, through the unmodified Omakit
+Run block with an eight-second deadline and bounded output. It validates fresh
+compositor window/PID/class identities, opens pidfds, protects the shell and
+other users, and sends SIGTERM only after the close flow succeeds. It does not
+use SIGKILL, process-name matching, a shell string or a periodic process probe.
 
 ## Controlled development preview
 
@@ -122,6 +146,8 @@ the mocked tests and native package tests.
 {
   "enabled": false,
   "showRunning": true,
+  "useAvailableSpace": true,
+  "showSettings": false,
   "maxShown": 8,
   "items": []
 }
@@ -225,7 +251,7 @@ argued from ownership and regression tests, not from a finite number of starts.
 
 ### Regression coverage and existing failures
 
-The three focused JS suites pass. Qt UI has **18 passing cases** using actual
+The three focused JS suites pass. Qt UI has **27 passing cases** using actual
 components and mocked host services, including bare native addresses, a bar host
 without the menu AppLibrary capability, cross-browser web-app classes, folded
 space allocation and the scrolled shared cursor. The real FolderListModel and
@@ -236,6 +262,13 @@ FolderListModel double-decoding quirk is handled locally so literal `#`, `?` and
 including empty inventory, failed post-quit verification, supervisor retry backoff,
 failed publication, settings without a prior Apps dictionary, later installed
 edits, diagnostics-write failures and cleanup failures after publication.
+
+The interaction follow-up also covers right-click menus, pin/unpin, optional
+settings, available-space/manual sizing, separator/emphasis state, real Qt
+pointer drags on both axes, and a dragged running app becoming a pin. The
+quit helper has **8 process tests** using disposable processes: full closure,
+background termination, unselected/shared processes, web-app isolation,
+unsaved/new dialog handling, changed identities and shell protection.
 
 The source build and native regression compile actual patched C++ and moc code,
 exercise 400,000 concurrent interceptions, four private scanner threads, explicit
@@ -270,7 +303,7 @@ the shell/supervisor before publication and rollback. Recovery preserves later
 settings/installed edits and retains the original error even if diagnostics fail.
 The Quickshell scanner repair is maintained as a separate package change.
 
-Validation: taskbar-apps/layout/settings JS suites, 18 actual-component Qt cases,
+Validation: taskbar-apps/layout/settings JS suites, 27 actual-component Qt cases,
 28 preview regressions, native C++ build/stress/module tests, and the real desktop
 checks above. Existing facade/notification-restore failures reproduce on the
 baseline. Multi-monitor acceptance remains unverified because one display was

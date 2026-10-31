@@ -257,6 +257,7 @@ Scope {
   readonly property bool popoutSticky: popout === "traymenu" || popoutHeld
   // The network the password popout is asking for.
   property string appGroup: ""
+  property var appMenuItem: null
   property string passwordSsid: ""
 
   // The drawers, while they exist. As in Caelestia's drawer Wrappers
@@ -306,7 +307,7 @@ Scope {
   function taskbarAppsState() {
     const entry = bar.entryFor("apps")
     return { screen: screen.name, edge: barPos,
-      ready: !!entry && entry.shown && entry.width > 0 && entry.height > 0 }
+      ready: !!entry && (entry.empty || (entry.shown && entry.width > 0 && entry.height > 0)) }
   }
   // The status group's popouts that have an icon on the bar, in bar order.
   function statusPopouts() { return bar.statusPopouts() }
@@ -1366,7 +1367,7 @@ Scope {
 
       onPressed: e => {
         dragStart = Qt.point(e.x, e.y)
-        if (scope.popout === "appgroup" && !inPopout(e.x, e.y) && barDepth(e.x, e.y) >= win.bw) scope.popout = ""
+        if ((scope.popout === "appgroup" || scope.popout === "appmenu") && !inPopout(e.x, e.y) && barDepth(e.x, e.y) >= win.bw) scope.popout = ""
         // A click on the scrim (outside the settings panel) closes it.
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
         if (scope.overview && !(e.x >= win.ox && e.x <= win.ox + win.ow && e.y >= win.oy && e.y <= win.oy + win.oh)) scope.overview = false
@@ -1600,6 +1601,7 @@ Scope {
             host: scope.host
             onAppActivated: scope.barFocus = false
             appGroup: scope.appGroup
+            appMenuItem: scope.appMenuItem
             trayItem: scope.trayItem
             screen: scope.screen
             open: scope.popout !== ""
@@ -1611,6 +1613,7 @@ Scope {
             keyMode: scope.popoutKeys
             onTabRequested: d => scope.tabPopout(d)
             onSwitchRequested: (name, arg) => {
+              if (name === "appgroup") { scope.appGroup = arg; scope.openPopoutKeys(name); return }
               if (name === "wirelesspassword") scope.passwordSsid = arg
               scope.popout = name
             }

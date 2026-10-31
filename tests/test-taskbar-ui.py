@@ -22,7 +22,7 @@ if not Path(RUNNER).is_file():
 
 FILES = """
 core/Tk.qml core/Defaults.js core/TaskbarApps.js services/TaskbarApps.qml
-modules/bar/AppsGroup.qml modules/bar/entries/AppsEntry.qml
+modules/bar/AppsGroup.qml modules/bar/AppsMenu.qml modules/bar/entries/AppsEntry.qml
 modules/bar/BarContent.qml core/BarLayout.js components/KeyNav.qml
 modules/settings/pages/TaskbarAppsPage.qml modules/settings/pages/TaskbarAppPicker.qml
 modules/settings/pages/AppInfo.qml modules/settings/rows/RowToggle.qml
@@ -54,7 +54,7 @@ for name in FILES:
     if dest.suffix == ".qml":
         singleton = "singleton " if dest.stem in ("Tk", "TaskbarApps") else ""
         module.append(f"{singleton}{dest.stem} 1.0 {name}")
-for name in ("Config", "Colours", "Sys", "AppService", "IconFiles", "Morph"):
+for name in ("Config", "Colours", "Sys", "AppService", "IconFiles", "Morph", "Toaster"):
     module.append(f"singleton {name} 1.0 {name}.qml")
 write("qmldir", "\n".join(module) + "\n")
 
@@ -128,6 +128,27 @@ QtObject {
   property var curveOut: curveIn
 }
 """)
+write("Toaster.qml", """pragma Singleton
+import QtQuick
+QtObject {
+  property int error: 3
+  property var messages: []
+  function toast(title,message,icon,type,timeout,key) { messages=messages.concat([message]) }
+}
+""")
+write("omakit/Run.qml", """import QtQuick
+QtObject {
+  property var command: []
+  property var environment: ({})
+  property int deadlineMs: 0
+  property int maxBytes: 0
+  property int maxLines: 0
+  property int keepBytes: 0
+  property bool running: false
+  signal finished(var result)
+  function start() { running=true }
+}
+""")
 
 write("imports/Quickshell/qmldir", "module Quickshell\nsingleton Quickshell 1.0 Quickshell.qml\nsingleton DesktopEntries 1.0 DesktopEntries.qml\n")
 fixture_folder = STAGE / "Folder #? %"
@@ -138,6 +159,7 @@ write("imports/Quickshell/Quickshell.qml", """pragma Singleton
 import QtQuick
 QtObject {
   property var commands: []
+  property int processId: 99999
   function iconPath(name, fallback) { return "" }
   function env(key) { return key === "OMACALE_TEST_FOLDER" ? """ + json.dumps(str(fixture_folder)) + """ : "/home/test" }
   function execDetached(args) { commands=commands.concat([args]) }

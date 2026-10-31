@@ -410,7 +410,9 @@ var subpages = {
     rows: [
       { type: "toggle", key: "bar.apps.enabled", label: "Show apps in the taskbar", subtext: "Off by default. A dock inside the bar, on any screen edge" },
       { type: "toggle", key: "bar.apps.showRunning", label: "Show running apps", subtext: "Include unpinned apps. Click to focus or cycle windows; middle-click opens a new instance", when: { key: "bar.apps.enabled", value: true } },
-      { type: "stepper", key: "bar.apps.maxShown", label: "Visible slots", subtext: "Scroll for more; shrinks further on a crowded bar", from: 1, to: 24, step: 1, when: { key: "bar.apps.enabled", value: true } },
+      { type: "toggle", key: "bar.apps.useAvailableSpace", label: "Use available space", subtext: "Grow to fit apps, keeping the clock, tray and other bar controls reachable", when: { key: "bar.apps.enabled", value: true } },
+      { type: "stepper", key: "bar.apps.maxShown", label: "Visible slots", subtext: "Maximum length; scroll for more on a crowded bar", from: 1, to: 100, step: 1, when: [{ key: "bar.apps.enabled", value: true }, { key: "bar.apps.useAvailableSpace", value: false }], hide: true },
+      { type: "toggle", key: "bar.apps.showSettings", label: "Show settings button", subtext: "Optional shortcut; this page is always available in Taskbar settings", when: { key: "bar.apps.enabled", value: true } },
       { type: "custom", comp: "taskbarApps" }
     ]
   },
