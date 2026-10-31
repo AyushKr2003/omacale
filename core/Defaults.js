@@ -11,6 +11,7 @@ var values = {
     seedTheme: "",           // the Omarchy theme a custom seed was picked under
     seedFollowsTheme: true,  // a theme switch drops a seed picked under another theme
     omarchySurfaces: false,  // Material colours on Omarchy's own menus too (a block in ~/.config/omarchy/shell.toml)
+    pureBlack: false,        // dark only: panels and drawers pure #000 (cards a hair lighter), to match a black-bezel monitor
     animScale: 1.0,
     // Caelestia appearance.deformScale: how much drawers stretch as they
     // move (0 turns the jelly off).

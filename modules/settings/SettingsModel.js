@@ -72,6 +72,7 @@ var pages = [
         { value: "dark", label: "Dark", icon: "dark_mode" },
         { value: "light", label: "Light", icon: "light_mode" }
       ] },
+      { type: "toggle", key: "appearance.pureBlack", label: "Pure black panels", subtext: "Dark mode only: the frame and drawers are true black (cards a shade lighter) to blend into a black monitor bezel" },
       { type: "section", text: "Transparency" },
       { type: "toggle", key: "appearance.transparency.enabled", label: "Transparency", subtext: "Translucent frame and drawers with background blur" },
       { type: "slider", key: "appearance.transparency.base", label: "Surface opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },

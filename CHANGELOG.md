@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.5 - 2026-10-31
+
+### Added
+- **style**: Settings › Wallpaper & style › Colours has "Pure black panels" (`appearance.pureBlack`). In a dark scheme the frame and drawers are true black and the card steps are neutral greys just above it, to blend into a black monitor bezel. Off by default; light schemes ignore it
+
 ## 0.55.4 - 2026-10-31
 
 ### Added

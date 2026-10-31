@@ -80,6 +80,7 @@ QtObject {
         property string seedTheme: ""
         property bool seedFollowsTheme: true
         property bool omarchySurfaces: false
+        property bool pureBlack: false
         property real animScale: 1.0
         property real deformScale: 1.0
         property JsonObject scale: JsonObject {
