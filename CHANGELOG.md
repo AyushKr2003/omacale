@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.7 - 2026-10-31
+
+### Added
+- **lock**: Settings › Lock screen › Screen has "Screen off after locking" (`lock.blankAfter`): 5 seconds (the default, Omarchy's own), 15, 30, 60, 300 or Never. The cloned lock service is patched to read it live; if Omarchy changes the code it hooks, the service stays stock and blanks after 5 seconds
+
 ## 0.55.6 - 2026-10-31
 
 ### Added
