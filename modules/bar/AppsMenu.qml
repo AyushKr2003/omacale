@@ -36,14 +36,16 @@ ColumnLayout {
   }
   function invoke(action) {
     const item = appItem
-    root.closeRequested()
     if (!item) return
     if (action === "pin") {
       if (isApp) TaskbarApps.pin(item.app, !pinned)
       else TaskbarApps.remove(item.id)
+      root.closeRequested()
     } else if (action === "edit") {
+      const targetHost = host
       root.appActivated()
-      host.toggle("settings", "taskbarApps")
+      root.closeRequested()
+      targetHost.toggle("settings", "taskbarApps")
     } else if (action === "open" && item.type === "group") {
       root.groupRequested(item.id)
     } else {
@@ -51,6 +53,7 @@ ColumnLayout {
       if (action === "close") TaskbarApps.closeWindows(item)
       else if (action === "quit") TaskbarApps.quit(item)
       else TaskbarApps.activate(item, host, action === "new")
+      root.closeRequested()
     }
   }
   RowLayout {
@@ -67,6 +70,7 @@ ColumnLayout {
       id: row
       required property var modelData
       required property int index
+      objectName: "taskbarAction_" + modelData.id
       Layout.fillWidth: true
       first: index === 0
       last: index === root.actions.length - 1

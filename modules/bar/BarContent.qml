@@ -193,9 +193,13 @@ Item {
   onWsIconsSizeChanged: Qt.callLater(refitCalendar)
   readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= wsIconsSize
   readonly property real flexibleBudget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
-  // Apps take only space left after the tray and plugin pill's minima; their
-  // minimum was already counted in fixedLen, so this has no size feedback.
-  readonly property real appsExtra: appsE && appsE.shown && entries().indexOf(appsE) >= 0 ? Math.min(Math.max(0, appsE.fullLen - appsE.minLen), Math.max(0, flexibleBudget - flexMin)) : 0
+  // Available-space mode uses genuinely spare room: retain the tray's
+  // configured presentation and the plugin pill's normal collapsed length.
+  // These are content metrics, never sizes fed back from this budget.
+  readonly property real appsReserve: cfg.apps.useAvailableSpace ? Math.max(flexMin,
+    (trayE && trayE.visible ? (cfg.tray.compact ? trayE.collapsedLen : trayE.fullLen) : 0)
+      + (pluginsE && pluginsE.visible ? pluginsE.pill.collapsedLen : 0)) : flexMin
+  readonly property real appsExtra: appsE && appsE.shown && entries().indexOf(appsE) >= 0 ? Math.min(Math.max(0, appsE.fullLen - appsE.minLen), Math.max(0, flexibleBudget - appsReserve)) : 0
   readonly property real budget: Math.max(0, flexibleBudget - appsExtra)
   readonly property bool trayOverBudget: !!trayE && trayE.visible && trayE.fullLen + (pluginsE ? pluginsE.pill.collapsedLen : 0) > budget
   // The plugin pill's length along the bar, for the tray's expanded cap.

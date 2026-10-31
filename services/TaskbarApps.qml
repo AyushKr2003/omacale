@@ -34,8 +34,12 @@ QtObject {
       .map(t => ({address:Model.windowAddress(t.address), pid:t.lastIpcObject ? t.lastIpcObject.pid : 0, class:t.wayland.appId}))
     if (!targets.length) return
     const app = entry(item.app)
+    // Terminal wrappers also use --app-id. Only a browser command makes
+    // that flag a web-app identity; ordinary native apps must still quit.
+    const command = app ? Array.from(app.command || []) : []
+    const browser = command.some(arg => /^(?:brave(?:-origin|-browser)?|chromium|google-chrome(?:-stable)?|chrome|msedge|microsoft-edge(?:-stable)?|vivaldi(?:-stable)?|opera|helium)$/.test(String(arg).split("/").pop()))
     const webApp = !!Model.webappClass(app ? app.startupClass : "")
-      || !!app && (app.command || []).some(arg => /^--app(?:-id)?(?:=|$)/.test(arg))
+      || browser && command.some(arg => /^--app(?:-id)?(?:=|$)/.test(arg))
     quitRun.command = ["/usr/bin/python3", "-I", "-S", "-B",
       decodeURIComponent(Qt.resolvedUrl("../scripts/taskbar-quit.py").toString().replace(/^(file|qs):\/\//, "")), JSON.stringify({windows:targets, terminate:!webApp})]
     quitRun.start()

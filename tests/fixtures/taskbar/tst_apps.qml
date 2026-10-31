@@ -12,6 +12,7 @@ TestCase {
   when: windowShown
   property var launched: []
   property var toggled: []
+  property bool clearMenuOnClose: false
   QtObject {
     id: fakeHost
     property var widgetIds: []
@@ -52,7 +53,7 @@ TestCase {
   Component { id: pickerFactory; TaskbarAppPicker { width: 700; height: implicitHeight; settings: navigator } }
   Component { id: folderPickerFactory; FileDialog { selectFolder: true; cwd: Quickshell.env("OMACALE_TEST_FOLDER").split("/") } }
   Component { id: groupFactory; AppsGroup { groupId: "group:work"; host: fakeHost; width: 320; height: implicitHeight } }
-  Component { id: menuFactory; AppsMenu { host: fakeHost; width: implicitWidth; height: implicitHeight } }
+  Component { id: menuFactory; AppsMenu { host: fakeHost; width: implicitWidth; height: implicitHeight; onCloseRequested: if(test.clearMenuOnClose) appItem=null } }
   QtObject {
     id: navigator
     property var selectedApp: null
@@ -79,6 +80,7 @@ TestCase {
     Sys.calls=[]
     test.launched=[]
     test.toggled=[]
+    test.clearMenuOnClose=false
     TaskbarApps.quitRun.running=false
     Toaster.messages=[]
     navigator.folderPick = null
@@ -218,6 +220,21 @@ TestCase {
     Config.set("bar.apps.maxShown",40)
     verify(item.fullLen>capped)
   }
+  function test_available_space_keeps_other_widget_pill_room() {
+    const entries=[],pins=[]
+    for(let i=0;i<40;i++) { entries.push({id:"app"+i,name:"App "+i,icon:"",command:[]});pins.push({type:"app",app:"app"+i}) }
+    DesktopEntries.applications.values=entries
+    Config.set("bar.apps.items",pins)
+    const item=createTemporaryObject(fullBarFactory,test)
+    tryVerify(()=>!!item.entryFor("plugins"))
+    const plugins=item.entryFor("plugins")
+    plugins.pill.minLen=40
+    plugins.pill.collapsedLen=160
+    plugins.shown=true
+    tryVerify(()=>item.appsExtra>0)
+    verify(item.budget>=160)
+    verify(item.appsExtra<=item.flexibleBudget-160)
+  }
   function test_running_section_divider_and_emphasis() {
     Config.set("bar.apps.items",[{type:"app",app:"editor"}])
     const win={address:"a",workspace:{id:1,name:"1"},wayland:{appId:"browser",parent:null}}
@@ -282,6 +299,36 @@ TestCase {
     TaskbarApps.quit({type:"app",app:"YouTube"})
     const command=TaskbarApps.quitRun.command
     compare(JSON.parse(command[command.length-1]).terminate,false)
+  }
+  function test_quit_native_terminal_wrapper_is_not_a_webapp() {
+    DesktopEntries.applications.values=[{id:"native",name:"Native",icon:"",command:["foot","--app-id=native","settings"]}]
+    Hyprland.toplevels.values=[{address:"a",lastIpcObject:{pid:12345},workspace:{id:1,name:"1"},wayland:{appId:"native",parent:null}}]
+    TaskbarApps.quit({type:"app",app:"native"})
+    const command=TaskbarApps.quitRun.command
+    compare(JSON.parse(command[command.length-1]).terminate,true)
+  }
+  function test_pin_click_survives_menu_close_state_cleanup() {
+    test.clearMenuOnClose=true
+    const menu=createTemporaryObject(menuFactory,test,{appItem:({id:"app:browser",type:"app",app:"browser"})})
+    wait(20)
+    const pin=findChild(menu,"taskbarAction_pin")
+    verify(pin)
+    mouseClick(pin,pin.width/2,pin.height/2)
+    verify(TaskbarApps.isPinned("browser"))
+    compare(menu.appItem,null)
+  }
+  function test_drag_inside_running_section_does_not_pin() {
+    Config.set("bar.apps.items",[{type:"app",app:"editor"}])
+    DesktopEntries.applications.values=DesktopEntries.applications.values.concat([{id:"music",name:"Music",icon:"",command:[]}])
+    Hyprland.toplevels.values=["browser","music"].map((app,index)=>({address:String(index+1),workspace:{id:1,name:"1"},wayland:{appId:app,parent:null}}))
+    const item=createTemporaryObject(entryFactory,test)
+    tryVerify(()=>Math.abs(item.height-item.sizeLen)<0.5)
+    const running=item.navStops()[1].item,last=item.navStops()[2].item
+    item.beginPress(running.appItem,running.mapToItem(item,0,0))
+    item.moveDrag(last.mapToItem(item,last.width/2,last.height/2))
+    item.finishDrag()
+    compare(TaskbarApps.pins.length,1)
+    compare(TaskbarApps.pins[0].app,"editor")
   }
   function check_pointer_reorder(vertical) {
     fakeBar.vertical=vertical

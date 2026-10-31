@@ -251,7 +251,7 @@ argued from ownership and regression tests, not from a finite number of starts.
 
 ### Regression coverage and existing failures
 
-The three focused JS suites pass. Qt UI has **27 passing cases** using actual
+The three focused JS suites pass. Qt UI has **31 passing cases** using actual
 components and mocked host services, including bare native addresses, a bar host
 without the menu AppLibrary capability, cross-browser web-app classes, folded
 space allocation and the scrolled shared cursor. The real FolderListModel and
@@ -303,7 +303,7 @@ the shell/supervisor before publication and rollback. Recovery preserves later
 settings/installed edits and retains the original error even if diagnostics fail.
 The Quickshell scanner repair is maintained as a separate package change.
 
-Validation: taskbar-apps/layout/settings JS suites, 27 actual-component Qt cases,
+Validation: taskbar-apps/layout/settings JS suites, 31 actual-component Qt cases,
 28 preview regressions, native C++ build/stress/module tests, and the real desktop
 checks above. Existing facade/notification-restore failures reproduce on the
 baseline. Multi-monitor acceptance remains unverified because one display was

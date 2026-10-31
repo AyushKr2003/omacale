@@ -119,6 +119,12 @@ Rectangle {
       if (a < start + cell / 2) { beforeId = button.appItem.id; dropLine = start - spacingN / 2; return }
       dropLine = start + cell + spacingN / 2
     }
+    // A running app is pinned only when dropped into the saved section or
+    // its insertion gap. Moving it among running apps is not a pin action.
+    if (!TaskbarApps.isSaved(dragItem)) {
+      const boundary = rep.count > entry.pinnedCount ? rep.itemAt(entry.pinnedCount).button.mapToItem(entry,0,0) : null
+      if (boundary && a >= (bar.vertical ? boundary.y : boundary.x)) dropValid = false
+    }
   }
   function finishDrag() {
     const item = dragItem, commit = dragging && dropValid
