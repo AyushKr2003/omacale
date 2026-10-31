@@ -87,6 +87,9 @@ var values = {
     // Private by default: notification contents hidden, the wallpaper (not a
     // copy of the screen) behind the card, and no "show password" button.
     hideNotifs: true, recolourLogo: true, blur: true, useWallpaper: true, revealPassword: false,
+    // Seconds after the lock before the screen goes black; 0 never blanks it.
+    // Read live by the patched lock service (scripts/lock-screen).
+    blankAfter: 5,
     // Set when the watchdog gave the lock back to Omarchy after an update
     // broke it (services/Handover.qml), with the Omacale version it broke
     // under; reinstalling from Settings clears it, and a newer Omacale

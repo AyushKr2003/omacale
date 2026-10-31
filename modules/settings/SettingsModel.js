@@ -639,6 +639,15 @@ var subpages = {
       { type: "section", text: "Privacy" },
       { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
       { type: "toggle", key: "lock.revealPassword", when: { key: "lock.enabled", value: true }, label: "Show password button", subtext: "Let the icon in the password field show the characters typed" },
+      { type: "section", text: "Screen" },
+      { type: "select", key: "lock.blankAfter", when: { key: "lock.enabled", value: true }, label: "Screen off after locking", subtext: "How long the locked screen stays lit when idle before it goes black. Never keeps the panel on until you unlock (burn-in and power draw)", options: [
+        { value: "5", label: "5 seconds" },
+        { value: "15", label: "15 seconds" },
+        { value: "30", label: "30 seconds" },
+        { value: "60", label: "1 minute" },
+        { value: "300", label: "5 minutes" },
+        { value: "0", label: "Never" }
+      ] },
       { type: "section", text: "Appearance" },
       { type: "toggle", key: "lock.useWallpaper", when: { key: "lock.enabled", value: true }, label: "Use the wallpaper", subtext: "Show the wallpaper behind the lock instead of a blurred copy of the screen" },
       { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur the wallpaper behind the lock card; the screen copy is always blurred" },

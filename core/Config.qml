@@ -326,6 +326,7 @@ QtObject {
         property bool blur: true
         property bool useWallpaper: true
         property bool revealPassword: false
+        property real blankAfter: 5
         property bool autoFellBack: false
         property string fellBackVersion: ""
       }
