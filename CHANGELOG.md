@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.4 - 2026-10-31
+
+### Added
+- **taskbar**: Every row in Settings › Taskbar has an eye. Items with no switch of their own (workspaces, the chevron, recording, and widgets placed on their own, Omarchy's included) are hidden through the new `bar.layout.hidden`; they keep their place in the layout but are not drawn
+
 ## 0.55.3 - 2026-10-31
 
 ### Fixed

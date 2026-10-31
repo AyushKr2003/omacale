@@ -216,11 +216,18 @@ QtObject {
   // The eye on a built-in's row: the item's existing switch.
   function itemShown(id) {
     const it = BarLayout.ITEMS[id]
-    return !it || !it.key ? true : !!Config.get(it.key)
+    if (it && it.key) return !!Config.get(it.key)
+    return Array.from(Config.o.bar.layout.hidden || []).indexOf(id) < 0
   }
   function setItemShown(id, on) {
     const it = BarLayout.ITEMS[id]
-    if (!it || !it.key) return
+    if (!it || !it.key) {
+      // No switch of its own (workspaces, the chevron, a widget of its own):
+      // the layout's hidden list.
+      const hid = Array.from(Config.o.bar.layout.hidden || []).filter(x => x !== id)
+      Config.set("bar.layout.hidden", on ? hid : hid.concat([id]))
+      return
+    }
     if (it.key === "bar.plugins.enabled") setBarShown(on)
     else Config.set(it.key, on)
   }
