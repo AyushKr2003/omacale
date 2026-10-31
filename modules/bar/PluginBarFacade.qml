@@ -34,6 +34,10 @@ QtObject {
   // widget is hovered (SinglePluginEntry.revealHeld) or drawn as an idle
   // stack (BarWidgetSlot.idleStack).
   property bool centerSectionRevealHeld: false
+  // Omarchy's bar sets these for its tray (a drag over its section, a popout
+  // open in it) so the tray's menu stays up. Omacale's bar has neither.
+  readonly property bool traySectionDragActive: false
+  readonly property bool traySectionPopoutOpen: false
   // Widgets register their trigger buttons here so KeyboardPanel can forward
   // a click through its overlay to another widget on the same bar.
   property var clickTargets: []
@@ -64,6 +68,10 @@ QtObject {
   function unregisterClickTarget(target) { _call("unregisterPluginClickTarget", [facade, target]) }
   function switchPanelFrom(owner, direction) { return _call("switchPluginPanelFrom", [facade, owner, direction], false) }
   function targetBelongsToWindow(target, window) { return _call("targetBelongsToWindow", [target, window], false) }
+  // KeyboardPanel reports where its card stood so the next panel in the same
+  // section can open from there; Omacale draws its own popouts.
+  function notePopoutCard(card) {}
+  function popoutCardFor(owner) { return null }
   function run(command) { if (command) Sys.run(String(command)) }
   function setCenterHoverRevealSuppressed(value) {}
   function shellQuote(value) { return "'" + String(value === undefined || value === null ? "" : value).replace(/'/g, "'\\''") + "'" }
