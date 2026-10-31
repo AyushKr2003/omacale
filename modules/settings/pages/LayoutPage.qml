@@ -18,7 +18,8 @@ import "../../../core/BarLayout.js" as BarLayout
 // of the chevron or the plugin pill, and into "Not shown" (which opens while
 // a row is over it). The eye is the item's existing switch (Status icons ›
 // Network, Clock › Show, ...): hidden, an item keeps its place; the gear
-// opens its own settings.
+// opens its own settings. An item with no switch of its own (workspaces, the
+// chevron, a widget of its own) is hidden through bar.layout.hidden.
 //
 // The page is an Item rather than a layout so the dragged row's ghost and
 // the drop line can float above the rows.
@@ -84,7 +85,7 @@ Item {
   function drawnOnBar(id) {
     if (BarLayout.isPlugin(id)) {
       const pid = BarLayout.pluginOf(id)
-      return PluginService.barWidgets.some(p => p.id === pid) && !(root.pillIds.indexOf(pid) >= 0 && PluginService.barMode(pid) === "hidden")
+      return PluginService.itemShown(id) && PluginService.barWidgets.some(p => p.id === pid) && !(root.pillIds.indexOf(pid) >= 0 && PluginService.barMode(pid) === "hidden")
     }
     if (id === "plugins") return root.pillMembers.length > 0 && PluginService.itemShown(id)
     if (id === "tray") return Config.o.bar.tray.enabled && SystemTray.items.values.some(i => i.status !== Status.Passive
@@ -261,7 +262,7 @@ Item {
     readonly property var it: root.info(modelData)
     readonly property string mode: it.inPill ? PluginService.barMode(it.pluginId) : ""
     // The eye: a built-in's existing switch; a pill widget's hidden mode.
-    readonly property bool isShown: child ? mode !== "hidden" : it.plugin ? true : PluginService.itemShown(modelData)
+    readonly property bool isShown: child ? mode !== "hidden" : PluginService.itemShown(modelData)
     readonly property bool dim: off || !isShown
     // The extra line of a folding row (the chevron, the plugin pill).
     property bool foldable: false
@@ -324,7 +325,7 @@ Item {
       // Three fixed columns (eye, settings or fold, remove), so the buttons
       // line up down the list whichever a row has.
       ActionSlot {
-        shown: !r.off && (r.child || (!r.it.plugin && !!r.it.key))
+        shown: !r.off
         icon: r.isShown ? "visibility" : "visibility_off"
         onClicked: r.child ? PluginService.setBarMode(r.it.pluginId, r.isShown ? "hidden" : "pinned")
           : PluginService.setItemShown(r.modelData, !r.isShown)
