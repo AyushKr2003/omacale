@@ -10,8 +10,7 @@ QtObject {
   id: root
 
   property bool running: false
-  property string mode: "fullscreen" // "fullscreen" | "region"
-  property bool withAudio: false
+  property string mode: "region" // "fullscreen" | "region"
   property int elapsed: 0
   property bool listExpanded: false
   property string confirmDelete: ""
@@ -23,10 +22,40 @@ QtObject {
   // pick, so play/reveal/remove pass it as argv, never through a shell.
   function run(cmd) { Quickshell.execDetached(["bash", "-c", cmd]) }
 
+  // The same four entries as Omarchy's menu › Capture › Screenrecord.
+  // source: "none" | "desktop" | "mic" (desktop + microphone) | "webcam"
+  // (desktop + microphone + webcam, Omarchy's own webcam picker).
+  property string source: "none"
+  property bool hasWebcam: false
+
+  property Process webcamProbe: Process {
+    running: true
+    command: ["omarchy-hw-webcam"]
+    onExited: code => root.hasWebcam = code === 0
+  }
+
+  // Screenshot, text, QR and colour pickers. They draw their own overlay, so
+  // the drawers are closed first (the caller) and the command waits for them
+  // to be gone rather than capturing them.
+  property string pendingCapture: ""
+  function capture(cmd) {
+    pendingCapture = cmd
+    captureTimer.restart()
+  }
+  property Timer captureTimer: Timer {
+    interval: 450
+    onTriggered: { root.run(root.pendingCapture); root.pendingCapture = "" }
+  }
+
   function start() {
-    const audioFlag = withAudio ? " --with-microphone-audio" : ""
-    const modeFlag = mode === "fullscreen" ? " --fullscreen" : ""
-    run("omarchy capture screenrecording" + modeFlag + audioFlag)
+    if (source === "webcam") {
+      run("omarchy-capture-screenrecording-with-webcam")
+    } else {
+      const audioFlag = source === "desktop" ? " --with-desktop-audio"
+        : source === "mic" ? " --with-desktop-audio --with-microphone-audio" : ""
+      const modeFlag = mode === "fullscreen" ? " --fullscreen" : ""
+      run("omarchy capture screenrecording" + modeFlag + audioFlag)
+    }
     running = true
     elapsed = 0
     // No pollTimer.restart() here: the timer follows `running` declaratively,
@@ -62,6 +91,39 @@ QtObject {
 
   function reloadRecordings() {
     recordingsProbe.running = true
+    shotsProbe.running = true
+  }
+
+  // Screenshots, from the folder omasnap saves to (OMASNAP_SCREENSHOT_DIR,
+  // OMARCHY_SCREENSHOT_DIR, XDG_PICTURES_DIR, ~/Pictures); same file format
+  // and NUL-separated probe as the recordings.
+  property var recentShots: []
+  property string shotDir: ""
+  property Process shotsProbe: Process {
+    command: ["bash", "-c",
+      '[[ -f ~/.config/user-dirs.dirs ]] && source ~/.config/user-dirs.dirs; ' +
+      'DIR="${OMASNAP_SCREENSHOT_DIR:-${OMARCHY_SCREENSHOT_DIR:-${XDG_PICTURES_DIR:-$HOME/Pictures}}}"; ' +
+      'find "$DIR" -maxdepth 1 -type f \\( -iname "screenshot*.png" -o -iname "screenshot*.jpg" -o -iname "screenshot*.jpeg" -o -iname "screenshot*.webp" \\) -printf "%T@ %s %p\\0" 2>/dev/null | sort -zrn | head -zn 20 | ' +
+      'jq -cRs --arg dir "$DIR" \'{dir: $dir, files: [split("\\u0000")[] | select(length > 0) | index(" ") as $a | .[$a + 1:] as $r | ($r | index(" ")) as $b | {epoch: .[:$a], size: $r[:$b], path: $r[$b + 1:]}]}\'']
+    stdout: StdioCollector {
+      onStreamFinished: {
+        let out
+        try { out = JSON.parse(text) } catch (e) { return }
+        if (out.dir) root.shotDir = out.dir
+        root.recentShots = (out.files || []).map(f => ({
+          epoch: parseFloat(f.epoch) || 0,
+          path: f.path,
+          name: f.path.slice(f.path.lastIndexOf("/") + 1),
+          size: root.fmtBytes(parseInt(f.size) || 0)
+        }))
+      }
+    }
+  }
+  property FileView shotWatcher: FileView {
+    path: root.shotDir
+    watchChanges: root.shotDir !== ""
+    printErrors: false
+    onFileChanged: root.dirSettle.restart()
   }
 
   function fmtTime(sec) {

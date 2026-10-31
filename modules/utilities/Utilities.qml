@@ -60,6 +60,7 @@ Item {
     sourceComponent: MouseArea {
       id: modal
       property string path
+      readonly property bool isShot: /\.(png|jpe?g|webp)$/i.test(path)
       Component.onCompleted: path = RecordService.confirmDelete
 
       hoverEnabled: true
@@ -175,13 +176,13 @@ Item {
           spacing: Tk.spacing.medium
 
           MText {
-            text: "Delete recording?"
+            text: modal.isShot ? "Delete screenshot?" : "Delete recording?"
             font.pointSize: Tk.body.large
           }
 
           MText {
             Layout.fillWidth: true
-            text: "Recording '" + modal.path + "' will be permanently deleted."
+            text: (modal.isShot ? "Screenshot '" : "Recording '") + modal.path + "' will be permanently deleted."
             color: Colours.m3onSurfaceVariant
             font.pointSize: Tk.body.small
             wrapMode: Text.WrapAtWordBoundaryOrAnywhere

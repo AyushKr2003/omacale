@@ -2,6 +2,15 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.6 - 2026-10-31
+
+### Added
+- **utilities**: The recorder card has Record and Screenshot tabs. Record's menu is Omarchy's Capture › Screenrecord (no audio, desktop audio, desktop + mic, and webcam where there is one) and its main button reads "Record". Screenshot's menu is the rest of Capture (Screenshot, Text, QR Code, Color), with a screenshots list like the recordings one (open, folder, delete)
+- **utilities**: Both lists hold at least 3 rows and grow with their entries up to 6 (all 6 unfolded)
+
+### Changed
+- **utilities**: Recording always uses the region picker, as Omarchy's menu does; the fullscreen/region choice is gone
+
 ## 0.55.5 - 2026-10-31
 
 ### Added

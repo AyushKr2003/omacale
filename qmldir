@@ -58,6 +58,7 @@ PopoutContent 1.0 modules/bar/PopoutContent.qml
 QuickToggles 1.0 modules/utilities/QuickToggles.qml
 RecordCard 1.0 modules/utilities/RecordCard.qml
 RecordingList 1.0 modules/utilities/RecordingList.qml
+ScreenshotList 1.0 modules/utilities/ScreenshotList.qml
 singleton RecordService 1.0 services/RecordService.qml
 PopupRow 1.0 modules/settings/common/PopupRow.qml
 RowLabel 1.0 modules/settings/common/RowLabel.qml
