@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.3 - 2026-10-31
+
+### Fixed
+- **bar**: Follows Omarchy's split centre section (`centerBegin`, `center`, `centerEnd`): the widgets in them (indicators, weather, elsewhen, update) are found again, in Settings › Taskbar and on the bar. Widgets an earlier version marked seen without placing are placed once
+- **bar**: The widget facade has the members Omarchy's bar API gained (`traySectionDragActive`, `traySectionPopoutOpen`, `notePopoutCard`, `popoutCardFor`)
+
 ## 0.55.2 - 2026-10-31
 
 ### Fixed

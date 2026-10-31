@@ -143,6 +143,14 @@ QtObject {
     const c = Config.o.bar.layout
     const first = !c.adopted
     const before = BarLayout.resolve(savedLayout(), null)
+    if (!first) {
+      const fix = BarLayout.repairSections(before, widgets, Array.from(c.seen), omarchyIds)
+      if (fix.changed) {
+        setBarLayout(fix.layout)
+        Config.set("bar.layout.seen", fix.seen)
+        return Qt.callLater(adoptWidgets, widgets, omarchyIds)
+      }
+    }
     const r = BarLayout.adoptNew(before, widgets, Array.from(c.seen), first, omarchyIds)
     if (!r.changed) return
     setBarLayout(r.layout)

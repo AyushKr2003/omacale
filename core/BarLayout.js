@@ -278,6 +278,25 @@ function adoptNew(layout, widgets, seen, first, omarchyIds) {
   return { layout: l, seen: out, changed: changed }
 }
 
+// One-time repair: before Omacale read Omarchy's centerBegin / centerEnd
+// sections, widgets in them were marked seen without being placed, and were
+// never offered again. Places the Omarchy-layout ones that are nowhere, once
+// (marked by REPAIR_SECTIONS in `seen`). Returns { layout, seen, changed }.
+var REPAIR_SECTIONS = "~sections-v2"
+function repairSections(layout, widgets, seen, omarchyIds) {
+  var l = clone(layout), out = listOf(seen).slice(), list = listOf(widgets), mine = listOf(omarchyIds)
+  if (out.indexOf(REPAIR_SECTIONS) >= 0 || !list.length) return { layout: l, seen: out, changed: false }
+  out.push(REPAIR_SECTIONS)
+  for (var k = 0; k < list.length; k++) {
+    var v = list[k]
+    if (!v || !v.firstParty || mine.indexOf(v.id) < 0 || DUPLICATES.hasOwnProperty(v.id) || NEVER.indexOf(v.id) >= 0) continue
+    var pid = "plugin:" + v.id
+    if (find(l, pid) || l.removed.indexOf(pid) >= 0 || l.drawer.indexOf(pid) >= 0) continue
+    l = appendEnd(l, pid)
+  }
+  return { layout: l, seen: out, changed: true }
+}
+
 // `id` at the end of the end section -- before the power button when that
 // closes the bar, so it stays last.
 function appendEnd(layout, id) {
