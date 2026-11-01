@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.8 - 2026-11-01
+
+### Changed
+- **settings**: "Frame & motion" is now two pages. Frame has the border, corner rounding, drawer blending, shadow and the Glass link; Motion has everything that moves, with Animation duration and Drawer stretch under a new Timing section above the liquid settings
+
 ## 0.55.7 - 2026-10-31
 
 ### Added
