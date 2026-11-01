@@ -485,10 +485,10 @@ Item {
     centerSectionRevealHeld: root.revealHeld || root.idleStack
   }
 
-  // The idle stack: the first few cells of the revealed widget, read off the
+  // The idle stack: the last few cells of the revealed widget, read off the
   // stage, drawn larger and in the status icons' colour rather than Omarchy's
-  // dim, the last one in front. The rest wait under the last one and come
-  // out as the stack spreads.
+  // dim, the very last one in front and the ones before it behind. The rest
+  // wait under the farthest one and come out as the stack spreads.
   Item {
     id: stackView
     anchors.fill: parent
@@ -502,17 +502,20 @@ Item {
       Item {
         id: chip
         required property int index
-        readonly property bool extra: index >= root.stackShown
+        // The last cells are the ones shown: the very last in front, where the
+        // widget ends, so it stays put while the rest spread out before it.
+        readonly property int slot: index - (root.stackCount - root.stackShown)
+        readonly property bool extra: slot < 0
         // 0 for the front chip, 1 for the one behind it, ...
-        readonly property int depth: extra ? root.stackShown : root.stackShown - 1 - index
+        readonly property int depth: extra ? root.stackShown : root.stackShown - 1 - slot
         // The cell is centred on its disc while stacked.
-        readonly property real at: ((extra ? 0 : root.stackPos(index)) - (root.chipLen - root.chipDisc) / 2) * (1 - stackView.sp) + index * root.chipLen * stackView.sp
+        readonly property real at: ((extra ? 0 : root.stackPos(slot)) - (root.chipLen - root.chipDisc) / 2) * (1 - stackView.sp) + index * root.chipLen * stackView.sp
         readonly property real fade: [1, 0.7, 0.55, 0][Math.min(depth, 3)]
         x: root.vertical ? 0 : at
         y: root.vertical ? at : 0
         width: root.vertical ? stackView.width : root.chipLen
         height: root.vertical ? root.chipLen : stackView.height
-        z: extra ? -1 : index
+        z: extra ? -1 : slot
         opacity: fade + (1 - fade) * stackView.sp
         scale: 1 - Math.min(depth, 2) * 0.08 * (1 - stackView.sp)
 

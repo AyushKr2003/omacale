@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.9 - 2026-11-01
+
+### Changed
+- **bar**: with no indicator on, Omarchy's indicator stack shows the last indicators: Stay awake in front, Do not disturb and Night light behind it. Hovering keeps Stay awake where it is and spreads the rest out away from it (upward in the end section of a side bar)
+
 ## 0.55.8 - 2026-11-01
 
 ### Changed
