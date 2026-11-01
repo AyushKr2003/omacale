@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.11 - 2026-11-01
+
+### Fixed
+- **launcher**: the `:` menu's Setup › Language and Update › Kernel submenus list languages and kernels again instead of coming up empty, from Omarchy's newer `languages` and `kernels` providers (searching a language's English name finds it too)
+
 ## 0.55.10 - 2026-11-01
 
 ### Fixed
