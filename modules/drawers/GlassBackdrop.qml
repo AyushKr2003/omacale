@@ -121,7 +121,8 @@ Item {
   // open over it.
   readonly property int workspaceId: monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : 0
   readonly property var monitorIpc: monitor ? monitor.lastIpcObject : null
-  readonly property int specialId: monitorIpc && monitorIpc.specialWorkspace ? monitorIpc.specialWorkspace.id : 0
+  // Matched by name: Hyprland 0.57's monitor `specialWorkspace` has no id.
+  readonly property string specialName: monitorIpc && monitorIpc.specialWorkspace ? monitorIpc.specialWorkspace.name || "" : ""
 
   Item {
     id: picture
@@ -149,7 +150,7 @@ Item {
         id: client
         required property HyprlandToplevel modelData
         readonly property var o: modelData.lastIpcObject || ({})
-        readonly property bool special: root.specialId !== 0 && !!o.workspace && o.workspace.id === root.specialId
+        readonly property bool special: root.specialName !== "" && !!o.workspace && o.workspace.name === root.specialName
         readonly property bool shown: !!o.at && !!o.size && !!o.workspace && !o.hidden && o.mapped !== false
           && (o.workspace.id === root.workspaceId || special)
         readonly property real bs: root.borderSize
