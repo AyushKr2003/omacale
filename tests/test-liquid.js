@@ -139,12 +139,15 @@ test("every liquid setting is on the Motion page, and every key there exists", (
   for (const k of keys) assert.notStrictEqual(D.get(D.values, k), undefined, k)
   assert.ok(page.rows.some(r => r.comp === "liquidPreset"), "the preset row")
   assert.ok(page.rows.some(r => r.comp === "motionStyle"), "the style row")
-  assert.ok(all.some(x => x.r.type === "nav" && x.r.page === "liquid" && x.page === "frame"), "Frame & motion links to it")
+  assert.strictEqual(page.label, "Motion")
+  for (const k of ["appearance.animScale", "appearance.deformScale"]) assert.ok(keys.includes(k), k + " is on the Motion page")
+  const frame = S.pageById("frame")
+  assert.ok(!frame.rows.some(r => r.key === "appearance.animScale" || r.key === "appearance.deformScale" || r.page === "liquid"), "Frame holds no motion rows")
 })
 test("liquid motion is off by default, and the rest of the page waits for it", () => {
   assert.strictEqual(D.values.liquid.enabled, false)
   const page = S.pageById("liquid")
-  for (const r of page.rows) if (r.key && r.key !== "liquid.enabled") {
+  for (const r of page.rows) if (r.key && r.key.startsWith("liquid.") && r.key !== "liquid.enabled") {
     const off = S.whenHolds(r.when, k => k === "liquid.enabled" ? false : D.get(D.values, k))
     assert.strictEqual(off, false, r.key + " is live with liquid motion off")
   }

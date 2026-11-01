@@ -241,7 +241,7 @@ not the window under it reads as a trick. At most a garnish for the frame and ba
 
 ## 5. Settings (as built, plus C)
 
-Settings › Frame & motion › **Glass** (a page next to Motion), off by default. Off,
+Settings › Frame › **Glass** (its own page, next to Motion), off by default. Off,
 Omacale draws exactly as before: the shader returns its old output, the layer and
 shadow are Caelestia's, and Colours only reads Transparency.
 
