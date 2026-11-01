@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.2 - 2026-11-01
+
+### Fixed
+- **battery popout**: the selected power profile always shows its name (Power saver, Balanced, Performance) next to its icon; switching profiles could leave it as a bare icon
+
 ## 0.56.1 - 2026-11-01
 
 ### Fixed

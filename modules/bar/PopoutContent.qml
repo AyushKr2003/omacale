@@ -1108,6 +1108,14 @@ Item {
           color: segment.active ? Colours.m3onPrimary : Colours.m3onSurface
           onClicked: PowerProfiles.profile = segment.profile
         }
+        // Measures the profile's name (Caelestia's TextMetrics), never shown.
+        MText {
+          id: labelSize
+          visible: false
+          text: bat.profileName(segment.profile)
+          font.pointSize: Tk.label.large
+          weight: Font.Medium
+        }
         Row {
           anchors.centerIn: parent
           spacing: segment.active ? Tk.spacing.extraSmall : 0
@@ -1122,11 +1130,14 @@ Item {
           }
           MText {
             anchors.verticalCenter: parent.verticalCenter
-            width: segment.active ? Math.min(Math.ceil(implicitWidth), segment.width - profileIcon.implicitWidth - Tk.spacing.extraSmall - Tk.padding.small * 2) : 0
-            text: bat.profileName(segment.profile)
+            // Sized from labelSize, not its own implicitWidth: an elided
+            // Text bound to its own implicit width loops and can stick at 0,
+            // leaving the selected profile with no name.
+            width: segment.active ? Math.max(0, Math.min(Math.ceil(labelSize.implicitWidth) + 1, segment.width - profileIcon.implicitWidth - Tk.spacing.extraSmall - Tk.padding.small * 2)) : 0
+            text: labelSize.text
             color: Colours.m3onPrimary
-            font.pointSize: Tk.label.large
-            weight: Font.Medium
+            font.pointSize: labelSize.font.pointSize
+            weight: labelSize.weight
             elide: Text.ElideRight
             opacity: segment.active ? 1 : 0
             Behavior on opacity { Anim { type: "effects" } }
