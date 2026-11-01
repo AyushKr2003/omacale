@@ -156,7 +156,10 @@ Item {
   onCurrentChanged: resetCursor()
   onOpenChanged: {
     if (!open) { setCursor(null); settledOpen = false }
-    else Qt.callLater(() => root.settledOpen = root.open)
+    else {
+      if (activeLoader && !Morph.enabled) activeLoader.replay()
+      Qt.callLater(() => root.settledOpen = root.open)
+    }
   }
 
   KeyNav {
@@ -193,7 +196,16 @@ Item {
     opacity: 0
     // Morph's page intro: 0 coming in, 1 settled (identity).
     property real intro: 1
+    // Caelestia PR #2149 popouts/Content.qml: a page grows out of the bar
+    // side as it opens or is switched to (0.9 -> 1), and shrinks back out.
+    property real grow: 1
     transform: [
+      Scale {
+        origin.x: Tk.barEdge === "left" ? 0 : Tk.barEdge === "right" ? pl.width : pl.width / 2
+        origin.y: Tk.barEdge === "top" ? 0 : Tk.barEdge === "bottom" ? pl.height : pl.height / 2
+        xScale: pl.grow
+        yScale: pl.grow
+      },
       Scale {
         origin.x: pl.width / 2
         origin.y: pl.height / 2
@@ -207,24 +219,30 @@ Item {
       page = n
       if (morph) {
         fadeIn.stop()
+        growIn.stop(); growOut.stop(); grow = 1
         intro = 0
         opacity = 0
         introAnim.restart()
       } else {
         if (!introAnim.running) intro = 1
+        if (opacity < 1) replay()
         fadeIn.restart()
       }
     }
+    function replay() { growOut.stop(); grow = 0.9; growIn.restart() }
     function hide(morph) {
       fadeIn.stop()
       if (morph) {
         introAnim.stop()
         fadeOut.stop()
+        growIn.stop(); growOut.stop(); grow = 1
         opacity = 0
         intro = 1
         page = ""
-      } else fadeOut.restart()
+      } else { growIn.stop(); growOut.restart(); fadeOut.restart() }
     }
+    Anim { id: growIn; target: pl; property: "grow"; to: 1 }
+    Anim { id: growOut; target: pl; property: "grow"; to: 0.9; type: "fastSpatial" }
     Anim { id: fadeIn; target: pl; property: "opacity"; to: 1; type: "slowEffects" }
     ParallelAnimation {
       id: introAnim
@@ -246,34 +264,6 @@ Item {
   component Sub: MText {
     Layout.topMargin: Tk.spacing.small
     color: Colours.m3onSurfaceVariant
-  }
-  component RoundAction: Rectangle {
-    id: ra
-    property string icon
-    property bool active
-    property bool busy
-    signal clicked()
-    implicitWidth: implicitHeight
-    implicitHeight: raIcon.implicitHeight + Tk.padding.extraSmall
-    radius: height / 2
-    property bool off: false
-    color: Qt.alpha(Colours.m3primary, active ? 1 : 0)
-    StateLayer { color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface; disabled: ra.busy || ra.off; onClicked: ra.clicked() }
-    // Caelestia: while connecting, a spinner takes the icon's place.
-    MIcon {
-      id: raIcon
-      anchors.centerIn: parent
-      animate: true
-      text: ra.icon
-      color: ra.active ? Colours.m3onPrimary : Colours.m3onSurface
-      opacity: ra.busy ? 0 : 1
-      Behavior on opacity { Anim { type: "effects" } }
-    }
-    Loader {
-      anchors.fill: parent
-      active: ra.busy
-      sourceComponent: LoadingIndicator { implicitSize: ra.height; colour: ra.active ? Colours.m3onPrimary : Colours.m3primary }
-    }
   }
   // Caelestia's popout footer: a full-width IconTextButton in primaryContainer
   // with extraSmall vertical padding.
@@ -299,6 +289,9 @@ Item {
   }
 
   // ------------------------------------------------------------ network
+  // Caelestia PR #2149 popouts/Network.qml: a header card (icon, status,
+  // switch), the networks as joined rows in a list that scrolls past 5, and
+  // a Rescan / Settings button row.
   Component {
     id: network
     ColumnLayout {
@@ -325,101 +318,114 @@ Item {
       readonly property bool ethView: Sys.ethernet
       readonly property var wired: NetService.devices.filter(d => d.type === DeviceType.Wired)
         .sort((a, b) => (b.connected - a.connected) || String(a.name).localeCompare(String(b.name))).slice(0, 8)
-      Heading { text: netCol.ethView ? "Ethernet" : "Wireless" }
-      Sub {
-        visible: netCol.ethView
-        text: netCol.wired.length + (netCol.wired.length === 1 ? " device available" : " devices available")
-      }
-      Repeater {
-        model: netCol.ethView ? netCol.wired : []
-        RowLayout {
-          id: eth
-          required property var modelData
-          Layout.fillWidth: true
-          Layout.rightMargin: Tk.padding.extraSmall
-          spacing: Tk.spacing.small
-          opacity: 0; scale: 0.7
-          Component.onCompleted: { opacity = 1; scale = 1 }
-          Behavior on opacity { Anim { type: "effects" } }
-          Behavior on scale { Anim {} }
-          MIcon { text: "cable"; color: eth.modelData.connected ? Colours.m3primary : Colours.m3onSurfaceVariant }
-          MText {
-            Layout.leftMargin: Tk.spacing.extraSmall
-            Layout.rightMargin: Tk.spacing.extraSmall
-            Layout.fillWidth: true
-            text: eth.modelData.name || "Unknown"
-            elide: Text.ElideRight
-            font.pointSize: Tk.body.medium
-            weight: eth.modelData.connected ? Font.Medium : Font.Normal
-            color: eth.modelData.connected ? Colours.m3primary : Colours.m3onSurface
-          }
-          RoundAction {
-            icon: eth.modelData.connected ? "link_off" : "link"
-            active: eth.modelData.connected
-            onClicked: Quickshell.execDetached(["nmcli", "device", eth.modelData.connected ? "disconnect" : "connect", eth.modelData.name])
-          }
+      readonly property var activeWired: wired.find(d => d.connected) || null
+
+      PopoutHeader {
+        icon: {
+          if (netCol.ethView) return "cable"
+          if (!NetService.wifiEnabled) return "wifi_off"
+          return Sys.ssid !== "" ? Sys.networkIcon(Sys.strength) : "wifi"
         }
-      }
-      Toggle {
-        visible: !netCol.ethView
-        label: "Enabled"
+        title: netCol.ethView ? "Ethernet" : "Wireless"
+        subtitle: {
+          if (netCol.ethView) {
+            if (netCol.activeWired) return "Connected via " + netCol.activeWired.name
+            return netCol.wired.length + (netCol.wired.length === 1 ? " device available" : " devices available")
+          }
+          if (!NetService.wifiEnabled) return "Off"
+          return Sys.networks.length + (Sys.networks.length === 1 ? " network" : " networks")
+        }
+        active: netCol.ethView ? !!netCol.activeWired : NetService.wifiEnabled
+        hasToggle: !netCol.ethView
         checked: NetService.wifiEnabled
         onToggled: c => NetService.setWifiEnabled(c)
       }
-      Sub { visible: !netCol.ethView; text: Sys.networks.length + (Sys.networks.length === 1 ? " network available" : " networks available") }
-      Repeater {
-        model: netCol.ethView ? [] : Sys.networks.slice(0, 8)
-        RowLayout {
+
+      ConnectionList {
+        visible: !netCol.ethView
+        showList: NetService.wifiEnabled
+        placeholderIcon: NetService.wifiEnabled ? "wifi_find" : "signal_wifi_off"
+        placeholderText: NetService.wifiEnabled ? "No networks found" : "Wi-Fi disabled"
+        model: ScriptModel { values: netCol.ethView ? [] : Sys.networks.slice(0, 8) }
+        delegate: ConnectionRow {
           id: ap
+          required property int index
           required property var modelData
+          readonly property var net: NetService.networkFor(modelData.ssid)
           // x: forget a saved network.
-          function navDelete() {
-            const net = NetService.networkFor(ap.modelData.ssid)
-            if (net && net.known) NetService.forget(net)
-          }
-          Layout.fillWidth: true
-          Layout.rightMargin: Tk.padding.extraSmall
-          spacing: Tk.spacing.small
-          opacity: 0; scale: 0.7
-          Component.onCompleted: { opacity = 1; scale = 1 }
-          Behavior on opacity { Anim { type: "effects" } }
-          Behavior on scale { Anim {} }
-          MIcon { text: Sys.networkIcon(ap.modelData.strength); color: ap.modelData.active ? Colours.m3primary : Colours.m3onSurfaceVariant }
-          MIcon { visible: ap.modelData.secure; text: "lock"; size: Tk.iconSize.small }
-          MText {
-            Layout.leftMargin: Tk.spacing.extraSmall
-            Layout.rightMargin: Tk.spacing.extraSmall
-            Layout.fillWidth: true
-            text: ap.modelData.ssid
-            elide: Text.ElideRight
-            font.pointSize: Tk.body.medium
-            weight: ap.modelData.active ? Font.Medium : Font.Normal
-            color: ap.modelData.active ? Colours.m3primary : Colours.m3onSurface
-          }
-          RoundAction {
-            readonly property var net: NetService.networkFor(ap.modelData.ssid)
+          function navDelete() { if (net && net.known) NetService.forget(net) }
+          width: ListView.view.width
+          first: index === 0
+          last: index === ListView.view.count - 1
+          active: modelData.active
+          loading: NetService.busy && NetService.actionSsid === modelData.ssid
+          icon: Sys.networkIcon(modelData.strength)
+          title: modelData.ssid
+          subtitle: modelData.active ? "Connected" : loading ? "Connecting..." : net && net.known ? "Saved" : modelData.secure ? "Secured" : "Open"
+          IconButton {
             icon: ap.modelData.active ? "link_off" : "link"
-            active: ap.modelData.active
-            busy: NetService.busy && NetService.actionSsid === ap.modelData.ssid
-            off: !NetService.wifiEnabled
+            type: "text"
+            disabled: ap.loading || !NetService.wifiEnabled
+            label.animate: true
             onClicked: {
-              if (!net) return
-              if (ap.modelData.active) { NetService.disconnect(net); return }
+              if (!ap.net) return
+              if (ap.modelData.active) { NetService.disconnect(ap.net); return }
               // Saved or open networks connect here; anything that needs a
               // password asks for it: activate() sets passwordSsid, which
               // netCol's Connections turns into the password page.
-              NetService.activate(net)
+              NetService.activate(ap.net)
             }
           }
         }
       }
-      WideButton {
-        visible: !netCol.ethView
-        Layout.topMargin: Tk.spacing.small
-        enabled: NetService.wifiEnabled
-        opacity: enabled ? 1 : 0.38
-        icon: "wifi_find"; label: "Rescan networks"
-        onClicked: Sys.run("nmcli device wifi rescan")
+
+      ConnectionList {
+        visible: netCol.ethView
+        placeholderIcon: "lan"
+        placeholderText: "No devices found"
+        model: ScriptModel { values: netCol.ethView ? netCol.wired : [] }
+        delegate: ConnectionRow {
+          id: eth
+          required property int index
+          required property var modelData
+          width: ListView.view.width
+          first: index === 0
+          last: index === ListView.view.count - 1
+          active: modelData.connected
+          icon: "cable"
+          title: modelData.name || "Unknown"
+          subtitle: modelData.connected ? "Connected" : "Disconnected"
+          IconButton {
+            icon: eth.modelData.connected ? "link_off" : "link"
+            type: "text"
+            label.animate: true
+            onClicked: Quickshell.execDetached(["nmcli", "device", eth.modelData.connected ? "disconnect" : "connect", eth.modelData.name])
+          }
+        }
+      }
+
+      ButtonRow {
+        Layout.fillWidth: true
+        Layout.topMargin: Tk.spacing.extraSmall
+        spacing: Tk.spacing.small
+        IconTextButton {
+          fillWidth: true
+          visible: !netCol.ethView
+          type: "tonal"
+          shapeMorph: true
+          disabled: !NetService.wifiEnabled
+          icon: "wifi_find"
+          text: "Rescan"
+          onClicked: Sys.run("nmcli device wifi rescan")
+        }
+        IconTextButton {
+          fillWidth: true
+          type: "tonal"
+          shapeMorph: true
+          icon: "settings"
+          text: "Settings"
+          onClicked: { root.host.toggle("settings", "network"); root.closeRequested() }
+        }
       }
     }
   }
@@ -693,71 +699,116 @@ Item {
   }
 
   // ---------------------------------------------------------- bluetooth
+  // Caelestia PR #2149 popouts/Bluetooth.qml, same shape as the network one.
   Component {
     id: bluetooth
     ColumnLayout {
+      id: btCol
       width: Tk.sizes.bluetoothWidth
       spacing: Tk.spacing.small
       readonly property var adapter: Bluetooth.defaultAdapter
-      Heading { text: "Bluetooth" }
-      Toggle { label: "Enabled"; checked: adapter ? adapter.enabled : false; onToggled: c => { if (adapter) adapter.enabled = c } }
-      Toggle { label: "Discovering"; checked: adapter ? adapter.discovering : false; onToggled: c => { if (adapter) adapter.discovering = c } }
-      Sub {
-        readonly property var devs: Bluetooth.devices.values
-        readonly property int conn: devs.filter(d => d.connected).length
-        text: devs.length + (devs.length === 1 ? " device" : " devices") + " available" + (conn ? " (" + conn + " connected)" : "")
+      readonly property bool adapterEnabled: adapter ? adapter.enabled : false
+      readonly property var devs: Bluetooth.devices.values
+      readonly property int conn: devs.filter(d => d.connected).length
+
+      PopoutHeader {
+        icon: !btCol.adapterEnabled ? "bluetooth_disabled" : btCol.conn > 0 ? "bluetooth_connected" : "bluetooth"
+        title: "Bluetooth"
+        subtitle: !btCol.adapterEnabled ? "Off"
+          : btCol.conn > 0 ? btCol.conn + " connected"
+          : btCol.devs.length + (btCol.devs.length === 1 ? " device" : " devices")
+        active: btCol.adapterEnabled
+        hasToggle: true
+        checked: btCol.adapterEnabled
+        onToggled: c => { if (btCol.adapter) btCol.adapter.enabled = c }
       }
-      Repeater {
-        model: [...Bluetooth.devices.values].sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || a.name.localeCompare(b.name)).slice(0, 5)
-        RowLayout {
+
+      ConnectionList {
+        showList: btCol.adapterEnabled
+        placeholderIcon: btCol.adapterEnabled ? "bluetooth_searching" : "bluetooth_disabled"
+        placeholderText: btCol.adapterEnabled ? "No devices found" : "Bluetooth disabled"
+        model: ScriptModel {
+          values: [...Bluetooth.devices.values].sort((a, b) => (b.connected - a.connected) || (b.paired - a.paired) || a.name.localeCompare(b.name)).slice(0, 5)
+        }
+        delegate: ConnectionRow {
           id: dev
+          required property int index
           required property var modelData
-          readonly property bool loading: modelData.state === BluetoothDeviceState.Connecting || modelData.state === BluetoothDeviceState.Disconnecting
+          readonly property bool connecting: modelData.state === BluetoothDeviceState.Connecting
+          readonly property bool disconnecting: modelData.state === BluetoothDeviceState.Disconnecting
           // x: forget the device.
           function navDelete() { dev.modelData.forget() }
-          Layout.fillWidth: true
-          Layout.rightMargin: Tk.padding.extraSmall
-          spacing: Tk.spacing.small
-          opacity: 0; scale: 0.7
-          Component.onCompleted: { opacity = 1; scale = 1 }
-          Behavior on opacity { Anim { type: "effects" } }
-          Behavior on scale { Anim {} }
-          MIcon { text: Sys.bluetoothIcon(dev.modelData.icon) }
-          MText { Layout.leftMargin: Tk.spacing.extraSmall; Layout.rightMargin: Tk.spacing.extraSmall; Layout.fillWidth: true; text: dev.modelData.name; elide: Text.ElideRight }
-          MIcon {
-            visible: dev.modelData.state === BluetoothDeviceState.Connected
-            text: dev.modelData.batteryAvailable ? Sys.batteryIcon(dev.modelData.battery, false) : "battery_alert"
-            color: dev.modelData.batteryAvailable && dev.modelData.battery < 0.2 ? Colours.m3error : Colours.m3onSurfaceVariant
+          width: ListView.view.width
+          first: index === 0
+          last: index === ListView.view.count - 1
+          active: modelData.state === BluetoothDeviceState.Connected
+          loading: connecting || disconnecting
+          warning: modelData.connected && modelData.batteryAvailable && modelData.battery < 0.2
+          icon: Sys.bluetoothIcon(modelData.icon)
+          title: modelData.name
+          subtitle: {
+            if (connecting) return "Connecting..."
+            if (disconnecting) return "Disconnecting..."
+            if (modelData.connected) return modelData.batteryAvailable ? Math.round(modelData.battery * 100) + "% battery" : "Connected"
+            return modelData.paired ? "Paired" : "Not paired"
           }
-          RoundAction {
+          IconButton {
             icon: dev.modelData.connected ? "link_off" : "link"
-            active: dev.modelData.state === BluetoothDeviceState.Connected
-            busy: dev.loading
+            type: "text"
+            disabled: dev.loading
+            label.animate: true
             onClicked: dev.modelData.connected = !dev.modelData.connected
           }
           // Caelestia Bluetooth.qml: a bonded device gets a delete button.
-          Item {
-            visible: dev.modelData.bonded
-            implicitWidth: implicitHeight
-            implicitHeight: delIcon.implicitHeight + Tk.padding.extraSmall
-            property real radius: Tk.rounding.full
-            StateLayer { onClicked: dev.modelData.forget() }
-            MIcon { id: delIcon; anchors.centerIn: parent; text: "delete" }
+          Loader {
+            active: dev.modelData.bonded
+            visible: active
+            sourceComponent: IconButton {
+              icon: "delete"
+              type: "text"
+              onClicked: dev.modelData.forget()
+            }
           }
         }
       }
-      WideButton {
-        icon: "settings"; label: "Open settings"
-        onClicked: { root.host.toggle("settings", "bluetooth"); root.closeRequested() }
+
+      ButtonRow {
+        Layout.fillWidth: true
+        Layout.topMargin: Tk.spacing.extraSmall
+        spacing: Tk.spacing.small
+        IconTextButton {
+          fillWidth: true
+          type: "tonal"
+          shapeMorph: true
+          checked: btCol.adapter ? btCol.adapter.discovering : false
+          disabled: !btCol.adapterEnabled
+          icon: "bluetooth_searching"
+          text: "Discover"
+          onClicked: { if (btCol.adapter) btCol.adapter.discovering = !btCol.adapter.discovering }
+        }
+        IconTextButton {
+          fillWidth: true
+          type: "tonal"
+          shapeMorph: true
+          icon: "settings"
+          text: "Settings"
+          onClicked: { root.host.toggle("settings", "bluetooth"); root.closeRequested() }
+        }
       }
     }
   }
 
   // ------------------------------------------------------------ battery
+  // Caelestia PR #2149 popouts/Battery.qml: the dashboard's battery tank as a
+  // card that fills up as the popout opens, the power profiles as a connected
+  // button group (the selected one opens to show its name), and the
+  // degraded-performance warning as a card that animates in and out.
   Component {
     id: battery
     ColumnLayout {
+      id: bat
       readonly property var dev: UPower.displayDevice
+      readonly property bool charging: dev ? [UPowerDeviceState.Charging, UPowerDeviceState.FullyCharged, UPowerDeviceState.PendingCharge].includes(dev.state) : false
       function fmt(s) {
         const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60
         const c = []
@@ -766,99 +817,297 @@ Item {
         if (m) c.push(m + (m === 1 ? " min" : " mins"))
         return c.join(", ")
       }
+      function profileName(p) {
+        return p === PowerProfile.PowerSaver ? "Power saver" : p === PowerProfile.Performance ? "Performance" : "Balanced"
+      }
       width: Tk.sizes.batteryWidth
-      spacing: Tk.spacing.medium
-      MText {
-        text: dev && dev.isLaptopBattery ? "Remaining: " + Math.round(dev.percentage * 100) + "%" : "No battery detected"
-      }
-      MText {
-        text: {
-          if (!dev || !dev.isLaptopBattery) return "Power profile: " + (["Power saver", "Balanced", "Performance"][PowerProfiles.profile] || "Unknown")
-          if (UPower.onBattery) return dev.timeToEmpty > 0 ? "Time remaining: " + fmt(dev.timeToEmpty) : "Calculating remaining battery life..."
-          if (dev.timeToFull > 0) return "Time until charged: " + fmt(dev.timeToFull)
-          return Math.round(dev.percentage * 100) === 100 ? "Fully charged!" : "Calculating time until charged..."
-        }
-      }
-      // Caelestia Battery.qml: while the power profile can't run at full
-      // tilt, an error card says why.
+      spacing: Tk.spacing.small
+
       Loader {
-        Layout.alignment: Qt.AlignHCenter
-        active: PowerProfiles.degradationReason !== PerformanceDegradationReason.None
+        Layout.fillWidth: true
+        active: bat.dev && bat.dev.isLaptopBattery
+        visible: active
+        sourceComponent: batteryCard
+      }
+      Loader {
+        Layout.fillWidth: true
+        active: !bat.dev || !bat.dev.isLaptopBattery
         visible: active
         sourceComponent: Rectangle {
-          implicitWidth: degr.implicitWidth + Tk.padding.medium * 2
-          implicitHeight: degr.implicitHeight + Tk.padding.large
-          color: Colours.m3error
-          radius: Tk.rounding.large
-          Column {
-            id: degr
-            anchors.centerIn: parent
-            Row {
-              anchors.horizontalCenter: parent.horizontalCenter
-              spacing: Tk.spacing.small
-              MIcon { anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -font.pointSize / 10; text: "warning"; color: Colours.m3onError }
-              MText { anchors.verticalCenter: parent.verticalCenter; text: "Performance degraded"; color: Colours.m3onError; font.pointSize: Tk.title.small; weight: Font.Medium }
-              MIcon { anchors.verticalCenter: parent.verticalCenter; anchors.verticalCenterOffset: -font.pointSize / 10; text: "warning"; color: Colours.m3onError }
+          implicitHeight: noBattLayout.implicitHeight + Tk.padding.large * 2
+          radius: Tk.rounding.extraLarge
+          color: Colours.m3surfaceContainer
+          RowLayout {
+            id: noBattLayout
+            anchors.fill: parent
+            anchors.margins: Tk.padding.large
+            spacing: Tk.spacing.medium
+            Rectangle {
+              implicitHeight: noBattIcon.implicitHeight + Tk.padding.small * 2
+              implicitWidth: implicitHeight
+              radius: height / 2
+              color: Colours.m3secondaryContainer
+              MIcon { id: noBattIcon; anchors.centerIn: parent; text: "power"; size: Tk.iconSize.medium; color: Colours.m3onSecondaryContainer }
             }
             MText {
-              anchors.horizontalCenter: parent.horizontalCenter
-              color: Colours.m3onError
-              text: PowerProfiles.degradationReason === PerformanceDegradationReason.HighTemperature ? "The device is too hot"
-                : PowerProfiles.degradationReason === PerformanceDegradationReason.LapDetected ? "The device is on a lap"
-                : "Unknown reason"
+              Layout.fillWidth: true
+              text: "No battery detected"
+              font.pointSize: Tk.title.small
+              weight: Font.Medium
+              wrapMode: Text.WordWrap
             }
           }
         }
       }
-      // Caelestia popouts/Battery.qml: three icon-sized profile targets with
-      // a pill that slides to fill the current one.
+
       Rectangle {
         id: profiles
-        readonly property var icons: ["energy_savings_leaf", "balance", "rocket_launch"]
-        readonly property var values: [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance]
-        readonly property int current: PowerProfiles.profile === PowerProfile.PowerSaver ? 0 : PowerProfiles.profile === PowerProfile.Performance ? 2 : 1
-        readonly property real cell: pRep.count ? pRep.itemAt(0).implicitWidth : 0
-        Layout.alignment: Qt.AlignHCenter
-        implicitWidth: cell * 3 + Tk.padding.medium * 2 + Tk.spacing.largeIncreased * 2
-        implicitHeight: cell + Tk.padding.small
-        radius: height / 2
+        readonly property real innerWidth: width - Tk.padding.small * 2
+        readonly property real inactiveWidth: saver.implicitHeight - Tk.padding.extraSmall
+        Layout.fillWidth: true
+        implicitHeight: profileRow.implicitHeight + Tk.padding.small * 2
+        radius: Tk.rounding.extraLarge
         color: Colours.m3surfaceContainer
-        Rectangle {
-          readonly property var cur: pRep.count > profiles.current ? pRep.itemAt(profiles.current) : null
-          x: cur ? cur.x : 0
-          y: Math.round((profiles.height - height) / 2)
-          width: profiles.cell
-          height: profiles.cell
-          radius: height / 2
-          color: Colours.m3primary
-          Behavior on x { Anim {} }
+
+        Row {
+          id: profileRow
+          anchors.centerIn: parent
+          spacing: Tk.spacing.extraSmall / 2
+          Profile { id: saver; profile: PowerProfile.PowerSaver; icon: "energy_savings_leaf"; first: true }
+          Profile { profile: PowerProfile.Balanced; icon: "balance" }
+          Profile { profile: PowerProfile.Performance; icon: "rocket_launch"; last: true }
         }
-        Repeater {
-          id: pRep
-          model: profiles.icons
-          Item {
-            required property string modelData
-            required property int index
-            readonly property bool on: index === profiles.current
-            implicitWidth: pIcon.implicitHeight + Tk.padding.small
-            implicitHeight: implicitWidth
-            anchors.verticalCenter: parent.verticalCenter
-            x: index === 0 ? Tk.padding.extraSmall
-              : index === 2 ? profiles.width - width - Tk.padding.extraSmall
-              : (profiles.width - width) / 2
-            property real radius: width / 2
-            StateLayer { color: parent.on ? Colours.m3onPrimary : Colours.m3onSurface; onClicked: PowerProfiles.profile = profiles.values[parent.index] }
-            MIcon {
-              id: pIcon
-              anchors.centerIn: parent
-              text: parent.modelData
-              size: Tk.iconSize.large
-              fill: parent.on ? 1 : 0
-              color: parent.on ? Colours.m3onPrimary : Colours.m3onSurfaceVariant
-              Behavior on fill { Anim { type: "effects" } }
+      }
+
+      Loader {
+        id: degraded
+        readonly property bool shown: PowerProfiles.degradationReason !== PerformanceDegradationReason.None
+        Layout.fillWidth: true
+        Layout.preferredHeight: shown ? implicitHeight : 0
+        Layout.topMargin: shown ? 0 : -bat.spacing
+        active: shown || opacity > 0
+        opacity: shown ? 1 : 0
+        clip: true
+        sourceComponent: Rectangle {
+          implicitHeight: degradedLayout.implicitHeight + Tk.padding.medium * 2
+          radius: Tk.rounding.large
+          color: Colours.m3errorContainer
+          RowLayout {
+            id: degradedLayout
+            anchors.fill: parent
+            anchors.margins: Tk.padding.medium
+            anchors.leftMargin: Tk.padding.large
+            spacing: Tk.spacing.medium
+            MIcon { text: "warning"; size: Tk.iconSize.medium; color: Colours.m3onErrorContainer; fill: 1 }
+            ColumnLayout {
+              Layout.fillWidth: true
+              spacing: 0
+              MText {
+                Layout.fillWidth: true
+                text: "Performance degraded"
+                color: Colours.m3onErrorContainer
+                font.pointSize: Tk.title.small
+                weight: Font.Medium
+                wrapMode: Text.WordWrap
+              }
+              MText {
+                Layout.fillWidth: true
+                text: PowerProfiles.degradationReason === PerformanceDegradationReason.HighTemperature ? "The device is too hot"
+                  : PowerProfiles.degradationReason === PerformanceDegradationReason.LapDetected ? "The device is on a lap"
+                  : "Unknown reason"
+                color: Colours.m3onErrorContainer
+                font.pointSize: Tk.body.small
+                wrapMode: Text.WordWrap
+              }
             }
           }
         }
+        Behavior on Layout.preferredHeight { Anim {} }
+        Behavior on Layout.topMargin { Anim {} }
+        Behavior on opacity { Anim { type: "effects" } }
+      }
+
+      Component {
+        id: batteryCard
+        ClippingRectangle {
+          id: card
+          // Starts empty so the fill sweeps in when the popout opens.
+          property real animPerc: 0
+          Component.onCompleted: animPerc = Qt.binding(() => bat.dev ? bat.dev.percentage : 0)
+          implicitHeight: contents.implicitHeight + Tk.padding.large * 2 + Tk.spacing.largeIncreased
+          radius: Tk.rounding.extraLarge
+          color: Colours.m3secondaryContainer
+
+          BatteryContents {
+            id: contents
+            anchors.fill: parent
+            anchors.margins: Tk.padding.large
+            accentColour: Colours.m3primary
+            textColour: Colours.m3onSecondaryContainer
+            subTextColour: Colours.m3onSurfaceVariant
+          }
+          ClippingRectangle {
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            implicitWidth: parent.width * card.animPerc
+            color: Colours.m3secondary
+            radius: Tk.rounding.extraSmall
+
+            BatteryContents {
+              x: Tk.padding.large
+              y: Tk.padding.large
+              width: card.width - Tk.padding.large * 2
+              height: card.height - Tk.padding.large * 2
+              accentColour: Colours.m3primaryContainer
+              textColour: Colours.m3onSecondary
+              subTextColour: Colours.m3secondaryContainer
+            }
+          }
+          Behavior on animPerc { Anim { type: "slowSpatial" } }
+        }
+      }
+
+      component BatteryContents: ColumnLayout {
+        id: bc
+        required property color accentColour
+        required property color textColour
+        required property color subTextColour
+        spacing: 0
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Tk.spacing.small
+          MIcon {
+            text: bat.dev ? Sys.batteryIcon(bat.dev.percentage, bat.charging) : "battery_unknown"
+            size: Tk.iconSize.medium
+            color: bc.accentColour
+            fill: 1
+          }
+          MText {
+            Layout.fillWidth: true
+            text: "Battery"
+            color: bc.textColour
+            font.pointSize: Tk.title.small
+            weight: Font.Medium
+            elide: Text.ElideRight
+          }
+          // Power draw while discharging, charge rate while charging.
+          Rectangle {
+            id: powerChip
+            readonly property real watts: bat.dev ? Math.abs(bat.dev.changeRate) : 0
+            readonly property bool hasWatts: watts >= 0.05
+            readonly property bool shown: hasWatts || bat.charging
+            implicitWidth: powerRow.implicitWidth + Tk.padding.small * 2
+            implicitHeight: powerRow.implicitHeight + Tk.padding.extraSmall
+            radius: height / 2
+            color: Qt.alpha(bc.accentColour, 0.15)
+            scale: shown ? 1 : 0
+            opacity: shown ? 1 : 0
+            Row {
+              id: powerRow
+              anchors.centerIn: parent
+              spacing: bat.charging && powerChip.hasWatts ? Tk.spacing.extraSmall / 2 : 0
+              MIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: bat.charging
+                text: "bolt"
+                size: Tk.iconSize.small
+                color: bc.accentColour
+                fill: 1
+              }
+              MText {
+                anchors.verticalCenter: parent.verticalCenter
+                visible: powerChip.hasWatts
+                text: powerChip.watts.toLocaleString(Qt.locale(), "f", 1) + " W"
+                color: bc.accentColour
+                font.pointSize: Tk.label.large
+                weight: Font.Medium
+              }
+            }
+            Behavior on scale { Anim { type: "fastSpatial" } }
+            Behavior on opacity { Anim { type: "fastEffects" } }
+          }
+        }
+
+        Item { Layout.fillHeight: true }
+
+        MText {
+          text: bat.dev ? Math.round(bat.dev.percentage * 100) + "%" : ""
+          color: bc.accentColour
+          font.pointSize: Tk.headline.medium
+        }
+        MText {
+          Layout.fillWidth: true
+          text: {
+            const d = bat.dev
+            if (!d) return ""
+            if (d.state === UPowerDeviceState.FullyCharged || (bat.charging && Math.round(d.percentage * 100) === 100)) return "Fully charged!"
+            if (bat.charging) {
+              const t = bat.fmt(d.timeToFull)
+              return t ? t + " until full" : "Calculating time until charged..."
+            }
+            const t = bat.fmt(d.timeToEmpty)
+            return t ? t + " left" : "Calculating remaining battery life..."
+          }
+          color: bc.subTextColour
+          font.pointSize: Tk.body.small
+          elide: Text.ElideRight
+          animate: true
+        }
+      }
+
+      component Profile: Rectangle {
+        id: segment
+        required property int profile
+        required property string icon
+        property bool first
+        property bool last
+        readonly property bool active: PowerProfiles.profile === segment.profile
+        readonly property real outerRadius: height / 2
+        property real innerRadius: active ? height / 2 : Tk.rounding.small
+
+        implicitWidth: active ? profiles.innerWidth - profiles.inactiveWidth * 2 - profileRow.spacing * 2 : profiles.inactiveWidth
+        implicitHeight: profileIcon.implicitHeight + Tk.padding.small * 2
+        color: active ? Colours.m3primary : Colours.m3surfaceContainerHighest
+        topLeftRadius: first ? outerRadius : innerRadius
+        bottomLeftRadius: first ? outerRadius : innerRadius
+        topRightRadius: last ? outerRadius : innerRadius
+        bottomRightRadius: last ? outerRadius : innerRadius
+        clip: true
+
+        StateLayer {
+          color: segment.active ? Colours.m3onPrimary : Colours.m3onSurface
+          onClicked: PowerProfiles.profile = segment.profile
+        }
+        Row {
+          anchors.centerIn: parent
+          spacing: segment.active ? Tk.spacing.extraSmall : 0
+          MIcon {
+            id: profileIcon
+            anchors.verticalCenter: parent.verticalCenter
+            text: segment.icon
+            size: Tk.iconSize.medium
+            color: segment.active ? Colours.m3onPrimary : Colours.m3onSurfaceVariant
+            fill: segment.active ? 1 : 0
+            Behavior on fill { Anim { type: "effects" } }
+          }
+          MText {
+            anchors.verticalCenter: parent.verticalCenter
+            width: segment.active ? Math.min(Math.ceil(implicitWidth), segment.width - profileIcon.implicitWidth - Tk.spacing.extraSmall - Tk.padding.small * 2) : 0
+            text: bat.profileName(segment.profile)
+            color: Colours.m3onPrimary
+            font.pointSize: Tk.label.large
+            weight: Font.Medium
+            elide: Text.ElideRight
+            opacity: segment.active ? 1 : 0
+            Behavior on opacity { Anim { type: "effects" } }
+          }
+          Behavior on spacing { Anim { type: "fastSpatial" } }
+        }
+        Behavior on implicitWidth { Anim { type: "fastSpatial" } }
+        Behavior on innerRadius { Anim { type: "effects" } }
+        Behavior on color { CAnim {} }
       }
     }
   }
