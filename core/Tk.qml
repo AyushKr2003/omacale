@@ -113,8 +113,8 @@ QtObject {
   readonly property QtObject sizes: QtObject {
     readonly property int audioWidth: tk.px(320)
     readonly property int networkWidth: tk.px(320)
-    readonly property int batteryWidth: tk.px(250)
-    readonly property int bluetoothWidth: tk.px(300)
+    readonly property int batteryWidth: tk.px(280)
+    readonly property int bluetoothWidth: tk.px(320)
     readonly property int trayMenuWidth: tk.px(300)
     readonly property int kbLayoutWidth: tk.px(320)
     readonly property int windowPreviewSize: tk.px(400)

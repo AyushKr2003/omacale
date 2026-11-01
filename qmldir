@@ -55,6 +55,9 @@ NotifToast 1.0 modules/notifications/NotifToast.qml
 PerfTab 1.0 modules/dashboard/PerfTab.qml
 Pill 1.0 components/Pill.qml
 PopoutContent 1.0 modules/bar/PopoutContent.qml
+PopoutHeader 1.0 modules/bar/PopoutHeader.qml
+ConnectionRow 1.0 modules/bar/ConnectionRow.qml
+ConnectionList 1.0 modules/bar/ConnectionList.qml
 QuickToggles 1.0 modules/utilities/QuickToggles.qml
 RecordCard 1.0 modules/utilities/RecordCard.qml
 RecordingList 1.0 modules/utilities/RecordingList.qml

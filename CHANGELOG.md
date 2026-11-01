@@ -2,6 +2,22 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.2 - 2026-11-01
+
+### Fixed
+- **battery popout**: the selected power profile always shows its name (Power saver, Balanced, Performance) next to its icon; switching profiles could leave it as a bare icon
+
+## 0.56.1 - 2026-11-01
+
+### Fixed
+- **bar popouts**: keyboard navigation in the network and bluetooth popouts reaches every row of the list, including those scrolled out of sight, before moving on to Rescan / Discover and Settings, and the list scrolls to keep the cursor in view
+
+## 0.56.0 - 2026-11-01
+
+### Changed
+- **bar popouts**: the network, bluetooth and battery popouts are redesigned after Caelestia's Material popouts (PR #2149). Network and bluetooth get a header card with the icon, status and on/off switch, and their networks or devices are joined rows with a spinner while connecting. The rows slide in as the popout opens, animate as the list changes, and scroll past five instead of growing the popout. Bluetooth discovery is now a Discover toggle button, and both popouts get a Settings button. The battery popout is a card that fills up to the charge level as it opens, with the power draw (or charge rate) in watts. The power profiles are a connected button group whose selected profile shows its name, and the performance-degraded warning animates in and out
+- **bar popouts**: every popout grows out of the bar as it opens or switches, and its corners are now concentric with the cards inside it. The battery popout is 30px wider and the bluetooth popout 20px wider, to fit the new layout
+
 ## 0.55.11 - 2026-11-01
 
 ### Fixed
