@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.1 - 2026-11-01
+
+### Fixed
+- **bar popouts**: keyboard navigation in the network and bluetooth popouts reaches every row of the list, including those scrolled out of sight, before moving on to Rescan / Discover and Settings, and the list scrolls to keep the cursor in view
+
 ## 0.56.0 - 2026-11-01
 
 ### Changed

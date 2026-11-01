@@ -40,6 +40,9 @@ Item {
     anchors.fill: parent
     spacing: Tk.spacing.extraSmall / 2
     interactive: contentHeight > height
+    // Every row exists, scrolled out of sight or not, so the keyboard
+    // cursor (PopoutContent.navTargets) can reach and reveal each one.
+    cacheBuffer: Math.max(0, Math.ceil(root.listHeight))
     boundsBehavior: Flickable.StopAtBounds
 
     opacity: root.hasItems ? 1 : 0

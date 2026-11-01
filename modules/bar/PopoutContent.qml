@@ -88,23 +88,51 @@ Item {
   property Item cursor: null
   property int cursorIndex: -1
 
+  // A scroll view's controls (the network and bluetooth lists) are one
+  // block in the order, read in their content's order and placed where the
+  // view sits, so rows scrolled out of sight come before what follows the
+  // list (Rescan, Settings), not wherever their off-screen position falls.
   function navTargets() {
-    const out = []
-    const walk = item => {
+    const pos = (t, ref) => t.mapToItem(ref, t.width / 2, t.height / 2)
+    const byPos = (a, b) => Math.abs(a.p.y - b.p.y) > 4 ? a.p.y - b.p.y : a.p.x - b.p.x
+    const collect = (item, out, ref) => {
       if (!item || !item.visible) return
-      if (item.navTarget === true && item.width > 0 && item.height > 0) out.push(item)
-      for (let i = 0; i < item.children.length; i++) walk(item.children[i])
+      if (item.navTarget === true && item.width > 0 && item.height > 0) { out.push({ t: item, p: pos(item, ref) }); return }
+      if (item !== current && item.contentItem && item.contentY !== undefined) {
+        const inner = []
+        for (let i = 0; i < item.contentItem.children.length; i++) collect(item.contentItem.children[i], inner, item.contentItem)
+        if (!inner.length) return
+        inner.sort(byPos)
+        const top = item.mapToItem(ref, item.width / 2, 0)
+        inner.forEach((e, i) => out.push({ t: e.t, p: top, sub: i }))
+        return
+      }
+      for (let i = 0; i < item.children.length; i++) collect(item.children[i], out, ref)
     }
-    walk(current)
-    const pos = t => t.mapToItem(root, t.width / 2, t.height / 2)
-    return out.map(t => ({ t: t, p: pos(t) }))
-      .sort((a, b) => Math.abs(a.p.y - b.p.y) > 4 ? a.p.y - b.p.y : a.p.x - b.p.x)
-      .map(e => e.t)
+    const out = []
+    collect(current, out, root)
+    return out.sort((a, b) => {
+      if (a.sub !== undefined && b.sub !== undefined && a.p === b.p) return a.sub - b.sub
+      return byPos(a, b)
+    }).map(e => e.t)
+  }
+  // Scroll the view holding the cursor so its control is in sight.
+  function reveal(t) {
+    for (let p = t ? t.parent : null; p && p !== root; p = p.parent) {
+      if (!(p.contentItem && p.contentY !== undefined && p.interactive !== undefined)) continue
+      const r = t.mapToItem(p.contentItem, 0, 0)
+      const maxY = Math.max(0, p.contentHeight - p.height)
+      let y = p.contentY
+      if (r.y < y) y = r.y
+      else if (r.y + t.height > y + p.height) y = r.y + t.height - p.height
+      p.contentY = Math.max(0, Math.min(maxY, y))
+      return
+    }
   }
   function setCursor(t) {
     if (cursor && cursor !== t) cursor.focused = false
     cursor = t
-    if (t) t.focused = root.keyMode
+    if (t) { t.focused = root.keyMode; if (root.keyMode) reveal(t) }
   }
   // The control under the cursor was destroyed (a network or device list
   // rebuilt): put the cursor back on whatever now sits at its place.
