@@ -33,7 +33,6 @@ A [Caelestia](https://github.com/caelestia-dots/shell)-style desktop shell for [
 - **Status toasts**: DND, game mode, charger, audio devices
 - **Session menu**: custom commands, Lock, Screensaver
 - **Workspace overview**: live previews, drag-and-drop
-- **Boot menu**: restyle Limine (Settings › Boot menu)
 - **Lock screen**: Caelestia view on Omarchy's lock
 - **Desktop clock and visualiser** (optional)
 - **Plugin manager**: hosts Omarchy and third-party bar widgets
