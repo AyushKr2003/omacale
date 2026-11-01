@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.55.10 - 2026-11-01
+
+### Fixed
+- **glass**: on Hyprland 0.57, a drawer opened over a special workspace (the scratchpad) now bends that workspace's windows instead of the ones under it, and the log no longer fills with `GlassBackdrop.qml` warnings
+
 ## 0.55.9 - 2026-11-01
 
 ### Changed
