@@ -263,6 +263,13 @@ Item {
     Component.onCompleted: Qt.callLater(forceActiveFocus)
     onActiveFocusChanged: if (!activeFocus)
       forceActiveFocus()
+    // A VT switch (NVIDIA forces one around every suspend) takes the keyboard
+    // away, and the grab above doesn't stick while the window is inactive, so
+    // typing went nowhere until a click. Omarchy's view does the same.
+    Window.onActiveFocusItemChanged: Qt.callLater(() => {
+      if (!keys.activeFocus)
+        keys.forceActiveFocus()
+    })
 
     Keys.onPressed: event => {
       root.wake()

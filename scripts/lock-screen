@@ -74,6 +74,8 @@ VERIFIED_SERVICES = {
     "567e2214d56a8cf1208c9421c42abf3ec0d836419cc99db5d7d85502ff3852e6",
     # Omarchy dev, 4.0.0.r7438 (717175d): no OWE feed, FingerprintModel.js
     "aea038809de0e44c76d444fabf9c75ef6d2b2002a40ac4333e3e2867135a2bb1",
+    # Omarchy dev, ae64a4be: armBlankTimer(delayMs), 15s run-up after resume
+    "cf9da581ab749194d44d5f7f73dc028704373f59dd6b131a90b9c07419fed7c9",
 }
 
 HOME = os.path.expanduser("~")
@@ -325,26 +327,14 @@ def plan(target, template_qml):
 #
 # Omarchy blanks the locked screen after a fixed 5s (idleBlankTimer). Omacale
 # makes that a setting (lock.blankAfter in settings.json: seconds, 0 = never)
-# by patching the clone's copy of Service.qml. The patch is two exact string
-# replacements; if either anchor is missing (a changed upstream) the stock
-# service is used untouched, so the screen simply keeps blanking after 5s.
+# by patching the clone's copy of Service.qml. The patch is one exact string
+# replacement per upstream shape (BLANK_PATCHES); if no anchor matches (a
+# changed upstream) the stock service is used untouched, so the screen simply
+# keeps blanking after 5s.
 # The value is read live by a FileView in the patched service, so changing
 # the setting never rewrites the clone while a lock may be up.
 
-BLANK_ANCHOR_ARM = """  function armBlankTimer() {
-    idleBlankTimer.armedAt = Date.now()
-    idleBlankTimer.restart()
-  }
-"""
-BLANK_PATCH_ARM = """  function armBlankTimer() {
-    // omacale:blank-after
-    var ms = root.omacaleBlankMs
-    idleBlankTimer.armedAt = Date.now()
-    if (ms <= 0) { idleBlankTimer.stop(); return }
-    idleBlankTimer.interval = ms
-    idleBlankTimer.restart()
-  }
-
+BLANK_SETTING = """
   // omacale:blank-after -- lock.blankAfter (seconds, 0 = never) from Omacale's settings
   property int omacaleBlankMs: 5000
   FileView {
@@ -366,14 +356,56 @@ BLANK_PATCH_ARM = """  function armBlankTimer() {
   }
 """
 
+# (anchor, replacement) per upstream shape of armBlankTimer, newest first.
+BLANK_PATCHES = [
+    # dev r7530+: armBlankTimer(delayMs), a 15s run-up after a resume
+    # (idleBlankTimer.resumeMs). That run-up stays the floor, so a resume
+    # never blanks sooner than upstream wants; 0 still never blanks.
+    (
+        """  function armBlankTimer(delayMs) {
+    idleBlankTimer.interval = delayMs || idleBlankTimer.idleMs
+    idleBlankTimer.armedAt = Date.now()
+    idleBlankTimer.restart()
+  }
+""",
+        """  function armBlankTimer(delayMs) {
+    // omacale:blank-after
+    var ms = root.omacaleBlankMs
+    idleBlankTimer.armedAt = Date.now()
+    if (ms <= 0) { idleBlankTimer.stop(); return }
+    idleBlankTimer.interval = Math.max(ms, delayMs || 0)
+    idleBlankTimer.restart()
+  }
+""" + BLANK_SETTING,
+    ),
+    # stable 4.0.x and dev up to r7464: armBlankTimer(), a fixed 5s
+    (
+        """  function armBlankTimer() {
+    idleBlankTimer.armedAt = Date.now()
+    idleBlankTimer.restart()
+  }
+""",
+        """  function armBlankTimer() {
+    // omacale:blank-after
+    var ms = root.omacaleBlankMs
+    idleBlankTimer.armedAt = Date.now()
+    if (ms <= 0) { idleBlankTimer.stop(); return }
+    idleBlankTimer.interval = ms
+    idleBlankTimer.restart()
+  }
+""" + BLANK_SETTING,
+    ),
+]
+
 
 def patch_blank(service_bytes):
-    """Service.qml with the configurable blank delay, or unchanged if the
-    anchor is not there."""
+    """Service.qml with the configurable blank delay, or unchanged if no
+    anchor is there."""
     text = service_bytes.decode()
-    if BLANK_ANCHOR_ARM not in text or text.count(BLANK_ANCHOR_ARM) != 1:
-        return service_bytes
-    return text.replace(BLANK_ANCHOR_ARM, BLANK_PATCH_ARM).encode()
+    for anchor, patch in BLANK_PATCHES:
+        if text.count(anchor) == 1:
+            return text.replace(anchor, patch).encode()
+    return service_bytes
 
 
 def stale_files(target):
