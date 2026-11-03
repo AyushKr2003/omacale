@@ -148,7 +148,37 @@ Item {
     : shape === "icon" ? (vertical ? stageHeight : stageWidth) * iconScale
     : shape === "rotated" || shape === "label" ? naturalWidth * iconScale
     : cellLen
-  readonly property real visualLen: idleStack ? stackLen + (fullLen - stackLen) * Math.min(1, spread) : fullLen
+  // The icon shape's length along the bar for a widget `natural` long in
+  // Omarchy units (stageWidth/stageHeight, scaled).
+  function iconLen(natural) {
+    return (natural > Style.bar.iconSlot + 1 ? natural : logicalCell) * iconScale
+  }
+  // Where the slot is heading. An indicator host revealed on hover goes back
+  // to its active indicators alone once the pointer leaves, and that length
+  // is worked out rather than measured: it is only measurable after the
+  // reveal is dropped, and the reveal is held until the slot is back there
+  // (`closing`), so the inactive indicators are clipped away as the slot
+  // shrinks instead of vanishing first. Every indicator is one status cell.
+  readonly property bool revealShown: indicatorHost && activeItem.revealInactiveIndicators === true
+    && activeItem.alwaysShowIndicators !== true
+  readonly property real targetLen: idleStack ? stackLen + (fullLen - stackLen) * Math.min(1, spread)
+    : revealShown && !revealHeld && shape === "icon" && !placeholder
+      ? iconLen(activeItem.activeIndicatorIds.length * stackCell)
+    : fullLen
+  // The length drawn: glides to targetLen on Caelestia's spatial curve, as the
+  // stack's spread does (which drives it directly while stacked).
+  property real visualLen: targetLen
+  Behavior on visualLen {
+    enabled: root.lenAnimated && !root.idleStack
+    Anim {}
+  }
+  // Not at start-up, nor when the slot appears or goes: only a shown widget
+  // changing length glides.
+  property bool lenAnimated: false
+  Timer { id: lenAnimArm; interval: 0; onTriggered: root.lenAnimated = root.shown && !root.collapsed }
+  onShownChanged: { lenAnimated = false; lenAnimArm.restart() }
+  onCollapsedChanged: { lenAnimated = false; lenAnimArm.restart() }
+  readonly property bool closing: indicatorHost && !idleStack && visualLen > targetLen + 0.5
 
   // An indicator host (Omarchy's Indicators: `activeIndicatorIds` and
   // `revealInactiveIndicators`) with none active is drawn as a stack of dim
@@ -456,9 +486,23 @@ Item {
   }
 
   // Omarchy-unit stage, scaled (and for a label, turned) about its centre.
+  // Along the bar the stage is centred, except an indicator host: its
+  // active indicators stay at Omarchy's fixed edge (the end, as Omacale gives
+  // no fixedEdge; the start with fixedAtStart) while the slot grows or
+  // shrinks on the other side, uncovering or clipping the inactive ones.
+  readonly property real stageAlign: indicatorHost && shape === "icon"
+    ? (activeItem.fixedAtStart === true ? 0 : 1) : 0.5
+  // Where the stage item goes along an axis `slotLen` long, for an item
+  // `itemLen` long drawn `drawnLen` long (scaled and turned about its centre).
+  function stagePos(slotLen, itemLen, drawnLen, align) {
+    return (slotLen - drawnLen) * align + drawnLen / 2 - itemLen / 2
+  }
   Item {
     id: stage
-    anchors.centerIn: parent
+    readonly property real drawnLen: (root.shape === "rotated" ? root.stageWidth
+      : root.vertical ? root.stageHeight : root.stageWidth) * root.iconScale
+    x: root.vertical ? (root.width - width) / 2 : root.stagePos(root.width, width, drawnLen, root.stageAlign)
+    y: root.vertical ? root.stagePos(root.height, height, drawnLen, root.stageAlign) : (root.height - height) / 2
     width: root.stageWidth
     height: root.stageHeight
     scale: root.iconScale
@@ -482,7 +526,8 @@ Item {
     position: root.edge
     vertical: root.vertical
     // Held while stacked too: the stack is drawn from the revealed indicators.
-    centerSectionRevealHeld: root.revealHeld || root.idleStack
+    // And while closing: the slot clips them away before they go.
+    centerSectionRevealHeld: root.revealHeld || root.idleStack || root.closing
   }
 
   // The idle stack: the last few cells of the revealed widget, read off the
