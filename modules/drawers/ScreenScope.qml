@@ -1296,8 +1296,14 @@ Scope {
         // Liquid, a drawer is round as a drop at first and squares up as it
         // grows (LiquidDrawer.corner; -1 when off).
         readonly property real uRound: win.sbVis ? -1 : uLiq.corner(win.uRect, radius)
+        // Caelestia PR #2149 ContentWindow.qml: the popout's corners are
+        // concentric with the cards inside it (card radius + popout padding);
+        // detached (the window info panel) it keeps the drawers' radius.
+        readonly property real pRound: Tk.rounding.extraLarge + Tk.padding.large * (1 - Math.min(1, Math.max(0, win.pDet)))
+        readonly property real pCornerLiq: pLiq.corner(win.pRect, pRound)
+        readonly property real pCorner: pCornerLiq !== -1 ? pCornerLiq : pRound
         corners: [dLiq.corner(win.dRect, radius), lLiq.corner(win.lRect, radius), sLiq.corner(win.sRect, radius),
-          pLiq.corner(win.pRect, radius), nLiq.corner(win.nRect, radius),
+          pCorner, nLiq.corner(win.nRect, radius),
           uRound >= 0 ? uRound : scope.flipV ? [-1, -1, jr, -1] : scope.mirror ? [jr, -1, -1, -1] : [-1, -1, -1, jr],
           scope.flipV ? [-1, -1, -1, jr] : scope.mirror ? [-1, jr, -1, -1] : [-1, -1, jr, -1],
           oLiq.corner(win.oRect, radius), cpLiq.corner(win.cpRect, radius), osdLiq.corner(win.osdRect, radius)]

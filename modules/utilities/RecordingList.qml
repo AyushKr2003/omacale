@@ -50,7 +50,8 @@ ColumnLayout {
     id: list
     Layout.fillWidth: true
     Layout.rightMargin: -Tk.spacing.small
-    implicitHeight: (Tk.body.large + Tk.padding.small) * (RecordService.listExpanded ? 10 : 3)
+    // At least 3 rows, growing with the entries up to 6 (all 6 unfolded).
+    implicitHeight: (Tk.body.large + Tk.padding.small) * (RecordService.listExpanded ? 6 : Math.max(3, Math.min(count, 6)))
     Behavior on implicitHeight { Anim {} }
     clip: true
     ScrollBar.vertical: MScrollBar { flickable: list }

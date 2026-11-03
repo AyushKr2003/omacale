@@ -2,6 +2,78 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.2 - 2026-11-01
+
+### Fixed
+- **battery popout**: the selected power profile always shows its name (Power saver, Balanced, Performance) next to its icon; switching profiles could leave it as a bare icon
+
+## 0.56.1 - 2026-11-01
+
+### Fixed
+- **bar popouts**: keyboard navigation in the network and bluetooth popouts reaches every row of the list, including those scrolled out of sight, before moving on to Rescan / Discover and Settings, and the list scrolls to keep the cursor in view
+
+## 0.56.0 - 2026-11-01
+
+### Changed
+- **bar popouts**: the network, bluetooth and battery popouts are redesigned after Caelestia's Material popouts (PR #2149). Network and bluetooth get a header card with the icon, status and on/off switch, and their networks or devices are joined rows with a spinner while connecting. The rows slide in as the popout opens, animate as the list changes, and scroll past five instead of growing the popout. Bluetooth discovery is now a Discover toggle button, and both popouts get a Settings button. The battery popout is a card that fills up to the charge level as it opens, with the power draw (or charge rate) in watts. The power profiles are a connected button group whose selected profile shows its name, and the performance-degraded warning animates in and out
+- **bar popouts**: every popout grows out of the bar as it opens or switches, and its corners are now concentric with the cards inside it. The battery popout is 30px wider and the bluetooth popout 20px wider, to fit the new layout
+
+## 0.55.11 - 2026-11-01
+
+### Fixed
+- **launcher**: the `:` menu's Setup › Language and Update › Kernel submenus list languages and kernels again instead of coming up empty, from Omarchy's newer `languages` and `kernels` providers (searching a language's English name finds it too)
+
+## 0.55.10 - 2026-11-01
+
+### Fixed
+- **glass**: on Hyprland 0.57, a drawer opened over a special workspace (the scratchpad) now bends that workspace's windows instead of the ones under it, and the log no longer fills with `GlassBackdrop.qml` warnings
+
+## 0.55.9 - 2026-11-01
+
+### Changed
+- **bar**: with no indicator on, Omarchy's indicator stack shows the last indicators: Stay awake in front, Do not disturb and Night light behind it. Hovering keeps Stay awake where it is and spreads the rest out away from it (upward in the end section of a side bar)
+
+## 0.55.8 - 2026-11-01
+
+### Changed
+- **settings**: "Frame & motion" is now two pages. Frame has the border, corner rounding, drawer blending, shadow and the Glass link; Motion has everything that moves, with Animation duration and Drawer stretch under a new Timing section above the liquid settings
+
+## 0.55.7 - 2026-10-31
+
+### Added
+- **lock**: Settings › Lock screen › Screen has "Screen off after locking" (`lock.blankAfter`): 5 seconds (the default, Omarchy's own), 15, 30, 60, 300 or Never. The cloned lock service is patched to read it live; if Omarchy changes the code it hooks, the service stays stock and blanks after 5 seconds
+
+## 0.55.6 - 2026-10-31
+
+### Added
+- **utilities**: The recorder card has Record and Screenshot tabs. Record's menu is Omarchy's Capture › Screenrecord (no audio, desktop audio, desktop + mic, and webcam where there is one) and its main button reads "Record". Screenshot's menu is the rest of Capture (Screenshot, Text, QR Code, Color), with a screenshots list like the recordings one (open, folder, delete)
+- **utilities**: Both lists hold at least 3 rows and grow with their entries up to 6 (all 6 unfolded)
+
+### Changed
+- **utilities**: Recording always uses the region picker, as Omarchy's menu does; the fullscreen/region choice is gone
+
+## 0.55.5 - 2026-10-31
+
+### Added
+- **style**: Settings › Wallpaper & style › Colours has "Pure black panels" (`appearance.pureBlack`). In a dark scheme the frame and drawers are true black and the card steps are neutral greys just above it, to blend into a black monitor bezel. Off by default; light schemes ignore it
+
+## 0.55.4 - 2026-10-31
+
+### Added
+- **taskbar**: Every row in Settings › Taskbar has an eye. Items with no switch of their own (workspaces, the chevron, recording, and widgets placed on their own, Omarchy's included) are hidden through the new `bar.layout.hidden`; they keep their place in the layout but are not drawn
+
+## 0.55.3 - 2026-10-31
+
+### Fixed
+- **bar**: Follows Omarchy's split centre section (`centerBegin`, `center`, `centerEnd`): the widgets in them (indicators, weather, elsewhen, update) are found again, in Settings › Taskbar and on the bar. Widgets an earlier version marked seen without placing are placed once
+- **bar**: The widget facade has the members Omarchy's bar API gained (`traySectionDragActive`, `traySectionPopoutOpen`, `notePopoutCard`, `popoutCardFor`)
+
+## 0.55.2 - 2026-10-31
+
+### Fixed
+- **notifications**: The toast handover applies to Omarchy's reworked notification daemon again (instant closes; `refreshHeld` and `refreshHistory` are gone), so Omacale's toasts return instead of Omarchy's own
+- **lock**: Follows Omarchy's new lock service. A video background is its poster only, as Omarchy dropped the live feed
+
 ## 0.55.1 - 2026-10-22
 
 ### Fixed

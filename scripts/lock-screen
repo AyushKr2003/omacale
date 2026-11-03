@@ -13,7 +13,8 @@ into ~/.config/omarchy/plugins/, disables the built-in and routes its IPC to
 the clone. This script clones the lock plugin once and then, on every run, rebuilds the
 clone from the installed Omarchy (see handover.py):
 
-  * every stock file is copied in untouched -- `Service.qml` included -- so
+  * every stock file is copied in untouched -- `Service.qml` included, bar
+    the screen-off delay patch (patch_blank) -- so
     the clone picks up Omarchy's lock fixes instead of freezing at clone
     time, and files upstream removed leave it;
   * the stock view is kept beside it as `StockLockView.qml`;
@@ -58,7 +59,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, HERE)
 import handover  # noqa: E402
 
-MARKER = "omacale:lock-view v6"
+MARKER = "omacale:lock-view v7"
 
 # The stock lock Service.qml files the wrapper has been verified against
 # (sha256). Anything else is refused and the lock stays Omarchy's own until an
@@ -71,6 +72,8 @@ VERIFIED_SERVICES = {
     "92c37d5dc617ce53e4080ad420ae18613bc62f94923c150e0e69fea52534eecd",
     # Omarchy dev, 4.0.0.r7024 (246f33a) - r7026 (51bfd1d)
     "567e2214d56a8cf1208c9421c42abf3ec0d836419cc99db5d7d85502ff3852e6",
+    # Omarchy dev, 4.0.0.r7438 (717175d): no OWE feed, FingerprintModel.js
+    "aea038809de0e44c76d444fabf9c75ef6d2b2002a40ac4333e3e2867135a2bb1",
 }
 
 HOME = os.path.expanduser("~")
@@ -312,8 +315,65 @@ def plan(target, template_qml):
     if "LockView.qml" not in tree:
         fail(f"{STOCK_DIR}/LockView.qml is missing; is this Omarchy?")
     tree["StockLockView.qml"] = tree.pop("LockView.qml")
+    if "Service.qml" in tree:
+        tree["Service.qml"] = patch_blank(tree["Service.qml"])
     tree["LockView.qml"] = template_qml.encode()
     return handover.Plan(STOCK_DIR, target, tree)
+
+
+# --------------------------------------------------- the screen-off setting
+#
+# Omarchy blanks the locked screen after a fixed 5s (idleBlankTimer). Omacale
+# makes that a setting (lock.blankAfter in settings.json: seconds, 0 = never)
+# by patching the clone's copy of Service.qml. The patch is two exact string
+# replacements; if either anchor is missing (a changed upstream) the stock
+# service is used untouched, so the screen simply keeps blanking after 5s.
+# The value is read live by a FileView in the patched service, so changing
+# the setting never rewrites the clone while a lock may be up.
+
+BLANK_ANCHOR_ARM = """  function armBlankTimer() {
+    idleBlankTimer.armedAt = Date.now()
+    idleBlankTimer.restart()
+  }
+"""
+BLANK_PATCH_ARM = """  function armBlankTimer() {
+    // omacale:blank-after
+    var ms = root.omacaleBlankMs
+    idleBlankTimer.armedAt = Date.now()
+    if (ms <= 0) { idleBlankTimer.stop(); return }
+    idleBlankTimer.interval = ms
+    idleBlankTimer.restart()
+  }
+
+  // omacale:blank-after -- lock.blankAfter (seconds, 0 = never) from Omacale's settings
+  property int omacaleBlankMs: 5000
+  FileView {
+    path: Quickshell.env("HOME") + "/.config/omacale/settings.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      var ms = 5000
+      try {
+        var v = JSON.parse(text()).lock.blankAfter
+        if (typeof v === "number" && isFinite(v) && v >= 0) ms = Math.round(v * 1000)
+      } catch (e) {}
+      if (ms === root.omacaleBlankMs) return
+      root.omacaleBlankMs = ms
+      if (root.lockRequested && !root.authenticatingPassword) root.armBlankTimer()
+    }
+    onLoadFailed: root.omacaleBlankMs = 5000
+    onFileChanged: reload()
+  }
+"""
+
+
+def patch_blank(service_bytes):
+    """Service.qml with the configurable blank delay, or unchanged if the
+    anchor is not there."""
+    text = service_bytes.decode()
+    if BLANK_ANCHOR_ARM not in text or text.count(BLANK_ANCHOR_ARM) != 1:
+        return service_bytes
+    return text.replace(BLANK_ANCHOR_ARM, BLANK_PATCH_ARM).encode()
 
 
 def stale_files(target):

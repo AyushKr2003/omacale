@@ -33,6 +33,7 @@ Rectangle {
   // a click flip it, and an unchecked toggle's icon unfilled.
   readonly property bool on: internalChecked
   readonly property alias stateLayer: state
+  readonly property alias label: label
   readonly property color onColour: disabled ? Qt.alpha(Colours.m3onSurface, 0.38) : (on ? activeOnColour : inactiveOnColour)
   property bool fillWidth: false
   signal clicked()

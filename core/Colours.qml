@@ -232,8 +232,19 @@ QtObject {
     o.inverseOnSurface = bg
     return o
   }
+  // Settings › Style › Pure black: dark schemes only. Panels are #000 and the
+  // card steps are neutral greys just above it, so cards still read on black.
+  readonly property bool pureBlack: Config.o.appearance.pureBlack && !light
+  function grey(v) { return Qt.rgba(v, v, v, 1) }
   // A role's colour: the theme's in Omarchy mode, else the tone from the scheme.
-  function role(name, pal, darkTone, lightTone) { return omarchy ? om[name] : t(pal, darkTone, lightTone) }
+  readonly property var blackSurfaces: ({
+    surface: 0, surfaceDim: 0, surfaceContainerLowest: 0, surfaceContainerLow: 0.05,
+    surfaceContainer: 0.08, surfaceContainerHigh: 0.11, surfaceContainerHighest: 0.15, surfaceBright: 0.18
+  })
+  function role(name, pal, darkTone, lightTone) {
+    if (pureBlack && blackSurfaces[name] !== undefined) return grey(blackSurfaces[name])
+    return omarchy ? om[name] : t(pal, darkTone, lightTone)
+  }
 
   // --------------------------------------------------------------- roles
   readonly property color m3primary: role("primary", pP, 80, 40)

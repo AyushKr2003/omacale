@@ -21,7 +21,7 @@ QtObject {
     stiffness: cfg.stiffness, damping: cfg.damping, bulge: cfg.bulge, neckWidth: cfg.neckWidth,
     narrow: cfg.narrow, sag: cfg.sag, wobble: cfg.wobble
   })
-  // Settings › Frame & motion › Animation duration slows the springs as it
+  // Settings › Motion › Animation duration slows the springs as it
   // lengthens the curves.
   readonly property var spring: M.slowed(params.stiffness, params.damping, Tk.animScale)
   readonly property real stiffness: spring[0]

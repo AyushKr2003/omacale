@@ -80,6 +80,7 @@ QtObject {
         property string seedTheme: ""
         property bool seedFollowsTheme: true
         property bool omarchySurfaces: false
+        property bool pureBlack: false
         property real animScale: 1.0
         property real deformScale: 1.0
         property JsonObject scale: JsonObject {
@@ -180,6 +181,9 @@ QtObject {
           // Behind the chevron (BarLayout.render): items placed there, and
           // with maxShown > 0 the shown icons after it past that many.
           property list<string> drawer: []
+          // Hidden with their eye in Settings › Taskbar: items with no switch
+          // of their own (workspaces, the chevron, a widget placed on its own).
+          property list<string> hidden: []
           property int maxShown: 0
           // Settings › Taskbar's add list: Omarchy's versions of built-ins too.
           property bool showDuplicates: false
@@ -313,6 +317,7 @@ QtObject {
         property bool blur: true
         property bool useWallpaper: true
         property bool revealPassword: false
+        property real blankAfter: 5
         property bool autoFellBack: false
         property string fellBackVersion: ""
       }

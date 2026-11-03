@@ -11,7 +11,24 @@ GlassCard {
   property var host
   property var scope
 
-  readonly property string modeValue: (RecordService.mode === "region" ? "region" : "fullscreen") + (RecordService.withAudio ? "-audio" : "")
+  // 0 = Recording, 1 = Screenshot (Omarchy's menu › Capture, less Screenrecord).
+  property int tab: 0
+  property string shot: "screenshot"
+  readonly property var shots: [
+    { icon: "screenshot_region", text: "Screenshot", activeText: "Screenshot", value: "screenshot" },
+    { icon: "text_fields", text: "Text", activeText: "Text", value: "text" },
+    { icon: "qr_code_scanner", text: "QR Code", activeText: "QR Code", value: "qr" },
+    { icon: "colorize", text: "Color", activeText: "Color", value: "color" }
+  ]
+  readonly property var shotCmds: ({
+    screenshot: "omarchy-capture-screenshot", text: "omarchy-capture-text",
+    qr: "omarchy-capture-qr", color: "pkill hyprpicker || hyprpicker -a"
+  })
+  function takeShot() {
+    // They draw their own overlay, so get the drawers out of the shot.
+    if (scope) { scope.utilities = false; scope.sidebar = false }
+    RecordService.capture(shotCmds[shot])
+  }
 
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
   radius: Tk.rounding.large
@@ -43,7 +60,7 @@ GlassCard {
           id: icon
           anchors.centerIn: parent
           anchors.verticalCenterOffset: 1
-          text: "screen_record"
+          text: root.tab === 0 ? "screen_record" : "screenshot_monitor"
           size: Tk.iconSize.large
           color: RecordService.running ? Colours.m3onSecondary : Colours.m3onSecondaryContainer
           Behavior on color { CAnim {} }
@@ -56,13 +73,13 @@ GlassCard {
 
         MText {
           Layout.fillWidth: true
-          text: "Screen recorder"
+          text: root.tab === 0 ? "Screen recorder" : "Screenshot"
           font.pointSize: Tk.body.medium
           elide: Text.ElideRight
         }
         MText {
           Layout.fillWidth: true
-          text: RecordService.running ? "Running..." : "Ready"
+          text: root.tab === 0 && RecordService.running ? "Running..." : "Ready"
           color: Colours.m3onSurfaceVariant
           font.pointSize: Tk.body.small
           elide: Text.ElideRight
@@ -71,24 +88,59 @@ GlassCard {
       }
 
       SplitSelect {
+        visible: root.tab === 0
         filled: true
         mainClickable: true
         menuOnTop: false
         disabled: RecordService.running
-        current: root.modeValue
+        current: RecordService.source
+        // Omarchy's menu › Capture › Screenrecord, entry for entry.
         items: [
-          { icon: "fullscreen", text: "Record fullscreen", activeText: "Fullscreen", value: "fullscreen" },
-          { icon: "screenshot_region", text: "Record region", activeText: "Region", value: "region" },
-          { icon: "select_to_speak", text: "Record fullscreen with sound", activeText: "Fullscreen", value: "fullscreen-audio" },
-          { icon: "volume_up", text: "Record region with sound", activeText: "Region", value: "region-audio" }
-        ]
+          { icon: "volume_off", text: "No audio", activeText: "Record", value: "none" },
+          { icon: "volume_up", text: "Desktop audio", activeText: "Record", value: "desktop" },
+          { icon: "mic", text: "Desktop + mic", activeText: "Record", value: "mic" }
+        ].concat(RecordService.hasWebcam ? [
+          { icon: "videocam", text: "Desktop + mic + webcam", activeText: "Record", value: "webcam" }
+        ] : [])
         onSelected: v => {
-          RecordService.mode = v.indexOf("region") === 0 ? "region" : "fullscreen"
-          RecordService.withAudio = v.indexOf("-audio") !== -1
+          RecordService.source = v
           // Caelestia's menu items each start their recording (Record.qml).
           RecordService.start()
         }
         onMainClicked: RecordService.start()
+      }
+
+      // Screenshot tab: the same split button over Omarchy's Capture entries.
+      SplitSelect {
+        visible: root.tab === 1
+        filled: true
+        mainClickable: true
+        menuOnTop: false
+        current: root.shot
+        items: root.shots
+        onSelected: v => { root.shot = v; root.takeShot() }
+        onMainClicked: root.takeShot()
+      }
+    }
+
+    // The two tabs, Caelestia's tonal/text button pair.
+    RowLayout {
+      Layout.alignment: Qt.AlignLeft
+      spacing: Tk.spacing.small
+
+      Repeater {
+        model: [{ icon: "screen_record", text: "Record" }, { icon: "screenshot_monitor", text: "Screenshot" }]
+        IconTextButton {
+          required property var modelData
+          required property int index
+          isRound: true
+          shapeMorph: true
+          type: root.tab === index ? "tonal" : "text"
+          icon: modelData.icon
+          text: modelData.text
+          fontSize: Tk.body.small
+          onClicked: root.tab = index
+        }
       }
     }
 
@@ -100,7 +152,7 @@ GlassCard {
 
       Layout.fillWidth: true
       Layout.preferredHeight: implicitHeight
-      sourceComponent: running ? controls : recordings
+      sourceComponent: root.tab === 1 ? screenshots : running ? controls : recordings
       clip: Layout.preferredHeight < implicitHeight
 
       Behavior on Layout.preferredHeight {
@@ -126,6 +178,7 @@ GlassCard {
     }
   }
 
+  Component { id: screenshots; ScreenshotList { scope: root.scope } }
   Component { id: recordings; RecordingList { scope: root.scope } }
 
   Component {

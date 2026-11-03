@@ -48,7 +48,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.55.1"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.56.2"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -77,6 +77,9 @@ Item {
   // Uses the registry metadata's firstParty flag instead of a hardcoded
   // exclusion list — the shell sets firstParty=true for every stock plugin
   // under /usr/share/omarchy/shell/plugins/.
+  // The sections of Omarchy's bar layout, in bar order. Omarchy splits the
+  // centre around its box (centerBegin | center | centerEnd).
+  readonly property var layoutSections: ["left", "centerBegin", "center", "centerEnd", "right"]
   readonly property var collectedPlugins: {
     if (!barConfig || !barConfig.layout) return []
     var reg = barWidgetRegistry
@@ -86,7 +89,7 @@ Item {
     var layout = barConfig.layout
     var collected = []
     var seen = {}
-    var sections = ["left", "center", "right"]
+    var sections = root.layoutSections
     for (var s = 0; s < sections.length; s++) {
       var list = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
       for (var i = 0; i < list.length; i++) {
@@ -122,7 +125,7 @@ Item {
   // custom bar is shown of the plugin registry.
   readonly property var omarchyLayoutIds: {
     var layout = barConfig && barConfig.layout ? barConfig.layout : {}
-    return ["left", "center", "right"].reduce((out, s) =>
+    return root.layoutSections.reduce((out, s) =>
       out.concat((Array.isArray(layout[s]) ? layout[s] : []).map(e => root.entryId(e))), [])
   }
   readonly property var registryWidgets: {
@@ -148,7 +151,7 @@ Item {
   function widgetEntry(id) {
     if (!id || widgetIds.indexOf(id) < 0) return null
     var layout = barConfig && barConfig.layout ? barConfig.layout : {}
-    var sections = ["left", "center", "right"]
+    var sections = root.layoutSections
     for (var s = 0; s < sections.length; s++) {
       var list = Array.isArray(layout[sections[s]]) ? layout[sections[s]] : []
       for (var i = 0; i < list.length; i++)

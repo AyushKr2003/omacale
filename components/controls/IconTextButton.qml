@@ -10,6 +10,9 @@ Rectangle {
   property string text
   property string type: "filled"
   property bool disabled: false
+  // A toggle (Caelestia's TextButton.Tonal + checked): m3secondary when on.
+  property bool checked: false
+  readonly property alias label: label
   // ButtonBase: not round (rounding.large) unless asked, body.small type.
   property bool isRound: false
   property bool shapeMorph: false
@@ -22,12 +25,14 @@ Rectangle {
   signal clicked()
 
   readonly property color onColour: disabled ? Qt.alpha(Colours.m3onSurface, 0.38)
+    : checked ? Colours.m3onSecondary
     : type === "filled" ? Colours.m3onPrimary : type === "tonal" ? Colours.m3onSecondaryContainer : Colours.m3primary
 
   implicitWidth: row.implicitWidth + horizontalPadding * 2
   implicitHeight: row.implicitHeight + verticalPadding * 2
   radius: state.pressed ? Tk.rounding.small : isRound ? height / 2 * Math.min(1, Tk.clamp(Tk.scaleCfg.rounding, 0, 4)) : Tk.rounding.large
   color: type === "text" ? "transparent" : disabled ? Qt.alpha(Colours.m3onSurface, 0.1)
+    : checked ? Colours.m3secondary
     : type === "filled" ? Colours.m3primary : Colours.m3secondaryContainer
   Behavior on radius { Anim { type: "effects" } }
   Behavior on color { CAnim {} }
@@ -52,6 +57,7 @@ Rectangle {
       color: root.onColour
     }
     MText {
+      id: label
       Layout.alignment: Qt.AlignVCenter
       // IconTextButton's 1px nudge; a bare TextButton centres its label.
       Layout.topMargin: root.icon !== "" ? 1 : 0

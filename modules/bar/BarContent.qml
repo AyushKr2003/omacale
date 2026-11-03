@@ -54,7 +54,17 @@ Item {
   readonly property var layout: BarLayout.resolve({ start: cfg.layout.start, center: cfg.layout.center, end: cfg.layout.end, removed: cfg.layout.removed, drawer: cfg.layout.drawer }, widgetIds)
   // What each section draws, the chevron's items included (BarLayout.render):
   // the drawer, plus the icons past bar.layout.maxShown.
-  readonly property var rendered: BarLayout.render(layout, cfg.layout.maxShown, id => root.onShow(id))
+  // Items hidden with their eye in Settings › Taskbar (bar.layout.hidden: the
+  // ones that have no switch of their own) keep their place in the layout but
+  // are not drawn. `layout` itself stays whole: a hidden widget is still
+  // placed, so the plugin pill doesn't pick it up.
+  readonly property var shownLayout: {
+    const hid = Array.from(cfg.layout.hidden || [])
+    if (!hid.length) return layout
+    const keep = list => list.filter(id => hid.indexOf(id) < 0)
+    return Object.assign({}, layout, { start: keep(layout.start), center: keep(layout.center), end: keep(layout.end), drawer: keep(layout.drawer) })
+  }
+  readonly property var rendered: BarLayout.render(shownLayout, cfg.layout.maxShown, id => root.onShow(id))
   // Whether an item is on show, for the "at most N" limit. Status icons follow
   // statusOn, the one rule StatusRun draws them by.
   function onShow(id) {

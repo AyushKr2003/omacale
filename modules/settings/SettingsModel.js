@@ -72,6 +72,7 @@ var pages = [
         { value: "dark", label: "Dark", icon: "dark_mode" },
         { value: "light", label: "Light", icon: "light_mode" }
       ] },
+      { type: "toggle", key: "appearance.pureBlack", label: "Pure black panels", subtext: "Dark mode only: the frame and drawers are true black (cards a shade lighter) to blend into a black monitor bezel" },
       { type: "section", text: "Transparency" },
       { type: "toggle", key: "appearance.transparency.enabled", label: "Transparency", subtext: "Translucent frame and drawers with background blur" },
       { type: "slider", key: "appearance.transparency.base", label: "Surface opacity", icon: "opacity", from: 0.3, to: 1, step: 0.01, unit: "%" },
@@ -99,18 +100,17 @@ var pages = [
     ]
   },
   {
-    id: "frame", label: "Frame & motion", icon: "rounded_corner", category: "appearance",
-    description: "Border, rounding, shadow, animation speed",
+    // The frame and the drawers' shape and surface. Everything that moves
+    // is on the Motion page ("liquid").
+    id: "frame", label: "Frame", icon: "rounded_corner", category: "appearance",
+    description: "Border, rounding, blending, shadow",
     rows: [
-      { type: "section", text: "Frame" },
+      { type: "section", text: "Border" },
       { type: "slider", key: "border.thickness", label: "Border thickness", icon: "border_outer", from: 0, to: 30, step: 1, unit: "px" },
       { type: "slider", key: "border.rounding", label: "Corner rounding (at 100% scale)", icon: "rounded_corner", from: 0, to: 48, step: 1, unit: "px" },
       { type: "slider", key: "border.smoothing", label: "Drawer blending (at 100% scale)", icon: "join", from: 2, to: 40, step: 1, unit: "px" },
+      { type: "section", text: "Surface" },
       { type: "toggle", key: "appearance.shadow", label: "Shadow", subtext: "Soft shadow under the frame and drawers" },
-      { type: "section", text: "Motion" },
-      { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "animation", from: 0.25, to: 2, step: 0.05, unit: "x" },
-      { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" },
-      { type: "nav", icon: "water_drop", label: "Motion", subtext: "Caelestia's curves, liquid springs or morph", page: "liquid", status: "motion" },
       { type: "nav", icon: "blur_on", label: "Glass", subtext: "Translucent drawers lit on the edge", page: "glass", status: "glass.enabled" }
     ]
   },
@@ -152,7 +152,7 @@ var pages = [
     // morph motion on Caelestia's drawers. On Caelestia's, nothing on
     // this page changes anything.
     id: "liquid", label: "Motion", icon: "water_drop", category: "appearance",
-    description: "Caelestia, liquid or morph motion",
+    description: "Speed, stretch, Caelestia, liquid or morph",
     rows: [
       { type: "custom", comp: "liquidPreview" },
       { type: "custom", comp: "motionStyle", label: "Style", icon: "animation", subtext: "How drawers come and go: Caelestia's curves, liquid springs, or morph: one panel at a time, reshaping into the next", options: [
@@ -160,6 +160,9 @@ var pages = [
         { value: "liquid", label: "Liquid", icon: "water_drop" },
         { value: "morph", label: "Morph", icon: "animation" }
       ] },
+      { type: "section", text: "Timing" },
+      { type: "slider", key: "appearance.animScale", label: "Animation duration", icon: "timer", from: 0.25, to: 2, step: 0.05, unit: "x" },
+      { type: "slider", key: "appearance.deformScale", label: "Drawer stretch", icon: "motion_blur", from: 0, to: 3, step: 0.1, unit: "x" },
       { type: "section", text: "Springs", when: LIQUID_ON, hide: true },
       { type: "custom", comp: "liquidPreset", when: LIQUID_ON, hide: true, label: "Preset", icon: "water_drop", subtext: "How lively the springs are", options: [
         { value: "subtle", label: "Subtle", icon: "water" },
@@ -610,6 +613,15 @@ var subpages = {
       { type: "section", text: "Privacy" },
       { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
       { type: "toggle", key: "lock.revealPassword", when: { key: "lock.enabled", value: true }, label: "Show password button", subtext: "Let the icon in the password field show the characters typed" },
+      { type: "section", text: "Screen" },
+      { type: "select", key: "lock.blankAfter", when: { key: "lock.enabled", value: true }, label: "Screen off after locking", subtext: "How long the locked screen stays lit when idle before it goes black. Never keeps the panel on until you unlock (burn-in and power draw)", options: [
+        { value: "5", label: "5 seconds" },
+        { value: "15", label: "15 seconds" },
+        { value: "30", label: "30 seconds" },
+        { value: "60", label: "1 minute" },
+        { value: "300", label: "5 minutes" },
+        { value: "0", label: "Never" }
+      ] },
       { type: "section", text: "Appearance" },
       { type: "toggle", key: "lock.useWallpaper", when: { key: "lock.enabled", value: true }, label: "Use the wallpaper", subtext: "Show the wallpaper behind the lock instead of a blurred copy of the screen" },
       { type: "toggle", key: "lock.blur", when: { key: "lock.enabled", value: true }, label: "Blur the wallpaper", subtext: "Blur the wallpaper behind the lock card; the screen copy is always blurred" },

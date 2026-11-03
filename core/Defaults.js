@@ -11,6 +11,7 @@ var values = {
     seedTheme: "",           // the Omarchy theme a custom seed was picked under
     seedFollowsTheme: true,  // a theme switch drops a seed picked under another theme
     omarchySurfaces: false,  // Material colours on Omarchy's own menus too (a block in ~/.config/omarchy/shell.toml)
+    pureBlack: false,        // dark only: panels and drawers pure #000 (cards a hair lighter), to match a black-bezel monitor
     animScale: 1.0,
     // Caelestia appearance.deformScale: how much drawers stretch as they
     // move (0 turns the jelly off).
@@ -37,7 +38,7 @@ var values = {
     tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
     plugins: { enabled: true, compact: false, unpinned: [], hidden: [] },
     // Settings › Taskbar › Layout. Empty lists mean the default order (BarLayout.js).
-    layout: { start: [], center: [], end: [], removed: [], drawer: [], maxShown: 0, seen: [], adopted: false, fresh: [], showDuplicates: false },
+    layout: { start: [], center: [], end: [], removed: [], drawer: [], hidden: [], maxShown: 0, seen: [], adopted: false, fresh: [], showDuplicates: false },
     clock: { enabled: true, showIcon: true, showDate: false, showSeconds: false, background: false },
     status: { lockStatus: true, audio: false, microphone: false, network: true, bluetooth: true, battery: true, keepAwake: true, update: true, notifications: true, bluetoothConnectedOnly: false, microphoneInUseOnly: false, kbLayout: false },
     popouts: { statusIcons: true, tray: true, activeWindow: true },
@@ -75,6 +76,9 @@ var values = {
     // Private by default: notification contents hidden, the wallpaper (not a
     // copy of the screen) behind the card, and no "show password" button.
     hideNotifs: true, recolourLogo: true, blur: true, useWallpaper: true, revealPassword: false,
+    // Seconds after the lock before the screen goes black; 0 never blanks it.
+    // Read live by the patched lock service (scripts/lock-screen).
+    blankAfter: 5,
     // Set when the watchdog gave the lock back to Omarchy after an update
     // broke it (services/Handover.qml), with the Omacale version it broke
     // under; reinstalling from Settings clears it, and a newer Omacale
