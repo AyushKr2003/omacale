@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.3 - 2026-11-03
+
+### Fixed
+- **lock screen**: the Omacale lock works again on the newest Omarchy dev (its lock service changed and was handed back to Omarchy's own screen); the screen-off delay still applies, and after a resume it never blanks sooner than Omarchy's 15s
+- **lock screen**: after a suspend (a VT switch on NVIDIA) typing reaches the password field again without clicking it first
+
 ## 0.56.2 - 2026-11-01
 
 ### Fixed
