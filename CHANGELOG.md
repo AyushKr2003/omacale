@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.56.4 - 2026-11-03
+
+### Fixed
+- **bar**: hovering Omarchy's indicators widget now opens and closes it smoothly. The pill grows and shrinks on Caelestia's spatial curve instead of jumping, the active indicator stays put, and on leaving the inactive ones are clipped away as the pill shrinks instead of vanishing before it snaps shut
+
 ## 0.56.3 - 2026-11-03
 
 ### Fixed
