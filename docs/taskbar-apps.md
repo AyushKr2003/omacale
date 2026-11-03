@@ -110,7 +110,7 @@ Three separate concerns must not be conflated:
 1. **Native race.** Official Quickshell `0.3.2.r7.g2b4501a-5` still contains
    Omarchy's scanner call from the URL interceptor. `-5` was a dependency rebuild,
    not a race fix. [Omarchy issue #16167](https://github.com/omacom/omarchy/issues/16167)
-   remains open. The local package repair is maintained separately in
+   was open during the 2026-10-29 investigation; its current status is not claimed here. The local package repair is maintained separately in
    `omarchy-pkgs`: interception only routes URLs; each network manager owns its
    late scanner, four mutable scanner collections and pragma QJSEngine. Initial
    generation intercepts are read-only. The built package and actual interceptor/
@@ -333,33 +333,82 @@ last two for newly found UI-state/recovery defects), with all findings resolved.
 The harness accepted that explicit model route; the child did not independently
 expose provider/model metadata or usage. No usage figures are inferred.
 
-## Contributor PR draft
+## Current-main verification — 2026-11-03
 
-**Title:** feat: add optional taskbar apps, groups and directory shortcuts
+`origin/main` at `1f496d3` was merged into the feature branch as `4f0be74`.
+The merge keeps main's condensed README, new Material popout loaders and
+scroll-aware keyboard navigation. No release version or changelog was changed;
+release bookkeeping belongs to the maintainer when accepting a contribution.
 
-**Description:**
+- All nine `tests/test-*.js` suites pass, including apps, layout and settings.
+- Qt UI: 31 passed; preview/recovery: 28 passed; quit helper: 8 passed.
+- The bar facade passes all 34 contract members.
+- The whole feature diff against `1f496d3` received one fresh Sol review,
+  APPROVE with no blocker/should findings. The configured native route was
+  `gpt-6.1-sol` on high effort; the child did not independently expose model,
+  provider or token-usage metadata. The behavior diff did not change in review
+  (41 files, 4,264 insertions, 38 deletions); only this documentation and the
+  public screenshots/evidence were added afterwards.
+- A controlled installation of `4f0be74` answered `taskbarAppsStatus` with one
+  ready bottom-edge screen and five running app entries. Exactly one shell
+  remained. No AppsEntry, AppsMenu, TaskbarApps or Run warnings were found in
+  that shell's log. Its current empty pin list and other preferences were kept.
+  This is a startup smoke check, not a repeat of the October pointer acceptance.
 
-Adds an opt-in Apps entry to the existing taskbar, with ordered app pins, named
-app groups and directory shortcuts. It uses the existing layout, settings,
-controls and keyboard popout, works on every edge, recognizes running windows,
-cycles/restores them and launches terminal entries through Omarchy.
+### Omakit lab
 
-App-specific menus add pin/unpin, close-all and quit actions. Pins can be
-dragged into order, running apps dragged into the pin section, and a divider
-and dimming distinguish those sections. Available-space sizing respects the
-other widget pills; a manual slot limit and an optional, default-hidden settings
-shortcut remain available.
+`omakit lab prove run` returned **PROVED**, `ok over 19 scenarios`:
+run `20261103-151358-run`, stock guest `omarchy 4.0.4-1`, kernel
+`7.2.5-3-omarchy`, ISO SHA-256
+`ddeded2758c48318d201dfdac905ecb28f570441883f0c052ea3cd5d05acf92d`,
+`skew: false`. It took 159,918 ms. Every scenario reported zero survivors and
+zero hostile-environment shadow hits. The base was unchanged and the disposable
+overlay was removed. Omarchy 4.0.6 was available; this run used the existing
+4.0.4 base, so it does not claim validation on the newer release.
 
-A controlled development preview stages outside watched directories and stops
-the shell/supervisor before publication and rollback. Recovery preserves later
-settings/installed edits and retains the original error even if diagnostics fail.
-The Quickshell scanner repair is maintained as a separate package change.
+The suite's Run 0.2.1 implementation bodies match the vendored block exactly;
+only their source-commit header stamp differs. The portable result is in
+[taskbar-apps-lab.json](taskbar-apps-lab.json). The original local bundle is
+`$XDG_STATE_HOME/omakit/lab/runs/20261103-151358-run/` (`run.json`,
+`runlab.json`, `host.log`, `runlab.log` and the scenario archive).
 
-Validation: taskbar-apps/layout/settings JS suites, 31 actual-component Qt cases,
-28 preview regressions, 8 disposable-process quit tests, native C++
-build/stress/module tests, and the real desktop
-checks above. Existing facade/notification-restore failures reproduce on the
-baseline. Multi-monitor acceptance remains unverified because one display was
-available. Release versioning remains with the maintainer.
+Current Omakit lab offers only Run, Store and weigh suites. It has no custom
+plugin or pointer-input scenario, so this proof covers the Run plumbing used
+for Quit, not this taskbar's app menu, drag/drop, compositor close flow or
+multi-monitor behavior. The actual-component Qt tests cover those UI rules
+with mocked host services; real October desktop acceptance remains historical.
+Whole-bar weighing is unsupported (`plugin-is-bar`), so no weight is claimed.
 
-No branch has been pushed and no public PR has been opened.
+### Baseline compatibility limits
+
+On both the feature and a clean `1f496d3` archive:
+`test-lock-blank.sh` has two passes and one failure against the installed lock
+service; `test-restore.sh` reaches 89 passes and four lock-watchdog failures,
+then exits 2 because the expected clone was not recreated. These are unchanged
+main/host compatibility failures. `python3 scripts/upstream-check` also reports
+host changes since the recorded lock. That lock was not rewritten to claim
+untested compatibility. Historical facade failures above no longer apply to
+the current main merge: the current 34-member facade check passes.
+
+Omakit verify reports no findings and requires maintainer review for the
+plugin's existing capabilities. Offline submission preflight is ready. Its
+advisory inventory includes existing processes, writes, network calls and the
+repository's existing agent guidance; this is not marketplace approval or a
+security-review verdict.
+
+### Screenshots
+
+These are isolated Qt renders of the actual feature components, using a fixed
+dark palette, real app icons and deterministic sample apps/windows. Host
+services are mocked, and surrounding headings/explanations form a presentation
+fixture. They illustrate the UI without exposing a user's desktop and are not
+compositor acceptance evidence. The settings body and controls are actual
+`TaskbarAppsPage`/`RowToggle` components; the four setting rows mirror the
+page model. Bar/menu sizing, rows, grouping, divider and insertion line come
+from the unchanged components.
+
+![Taskbar pins, group, directory, running-app divider and per-app menu](taskbar-apps/overview.png)
+
+![Drag insertion line with the source pin faded](taskbar-apps/drag.png)
+
+![Taskbar Apps settings, groups and directory picker entry](taskbar-apps/settings.png)
