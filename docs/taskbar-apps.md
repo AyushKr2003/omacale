@@ -372,7 +372,7 @@ only their source-commit header stamp differs. The portable result is in
 `$XDG_STATE_HOME/omakit/lab/runs/20261103-151358-run/` (`run.json`,
 `runlab.json`, `host.log`, `runlab.log` and the scenario archive).
 
-Current Omakit lab offers only Run, Store and weigh suites. It has no custom
+Omakit lab's shipped CLI offers only Run, Store and weigh suites. It has no custom
 plugin or pointer-input scenario, so this proof covers the Run plumbing used
 for Quit, not this taskbar's app menu, drag/drop, compositor close flow or
 multi-monitor behavior. The actual-component Qt tests cover those UI rules
@@ -396,7 +396,66 @@ advisory inventory includes existing processes, writes, network calls and the
 repository's existing agent guidance; this is not marketplace approval or a
 security-review verdict.
 
-### Screenshots
+## Native compositor captures — 2026-11-04
+
+The maintainer requested real bar captures in
+[PR #37](https://github.com/AyushKr2003/omacale/pull/37#issuecomment-6631541749).
+The images below come from the real Omacale plugin at `f52b15f`, installed in
+an Omakit disposable guest and rendered by its actual Quickshell/Hyprland
+session. No host services or windows are mocked in this runtime.
+
+The installed Omakit 0.6.11 CLI has no custom-plugin capture suite. A dedicated
+product-owned scenario called its unmodified `withGuest`, preflight, lock,
+SSH and QMP modules directly. This is a custom Omakit-engine capture run,
+**not** a shipped `omakit lab prove` suite or a `PROVED` verdict. Omakit itself
+was not modified. The VM used the existing stock `omarchy 4.0.4-1` base,
+Quickshell `0.3.1-1`, Qt `6.11.2`, one 1280×800 output at scale 1, Tokyo Night
+and Omacale UI scale 1. The required Material Symbols Rounded font was supplied
+inside the disposable overlay before the shell started.
+
+Configuration: Foot and Chromium pins, a **Tools** group containing Neovim and
+Omawrite, a **Projects** directory shortcut, and a separately running Nautilus.
+Foot and Nautilus are actual applications with compositor windows. The theme,
+palette, frame, menus, group popout and icons are drawn by the actual plugin.
+The settings shortcut is off. Captures use `grim` inside the guest, with integer
+regions; the published PNGs are copied byte-for-byte, without pixel edits.
+
+QMP right-clicks opened the five-action Foot menu on bottom and left bars; OCR
+checks found both Close all windows and Quit application in each capture.
+A native pointer drag on the top bar faded the source and showed the insertion
+line; release persisted Chromium before Foot. A native click then opened the
+Tools group on the bottom bar. These menu, drag and group images were visually
+inspected. The run did not select Quit or repeat the full October acceptance.
+
+Run `20261104-172535-omacale-capture` kept exactly one guest shell, preserved
+the base, powered off the guest and removed its overlay. Local full captures,
+logs, configuration and the scenario are under `$XDG_STATE_HOME/omakit/lab/`;
+the portable provenance and image digests are in
+[taskbar-apps-native-capture.json](taskbar-apps-native-capture.json). That record
+also lists the four observed shell warnings: duplicate `omarchy.bar` IPC
+registration, host-portal app-ID registration, absent BlueZ object manager and
+an empty file-watcher path. None named the new Apps components; no whole-shell
+clean-log claim is made.
+
+**Bottom edge, real app menu and running-app divider:**
+
+![Native bottom-edge taskbar and Foot action menu](taskbar-apps/native-bottom-menu.png)
+
+**Left edge, menu over the real frame and terminal window:**
+
+![Native vertical taskbar and Foot action menu](taskbar-apps/native-left-menu.png)
+
+**Top edge during the native pointer drag:**
+
+![Native faded drag source and blue insertion line](taskbar-apps/native-top-drag.png)
+
+**Bottom edge, Tools group open:**
+
+![Native Tools group with Neovim and Omawrite](taskbar-apps/native-group.png)
+
+[Wider native bar/frame context](taskbar-apps/native-frame.png) is also included.
+
+### Earlier isolated UI illustrations
 
 These are isolated Qt renders of the actual feature components, using a fixed
 dark palette, real app icons and deterministic sample apps/windows. Host
