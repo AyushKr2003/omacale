@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.57.1 - 2026-11-07
+
+### Fixed
+- **bar plugins**: a hosted plugin whose background service isn't at its folder's root (its manifest's `entryPoints.service` points elsewhere) now starts on Omacale's bar, instead of failing with "failed to create hosted service"
+
 ## 0.57.0 - 2026-11-07
 
 ### Added
