@@ -113,8 +113,8 @@ Rectangle {
     beforeId = ""
     dropLine = pad
     for (let i = 0; i < rep.count; i++) {
-      const button = rep.itemAt(i).button
-      if (!TaskbarApps.isSaved(button.appItem)) break
+      const w = rep.itemAt(i), button = w ? w.button : null
+      if (!button || !TaskbarApps.isSaved(button.appItem)) break
       const p = button.mapToItem(entry, 0, 0), start = bar.vertical ? p.y : p.x
       if (a < start + cell / 2) { beforeId = button.appItem.id; dropLine = start - spacingN / 2; return }
       dropLine = start + cell + spacingN / 2
@@ -122,7 +122,8 @@ Rectangle {
     // A running app is pinned only when dropped into the saved section or
     // its insertion gap. Moving it among running apps is not a pin action.
     if (!TaskbarApps.isSaved(dragItem)) {
-      const boundary = rep.count > entry.pinnedCount ? rep.itemAt(entry.pinnedCount).button.mapToItem(entry,0,0) : null
+      const first = rep.count > entry.pinnedCount ? rep.itemAt(entry.pinnedCount) : null
+      const boundary = first ? first.button.mapToItem(entry, 0, 0) : null
       if (boundary && a >= (bar.vertical ? boundary.y : boundary.x)) dropValid = false
     }
   }
@@ -299,8 +300,13 @@ Rectangle {
   function scrollAt(a, dy) { return shown && bar.scrollList(flick, a, dy) }
   function popoutCenterFor(name) {
     if (name !== "appgroup" && name !== "appmenu") return undefined
-    if (name === "appmenu") for (let i = 0; i < rep.count; i++)
-      if (rep.itemAt(i).key === menuKey) return bar.centreOf(rep.itemAt(i).button)
+    // Beside the cell it belongs to: a group opened from its menu reaches
+    // here through openPopoutKeys, with no cell of its own to measure.
+    const key = name === "appmenu" ? menuKey : bar.scope.appGroup
+    for (let i = 0; i < rep.count; i++) {
+      const w = rep.itemAt(i)
+      if (w && w.key === key) return bar.centreOf(w.button)
+    }
     return bar.centreOf(entry)
   }
 }
