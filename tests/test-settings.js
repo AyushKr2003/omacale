@@ -39,5 +39,12 @@ test("custom times are every half hour", () => {
   const o = M.pageById("displayNight").rows.find(r => r.key === "display.nightFrom").options
   assert.strictEqual(o.length, 48); assert.strictEqual(o[0].value, "00:00"); assert.strictEqual(o[47].value, "23:30")
 })
+test("taskbar apps are reachable, searchable and opt-in", () => {
+  const page = M.pageById("taskbarApps")
+  assert.ok(page)
+  assert.deepStrictEqual(where("bar.apps.enabled"), ["taskbarApps"])
+  assert.ok(M.pageById("taskbarAppPicker"))
+  assert.ok(M.searchRows("visible slots").some(r => r.key === "bar.apps.maxShown"))
+})
 console.log(failed ? `${failed} failed` : "all passed")
 process.exit(failed ? 1 : 0)

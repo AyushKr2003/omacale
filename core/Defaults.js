@@ -34,6 +34,7 @@ var values = {
     power: true,
     workspaces: { shown: 5, display: "shapes", activeIndicator: true, activeTrail: true, occupiedBg: false, showWindows: true, maxWindowIcons: 5, specialDisplay: "icons", specialShowWindows: true },
     activeWindow: { enabled: true, compact: false },
+    apps: { enabled: false, showRunning: true, useAvailableSpace: true, showSettings: false, maxShown: 8, items: [] },
     tray: { enabled: true, background: false, recolour: false, compact: false, hiddenIcons: [] },
     plugins: { enabled: true, compact: false, unpinned: [], hidden: [] },
     // Settings › Taskbar › Layout. Empty lists mean the default order (BarLayout.js).

@@ -107,7 +107,7 @@ Rectangle {
                 anchors.left: folder.home ? homeIcon.right : parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: folder.home ? Tk.padding.extraSmall : Tk.padding.medium
-                text: folder.modelData
+                text: folder.index === 0 && folder.modelData === "" ? "File system" : folder.modelData
                 color: folder.last ? Colours.m3onSurface : Colours.m3onSurfaceVariant
                 weight: Font.Bold
               }

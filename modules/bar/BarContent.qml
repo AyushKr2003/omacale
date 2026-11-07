@@ -72,6 +72,7 @@ Item {
     if (BarLayout.STATUS.indexOf(id) >= 0) return statusOn(id)
     // From the data, never from the entries: they are rebuilt from what
     // this decides, and asking one that is being torn down fails.
+    if (id === "apps") return cfg.apps.enabled
     if (id === "tray") return cfg.tray.enabled && SystemTray.items.values.some(i => i.status !== Status.Passive
       && cfg.tray.hiddenIcons.indexOf(i.id) < 0)
     if (id === "plugins") return cfg.plugins.enabled !== false && (host.thirdPartyPlugins || []).some(e =>
@@ -133,6 +134,7 @@ Item {
   }
   readonly property var wsE: entryFor("workspaces")
   readonly property var titleE: entryFor("activeWindow")
+  readonly property var appsE: entryFor("apps")
   readonly property var trayE: entryFor("tray")
   readonly property var pluginsE: entryFor("plugins")
   readonly property var clockE: entryFor("clock")
@@ -177,6 +179,7 @@ Item {
       n++
       if (e === wsE) len += e.bareSize
       else if (e === clockE) len += along(e) - (calIconShown ? calendarLen : 0)
+      else if (e === appsE) len += e.minLen
       else if (e !== titleE && e !== trayE && e !== pluginsE) len += along(e)
     }
     // Gaps between the entries of a section, and between the sections.
@@ -199,7 +202,15 @@ Item {
   onCalendarLenChanged: Qt.callLater(refitCalendar)
   onWsIconsSizeChanged: Qt.callLater(refitCalendar)
   readonly property bool windowIconsFit: flexRoom - flexMin - (calendarFits ? calendarLen : 0) >= wsIconsSize
-  readonly property real budget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
+  readonly property real flexibleBudget: Math.max(0, flexRoom - (calendarFits ? calendarLen : 0) - (windowIconsFit ? wsIconsSize : 0))
+  // Available-space mode uses genuinely spare room: retain the tray's
+  // configured presentation and the plugin pill's normal collapsed length.
+  // These are content metrics, never sizes fed back from this budget.
+  readonly property real appsReserve: cfg.apps.useAvailableSpace ? Math.max(flexMin,
+    (trayE && trayE.visible ? (cfg.tray.compact ? trayE.collapsedLen : trayE.fullLen) : 0)
+      + (pluginsE && pluginsE.visible ? pluginsE.pill.collapsedLen : 0)) : flexMin
+  readonly property real appsExtra: appsE && appsE.shown && entries().indexOf(appsE) >= 0 ? Math.min(Math.max(0, appsE.fullLen - appsE.minLen), Math.max(0, flexibleBudget - appsReserve)) : 0
+  readonly property real budget: Math.max(0, flexibleBudget - appsExtra)
   readonly property bool trayOverBudget: !!trayE && trayE.visible && trayE.fullLen + (pluginsE ? pluginsE.pill.collapsedLen : 0) > budget
   // The plugin pill's length along the bar, for the tray's expanded cap.
   readonly property real pluginLen: pluginsE ? along(pluginsE.pill) : 0
@@ -299,9 +310,10 @@ Item {
     onTabRequested: d => root.stepStop(d)
   }
   Keys.onPressed: e => {
-    // Menu or Shift+F10: the tray item's own menu.
+    // Menu or Shift+F10: the focused item's own menu.
     if (e.key === Qt.Key_Menu || (e.key === Qt.Key_F10 && (e.modifiers & Qt.ShiftModifier))) {
       if (root.cursorStop && root.cursorStop.kind === "tray") root.openTrayMenu(root.cursorStop)
+      else if (root.cursorStop && typeof root.cursorStop.menu === "function") root.cursorStop.menu()
       e.accepted = true
       return
     }
@@ -322,6 +334,7 @@ Item {
   // them. It hugs its item: a short pill on an icon, a tall one on the clock.
   Rectangle {
     id: barCursor
+    objectName: "barCursor"
 
     readonly property Item target: root.cursorStop ? root.cursorStop.item : null
     readonly property real pad: Tk.padding.small / 2 + 2
@@ -329,6 +342,10 @@ Item {
     property real end: 0
     // Where the target is now; re-read when anything above it moves.
     readonly property rect r: {
+      // mapToItem() does not register the Flickable content offset as a
+      // binding dependency. Entries expose it on their navigation stops.
+      const flick = root.cursorStop && root.cursorStop.flick
+      if (flick) void (flick.contentX + flick.contentY)
       void (root.layoutGen + col.y + col.x + startBox.x + startBox.y + startBox.width + startBox.height
         + centerBox.x + centerBox.y + centerBox.width + centerBox.height + endBox.x + endBox.y + endBox.width + endBox.height
         + (root.pluginsE ? root.pluginsE.pill.width + root.pluginsE.pill.height : 0)
@@ -612,11 +629,13 @@ Item {
     }
   }
   function entryComponent(seg) {
+    if (seg.id === "apps") return cfg.apps.enabled ? cApps : null
     if (seg.kind === "status") return cStatus
     if (seg.kind === "plugin") return cSinglePlugin
     return ({ logo: cLogo, workspaces: cWorkspaces, activeWindow: cActiveWindow, plugins: cPlugins,
       tray: cTray, clock: cClock, power: cPower, overflow: cOverflow })[seg.id] || null
   }
+  Component { id: cApps; AppsEntry { bar: root } }
   Component { id: cLogo; LogoEntry { bar: root } }
   Component { id: cWorkspaces; WorkspacesEntry { bar: root } }
   Component { id: cActiveWindow; ActiveWindowEntry { bar: root } }

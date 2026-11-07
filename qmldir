@@ -4,6 +4,10 @@ Anim 1.0 components/Anim.qml
 Bar 1.0 Bar.qml
 ButtonRow 1.0 components/controls/ButtonRow.qml
 BarContent 1.0 modules/bar/BarContent.qml
+AppsEntry 1.0 modules/bar/entries/AppsEntry.qml
+AppsGroup 1.0 modules/bar/AppsGroup.qml
+AppsMenu 1.0 modules/bar/AppsMenu.qml
+singleton TaskbarApps 1.0 services/TaskbarApps.qml
 BarWidgetSlot 1.0 modules/bar/BarWidgetSlot.qml
 PluginBarFacade 1.0 modules/bar/PluginBarFacade.qml
 CAnim 1.0 components/CAnim.qml

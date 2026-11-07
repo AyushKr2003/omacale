@@ -29,6 +29,7 @@ ColumnLayout {
     audio: "pages/AudioPage.qml", appVolumes: "pages/AppVolumes.qml",
     wallpapers: "pages/WallpaperGrid.qml", apps: "pages/AppsPage.qml", allApps: "pages/AllApps.qml", appInfo: "pages/AppInfo.qml",
     plugins: "pages/PluginsPage.qml", pluginInfo: "pages/PluginInfo.qml",
+    taskbarApps: "pages/TaskbarAppsPage.qml", taskbarAppPicker: "pages/TaskbarAppPicker.qml",
     trayIcons: "pages/TrayIcons.qml", barLayout: "pages/LayoutPage.qml",
     sessionPicture: "cards/SessionPicture.qml", sessionButtons: "cards/SessionButtons.qml",
     screens: "pages/ScreensCard.qml", screenSelect: "rows/ScreenSelect.qml",

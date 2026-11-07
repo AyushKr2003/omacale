@@ -2,6 +2,15 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.57.0 - 2026-11-07
+
+### Added
+- **taskbar apps** (opt-in, Settings › Taskbar › Apps): pin apps, named app groups and folders in the bar, on any edge. Running apps you haven't pinned can show after a divider; click to open, focus or cycle windows, middle-click for a new window. A right-click menu (or Menu / Shift+F10 in bar focus) offers New window, Pin/Unpin, Close all windows and Quit application. Drag to reorder pins, or drag a running app in to pin it. Apps can also be pinned from Settings › Apps › App info, and launcher favourites imported once. Contributed by @mtolhuys (#37)
+- **file picker**: can pick a folder, with a File system place in its sidebar; Enter on a folder opens it
+
+### Fixed
+- **taskbar apps**: Open on a group's menu puts the group's popout beside its icon rather than in the middle of the Apps strip
+
 ## 0.56.4 - 2026-11-03
 
 ### Fixed

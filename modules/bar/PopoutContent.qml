@@ -20,12 +20,15 @@ Item {
   property var host
   property string name: ""
   property var trayItem: null
+  property string appGroup: ""
+  property var appMenuItem: null
   property var screen: null
   // Whether the popout is showing (it keeps its last page loaded after).
   property bool open: false
   // The network the Wi-Fi password page asks for (ScreenScope keeps it).
   property string passwordSsid: ""
   signal closeRequested()
+  signal appActivated()
   // A page moving the popout on to another one (Caelestia sets
   // popouts.currentName): network -> wirelesspassword -> network.
   signal switchRequested(string name, string arg)
@@ -37,9 +40,29 @@ Item {
   // (DefaultEffects) and unloads it, and fades the new one in (SlowEffects),
   // while the popout resizes around them.
   readonly property var pages: ({
-    network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
+    appgroup: appgroup, appmenu: appmenu, network: network, wirelesspassword: wirelesspassword, bluetooth: bluetooth, battery: battery, audio: audio,
     kblayout: kblayout, lockstatus: lockstatus, update: update, traymenu: traymenu, activewindow: activewindow, winfo: winfo
   })
+  Component {
+    id: appmenu
+    AppsMenu {
+      appItem: root.appMenuItem
+      host: root.host
+      onCloseRequested: root.closeRequested()
+      onAppActivated: root.appActivated()
+      onGroupRequested: id => root.switchRequested("appgroup", id)
+    }
+  }
+  Component {
+    id: appgroup
+    AppsGroup {
+      groupId: root.appGroup
+      host: root.host
+      screen: root.screen
+      onCloseRequested: root.closeRequested()
+      onAppActivated: root.appActivated()
+    }
+  }
   property Loader activeLoader: loaderA
   readonly property Item current: activeLoader ? activeLoader.item : null
   // The loader's implicit size, not the page's: like Caelestia's Popout

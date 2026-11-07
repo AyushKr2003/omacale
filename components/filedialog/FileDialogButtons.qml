@@ -8,7 +8,6 @@ Rectangle {
   id: root
 
   required property var dialog
-  required property Item folder
 
   implicitHeight: inner.implicitHeight + Tk.padding.medium * 2
 
@@ -22,10 +21,12 @@ Rectangle {
     spacing: Tk.spacing.small
 
     MText {
+      visible: !root.dialog.selectFolder
       text: "Filter:"
     }
 
     Rectangle {
+      visible: !root.dialog.selectFolder
       Layout.fillWidth: true
       Layout.fillHeight: true
       Layout.rightMargin: Tk.spacing.medium
@@ -42,7 +43,10 @@ Rectangle {
       }
     }
 
+    Item { visible: root.dialog.selectFolder; Layout.fillWidth: true }
+
     Rectangle {
+      objectName: "fileDialogSelect"
       color: Colours.m3surfaceContainerHigh
       radius: Tk.rounding.medium
 
@@ -51,18 +55,19 @@ Rectangle {
 
       StateLayer {
         disabled: !root.dialog.selectionValid
-        onClicked: root.dialog.accepted(root.folder.currentItem.file.path)
+        onClicked: root.dialog.accepted(root.dialog.selectedPath)
       }
 
       MText {
         id: selectText
         anchors.centerIn: parent
-        text: "Select"
+        text: root.dialog.selectFolder ? "Select folder" : "Select"
         color: root.dialog.selectionValid ? Colours.m3onSurface : Colours.m3outline
       }
     }
 
     Rectangle {
+      objectName: "fileDialogCancel"
       color: Colours.m3surfaceContainerHigh
       radius: Tk.rounding.medium
 

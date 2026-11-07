@@ -21,6 +21,7 @@ A [Caelestia](https://github.com/caelestia-dots/shell)-style desktop shell for [
 - **Bar**: workspaces, active window, tray, clock, status icons, popouts
   - Any edge, per-screen position
   - Drag items to start / center / end
+- **Taskbar apps** (opt-in): pin apps, app groups and folders; focus running apps, reorder pins and use per-app menus ([guide](docs/taskbar-apps.md))
 - **Pickers**: wallpaper and theme carousels, "From wallpaper" via aether
 - **Display** (Settings › Display):
   - Arrangement, resolution, scale, rotation, mirroring (via hyprmoncfg)
@@ -130,6 +131,7 @@ omarchy-shell omacale <wallpapers|themes|menu|clipboard|windowInfo|barFocus>
 omarchy-shell omacale dashboardTab <dashboard|media|performance|weather>
 omarchy-shell omacale settingsPage <page>
 omarchy-shell omacale popout <network|bluetooth|audio|battery|kblayout|lockstatus|update|activewindow>
+omarchy-shell omacale taskbarAppsStatus  # enabled state, app/pin counts and screen readiness
 omarchy-shell omacale scale <omarchy|0.5-2|50%-200%>
 omarchy-shell omacale toast <info|success|warning|error> <title> <message> <icon>
 ```
@@ -159,6 +161,10 @@ scripts/osd-handover <status|install|remove|health>
 ./scripts/omacale install --dev       # live-editing symlink
 bash tests/test-restore.sh            # test suite
 node tests/test-layout.js             # bar layout
+node tests/test-taskbar-apps.js        # pin, group and window models
+python3 tests/test-taskbar-ui.py       # Qt UI with mock host services
+python3 tests/test-taskbar-quit.py     # quit helper with disposable processes
+python3 tests/test-taskbar-preview.py  # deployment and recovery
 node tests/test-binds.js              # keybinds parser
 node tests/test-theme-mode.js         # light/dark rule
 bash tests/test-shell-toml.sh         # shell.toml colours

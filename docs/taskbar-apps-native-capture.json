@@ -1,0 +1,198 @@
+{
+  "date": "2026-11-04",
+  "runId": "20261104-172535-omacale-capture",
+  "method": "custom scenario using unmodified Omakit withGuest/SSH/QMP modules",
+  "builtinProof": false,
+  "source": {
+    "commit": "f52b15f95a26fb8e5faff7891ef43f44c1677136",
+    "archiveSha256": "0f1800ae8855367250133515ab22c58887d7d5370ed842addc224f4f78d51c41",
+    "clean": true
+  },
+  "runtimeSourceMatchesReviewedBehavior": true,
+  "omakitVersion": "0.6.11",
+  "engineFiles": {
+    "tools/lab/run.mjs": "fe63b89257addf0ea4a7b588acd809a7d095db52f5612e1cb3cbc8c1ed406355",
+    "tools/lab/guest.mjs": "6c97b7edd6fd0dcd1760557a01ef6363e5d69ba76c01ae6087a3edbfbd6e1e26",
+    "tools/lab/qemu.mjs": "a13a899f92877d3b7eccb8ed7ce88abf0e50ffe0078fd1d607344d298728a5bc"
+  },
+  "guest": {
+    "omarchyPackage": "omarchy 4.0.4-1",
+    "version": "4.0.4-1",
+    "kernel": "7.2.5-3-omarchy",
+    "hostname": "omarchy-test",
+    "omarchyPath": null,
+    "linked": false,
+    "testedSource": "installed package omarchy 4.0.4-1"
+  },
+  "packages": [
+    "omarchy 4.0.4-1",
+    "quickshell 0.3.1-1",
+    "qt6-base 6.11.2-3",
+    "qt6-declarative 6.11.2-1"
+  ],
+  "pin": {
+    "release": "4.0.4",
+    "isoSha256": "ddeded2758c48318d201dfdac905ecb28f570441883f0c052ea3cd5d05acf92d"
+  },
+  "skew": false,
+  "display": {
+    "name": "Virtual-1",
+    "width": 1280,
+    "height": 800,
+    "scale": 1
+  },
+  "theme": "Tokyo Night",
+  "uiScale": 1,
+  "fontDependency": {
+    "family": "Material Symbols Rounded",
+    "sha256": "d719f22fdee27e344b07e46e6fa8b50b1fce3cfcb03d4a84f03fafbf0812fc22",
+    "source": "existing required font transferred into disposable guest user fonts"
+  },
+  "configuration": {
+    "pinnedApps": [
+      "foot",
+      "chromium"
+    ],
+    "group": {
+      "name": "Tools",
+      "apps": [
+        "nvim",
+        "omawrite"
+      ]
+    },
+    "folder": "/home/omarchy/Projects",
+    "separateRunningApp": "org.gnome.Nautilus",
+    "settingsButton": false
+  },
+  "checks": [
+    {
+      "name": "native bar ready",
+      "status": {
+        "enabled": true,
+        "items": 4,
+        "pinned": 4,
+        "screens": [
+          {
+            "screen": "Virtual-1",
+            "edge": "bottom",
+            "ready": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "pins plus independent running app",
+      "status": {
+        "enabled": true,
+        "items": 5,
+        "pinned": 4,
+        "screens": [
+          {
+            "screen": "Virtual-1",
+            "edge": "bottom",
+            "ready": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "bottom-menu exposes full app actions",
+      "input": "QMP right-click",
+      "ocr": "Work\n\n+ New window\n|\n1 %\n\nX Close all windows\n\nUnpin from taskbar\n\nO Quit application\n\ni @.M-D I | B17:26 U"
+    },
+    {
+      "name": "left-menu exposes full app actions",
+      "input": "QMP right-click",
+      "ocr": "+ New window\n\nS =\nNe\n[a=)\ns\n\nUnpin from taskbar\nX Close all windows\n\nO Quit application"
+    },
+    {
+      "name": "native pin reorder persisted",
+      "input": "QMP pointer drag",
+      "items": [
+        {
+          "app": "chromium",
+          "id": "app:chromium",
+          "type": "app"
+        },
+        {
+          "app": "foot",
+          "id": "app:foot",
+          "type": "app"
+        },
+        {
+          "apps": [
+            "nvim",
+            "omawrite"
+          ],
+          "id": "group:tools",
+          "name": "Tools",
+          "type": "group"
+        },
+        {
+          "id": "folder:projects",
+          "name": "Projects",
+          "path": "/home/omarchy/Projects",
+          "type": "folder"
+        }
+      ]
+    }
+  ],
+  "singleShell": true,
+  "baseUnchanged": true,
+  "overlayRemoved": true,
+  "assets": [
+    {
+      "path": "docs/taskbar-apps/native-bottom-menu.png",
+      "sha256": "761f0518305ddc28e553416ce03eca5ee16f14c758a02813ceacef1f2aac4176",
+      "bytes": 46079,
+      "geometry": "400,420 440x380",
+      "source": "grim in the real guest Wayland session; no post-capture pixel edits"
+    },
+    {
+      "path": "docs/taskbar-apps/native-left-menu.png",
+      "sha256": "b90c186198735fe84947d9ca88f1f44a26ba56fe9f2233999271f3d9b9af89c7",
+      "bytes": 119055,
+      "geometry": "0,0 500x800",
+      "source": "grim in the real guest Wayland session; no post-capture pixel edits"
+    },
+    {
+      "path": "docs/taskbar-apps/native-top-drag.png",
+      "sha256": "8ca6a877891be6a30288cf8736686984d17fe074d3da052cecbd86286a99b069",
+      "bytes": 9304,
+      "geometry": "520,0 240x100",
+      "source": "grim in the real guest Wayland session; no post-capture pixel edits"
+    },
+    {
+      "path": "docs/taskbar-apps/native-group.png",
+      "sha256": "753be8323e38be675e8301f3c3b63955649c676e850b16d1e5b058a3139d2735",
+      "bytes": 37438,
+      "geometry": "420,470 440x330",
+      "source": "grim in the real guest Wayland session; no post-capture pixel edits"
+    },
+    {
+      "path": "docs/taskbar-apps/native-frame.png",
+      "sha256": "d68128c396a9e2e35f6322e8c4c2b2dbd3bee8b9ae194b133828007bb5f2001a",
+      "bytes": 284951,
+      "geometry": "full compositor output",
+      "source": "grim in the real guest Wayland session; no post-capture pixel edits"
+    }
+  ],
+  "limits": [
+    "Custom product-owned capture scenario using Omakit internal lifecycle exports; not an installed CLI suite or built-in PROVED verdict.",
+    "Single virtual output, three captured bar edges (bottom, left and top).",
+    "Menu actions are displayed; this capture run does not select Quit.",
+    "Earlier capture-driver and missing-font attempts were discarded; this manifest describes only the final run."
+  ],
+  "runtimeServicesMocked": false,
+  "shellWarnings": [
+    "WARN scene: QML IpcHandler at @plugins/bar/Bar.qml[1185:3]: Handler was registered but will not be used because another handler is registered for target omarchy.bar",
+    "WARN qt.qpa.services: Failed to register with host portal QDBusError(\"org.freedesktop.portal.Error.Failed\", \"Could not register app ID: Connection already associated with an application ID\")",
+    "WARN quickshell.dbus.objectmanager: Failed to create DBusObjectManagerInterface for \"org.bluez\" \"/\" : QDBusError(\"\", \"\")",
+    "WARN: QFileSystemWatcher::addPath: path is empty"
+  ],
+  "groupVerified": {
+    "input": "QMP left-click",
+    "ocr": "Work\n\nTools @\n\n\u201c) Neovim\n\nB Omawrite\n\nQ0r o @",
+    "visualInspection": true
+  }
+}
