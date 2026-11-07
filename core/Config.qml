@@ -131,6 +131,15 @@ QtObject {
           property bool enabled: true
           property bool compact: false
         }
+        property JsonObject apps: JsonObject {
+          property bool enabled: false
+          property bool showRunning: true
+          property bool useAvailableSpace: true
+          property bool showSettings: false
+          property int maxShown: 8
+          // Ordered app pins, groups and directory shortcuts (TaskbarApps.js).
+          property var items: []
+        }
         property JsonObject tray: JsonObject {
           property bool enabled: true
           property bool background: false

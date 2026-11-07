@@ -28,19 +28,19 @@ Rectangle {
       Layout.alignment: Qt.AlignHCenter
       Layout.topMargin: Tk.padding.extraSmall / 2
       Layout.bottomMargin: Tk.spacing.medium
-      text: "Files"
+      text: root.dialog.selectFolder ? "Folders" : "Files"
       font.pointSize: Tk.body.large
       weight: Font.Bold
     }
 
     Repeater {
-      model: ["Home", "Downloads", "Desktop", "Documents", "Music", "Pictures", "Videos"]
+      model: ["Home", "Downloads", "Desktop", "Documents", "Music", "Pictures", "Videos"].concat(root.dialog.selectFolder ? ["File system"] : [])
 
       Rectangle {
         id: place
 
         required property string modelData
-        readonly property bool selected: modelData === root.dialog.cwd[root.dialog.cwd.length - 1]
+        readonly property bool selected: modelData === "File system" ? root.dialog.path === "/" : modelData === root.dialog.cwd[root.dialog.cwd.length - 1]
 
         Layout.fillWidth: true
         implicitHeight: placeInner.implicitHeight + Tk.padding.medium * 2
@@ -50,7 +50,7 @@ Rectangle {
 
         StateLayer {
           color: place.selected ? Colours.m3onSecondaryContainer : Colours.m3onSurface
-          onClicked: root.dialog.cwd = place.modelData === "Home" ? ["Home"] : ["Home", place.modelData]
+          onClicked: root.dialog.cwd = place.modelData === "File system" ? [""] : place.modelData === "Home" ? ["Home"] : ["Home", place.modelData]
         }
 
         RowLayout {
@@ -70,7 +70,8 @@ Rectangle {
               Documents: "description",
               Music: "music_note",
               Pictures: "image",
-              Videos: "video_library"
+              Videos: "video_library",
+              "File system": "computer"
             })[place.modelData] || "folder"
             color: place.selected ? Colours.m3onSecondaryContainer : Colours.m3onSurface
             size: Tk.iconSize.medium

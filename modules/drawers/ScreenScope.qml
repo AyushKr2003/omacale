@@ -256,6 +256,8 @@ Scope {
   readonly property bool popoutHeld: popout === "wirelesspassword" || popout === "winfo" || popoutKeys
   readonly property bool popoutSticky: popout === "traymenu" || popoutHeld
   // The network the password popout is asking for.
+  property string appGroup: ""
+  property var appMenuItem: null
   property string passwordSsid: ""
 
   // The drawers, while they exist. As in Caelestia's drawer Wrappers
@@ -301,6 +303,11 @@ Scope {
     popout = name
     if (!cfg.bar.persistent) barHover = true
     win.primeFocus()
+  }
+  function taskbarAppsState() {
+    const entry = bar.entryFor("apps")
+    return { screen: screen.name, edge: barPos,
+      ready: !!entry && (entry.empty || (entry.shown && entry.width > 0 && entry.height > 0)) }
   }
   // The status group's popouts that have an icon on the bar, in bar order.
   function statusPopouts() { return bar.statusPopouts() }
@@ -537,11 +544,12 @@ Scope {
   // comes back on the same page; the Settings window just stays.
   property var filePick: null
   property bool fileReopen: false
-  function requestFile(title, filters, pick, fromDrawer) {
+  function requestFile(title, filters, pick, fromDrawer, selectFolder = false) {
     filePick = pick
     fileReopen = fromDrawer
     filePicker.title = title
     filePicker.filters = filters
+    filePicker.selectFolder = selectFolder
     if (fromDrawer) settings = false
     filePicker.open()
   }
@@ -607,6 +615,7 @@ Scope {
         version: scope.host.version
         onCloseRequested: scope.settingsWindow = false
         onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, false)
+        onFolderRequested: (title, pick) => scope.requestFile(title, [], pick, false, true)
         onPickerRequested: kind => scope.openPicker(kind, false)
       }
     }
@@ -1364,6 +1373,7 @@ Scope {
 
       onPressed: e => {
         dragStart = Qt.point(e.x, e.y)
+        if ((scope.popout === "appgroup" || scope.popout === "appmenu") && !inPopout(e.x, e.y) && barDepth(e.x, e.y) >= win.bw) scope.popout = ""
         // A click on the scrim (outside the settings panel) closes it.
         if (scope.settings && !(e.x >= win.nx && e.x <= win.nx + win.nw && e.y >= win.ny && e.y <= win.ny + win.nh)) scope.settings = false
         if (scope.overview && !(e.x >= win.ox && e.x <= win.ox + win.ow && e.y >= win.oy && e.y <= win.oy + win.oh)) scope.overview = false
@@ -1595,6 +1605,9 @@ Scope {
             width: implicitWidth
             height: implicitHeight
             host: scope.host
+            onAppActivated: scope.barFocus = false
+            appGroup: scope.appGroup
+            appMenuItem: scope.appMenuItem
             trayItem: scope.trayItem
             screen: scope.screen
             open: scope.popout !== ""
@@ -1606,6 +1619,7 @@ Scope {
             keyMode: scope.popoutKeys
             onTabRequested: d => scope.tabPopout(d)
             onSwitchRequested: (name, arg) => {
+              if (name === "appgroup") { scope.appGroup = arg; scope.openPopoutKeys(name); return }
               if (name === "wirelesspassword") scope.passwordSsid = arg
               scope.popout = name
             }
@@ -1878,6 +1892,7 @@ Scope {
             onCloseRequested: scope.settings = false
             onPopOutRequested: { scope.settings = false; scope.settingsWindow = true }
             onFileRequested: (title, filters, pick) => scope.requestFile(title, filters, pick, true)
+            onFolderRequested: (title, pick) => scope.requestFile(title, [], pick, true, true)
             onPickerRequested: kind => scope.openPicker(kind, true)
             keyHook: e => screenScope.drawerKey(e)
             pageId: scope.nexusPage

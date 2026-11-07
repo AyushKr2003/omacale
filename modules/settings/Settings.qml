@@ -20,12 +20,14 @@ Item {
   // A page wants a file (Omacale's own FileDialog, opened by ScreenScope);
   // `pick` gets the chosen path.
   signal fileRequested(string title, var filters, var pick)
+  signal folderRequested(string title, var pick)
   // A page opens a picker ("wallpaper" / "theme"), which Bar.openWallpapers/openThemes route.
   signal pickerRequested(string kind)
 
   // ------------------------------------------------------------- state
   property string pageId: "style"
   property var stack: []
+  property string taskbarGroup: "" // Empty = individual pins; otherwise the group to edit.
   property var selectedApp: null   // Apps › All apps › <app>
   property string selectedPlugin: ""  // Plugins › <plugin id>
   property string search: ""

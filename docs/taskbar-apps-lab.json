@@ -1,0 +1,224 @@
+{
+  "command": "omakit lab prove run",
+  "runId": "20261103-151358-run",
+  "result": "PROVED",
+  "assertion": {
+    "ok": true,
+    "reason": "ok over 19 scenarios"
+  },
+  "guest": {
+    "omarchyPackage": "omarchy 4.0.4-1",
+    "version": "4.0.4-1",
+    "kernel": "7.2.5-3-omarchy",
+    "hostname": "omarchy-test",
+    "omarchyPath": null,
+    "linked": false,
+    "testedSource": "installed package omarchy 4.0.4-1"
+  },
+  "pin": {
+    "release": "4.0.4",
+    "isoSha256": "ddeded2758c48318d201dfdac905ecb28f570441883f0c052ea3cd5d05acf92d",
+    "expectedGuestVersion": "4.0.4-1"
+  },
+  "newestRelease": "4.0.6",
+  "behind": true,
+  "skew": false,
+  "durationMs": 159918,
+  "baseUnchanged": true,
+  "overlayBytesRemoved": 750063616,
+  "blockComparison": {
+    "Run.qml": {
+      "labFileSha256": "a8ad4919676bc1bf1776eb94c2c0d7a3f1fe2695daf2990743f181953b34ee5a",
+      "vendoredFileSha256": "7953732014d697bed8d5c811685e1cbb377045617dfdb127eb9e8df281b7c87e",
+      "bodySha256": "0e54a5a82aacbdcd2e61163091bbeebb597787abb285df86bf85d7d835451419",
+      "bodyIdentical": true
+    },
+    "run-supervisor.py": {
+      "labFileSha256": "c181e8d9ac5b5b86094e8628ee512983e1016a307084253a447bbe5795c90895",
+      "vendoredFileSha256": "150fd3a452b2fd209f3344c3a6c576b673e207eeea9c519c5c1bf091246230de",
+      "bodySha256": "d872a5fc91f648ba4f9b9654d5cb19bba17a8afa4abb618502a04f47f66a6be1",
+      "bodyIdentical": true
+    }
+  },
+  "scope": "Shipped Run block only. File bodies match the vendored 0.2.1 block; Source commit stamp differs. This does not exercise taskbar pointer interactions, plugin installation, full quit integration, or multiple monitors.",
+  "scenarios": [
+    {
+      "name": "cancel",
+      "states": [
+        "cancelled"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "concurrency",
+      "states": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "controls",
+      "states": [
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "destroy",
+      "states": [],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "destroy-early",
+      "states": [],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "forge",
+      "states": [
+        "supervisor-lost"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "holder",
+      "states": [
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "hostile",
+      "states": [
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "missing",
+      "states": [
+        "spawn-failed"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "orphan",
+      "states": [
+        "supervisor-lost"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "producer",
+      "states": [
+        "overflow"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "producer-stream",
+      "states": [
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "relative",
+      "states": [
+        "spawn-failed"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "shell-string",
+      "states": [
+        "spawn-failed"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "shell-string-option",
+      "states": [
+        "spawn-failed"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "shell-string-wrapper",
+      "states": [
+        "spawn-failed"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "stalled-supersede",
+      "states": [
+        "supervisor-lost",
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "stubborn",
+      "states": [
+        "timeout"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    },
+    {
+      "name": "supersede",
+      "states": [
+        "cancelled",
+        "ok"
+      ],
+      "survivors": 0,
+      "shadowHits": 0,
+      "problems": []
+    }
+  ]
+}

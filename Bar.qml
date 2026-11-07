@@ -590,6 +590,10 @@ Item {
     function settings(): void { root.toggle("settings") }
     // Open settings on one page, e.g. "network" or "bluetooth".
     function settingsPage(page: string): void { root.toggle("settings", page) }
+    function taskbarAppsStatus(): string {
+      return JSON.stringify({ enabled: Config.o.bar.apps.enabled, items: TaskbarApps.items.length, pinned: TaskbarApps.pins.length,
+        screens: root.scopes.map(s => s.taskbarAppsState()) })
+    }
     function sidebar(): void { root.toggle("sidebar") }
     function utilities(): void { root.toggle("utilities") }
     function overview(): void { root.toggle("overview") }

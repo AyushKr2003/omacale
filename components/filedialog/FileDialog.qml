@@ -25,6 +25,7 @@ LazyLoader {
   property string filterLabel: "All files"
   property var filters: ["*"]
   property string title: "Select a file"
+  property bool selectFolder: false
   // Caelestia's Images.validImageExtensions, as far as Qt's image plugins read
   // them: shown as thumbnails, and the filter for picking an image.
   readonly property var imageSuffixes: ["png", "jpg", "jpeg", "webp", "bmp", "gif", "svg", "tif", "tiff", "avif", "jxl"]
@@ -51,21 +52,24 @@ LazyLoader {
     readonly property string filterLabel: loader.filterLabel
     readonly property var filters: loader.filters
     readonly property var imageSuffixes: loader.imageSuffixes
+    readonly property bool selectFolder: loader.selectFolder
 
     // Caelestia filedialog/Sizes.qml.
     readonly property int itemWidth: Tk.px(103)
     readonly property int sidebarWidth: Tk.px(230)
 
-    readonly property bool selectionValid: {
+    readonly property string selectedPath: {
       const file = folderContents.currentItem ? folderContents.currentItem.file : null
-      if (!file || file.isDir) return false
-      return filters.includes("*") || filters.some(f => f.toLowerCase() === file.suffix.toLowerCase())
+      if (selectFolder) return folderContents.folderReady ? (file && file.isDir ? file.path : path) : ""
+      if (!file || file.isDir) return ""
+      return filters.includes("*") || filters.some(f => f.toLowerCase() === file.suffix.toLowerCase()) ? file.path : ""
     }
+    readonly property bool selectionValid: selectedPath !== ""
 
     // Caelestia's Paths.home with cwd[0] "Home"; anything else is absolute.
     readonly property string path: {
       const home = Quickshell.env("HOME")
-      return cwd[0] === "Home" ? [home].concat(cwd.slice(1)).join("/") : cwd.join("/")
+      return (cwd[0] === "Home" ? [home].concat(cwd.slice(1)).join("/") : cwd.join("/")) || "/"
     }
 
     function accepted(path) {
@@ -120,7 +124,6 @@ LazyLoader {
         FileDialogButtons {
           Layout.fillWidth: true
           dialog: root
-          folder: folderContents
         }
       }
     }

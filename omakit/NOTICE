@@ -1,0 +1,12 @@
+omakit blocks in this directory
+
+Each file below was copied from omakit (https://github.com/mtolhuys/omakit),
+MIT licence, Copyright (c) 2026 Maarten Tolhuijs, by `omakit add`. The body
+sha256 is over everything after the file's header line
+`end of omakit block header`; `omakit inspect` reports a file whose body differs as
+modified, and `omakit add --update` refuses to overwrite one. Modifications
+are to be listed here by the plugin's author.
+
+block run 0.2.1, from omakit commit 134073bfe9da1073721c0a7e9905c15dea0c7176
+  Run.qml  sha256 0e54a5a82aacbdcd2e61163091bbeebb597787abb285df86bf85d7d835451419
+  run-supervisor.py  sha256 d872a5fc91f648ba4f9b9654d5cb19bba17a8afa4abb618502a04f47f66a6be1

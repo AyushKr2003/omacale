@@ -17,6 +17,10 @@ Item {
 
   required property var dialog
   readonly property Item currentItem: view.currentItem
+  // FolderListModel::resolvePath parses the decoded local path as a URL
+  // again. Preserve literal #, ? and % through both decoding passes.
+  readonly property string folderUrl: "file://" + dialog.path.split("/").map(p => encodeURIComponent(encodeURIComponent(p))).join("/")
+  readonly property bool folderReady: folderModel.status === FolderListModel.Ready && decodeURIComponent(decodeURIComponent(folderModel.folder.toString())) === "file://" + dialog.path
 
   // The frame: the container colour with the grid's rounded hole cut out of it,
   // so the window's surface shows through (Caelestia's inverted Mask).
@@ -72,6 +76,7 @@ Item {
 
   GridView {
     id: view
+    objectName: "fileDialogContents"
 
     anchors.fill: parent
     anchors.margins: Tk.padding.extraSmall + Tk.padding.medium
@@ -83,7 +88,7 @@ Item {
     focus: true
     currentIndex: -1
 
-    Keys.onEscapePressed: currentIndex = -1
+    Keys.onEscapePressed: { if (root.dialog.selectFolder) root.dialog.rejected(); else currentIndex = -1 }
     Keys.onReturnPressed: root.acceptCurrent()
     Keys.onEnterPressed: root.acceptCurrent()
 
@@ -91,7 +96,11 @@ Item {
 
     model: FolderListModel {
       id: folderModel
-      folder: "file://" + root.dialog.path.split("/").map(encodeURIComponent).join("/")
+      // componentComplete validates a once-decoded path; set our listing URL
+      // afterwards, when resolvePath's second decoding pass applies.
+      folder: "file:///"
+      Component.onCompleted: folder = Qt.binding(() => root.folderUrl)
+      showFiles: !root.dialog.selectFolder
       showDirsFirst: true
       showHidden: false
       showDotAndDotDot: false
@@ -125,7 +134,9 @@ Item {
   }
 
   function acceptCurrent() {
-    if (dialog.selectionValid) dialog.accepted(view.currentItem.file.path)
+    if (view.currentItem && view.currentItem.file.isDir)
+      dialog.cwd = dialog.cwd.concat([view.currentItem.file.name])
+    else if (dialog.selectionValid) dialog.accepted(dialog.selectedPath)
   }
 
   readonly property var xdgDirs: ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Public", "Templates", "Videos"]
