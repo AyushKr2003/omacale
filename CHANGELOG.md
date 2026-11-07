@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.58.0 - 2026-11-07
+
+### Added
+- **installer**: `omacale switch` toggles between Omacale and the bar it replaced, without uninstalling (`switch omarchy` / `switch omacale` to pick one). Omarchy's shell.json edits and Omacale's settings both stay, across reboots. The toasts, OSD and lock screen go back to Omarchy while you're away and return when you switch back (#36)
+
 ## 0.57.1 - 2026-11-07
 
 ### Fixed
