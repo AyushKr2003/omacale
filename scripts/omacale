@@ -32,7 +32,7 @@
 set -Eeuo pipefail
 
 PLUGIN_ID="omacale.bar"
-VERSION="0.57.1"
+VERSION="0.58.0"
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -66,6 +66,7 @@ notif_choice=""       # "", yes, no
 lock_choice=""        # "", yes, no
 osd_choice=""         # "", yes, no
 bind_mode="print"
+switch_to=""          # "", omarchy, omacale
 cmd=""
 
 # ------------------------------------------------------------------ output
@@ -92,6 +93,11 @@ Commands:
   uninstall    Remove the plugin and restore the exact pre-install state
   status       Show what is installed and what would be restored
   doctor       Check that Omacale and Omarchy are healthy
+  switch [omarchy|omacale]
+               Switch to the bar Omacale replaced, or back (no argument
+               toggles; also: toggle). Omacale stays installed, both sides
+               keep their settings, and the notification / OSD / lock
+               handovers go back to Omarchy and return with Omacale
   settings     Open the Omacale settings panel
   binds        Print Omarchy-style keybindings to paste into bindings.lua
                  --copy   copy them to the clipboard
@@ -260,6 +266,9 @@ cmd_status() {
   local cur="unset"
   [[ -f $shell_json ]] && cur="$(jq -r '.bar.id // "unset (built-in omarchy.bar)"' "$shell_json" 2>/dev/null || echo unreadable)"
   say "  bar.id     : $cur"
+  if installed_state && [[ "$(jq -r '.switched // empty' "$state_file")" != "" ]]; then
+    say "  switched   : away from Omacale; \`omacale switch\` brings back: $(jq -r '.switched.handovers | if length == 0 then "the bar" else "the bar, " + join(", ") end' "$state_file")"
+  fi
   if (( ! offline )); then
     local daemon
     daemon="$(notif_script status 2>/dev/null | sed -n 's/^daemon:    //p')"
@@ -772,6 +781,9 @@ cmd_upgrade() {
         jq '.installedLockClone = false' "$state_file" | write_atomic "$state_file"
       fi
     fi
+    # Switched away (`omacale switch`): the bar comes back below, so do the
+    # handovers that switch gave to Omarchy.
+    [[ "$(jq -r '.switched // empty' "$state_file")" != "" ]] && restore_switched
   fi
 
   # The bar may have been switched away since install (Settings, another bar
@@ -963,6 +975,143 @@ restore_settings() {
   fi
 }
 
+# ---------------------------------------------------------------- switch
+#
+# Flip between Omacale and the bar it replaced, keeping Omacale installed.
+# Nothing is restored from the pre-install snapshot: the bar is switched with
+# Omarchy's own `omarchy bar use`, so every other shell.json edit stays, and
+# ~/.config/omacale is never touched. Going away, the handovers that are on
+# are given back to Omarchy and remembered in state.json (`switched`); coming
+# back reinstalls exactly those. They are removed rather than left gated:
+# their watchdog lives in Omacale's bar, so with another bar a clone would
+# fall behind an Omarchy update, and the lock would still draw Omacale's view.
+
+handover_on() {   # handover_on notifs|osd|lock
+  local out
+  case "$1" in
+    notifs) out="$(notif_script status 2>/dev/null)" || return 1
+            grep -q '^clone: .*(enabled)' <<<"$out" && grep -q '^patched:   yes' <<<"$out" ;;
+    osd)    out="$(osd_script status 2>/dev/null)" || return 1
+            grep -q '^clone: .*(enabled)' <<<"$out" && grep -q '^patched:   yes' <<<"$out" ;;
+    lock)   out="$(lock_script status 2>/dev/null)" || return 1
+            grep -q '^clone: .*(enabled)' <<<"$out" && grep -q '^view:      omacale' <<<"$out" ;;
+  esac
+}
+
+current_bar() {
+  [[ -f $shell_json ]] && jq -r '.bar.id // "omarchy.bar"' "$shell_json" 2>/dev/null || echo "omarchy.bar"
+}
+
+use_bar() {
+  omarchy bar use "$1" >/dev/null 2>&1
+}
+
+switch_away() {
+  local cur; cur="$(current_bar)"
+  if [[ $cur != "$PLUGIN_ID" ]]; then say "  already on $cur"; return; fi
+  local other; other="$(jq -r '.otherBar // .pre.barId // "omarchy.bar"' "$state_file")"
+  [[ $other == "$PLUGIN_ID" ]] && other="omarchy.bar"
+
+  local on=() h
+  if (( ! offline )); then for h in notifs osd lock; do handover_on "$h" && on+=("$h"); done; fi
+  step "Switch to $other"
+  say "  bar        → $other (Omacale stays installed, its settings kept)"
+  (( ${#on[@]} )) && say "  handovers  → given back to Omarchy: ${on[*]} (put back when you switch again)"
+  if (( dry_run )); then say "  ${d}[dry-run]${z} nothing changed"; return; fi
+
+  # The bar first, so Omacale's services are gone before their clones are:
+  # a loaded NotifHandover would otherwise install its clone again.
+  if (( offline )); then
+    jq --arg o "$other" 'if $o == "omarchy.bar" then del(.bar.id) else .bar.id = $o end' "$shell_json" | write_atomic "$shell_json"
+  elif ! use_bar "$other"; then
+    warn "$other is not available any more; using Omarchy's own bar"
+    other="omarchy.bar"; use_bar "$other" || fail "could not switch the bar (omarchy bar use $other)"
+  fi
+  ok "bar: $other"
+  (( offline )) || wait_for '! bar_layer_present' 8 || warn "the Omacale layer is still mapped; continuing"
+
+  # Recorded before the removals, so an interrupted switch still knows what to put back.
+  jq --arg o "$other" --argjson h "$(printf '%s\n' "${on[@]}" | jq -R . | jq -sc 'map(select(. != ""))')" \
+    '.otherBar = $o | .switched = { handovers: $h }' "$state_file" | write_atomic "$state_file"
+
+  for h in "${on[@]}"; do
+    case "$h" in
+      notifs) notif_script remove --no-restart >/dev/null && ok "notification popups: Omarchy's own" \
+                || warn "could not give the popups back; run: $src_plugin/scripts/notif-popups remove" ;;
+      osd)    osd_script remove >/dev/null && ok "OSD: Omarchy's own" \
+                || warn "could not give the OSD back; run: $src_plugin/scripts/osd-handover remove" ;;
+      lock)   lock_script remove >/dev/null && ok "lock screen: Omarchy's own" \
+                || warn "could not give the lock screen back; run: $src_plugin/scripts/lock-screen remove" ;;
+    esac
+  done
+  step "Done — switch back with: omacale switch"
+}
+
+# Reinstalls the handovers a switch away gave back. Also run by upgrade,
+# which takes the bar back too.
+restore_switched() {
+  local h
+  for h in $(jq -r '(.switched.handovers // [])[]' "$state_file"); do
+    case "$h" in
+      notifs) if notif_script install --no-restart >/dev/null; then clear_fell_back notifs; ok "notification popups: Omacale's"
+              else warn "notification popups: the handover doesn't fit this Omarchy; Omarchy keeps its own toasts"; fi ;;
+      osd)    if osd_script install >/dev/null; then clear_fell_back osd; ok "OSD: Omacale's"
+              else warn "OSD: the handover doesn't fit this Omarchy; Omarchy keeps its own"; fi ;;
+      lock)   if lock_script install >/dev/null; then set_lock_setting true; ok "lock screen: Omacale's"
+              else warn "lock screen: the handover doesn't fit this Omarchy; Omarchy keeps its own"; fi ;;
+    esac
+  done
+  jq 'del(.switched)' "$state_file" | write_atomic "$state_file"
+}
+
+switch_back() {
+  local cur; cur="$(current_bar)"
+  local hs; hs="$(jq -r '(.switched.handovers // []) | join(" ")' "$state_file")"
+  if [[ $cur == "$PLUGIN_ID" ]]; then
+    say "  already on Omacale"
+    [[ -n $hs ]] && (( ! dry_run && ! offline )) && { step "Handovers"; restore_switched; }
+    return
+  fi
+  step "Switch to Omacale"
+  say "  bar        → $PLUGIN_ID (was: $cur, kept for the next switch)"
+  [[ -n $hs ]] && say "  handovers  → back to Omacale: $hs"
+  if (( dry_run )); then say "  ${d}[dry-run]${z} nothing changed"; return; fi
+  [[ -e $dest_plugin || -L $dest_plugin ]] || fail "Omacale's plugin directory is gone ($dest_plugin); run: omacale install"
+
+  jq --arg o "$cur" '.otherBar = $o' "$state_file" | write_atomic "$state_file"
+  # Handovers before the bar, as install does: a loading Omacale finds them
+  # in place and doesn't start installs of its own.
+  if (( offline )); then jq 'del(.switched)' "$state_file" | write_atomic "$state_file"; else restore_switched; fi
+  if (( offline )); then
+    jq --arg id "$PLUGIN_ID" '.bar = ((.bar // {}) | .id = $id)' "$shell_json" | write_atomic "$shell_json"
+  else
+    use_bar "$PLUGIN_ID" || fail "could not switch the bar (omarchy bar use $PLUGIN_ID)"
+  fi
+  ok "bar: $PLUGIN_ID"
+  if (( ! offline )); then
+    wait_for bar_layer_present 15 && ok "Omacale is on screen" || warn "bar not visible yet; if it stays away: omarchy restart shell"
+    if [[ " $hs " == *" osd "* ]] && osd_script status 2>/dev/null | grep -q '^running:   stock'; then
+      warn "the shell still runs Omarchy's OSD from before; it takes over after: omarchy restart shell"
+    fi
+  fi
+  step "Done"
+}
+
+cmd_switch() {
+  need jq
+  [[ ${EUID:-$(id -u)} -ne 0 ]] || fail "run as your normal user, not root"
+  installed_state || fail "Omacale is not installed (run: omacale install)"
+  if (( ! offline )); then need omarchy; need omarchy-shell; fi
+  [[ ! -f $shell_json ]] || json_ok "$shell_json" || fail "$shell_json is not valid JSON; refusing to touch it"
+  local target="$switch_to"
+  if [[ -z $target ]]; then [[ "$(current_bar)" == "$PLUGIN_ID" ]] && target=omarchy || target=omacale; fi
+  case "$target" in
+    omarchy|away) switch_away ;;
+    omacale) switch_back ;;
+    *) fail "switch to what? 'omarchy' or 'omacale' (or nothing to toggle)" ;;
+  esac
+}
+
 # ----------------------------------------------------------------- binds
 
 binds_file() {
@@ -994,6 +1143,8 @@ cmd_binds() {
 while (( $# )); do
   case "$1" in
     install|uninstall|status|doctor|binds|settings|sidebar|utilities|toggles) cmd="$1" ;;
+    switch|toggle) cmd=switch ;;
+    omarchy|omacale) [[ $cmd == switch ]] || fail "unknown argument: $1 (see --help)"; switch_to="$1" ;;
     --copy) bind_mode=copy ;;
     --try) bind_mode=try ;;
     --untry) bind_mode=untry ;;
@@ -1022,6 +1173,7 @@ case "$cmd" in
   uninstall) cmd_uninstall ;;
   status) cmd_status ;;
   doctor) cmd_doctor ;;
+  switch) cmd_switch ;;
   binds) cmd_binds ;;
   settings) need omarchy-shell; omarchy-shell omacale settings >/dev/null || fail "Omacale is not running (is it installed?)" ;;
   sidebar) need omarchy-shell; omarchy-shell omacale sidebar >/dev/null || fail "Omacale is not running (is it installed?)" ;;

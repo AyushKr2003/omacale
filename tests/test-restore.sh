@@ -609,5 +609,27 @@ else
   echo "  - skipped (no Omarchy OSD plugin on this machine)"
 fi
 
+echo "W. switch away and back keeps both sides' settings"
+new_home; jq '.bar.id = "local.neon-bar"' "$real_shell_json" > "$(SJ)"
+run install
+mkdir -p "$H/.config/omacale"; echo '{"bar":{"position":"top"}}' > "$H/.config/omacale/settings.json"
+run switch
+check "toggled to the bar it replaced"   test "$(jq -r .bar.id "$(SJ)")" = local.neon-bar
+check "Omacale stays installed"          test -f "$H/.config/omarchy/plugins/omacale.bar/manifest.json"
+check "  and remembers it switched"      test "$(jq -c .switched "$H/.local/state/omacale/state.json")" = '{"handovers":[]}'
+jq '.idle.lock = 555' "$(SJ)" > "$(SJ).t" && mv "$(SJ).t" "$(SJ)"
+run switch omarchy
+check "switching away twice is a no-op"  test "$(jq -r .bar.id "$(SJ)")" = local.neon-bar
+run switch omacale
+check "back on Omacale"                  test "$(jq -r .bar.id "$(SJ)")" = omacale.bar
+check "  the edit made meanwhile kept"   test "$(jq -r .idle.lock "$(SJ)")" = 555
+check "  Omacale's settings kept"        test "$(jq -r .bar.position "$H/.config/omacale/settings.json")" = top
+check "  switch record cleared"          test "$(jq -r '.switched // "none"' "$H/.local/state/omacale/state.json")" = none
+run switch
+check "toggles away again"               test "$(jq -r .bar.id "$(SJ)")" = local.neon-bar
+run uninstall
+check "uninstall after a switch"         test "$(jq -r .bar.id "$(SJ)")" = local.neon-bar
+check "  plugin gone"                    test ! -e "$H/.config/omarchy/plugins/omacale.bar"
+
 echo; echo "passed: $pass  failed: $failn"
 (( failn == 0 ))

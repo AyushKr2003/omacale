@@ -61,6 +61,7 @@ Update: `git pull && ./install.sh` (settings kept).
 | Command | Purpose |
 |---|---|
 | `./uninstall.sh` | Restore previous bar |
+| `scripts/omacale switch` | Switch to Omarchy's bar and back (`omarchy` / `omacale`, none toggles); both keep their settings |
 | `scripts/omacale status` | Show what is installed |
 | `scripts/omacale doctor` | Check installation |
 | `scripts/omacale install --dry-run` | Preview install |
