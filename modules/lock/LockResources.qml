@@ -1,10 +1,14 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell.Io
 import "../.."
+import "../session/SessionItems.js" as Items
 
 // CPU, memory and disk across the top right of the lock (Caelestia
 // lock/Resources.qml): three Material shapes filled to their usage behind a
 // wavy surface, with the CPU temperature riding on the corner of the first.
+// With lock.sessionControls on, hovering the card slides the shapes away and
+// the session buttons in (Caelestia #1644, lock.enableSessionControls).
 Rectangle {
   id: root
 
@@ -38,71 +42,159 @@ Rectangle {
   Component.onCompleted: syncHold()
   Component.onDestruction: if (held) Sys.resourcesWanted -= 1
 
+  // Whether the buttons do anything: off in `omarchy-shell lock preview`,
+  // which can't be typed into either (LockUi.inputEnabled).
+  property bool inputEnabled: true
+  readonly property bool controlsShown: Config.o.lock.sessionControls && hover.hovered
+
+  // Omarchy's guards on its Suspend and Hibernate entries, as the session
+  // drawer asks them (Session.qml), asked when the buttons first show.
+  property bool canHibernate: true
+  property bool canSuspend: true
+  readonly property string sleepKind: Items.sleepKind(Config.o.session, canHibernate, canSuspend)
+  onControlsShownChanged: if (controlsShown && !sleepProbe.asked) { sleepProbe.asked = true; sleepProbe.running = true }
+  Process {
+    id: sleepProbe
+    property bool asked: false
+    command: ["bash", "-c", "omarchy-hibernation-available >/dev/null 2>&1 && echo h; omarchy-toggle-enabled suspend-off >/dev/null 2>&1 || echo s"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        root.canHibernate = text.indexOf("h") >= 0
+        root.canSuspend = text.indexOf("s") >= 0
+      }
+    }
+  }
+
   implicitHeight: layout.implicitHeight + Tk.padding.large * 2
   radius: Tk.rounding.extraLarge
   color: Colours.m3surfaceContainer
 
-  RowLayout {
-    id: layout
+  HoverHandler {
+    id: hover
+    enabled: Config.o.lock.sessionControls
+  }
 
+  Item {
     anchors.fill: parent
-    anchors.margins: Tk.padding.large
-    spacing: Tk.spacing.large
+    clip: true
 
-    Resource {
-      id: cpu
+    Item {
+      anchors.fill: parent
+      anchors.margins: Tk.padding.large
 
-      icon: "memory"
-      value: Sys.cpu
-      colour: Colours.m3primary
-      shapeColour: Colours.m3primaryContainer
-      fillColour: Qt.alpha(Colours.m3secondary, 0.3)
-      shape: "pentagon"
+      RowLayout {
+        id: layout
 
-      MShape {
-        readonly property bool hot: Sys.cpuTemp > 90
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: Tk.spacing.large
 
-        x: cpu.width * 0.78 - implicitSize / 2 + Tk.padding.medium
-        y: cpu.width * 0.22 - implicitSize / 2
+        transform: Translate {
+          y: root.controlsShown ? root.height : 0
+          Behavior on y { Anim {} }
+        }
+        opacity: root.controlsShown ? 0 : 1
+        Behavior on opacity { Anim {} }
 
-        shape: hot ? "softBurst" : "circle"
-        color: hot ? Colours.m3errorContainer : Colours.m3secondaryContainer
-        visible: Sys.cpuTemp > 0
-        implicitSize: {
-          const size = Math.round(tempLabel.implicitHeight * 2)
-          return size % 2 === 0 ? size : size + 1 // Even, so the centre lands on a pixel
+        Resource {
+          id: cpu
+
+          icon: "memory"
+          value: Sys.cpu
+          colour: Colours.m3primary
+          shapeColour: Colours.m3primaryContainer
+          fillColour: Qt.alpha(Colours.m3secondary, 0.3)
+          shape: "pentagon"
+
+          MShape {
+            readonly property bool hot: Sys.cpuTemp > 90
+
+            x: cpu.width * 0.78 - implicitSize / 2 + Tk.padding.medium
+            // Kept inside the card, which now clips for the slide.
+            y: Math.max(cpu.width * 0.22 - implicitSize / 2, 1 - Tk.padding.large)
+
+            shape: hot ? "softBurst" : "circle"
+            color: hot ? Colours.m3errorContainer : Colours.m3secondaryContainer
+            visible: Sys.cpuTemp > 0
+            implicitSize: {
+              const size = Math.round(tempLabel.implicitHeight * 2)
+              return size % 2 === 0 ? size : size + 1 // Even, so the centre lands on a pixel
+            }
+
+            MText {
+              id: tempLabel
+
+              anchors.centerIn: parent
+              text: `${Math.round(Sys.cpuTemp)}°`
+              color: parent.hot ? Colours.m3onErrorContainer : Colours.m3secondary
+              font.pointSize: Tk.title.medium * Math.max(0.6, cpu.width / Tk.px(112))
+              weight: Font.Medium
+              axes: ({ "ROND": 25, "wdth": 50 })
+            }
+          }
         }
 
-        MText {
-          id: tempLabel
+        Resource {
+          icon: "memory_alt"
+          value: Sys.mem
+          colour: Colours.m3tertiary
+          shapeColour: Colours.m3onTertiary
+          fillColour: Qt.alpha(Colours.m3tertiary, 0.3)
+          shape: "slanted"
+        }
 
-          anchors.centerIn: parent
-          text: `${Math.round(Sys.cpuTemp)}°`
-          color: parent.hot ? Colours.m3onErrorContainer : Colours.m3secondary
-          font.pointSize: Tk.title.medium * Math.max(0.6, cpu.width / Tk.px(112))
-          weight: Font.Medium
-          axes: ({ "ROND": 25, "wdth": 50 })
+        Resource {
+          icon: "hard_disk"
+          value: Sys.disk
+          colour: Colours.m3secondary
+          shapeColour: Colours.m3secondaryContainer
+          fillColour: Qt.alpha(Colours.m3secondary, 0.4)
+          shape: "gem"
         }
       }
-    }
 
-    Resource {
-      icon: "memory_alt"
-      value: Sys.mem
-      colour: Colours.m3tertiary
-      shapeColour: Colours.m3onTertiary
-      fillColour: Qt.alpha(Colours.m3tertiary, 0.3)
-      shape: "slanted"
-    }
+      RowLayout {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.margins: Tk.padding.large
+        spacing: Tk.spacing.large
 
-    Resource {
-      icon: "hard_disk"
-      value: Sys.disk
-      colour: Colours.m3secondary
-      shapeColour: Colours.m3secondaryContainer
-      fillColour: Qt.alpha(Colours.m3secondary, 0.4)
-      shape: "gem"
+        transform: Translate {
+          y: root.controlsShown ? 0 : -root.height
+          Behavior on y { Anim {} }
+        }
+        opacity: root.controlsShown ? 1 : 0
+        Behavior on opacity { Anim {} }
+        // Hidden buttons must not take clicks meant for nothing.
+        enabled: root.controlsShown
+
+        SessionButton { itemId: "logout" }
+        SessionButton { itemId: "shutdown" }
+        SessionButton { itemId: "hibernate"; visible: root.sleepKind !== "" }
+        SessionButton { itemId: "reboot" }
+      }
     }
+  }
+
+  // Caelestia lock/Resources.qml SessionButton: the session drawer's button
+  // shape, run straight from the lock.
+  component SessionButton: IconButton {
+    id: button
+
+    required property string itemId
+    readonly property string command: Items.command(itemId, Config.o.session, root.sleepKind)
+
+    Layout.fillWidth: true
+    Layout.preferredHeight: width
+
+    icon: Items.icon(itemId, Config.o.session, root.sleepKind)
+    iconSize: Tk.iconSize.large * root.fontScale * 1.3
+    disabled: !root.inputEnabled
+    inactiveColour: activeFocus ? Colours.m3secondaryContainer : Colours.m3surfaceContainerHigh
+    inactiveOnColour: activeFocus ? Colours.m3onSecondaryContainer : Colours.m3onSurface
+    radius: stateLayer.pressed ? Tk.rounding.medium : activeFocus ? Tk.rounding.extraLarge : Tk.rounding.largeIncreased
+    onClicked: if (command) Sys.run(command)
   }
 
   component Resource: Item {

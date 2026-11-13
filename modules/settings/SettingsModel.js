@@ -612,6 +612,7 @@ var subpages = {
       { type: "toggle", key: "lock.notifs", when: { key: "lock.enabled", value: true }, label: "Notifications", subtext: "The notification dock, grouped as in the sidebar" },
       { type: "section", text: "Privacy" },
       { type: "toggle", key: "lock.hideNotifs", when: { key: "lock.enabled", value: true }, label: "Hide notification contents", subtext: "Show \"Unlock for notifications\" instead of the notifications themselves" },
+      { type: "toggle", key: "lock.sessionControls", when: [{ key: "lock.enabled", value: true }, { key: "lock.resources", value: true }], label: "Session buttons", subtext: "Hover the resources card for logout, shutdown, sleep and reboot. They work without the password" },
       { type: "toggle", key: "lock.revealPassword", when: { key: "lock.enabled", value: true }, label: "Show password button", subtext: "Let the icon in the password field show the characters typed" },
       { type: "section", text: "Screen" },
       { type: "select", key: "lock.blankAfter", when: { key: "lock.enabled", value: true }, label: "Screen off after locking", subtext: "How long the locked screen stays lit when idle before it goes black. Never keeps the panel on until you unlock (burn-in and power draw)", options: [

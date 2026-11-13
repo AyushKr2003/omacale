@@ -76,6 +76,10 @@ var values = {
     // Private by default: notification contents hidden, the wallpaper (not a
     // copy of the screen) behind the card, and no "show password" button.
     hideNotifs: true, recolourLogo: true, blur: true, useWallpaper: true, revealPassword: false,
+    // Caelestia lock.enableSessionControls: hovering the resources card swaps
+    // it for logout, shutdown, sleep and reboot, which work without the
+    // password, so off by default as upstream.
+    sessionControls: false,
     // Seconds after the lock before the screen goes black; 0 never blanks it.
     // Read live by the patched lock service (scripts/lock-screen).
     blankAfter: 5,
