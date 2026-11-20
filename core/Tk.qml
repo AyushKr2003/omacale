@@ -150,9 +150,9 @@ QtObject {
     // Lock screen (Caelestia LockTokens in tokens.hpp). The card is a 16:9
     // rect 70% of the screen height; the rest are the heights and widths its
     // cards drop detail at, so a 1080p screen shows less than a 1440p one.
-    // Grows with the UI scale (the content inside it does), up to 90% of
-    // the screen, or a scaled-up lock overflows its card.
-    readonly property real lockHeightMult: Math.min(0.9, 0.7 * tk.uiScale)
+    // It must not follow the UI scale: the cards inside it already do, and a
+    // smaller card would squeeze the side columns (the media player first).
+    readonly property real lockHeightMult: 0.7
     readonly property real lockRatio: 16 / 9
     readonly property int lockCenterWidth: tk.px(600)
     readonly property int lockWeatherDetailsHeight: tk.px(550)

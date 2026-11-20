@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.58.2 - 2026-11-20
+
+### Fixed
+- **lock screen**: the card is 70% of the screen height again at every UI scale, as in Caelestia, so the media player and the other side cards get their full size instead of being squeezed on scaled 1080p screens
+- **lock screen**: the centre column no longer needs the temporary minimum-height compression that shrank its contents
+
 ## 0.58.1 - 2026-11-20
 
 ### Fixed

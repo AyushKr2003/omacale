@@ -21,9 +21,6 @@ ColumnLayout {
   Layout.preferredWidth: centerWidth
   Layout.fillWidth: false
   Layout.fillHeight: true
-  // The card is the cap; its content is allowed to compress by a few pixels
-  // on short, HiDPI-scaled screens rather than pushing a column outside it.
-  Layout.minimumHeight: 0
 
   spacing: Tk.spacing.largeIncreased
 
