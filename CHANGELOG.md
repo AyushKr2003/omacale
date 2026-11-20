@@ -2,6 +2,12 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.58.1 - 2026-11-20
+
+### Fixed
+- **lock screen**: the right-hand column no longer spills past the card on scaled 1080p screens. The profile picture reserves the clam shell's tight bounds (as Caelestia does) and the centre column may compress a few pixels, so the notification card stays inside the card
+- **lock screen**: password characters no longer log "Unable to assign [undefined] to QString" on the first frame
+
 ## 0.58.0 - 2026-11-07
 
 ### Added

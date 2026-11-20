@@ -21,6 +21,9 @@ ColumnLayout {
   Layout.preferredWidth: centerWidth
   Layout.fillWidth: false
   Layout.fillHeight: true
+  // The card is the cap; its content is allowed to compress by a few pixels
+  // on short, HiDPI-scaled screens rather than pushing a column outside it.
+  Layout.minimumHeight: 0
 
   spacing: Tk.spacing.largeIncreased
 
@@ -144,7 +147,13 @@ ColumnLayout {
     Layout.bottomMargin: Tk.spacing.extraLarge * root.centerScale
 
     implicitWidth: Math.round(root.centerWidth * 0.7)
-    implicitHeight: implicitWidth
+    // Caelestia sizes the item to the clam shell's path bounds, not to its
+    // square radius box; reserving the full width here pushed the lock's
+    // centre column past the card and squeezed the right-hand column out.
+    implicitHeight: {
+      const h = shape.pathBounds().height
+      return h > 0 ? h : implicitWidth
+    }
 
     MShape {
       id: shape

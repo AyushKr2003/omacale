@@ -380,7 +380,12 @@ Rectangle {
 
       anchors.centerIn: parent
       implicitSize: charList.implicitHeight * 1.5
-      shape: root.shapeQueue[char.index % root.shapeQueue.length]
+      // The queue is a bound list; the first delegate can be created before
+      // its value lands, and an undefined shape is both warned about and
+      // drawn as nothing until the next password change.
+      shape: root.shapeQueue && root.shapeQueue.length
+        ? root.shapeQueue[char.index % root.shapeQueue.length]
+        : "circle"
       color: Colours.m3onSurface
 
       opacity: root.showPassword ? 0 : 1

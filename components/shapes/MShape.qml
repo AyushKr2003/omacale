@@ -76,6 +76,24 @@ Item {
     return Math.hypot(dx / (width / 2), dy / (height / 2)) <= r
   }
 
+  // Caelestia's MaterialShape::pathBounds(): the tight bounds of the drawn
+  // outline, not the square the radii are interpolated in. Shapes like the
+  // clam shell are shorter than they are wide, and a layout that reserves the
+  // full square grows taller than the card it sits in.
+  function pathBounds() {
+    const pts = points
+    if (!pts.length || width <= 0 || height <= 0)
+      return Qt.rect(0, 0, implicitWidth, implicitHeight)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const p of pts) {
+      minX = Math.min(minX, p.x)
+      minY = Math.min(minY, p.y)
+      maxX = Math.max(maxX, p.x)
+      maxY = Math.max(maxY, p.y)
+    }
+    return Qt.rect(minX, minY, maxX - minX, maxY - minY)
+  }
+
   Shape {
     anchors.fill: parent
     preferredRendererType: Shape.CurveRenderer
