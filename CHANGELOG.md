@@ -2,6 +2,11 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.59.0 - 2026-11-13
+
+### Added
+- **lock screen**: optional session buttons (Settings › Lock screen › Session buttons, off by default). Hovering the resources card swaps CPU, memory and disk for logout, shutdown, sleep and reboot, using the session drawer's icons and commands. They work without the password, which is why they're off unless you turn them on. Ported from Caelestia (#1644)
+
 ## 0.58.0 - 2026-11-07
 
 ### Added

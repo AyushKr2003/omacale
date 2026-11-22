@@ -20,9 +20,6 @@ Column {
   signal dismissed()
   readonly property var cfg: Config.o.session
 
-  function cmd(key, fallback) { return root.cfg.commands[key] || fallback }
-  function icon(key, fallback) { return root.cfg.icons[key] || fallback }
-
   // Omarchy's guards on its Suspend and Hibernate entries ("when"), asked
   // each time the drawer opens. Until they answer, both count as available,
   // which is what the button did before it asked.
@@ -40,14 +37,7 @@ Column {
   }
   // The third button: the chosen sleep, else the other one, else none at all.
   // A command of the user's own is run as it is.
-  readonly property string sleepKind: {
-    if (cfg.commands.hibernate) return "custom"
-    const wantHibernate = cfg.sleepAction !== "suspend"
-    if (wantHibernate && canHibernate) return "hibernate"
-    if (canSuspend) return "suspend"
-    if (canHibernate) return "hibernate"
-    return ""
-  }
+  readonly property string sleepKind: Items.sleepKind(cfg, canHibernate, canSuspend)
 
   padding: Tk.padding.large
   leftPadding: mirror ? Math.max(0, padding - Tk.border) : padding
@@ -132,19 +122,8 @@ Column {
       // available (Column skips a zero-size row).
       shown: itemId !== "hibernate" || root.sleepKind !== ""
       small: Items.small(itemId, root.cfg)
-      icon: itemId === "logout" ? root.icon("logout", "logout")
-        : itemId === "shutdown" ? root.icon("shutdown", "power_settings_new")
-        : itemId === "hibernate" ? root.icon("hibernate", root.sleepKind === "suspend" ? "bedtime" : "downloading")
-        : itemId === "reboot" ? root.icon("reboot", "cached")
-        : itemId === "lock" ? root.icon("lock", "lock")
-        : root.icon("screensaver", "slideshow")
-      command: itemId === "logout" ? root.cmd("logout", "omarchy system logout")
-        : itemId === "shutdown" ? root.cmd("shutdown", "omarchy system shutdown")
-        : itemId === "hibernate" ? (root.sleepKind === "custom" ? root.cfg.commands.hibernate
-          : root.sleepKind === "suspend" ? "systemctl suspend" : "systemctl hibernate")
-        : itemId === "reboot" ? root.cmd("reboot", "omarchy system reboot")
-        : itemId === "lock" ? root.cmd("lock", "omarchy-system-lock")
-        : root.cmd("screensaver", "omarchy-launch-screensaver force")
+      icon: Items.icon(itemId, root.cfg, root.sleepKind)
+      command: Items.command(itemId, root.cfg, root.sleepKind)
       Component.onCompleted: root.buttons[itemId] = sb
       Component.onDestruction: if (root.buttons[itemId] === sb) delete root.buttons[itemId]
     }

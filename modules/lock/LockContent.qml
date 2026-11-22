@@ -63,6 +63,7 @@ RowLayout {
       Layout.fillWidth: true
       visible: root.cfg.resources
       onScreen: root.lock.onScreen
+      inputEnabled: root.lock.inputEnabled
     }
 
     Rectangle {
