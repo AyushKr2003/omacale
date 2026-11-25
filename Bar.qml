@@ -48,7 +48,7 @@ Item {
   readonly property bool capsLock: Sys.capsLock
   readonly property bool numLock: Sys.numLock
 
-  readonly property string version: manifest && manifest.version ? manifest.version : "0.59.0"
+  readonly property string version: manifest && manifest.version ? manifest.version : "0.59.1"
 
   signal toggleRequested(string name, string screenName, string arg)
 
@@ -554,6 +554,8 @@ Item {
   // Bundled fonts (Caelestia's Google Sans Flex and Rubik).
   FontLoader { source: Qt.resolvedUrl("assets/fonts/GoogleSansFlex.ttf") }
   FontLoader { source: Qt.resolvedUrl("assets/fonts/Rubik.ttf") }
+  // The icon font is a system package; say so when it is missing (#38).
+  IconFontCheck {}
 
   Variants {
     model: Quickshell.screens

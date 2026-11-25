@@ -76,6 +76,9 @@ VERIFIED_SERVICES = {
     "aea038809de0e44c76d444fabf9c75ef6d2b2002a40ac4333e3e2867135a2bb1",
     # Omarchy dev, ae64a4be: armBlankTimer(delayMs), 15s run-up after resume
     "cf9da581ab749194d44d5f7f73dc028704373f59dd6b131a90b9c07419fed7c9",
+    # Omarchy dev, 2f5ef897e: PAM settles once, lockIdleMonitor blanks after
+    # quiet input (bound keys never reach the lock surface)
+    "51707693351f7d9b5204d2ed5b75a88c7a1cbc7ce79b9c20cbe3767132e02b57",
 }
 
 HOME = os.path.expanduser("~")
@@ -398,14 +401,38 @@ BLANK_PATCHES = [
 ]
 
 
+# Newer Omarchy also blanks from an IdleMonitor once input has been quiet for
+# idleMs with no countdown pending (a bound key such as volume lights the
+# panel without reaching the lock surface). Left alone it would blank after 5s
+# even with lock.blankAfter 0, so it follows the same setting: off at 0,
+# otherwise never sooner than the setting.
+IDLE_ANCHOR = """    id: lockIdleMonitor
+    enabled: root.lockRequested
+    timeout: idleBlankTimer.idleMs / 1000
+"""
+IDLE_PATCH = """    id: lockIdleMonitor
+    // omacale:blank-idle
+    enabled: root.lockRequested && root.omacaleBlankMs > 0
+    timeout: Math.max(1, Math.ceil(root.omacaleBlankMs / 1000))
+"""
+
+
 def patch_blank(service_bytes):
     """Service.qml with the configurable blank delay, or unchanged if no
-    anchor is there."""
+    anchor is there (or a lockIdleMonitor is there in a shape we don't know,
+    since it would blank behind the setting's back)."""
     text = service_bytes.decode()
     for anchor, patch in BLANK_PATCHES:
         if text.count(anchor) == 1:
-            return text.replace(anchor, patch).encode()
-    return service_bytes
+            out = text.replace(anchor, patch)
+            break
+    else:
+        return service_bytes
+    if out.count(IDLE_ANCHOR) == 1:
+        out = out.replace(IDLE_ANCHOR, IDLE_PATCH)
+    elif "lockIdleMonitor" in out:
+        return service_bytes
+    return out.encode()
 
 
 def stale_files(target):
