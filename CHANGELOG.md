@@ -2,6 +2,13 @@
 
 What changed in each version of Omacale, newest first. Versions are the ones in `manifest.json`. Each version bump adds its own entry in the same commit.
 
+## 0.59.1 - 2026-11-25
+
+### Fixed
+- **lock screen**: Omacale's lock screen is back on current Omarchy dev, whose lock service changed (password checks settle once; the screen turns off after a quiet spell even when a bound key like volume lit it). The new screen-off also follows Settings › Lock screen › Screen off, so "never" still never blanks
+- **recording indicator**: shows while Omarchy records with `wf-recorder`, its fallback where `gpu-screen-recorder` can't run (Apple Silicon) (#40)
+- **icons**: when the Material Symbols Rounded icon font is missing (a marketplace install never runs the installer that adds it), a notification says so and offers to install it, or to restart the shell if it was installed after the shell started. "Material Icons" is a different font (#38)
+
 ## 0.59.0 - 2026-11-13
 
 ### Added

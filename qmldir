@@ -34,6 +34,7 @@ CoverArt 1.0 components/CoverArt.qml
 Dashboard 1.0 modules/dashboard/Dashboard.qml
 singleton GameMode 1.0 services/GameMode.qml
 IconButton 1.0 components/controls/IconButton.qml
+IconFontCheck 1.0 services/IconFontCheck.qml
 IdleInhibitCard 1.0 modules/utilities/IdleInhibitCard.qml
 singleton HyprLook 1.0 services/HyprLook.qml
 singleton GlassBlur 1.0 services/GlassBlur.qml

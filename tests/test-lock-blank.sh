@@ -26,6 +26,16 @@ p = m.patch_blank(s)
 sys.exit(0 if m.patch_blank(p) == p else 1)'
 check "patching twice changes nothing more" py
 PYBODY='
+s = open("'"$stock"'","rb").read()
+p = m.patch_blank(s)
+ok = b"lockIdleMonitor" not in s or (b"omacale:blank-idle" in p and b"timeout: idleBlankTimer.idleMs" not in p)
+sys.exit(0 if ok else 1)'
+check "the lock idle monitor follows the setting too" py
+PYBODY='
+s = open("'"$stock"'","rb").read().replace(b"timeout: idleBlankTimer.idleMs / 1000", b"timeout: 7")
+sys.exit(0 if b"lockIdleMonitor" not in s or m.patch_blank(s) == s else 1)'
+check "an idle monitor of unknown shape leaves the service stock" py
+PYBODY='
 junk = b"Item { }"
 sys.exit(0 if m.patch_blank(junk) == junk else 1)'
 check "an unrecognised service is left untouched" py

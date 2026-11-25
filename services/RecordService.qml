@@ -5,7 +5,8 @@ import Quickshell.Io
 import ".."
 
 // RecordService: Screen recording integration via Omarchy capture commands.
-// Uses `omarchy capture screenrecording` and monitors `gpu-screen-recorder`.
+// Uses `omarchy capture screenrecording` and monitors its recorder
+// (`gpu-screen-recorder`, or `wf-recorder` where Omarchy falls back to it).
 QtObject {
   id: root
 
@@ -152,9 +153,11 @@ QtObject {
 
   // `pidof` straight, not through a shell, and read off the exit code: the
   // `bash -c ... && echo 1 || echo 0` around it doubled the process count
-  // for one boolean.
+  // for one boolean. Omarchy falls back to wf-recorder where
+  // gpu-screen-recorder is missing or fails (Apple Silicon, issue #40);
+  // `pidof` exits 0 if either is running.
   property Process checkProc: Process {
-    command: ["pidof", "gpu-screen-recorder"]
+    command: ["pidof", "gpu-screen-recorder", "wf-recorder"]
     onExited: code => root.apply(code === 0)
   }
 
